@@ -85,6 +85,10 @@ class OrderItemsConverter
                     break;
 
                 case QliroOrderItemInterface::TYPE_FEE:
+                    if ($this->fee->getMerchantReference() !== $orderItem->getMerchantReference()) {
+                        break;
+                    }
+
                     $feeAmount += $orderItem->getPricePerItemIncVat();
                     $quote->getPayment()->setAdditionalInformation(
                         InvoiceFeeHandler::MERCHANT_REFERENCE_CODE_FIELD,

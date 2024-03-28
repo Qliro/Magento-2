@@ -3,7 +3,7 @@
     "type": "magento2-module",
     "description": "QliroOne checkout",
     "license": "proprietary",
-    "version": "1.4.4",
+    "version": "1.4.5",
     "authors": [
         {
             "name": "Andreas Wickberg",

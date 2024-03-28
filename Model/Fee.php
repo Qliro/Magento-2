@@ -320,6 +320,16 @@ class Fee
     }
 
     /**
+     * Get merchant reference for the Qliro Invoice Fee
+     *
+     * @return string
+     */
+    public function getMerchantReference(): string
+    {
+        return (string)$this->config->getFeeMerchantReference();
+    }
+
+    /**
      * Returns the price including or excluding tax, depending on flags being sent in and display settings
      *
      * @param \Magento\Quote\Model\Quote $quote
