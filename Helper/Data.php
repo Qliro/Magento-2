@@ -78,9 +78,10 @@ class Data extends AbstractHelper
      *
      * @param \Magento\Framework\App\Request\Http $request
      * @param string $loggerMark
+     * @param array|null $removeLogging
      * @return array
      */
-    public function readPreparedPayload(Http $request, $loggerMark = null)
+    public function readPreparedPayload(Http $request, $loggerMark = null, ?array $removeLogging = null)
     {
         $content = $request->getContent();
         $this->logManager->setMark($loggerMark);    // @todo: what if $loggerMark == null?
@@ -98,7 +99,7 @@ class Data extends AbstractHelper
             }
 
             if ($payload) {
-                $data['body'] = $payload;
+                $data['body'] = $this->removeLogging($payload, $removeLogging);
             }
         } catch (\InvalidArgumentException $exception) {
             $data['raw_body'] = $content;
@@ -116,7 +117,7 @@ class Data extends AbstractHelper
 
         $this->logManager->setMark(null);
 
-        return $payload;
+        return $payload ?? [];
     }
 
     /**
@@ -258,5 +259,27 @@ class Data extends AbstractHelper
         ];
 
         return \json_encode($addressData1) == \json_encode($addressData2);
+    }
+
+    /**
+     * Removes select data before logging
+     *
+     * @param array $logData
+     * @param array|null $removeKeys - Array of strings corresponding to keys in $logData
+     * @return array
+     */
+    private function removeLogging(array $logData, ?array $removeKeys = null): array
+    {
+        if (null === $removeKeys) {
+            return $logData;
+        }
+
+        foreach ($removeKeys as $removeKey) {
+            if (isset($logData[$removeKey])) {
+                $logData[$removeKey] = '<removed>';
+            }
+        }
+
+        return $logData;
     }
 }

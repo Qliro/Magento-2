@@ -17,6 +17,7 @@ interface CheckoutStatusResponseInterface extends ContainerInterface
     const RESPONSE_AUTHENTICATE_ERROR = 'Authenticate error';
     const RESPONSE_RECEIVED = 'received';
     const RESPONSE_ORDER_NOT_FOUND = 'Order not found';
+    const RESPONSE_ORDER_PENDING = 'Order creation pending';
 
     /**
      * @return string
@@ -28,4 +29,15 @@ interface CheckoutStatusResponseInterface extends ContainerInterface
      * @return $this
      */
     public function setCallbackResponse($value);
+
+    /**
+     * @param int $code
+     * @return $this
+     */
+    public function setCallbackResponseCode($code);
+
+    /**
+     * @return int
+     */
+    public function getCallbackResponseCode();
 }

@@ -161,9 +161,11 @@ class MerchantNotification implements MerchantNotificationInterface
     /**
      * @inheritDoc
      */
-    public function setPayload(array $payload): self
+    public function setPayload(?array $payload): self
     {
-        $this->payload = $payload;
+        if (is_array($payload)) {
+            $this->payload = $payload;
+        }
 
         return $this;
     }

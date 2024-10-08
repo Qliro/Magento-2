@@ -102,10 +102,10 @@ interface MerchantNotificationInterface extends ContainerInterface
     public function getProvider(): string;
 
     /**
-     * @param array $payload
+     * @param array|null $payload
      * @return self
      */
-    public function setPayload(array $payload): self;
+    public function setPayload(?array $payload): self;
 
     /**
      * @return array

@@ -62,9 +62,9 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     private $merchantCheckoutStatusPushUrl;
 
     /**
-     * @var string
+     * @var ?string
      */
-    private string $merchantSavedCreditCardPushUrl = '';
+    private ?string $merchantSavedCreditCardPushUrl = null;
 
     /**
      * @var string

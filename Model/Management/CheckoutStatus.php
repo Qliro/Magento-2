@@ -156,25 +156,16 @@ class CheckoutStatus extends AbstractManagement
                         $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
                     } else {
                         $this->logManager->notice(
-                            'checkoutStatus received to early, responding with order not found',
+                            'checkoutStatus received too early, responding with order pending',
                             $logContext
                         );
 
-                        $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND);
+                        $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_PENDING);
                     }
-
-                } catch (FailToLockException $exception) {
-                    /*
-                     * As the lock was removed from placeOrder, this can no longer trigger, keeping it anyway
-                     * Someone else is creating the order at the moment. Let Qliro try again in a few minutes.
-                     */
-                    $this->logManager->critical($exception, $logContext);
-
-                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND);
                 } catch (\Exception $exception) {
                     $this->logManager->critical($exception, $logContext);
 
-                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND);
+                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
                 }
             } elseif (in_array(
                 $checkoutStatus->getStatus(),
@@ -187,8 +178,14 @@ class CheckoutStatus extends AbstractManagement
                 if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId))) {
                     $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
                 } else {
-                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND);
+                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
                 }
+            } elseif ($checkoutStatus->getStatus() === CheckoutStatusInterfaceAlias::STATUS_COMPLETED) {
+                /**
+                 * Third major scenario: Order exists and is completed
+                 *   = everyhing's good and nothing else to do!
+                 */
+                $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
             }
             $this->lock->unlock($qliroOrderId);
 
@@ -200,13 +197,18 @@ class CheckoutStatus extends AbstractManagement
             /*
              * Someone else is creating the order at the moment. Let Qliro try again in a few minutes.
              */
-            $this->logManager->critical($exception, $logContext);
-            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND);
+            $this->logManager->info('Order is being created in another process', $logContext);
+            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_PENDING);
 
         } catch (\Exception $exception) {
             $this->logManager->critical($exception, $logContext);
-            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND);
+            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
 
+        }
+
+        // Unknown scenario, no response created. Should not happen, respond with Order Not Found
+        if (!isset($response)) {
+            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
         }
 
         return $response;
@@ -244,10 +246,14 @@ class CheckoutStatus extends AbstractManagement
 
     /**
      * @param string $result
+     * @param int $code
      * @return mixed
      */
-    private function checkoutStatusRespond($result)
+    private function checkoutStatusRespond($result, $code = 200)
     {
-        return $this->checkoutStatusResponseFactory->create()->setCallbackResponse($result);
+        $response = $this->checkoutStatusResponseFactory->create();
+        $response->setCallbackResponse($result);
+        $response->setCallbackResponseCode($code);
+        return $response;
     }
 }

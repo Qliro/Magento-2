@@ -120,7 +120,11 @@ class SavedCreditCard implements HttpPostActionInterface
             );
         }
 
-        $payload = $this->dataHelper->readPreparedPayload($this->request, 'CALLBACK:MERCHANT_SAVED_CREDIT_CARD');
+        $payload = $this->dataHelper->readPreparedPayload(
+            $this->request,
+            'CALLBACK:MERCHANT_SAVED_CREDIT_CARD',
+            ['CardBin', 'CardLast4Digits', 'CardExpiryYear', 'CardExpiryMonth', 'CardBrandName']
+        );
 
         /** @var \Qliro\QliroOne\Api\Data\MerchantSavedCreditCardNotificationInterface $updateContainer */
         $updateContainer = $this->containerMapper->fromArray(

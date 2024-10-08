@@ -101,20 +101,35 @@ class MerchantNotification extends AbstractManagement
             return;
         }
 
-        try {
-            $order = $this->orderRepo->get($link->getOrderId());
-        } catch (NoSuchEntityException $e) {
+        if (!$link->getOrderId()) {
             $this->logManager->notice(
-                'MerchantPush received too early, responding with order not found',
+                'MerchantNotification received too early, responding with order not found',
                 $this->logContext
             );
-            $this->createResponse('Magento Order not found', 404);
+            $this->createResponse('Magento Order not created yet, try again later', 404);
+            return;
+        }
+
+        try {
+            $order = $this->orderRepo->get($link->getOrderId());
+        } catch (\Exception $e) {
+            $this->logManager->critical(
+                sprintf('Magento Order with id: [%s] not found for MerchantNotification', $link->getOrderId()),
+                $this->logContext
+            );
+            $this->createResponse('Magento Order not found', 500);
             return;
         }
 
         $payment = $order->getPayment();
         $additionalInfo = $payment->getAdditionalInformation();
         $shippingInfo = $additionalInfo['qliroone_shipping_info'] ?? [];
+
+        if (isset($shippingInfo['payload']) && $shippingInfo['payload'] == $container->getPayload()) {
+            $this->createResponse('Shipping Provider Update already handled', 200);
+            return;
+        }
+
         $shippingInfo['provider'] = $container->getProvider();
         $shippingInfo['payload'] = $container->getPayload();
         $additionalInfo['qliroone_shipping_info'] = $shippingInfo;

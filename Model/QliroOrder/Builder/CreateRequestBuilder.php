@@ -141,6 +141,7 @@ class CreateRequestBuilder
      * @param \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder $shippingMethodsBuilder
      * @param \Magento\Store\Model\Information $information
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param \Qliro\QliroOne\Model\Management\CountrySelect $countrySelect
      */
     public function __construct(
         QliroOrderCreateRequestInterfaceFactory $createRequestFactory,
@@ -294,9 +295,9 @@ class CreateRequestBuilder
             $this->getCallbackUrl('checkout/qliro_callback/checkoutStatus')
         );
 
-        $createRequest->setMerchantSavedCreditCardPushUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/savedCreditCard')
-        );
+        if ($this->qliroConfig->isUseRecurring($this->quote->getStoreId())) {
+            $createRequest->setMerchantSavedCreditCardPushUrl($this->getCallbackUrl('checkout/qliro_callback/savedCreditCard'));
+        }
 
         $createRequest->setMerchantOrderManagementStatusPushUrl(
             $this->getCallbackUrl('checkout/qliro_callback/transactionStatus')

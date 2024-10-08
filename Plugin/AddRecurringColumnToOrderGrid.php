@@ -9,18 +9,16 @@ class AddRecurringColumnToOrderGrid
     public function beforeLoad(OrderGridCollection $collection)
     {
         $select = $collection->getSelect();
-        
+        //check if recurring_info corelation is already set
+        $fromPart = $select->getPart(\Magento\Framework\DB\Select::FROM);
+        if (isset($fromPart['recurring_info'])) {
+            return $collection;
+        }
         // Add the join to include recurring order information
         $select->joinLeft(
             ['recurring_info' => $collection->getTable('qliroone_recurring_info')],
             'main_table.entity_id = recurring_info.original_order_id',
             []
-        );
-
-        $collection->getSelect()->joinLeft(
-            ['so' => $collection->getTable('sales_order')],
-            'main_table.entity_id = so.entity_id',
-            ['recurring_parent_id' => 'so.recurring_parent_id']
         );
 
         // Add the is_recurring expression as a part of the field list

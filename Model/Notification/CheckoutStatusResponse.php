@@ -19,6 +19,11 @@ class CheckoutStatusResponse implements CheckoutStatusResponseInterface
     private $callbackResponse;
 
     /**
+     * @var int
+     */
+    private $callbackResponseCode = 200;
+
+    /**
      * @return string
      */
     public function getCallbackResponse()
@@ -35,5 +40,22 @@ class CheckoutStatusResponse implements CheckoutStatusResponseInterface
         $this->callbackResponse = $value;
 
         return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setCallbackResponseCode($code)
+    {
+        $this->callbackResponseCode = $code;
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getCallbackResponseCode()
+    {
+        return $this->callbackResponseCode;
     }
 }

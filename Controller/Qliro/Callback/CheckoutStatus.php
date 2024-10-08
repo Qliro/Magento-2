@@ -131,7 +131,7 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
 
         $response = $this->dataHelper->sendPreparedPayload(
             $responseContainer,
-            $responseContainer->getCallbackResponse() == CheckoutStatusResponseInterface::RESPONSE_RECEIVED ? 200 : 500,
+            $responseContainer->getCallbackResponseCode(),
             null,
             'CALLBACK:CHECKOUT_STATUS'
         );

@@ -99,11 +99,23 @@ class SavedCreditCard extends AbstractManagement
 
             $order = $this->orderRepo->get($link->getOrderId());
             $recurringInfo = $this->recurringDataService->orderGetter($order);
+
+            if (!$recurringInfo->getEnabled()) {
+                return $this->checkoutStatusRespond(
+                    'MerchantSavedCreditCardNotification received, but no action taken on this non-Subscription order',
+                    200
+                );
+            }
+
             $recurringInfo->setPaymentMethodMerchantSavedCreditCardId($updateContainer->getId());
             $this->recurringDataService->orderSetter($order, $recurringInfo);
             $this->orderRepo->save($order);
 
             $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($link->getOrderId());
+            if (!$recurringInfo->getId()) {
+                $recurringInfo->setOriginalOrderId($order->getEntityId());
+            }
+
             $recurringInfo->setSavedCreditCardId((string)$updateContainer->getId());
             $this->recurringInfoRepo->save($recurringInfo);
 
@@ -113,7 +125,7 @@ class SavedCreditCard extends AbstractManagement
             );
         } catch (NoSuchEntityException $exception) {
             $this->logManager->notice(
-                'MerchantSavedCreditCardNotice received before Magento order created, responding with order not found',
+                'MerchantSavedCreditCardNotification received before Magento order created, responding with order not found',
                 $logContext
             );
             return $this->checkoutStatusRespond(

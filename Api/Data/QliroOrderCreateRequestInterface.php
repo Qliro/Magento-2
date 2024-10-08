@@ -59,7 +59,7 @@ interface QliroOrderCreateRequestInterface extends ContainerInterface
     public function getMerchantCheckoutStatusPushUrl();
 
     /**
-     * @return string
+     * @return ?string
      */
     public function getMerchantSavedCreditCardPushUrl();
 
