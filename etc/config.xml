@@ -94,6 +94,17 @@
                 <handling_type>F</handling_type>
                 <showmethod>0</showmethod>
             </qlirounifaun>
+            <qliroingrid>
+                <active>1</active>
+                <sallowspecific>0</sallowspecific>
+                <model>Qliro\QliroOne\Model\Carrier\Ingrid</model>
+                <name>Qliro One Ingrid Shipping</name>
+                <price>999999999</price>
+                <title>Qliro One Ingrid Shipping</title>
+                <specificerrmsg>This shipping method is only available if Ingrid is active</specificerrmsg>
+                <handling_type>F</handling_type>
+                <showmethod>0</showmethod>
+            </qliroingrid>
         </carriers>
     </default>
 </config>

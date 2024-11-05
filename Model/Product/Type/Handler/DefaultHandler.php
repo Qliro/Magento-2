@@ -14,6 +14,7 @@ use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Product\Type\TypeResolver;
+use Qliro\QliroOne\Model\Config;
 
 /**
  * Default product type handler class
@@ -41,23 +42,31 @@ class DefaultHandler implements TypeHandlerInterface
     private $qliroHelper;
 
     /**
+     * @var \Qliro\QliroOne\Model\Config
+     */
+    private $config;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param \Qliro\QliroOne\Model\Product\Type\TypeResolver $typeResolver
      * @param \Qliro\QliroOne\Model\Product\ProductPool $productPool
      * @param \Qliro\QliroOne\Helper\Data $qliroHelper
+     * @param \Qliro\QliroOne\Model\Config $config
      */
     public function __construct(
         QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
         TypeResolver $typeResolver,
         ProductPool $productPool,
-        Data $qliroHelper
+        Data $qliroHelper,
+        Config $config
     ) {
         $this->qliroOrderItemFactory = $qliroOrderItemFactory;
         $this->typeResolver = $typeResolver;
         $this->productPool = $productPool;
         $this->qliroHelper = $qliroHelper;
+        $this->config = $config;
     }
 
     /**
@@ -154,14 +163,35 @@ class DefaultHandler implements TypeHandlerInterface
      */
     public function prepareMetaData(TypeSourceItemInterface $item)
     {
-        if (!$item->getSubscription()) {
-            return null;
+        $meta = null;
+        if ($item->getSubscription()) {
+            
+            $meta = [
+                'Subscription' => [
+                    'Enabled' => true
+                ]
+            ];
         }
-
-        return [
-            'Subscription' => [
-                'Enabled' => true
-            ]
-        ];
+        $product = $item->getProduct();
+        if ($this->config->isIngridEnabled($product->getStoreId())) {
+            if($meta == null) {
+                $meta = [];
+            }
+            $meta['Ingrid'] = [
+                'Weight' => intval($product->getWeight() * 1000),
+                'Sku' => $product->getSku(),
+                'Attributes' => [],
+                'Dimensions' => [//TODO: Create dimensions attributes
+                    'Height' => 0,
+                    'Length' => 0,
+                    'Width' => 0
+                ],
+                'OutOfStock' => !$product->getExtensionAttributes()->getStockItem()->getIsInStock(),
+                'Discount' => $item->getParent() ? intval($item->getParent()->getItem()->getDiscountAmount() * 100) : intval($item->getItem()->getDiscountAmount() * 100)
+            ];
+            return $meta;
+            
+        }
+        return $meta;
     }
 }

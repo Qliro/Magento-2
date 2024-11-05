@@ -34,6 +34,11 @@ class ShippingMethod implements QliroOrderShippingMethodInterface
     private $priceExVat;
 
     /**
+     * @var float
+     */
+    private $originalPrice;
+
+    /**
      * @var array
      */
     private $descriptions;
@@ -143,6 +148,27 @@ class ShippingMethod implements QliroOrderShippingMethodInterface
     public function setPriceExVat($priceExVat)
     {
         $this->priceExVat = $priceExVat;
+
+        return $this;
+    }
+
+    /**
+     * Getter.
+     *
+     * @return float
+     */
+    public function getOriginalPrice()
+    {
+        return $this->originalPrice;
+    }
+
+    /**
+     * @param float $originalPrice
+     * @return $this
+     */
+    public function setOriginalPrice($originalPrice)
+    {
+        $this->originalPrice = $originalPrice;
 
         return $this;
     }

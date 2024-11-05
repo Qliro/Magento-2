@@ -103,7 +103,7 @@ class OrderItemsConverter
             }
         }
 
-        if (!$quote->isVirtual() && $shippingCode) {
+        if (!$quote->isVirtual() && $shippingCode && $shippingMerchantRef) {
             $this->applyShippingMethod($shippingCode, $quote, $shippingMerchantRef);
         }
 

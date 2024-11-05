@@ -135,7 +135,12 @@ class MerchantNotification extends AbstractManagement
         $additionalInfo['qliroone_shipping_info'] = $shippingInfo;
         $payment->setAdditionalInformation($additionalInfo);
         if ($shippingInfo) {
-            $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["service"]["name"] . ' (' . $additionalInfo["qliroone_shipping_info"]["payload"]["service"]["id"] . ')');
+            if ($shippingInfo['provider'] == 'Unifaun') {
+                $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["service"]["name"] . ' (' . $additionalInfo["qliroone_shipping_info"]["payload"]["service"]["id"] . ')');
+            } else if ($shippingInfo['provider'] == 'Ingrid') {
+                $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier"] . ' (' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier_product_id"] . ')');
+            }
+            
         }
 
         try {

@@ -140,6 +140,14 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
+    public function getIngridShippingAmount()
+    {
+        return $this->getData(self::FIELD_INGRID_SHIPPING_AMOUNT);
+    }
+
+    /**
+     * @inheritdoc
+     */
     public function setIsActive($value)
     {
         return $this->setData(self::FIELD_IS_ACTIVE, $value);
@@ -239,5 +247,13 @@ class Link extends AbstractModel implements LinkInterface
     public function setUnifaunShippingAmount($value)
     {
         return $this->setData(self::FIELD_UNIFAUN_SHIPPING_AMOUNT, $value);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setIngridShippingAmount($value)
+    {
+        return $this->setData(self::FIELD_INGRID_SHIPPING_AMOUNT, $value);
     }
 }
