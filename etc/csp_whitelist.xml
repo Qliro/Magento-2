@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<csp_whitelist xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Csp:etc/csp_whitelist.xsd">
+    <policies>
+        <policy id="frame-src">
+            <values>
+                <value id="qliro" type="host">https://*.qliro.com</value>
+            </values>
+        </policy>
+        <policy id="script-src">
+            <values>
+                <value id="qliro" type="host">https://*.qliro.com</value>
+            </values>
+        </policy>
+        <policy id="form-action">
+            <values>
+                <value id="qliro" type="host">https://*.qliro.com</value>
+                <value id="vipps" type="host">https://*.vipps.no</value>
+                <value id="trustly" type="host">https://*.trustly.com</value>
+                <value id="ideal" type="host">https://*.ideal.nl</value>
+                <value id="apple" type="host">https://*.apple.com</value>
+                <value id="unzer" type="host">https://*.unzer.com</value>
+                <value id="unzer-2" type="host">https://*.heidelpay.com</value>
+            </values>
+        </policy>
+    </policies>
+</csp_whitelist>

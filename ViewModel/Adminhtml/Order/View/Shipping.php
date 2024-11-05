@@ -9,6 +9,7 @@ use Magento\Framework\DataObject;
 use Magento\Sales\Model\Order\AddressFactory;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Model\Carrier\Unifaun;
+use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Management;
 
@@ -131,6 +132,15 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
     }
 
     /**
+     * @param Order $order
+     * @return boolean
+     */
+    public function isQliroIngridShipping(Order $order): bool
+    {
+        return (string)$order->getShippingMethod(true)->getCarrierCode() === Ingrid::QLIRO_INGRID_SHIPPING;
+    }
+
+    /**
      * Get shipping address either from order or from shipping location info
      *
      * @param Order $order
@@ -188,5 +198,43 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
         }
         $address->setStreet($street);
         return $address;
+    }
+
+    /**
+     * Get Ingrid shipping info from order
+     *
+     * @param Order $order
+     * @return array
+     */
+    public function getIngridShippingInfo(Order $order): array
+    {
+        if (!$this->isQliroIngridShipping($order)) {
+            return [];
+        }
+        $ingridShippingInfo = $order->getPayment()->getAdditionalInformation()['qliroone_shipping_info'] ?? [];
+        
+        if (count($ingridShippingInfo) < 1) {
+            return [];
+        }
+        $qliroShippingInfo = [
+            'checkout_session_id' => $ingridShippingInfo['payload']['session']['checkout_session_id'],
+            'tos_id' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['tos_id'],
+            'category' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['category']['name'],
+            'carrier' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['carrier'],
+            'carrier_product_id' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['carrier_product_id']
+        ];
+        if (isset($ingridShippingInfo['payload']['session']['delivery_groups'][0]['addresses']['location'])) {
+            $qliroShippingInfo['location'] = $ingridShippingInfo['payload']['session']['delivery_groups'][0]['addresses']['location']['name'];
+            $qliroShippingInfo['pickup_point_id'] = $ingridShippingInfo['payload']['session']['delivery_groups'][0]['addresses']['location']['external_id'];
+        }
+        if (isset($ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['meta']['isb.availability_token'])) {
+            $qliroShippingInfo['instabox_availability_token'] = $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['meta']['isb.availability_token'];
+        }
+        if (isset($ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['delivery_addons'])) {
+            $qliroShippingInfo['delivery_addons'] = implode(', ', array_map(function($addon) {
+                return $addon['external_addon_id'];
+            }, $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['delivery_addons']));
+        }
+        return $qliroShippingInfo;
     }
 }

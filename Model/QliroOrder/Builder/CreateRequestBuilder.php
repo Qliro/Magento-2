@@ -309,9 +309,11 @@ class CreateRequestBuilder
 
         $createRequest->setMerchantOrderValidationUrl($this->getCallbackUrl('checkout/qliro_callback/validate'));
 
-        $createRequest->setMerchantOrderAvailableShippingMethodsUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/shippingMethods')
-        );
+        if (!($this->qliroConfig->isIngridEnabled($this->quote->getStoreId()) || $this->qliroConfig->isUnifaunEnabled($this->quote->getStoreId()))) {
+            $createRequest->setMerchantOrderAvailableShippingMethodsUrl(
+                $this->getCallbackUrl('checkout/qliro_callback/shippingMethods')
+            );
+        }
 
         $createRequest->setBackgroundColor($this->qliroConfig->getStylingBackgroundColor());
         $createRequest->setPrimaryColor($this->qliroConfig->getStylingPrimaryColor());

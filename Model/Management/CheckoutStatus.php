@@ -64,6 +64,16 @@ class CheckoutStatus extends AbstractManagement
     private $qliroOrder;
 
     /**
+     * @var int|string|null
+     */
+    private $qliroOrderId = null;
+
+    /**
+     * @var bool
+     */
+    private $orderLocked = false;
+
+    /**
      * Inject dependencies
      *
      * @param MerchantInterface $merchantApi
@@ -108,11 +118,9 @@ class CheckoutStatus extends AbstractManagement
             ],
         ];
 
+        $this->orderLocked = false;
+        $this->qliroOrderId = $qliroOrderId;
         try {
-            if (!$this->lock->lock($qliroOrderId)) {
-                throw new FailToLockException(__('Failed to aquire lock when placing order'));
-            }
-
             try {
                 $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
             } catch (NoSuchEntityException $exception) {
@@ -150,6 +158,11 @@ class CheckoutStatus extends AbstractManagement
                     }
 
                     if (!$tooEarly) {
+                        if (!$this->lock->lock($qliroOrderId)) {
+                            throw new FailToLockException(__('Failed to aquire lock when placing order'));
+                        }
+
+                        $this->orderLocked = true;
                         $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
                         $this->placeOrder->execute($responseContainer);
 
@@ -175,6 +188,11 @@ class CheckoutStatus extends AbstractManagement
                  * Second major scenario:
                  * The order already exists; if the status is OnHold or Refused, Order status should be updated
                  */
+                if (!$this->lock->lock($qliroOrderId)) {
+                    throw new FailToLockException(__('Failed to aquire lock when updating order status'));
+                }
+
+                $this->orderLocked = true;
                 if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId))) {
                     $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
                 } else {
@@ -187,7 +205,6 @@ class CheckoutStatus extends AbstractManagement
                  */
                 $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
             }
-            $this->lock->unlock($qliroOrderId);
 
         } catch (NoSuchEntityException $exception) {
             /* no more qliro pushes should be sent */
@@ -197,7 +214,7 @@ class CheckoutStatus extends AbstractManagement
             /*
              * Someone else is creating the order at the moment. Let Qliro try again in a few minutes.
              */
-            $this->logManager->info('Order is being created in another process', $logContext);
+            $this->logManager->info('Order is being created or updated in another process', $logContext);
             $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_PENDING);
 
         } catch (\Exception $exception) {
@@ -254,6 +271,11 @@ class CheckoutStatus extends AbstractManagement
         $response = $this->checkoutStatusResponseFactory->create();
         $response->setCallbackResponse($result);
         $response->setCallbackResponseCode($code);
+        if ($this->orderLocked) {
+            $this->lock->unlock($this->qliroOrderId);
+            $this->orderLocked = false;
+        }
+        $this->qliroOrderId = null;
         return $response;
     }
 }

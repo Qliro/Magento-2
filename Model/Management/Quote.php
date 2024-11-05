@@ -211,6 +211,11 @@ class Quote extends AbstractManagement
                     \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE
                 );
             }
+            if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
+                $shippingAddress->setShippingMethod(
+                    \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE
+                );
+            }
             $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
         }
 
@@ -473,6 +478,14 @@ class Quote extends AbstractManagement
                 $link = $this->linkRepository->getByQuoteId($quote->getId());
                 if ($link->getUnifaunShippingAmount() != $container->getData('shipping_price')) {
                     $link->setUnifaunShippingAmount($container->getData('shipping_price'));
+                    $this->linkRepository->save($link);
+                    $container->setData('can_save_quote', true);
+                }
+            }
+            if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
+                $link = $this->linkRepository->getByQuoteId($quote->getId());
+                if ($link->getIngridShippingAmount() != $container->getData('shipping_price')) {
+                    $link->setIngridShippingAmount($container->getData('shipping_price'));
                     $this->linkRepository->save($link);
                     $container->setData('can_save_quote', true);
                 }

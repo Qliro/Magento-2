@@ -34,6 +34,11 @@ interface QliroOrderShippingMethodInterface extends ContainerInterface
     public function getPriceExVat();
 
     /**
+     * @return float
+     */
+    public function getOriginalPrice();
+
+    /**
      * @return array
      */
     public function getDescriptions();
@@ -86,6 +91,12 @@ interface QliroOrderShippingMethodInterface extends ContainerInterface
      * @return $this
      */
     public function setPriceExVat($value);
+
+    /**
+     * @param float $value
+     * @return $this
+     */
+    public function setOriginalPrice($value);
 
     /**
      * @param array $value

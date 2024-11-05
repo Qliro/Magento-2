@@ -27,6 +27,7 @@ interface LinkInterface
     const FIELD_MESSAGE= 'message';
     const FIELD_PLACED_AT = 'placed_at';
     const FIELD_UNIFAUN_SHIPPING_AMOUNT = 'unifaun_shipping_amount';
+    const FIELD_INGRID_SHIPPING_AMOUNT = 'ingrid_shipping_amount';
 
     /**
      * Get ID
@@ -125,6 +126,13 @@ interface LinkInterface
      * @return float
      */
     public function getUnifaunShippingAmount();
+
+    /**
+     * Get ingrid shipping amount
+     *
+     * @return float
+     */
+    public function getIngridShippingAmount();
 
     /**
      * Set ID
@@ -237,4 +245,12 @@ interface LinkInterface
      * @return $this
      */
     public function setUnifaunShippingAmount($value);
+
+    /**
+     * Set ingrid shipping amount
+     *
+     * @var float $value
+     * @return $this
+     */
+    public function setIngridShippingAmount($value);
 }

@@ -17,6 +17,17 @@
                 </arguments>
                 <block
                     class="Magento\Sales\Block\Adminhtml\Order\AbstractOrder"
+                    name="order_shipping_view_ingrid_shipping_info"
+                    as="ingrid_shipping_info"
+                    template="Qliro_QliroOne::order/view/shipping/info/ingrid_shipping_info.phtml"
+                    ifconfig="payment/qliroone/ingrid/admin_show_ingrid_shipping_info"
+                >
+                    <arguments>
+                        <argument name="view_model" xsi:type="object">Qliro\QliroOne\ViewModel\Adminhtml\Order\View\Shipping</argument>
+                    </arguments>
+                </block>
+                <block
+                    class="Magento\Sales\Block\Adminhtml\Order\AbstractOrder"
                     name="order_shipping_view_address"
                     as="address"
                     template="Qliro_QliroOne::order/view/shipping/info/address.phtml"

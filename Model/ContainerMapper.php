@@ -248,8 +248,9 @@ class ContainerMapper
                 $container = $this->fromArray($value, $className);
                 $value = $container;
             }
-
-            $data[$key] = $value;
+            if(!is_null($value)){
+                $data[$key] = $value;
+            }
         }
 
         return $data;

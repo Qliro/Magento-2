@@ -137,7 +137,7 @@ class ShippingMethodBuilder
         );
 
         $container->setMerchantReference($this->rate->getCode());
-        $container->setDisplayName($this->rate->getMethodTitle());
+        $container->setDisplayName($this->rate->getMethodTitle()?? $this->rate->getCarrierTitle());
         $container->setBrand($this->shippingMethodBrandResolver->resolve($this->rate));
 
         $descriptions = [];

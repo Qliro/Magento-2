@@ -19,5 +19,10 @@
         "column": {
             "recurring_parent_id": true
         }
+    },
+    "qliroone_link": {
+        "column": {
+            "ingrid_shipping_amount": true
+        }
     }
 }

@@ -16,6 +16,7 @@ $viewModel = $block->getViewModel();
 $order = $block->getOrder();
 $locationInfo = $viewModel->getShippingLocationInfo($order);
 $addressBlock = $block->getChildBlock('address');
+$ingridShippingInfo = $block->getChildBlock('ingrid_shipping_info');
 
 ?>
 <?php if ($order->getIsVirtual()):
@@ -68,6 +69,9 @@ endif; ?>
             <?php endif; ?>
             <?php if ($viewModel->isQliroUnifaunShipping($order) && $addressBlock): ?>
                 <?= $addressBlock->toHtml() ?>
+            <?php endif; ?>
+            <?php if ($viewModel->isQliroIngridShipping($order) && $ingridShippingInfo): ?>
+                <?= $ingridShippingInfo->toHtml() ?>
             <?php endif; ?>
         <?php else: ?>
             <?= $escaper->escapeHtml(__('No shipping information available')) ?>

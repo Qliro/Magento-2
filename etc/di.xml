@@ -233,6 +233,9 @@
     <type name="Magento\Framework\App\Request\CsrfValidator">
         <plugin name="qliroone_onepage_csrf_validator_skip" type="Qliro\QliroOne\Plugin\Callbacks\CsrfValidatorSkip" />
     </type>
+    <type name="Magento\SalesRule\Model\Validator">
+        <plugin name="qliroone_plugin_magento_salesrule_model_validator" type="Qliro\QliroOne\Plugin\Magento\SalesRule\Model\ValidatorPlugin" />
+    </type>
 
     <type name="Magento\Payment\Model\Checks\ZeroTotal">
         <plugin name="qliroone_onepage_allow_zero_total" type="Qliro\QliroOne\Plugin\ZeroTotalPlugin" />

@@ -72,6 +72,8 @@ class Config
     const QLIROONE_UNIFAUN_CHECKOUT_ID = 'unifaun/checkout_id';
     const QLIROONE_UNIFAUN_PARAMETERS = 'unifaun/parameters';
 
+    const QLIROONE_INGRID_ENABLED = 'ingrid/enable';
+
     const QLIROONE_RECURRING_ENABLE = 'recurring_payments/enable';
     const QLIROONE_RECURRING_FREQUENCY_OPTIONS = 'recurring_payments/frequency_options';
 
@@ -652,6 +654,15 @@ class Config
         }
 
         return [];
+    }
+
+    /**
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isIngridEnabled($storeId)
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_INGRID_ENABLED, $storeId);
     }
 
     /**

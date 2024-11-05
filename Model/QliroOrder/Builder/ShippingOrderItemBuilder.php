@@ -99,9 +99,11 @@ class ShippingOrderItemBuilder
         );
 
         $container->setMerchantReference($code);
-
+        $container->setType(\Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING);
+        $container->setQuantity(1);
         $container->setPricePerItemIncVat($priceIncVat);
         $container->setPricePerItemExVat($priceExVat);
+        $container->setDescription($rate->getMethodTitle());
 
         $this->eventManager->dispatch(
             'qliroone_order_item_build_after',

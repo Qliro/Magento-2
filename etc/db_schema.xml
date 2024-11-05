@@ -18,4 +18,7 @@
     <table name="sales_order" resource="sales" comment="Sales Flat Order Grid">
         <column xsi:type="varchar" name="recurring_parent_id" nullable="true"/>
     </table>
+    <table name="qliroone_link" resource="default" engine="innodb" comment="QliroOne Link">
+        <column xsi:type="decimal" name="ingrid_shipping_amount" scale="4" precision="12" nullable="true" comment="Ingrid Shipping Amount" />
+    </table>
 </schema>

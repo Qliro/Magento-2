@@ -1,0 +1,22 @@
+<?php
+/**
+ * @var \Magento\Sales\Block\Adminhtml\Order\AbstractOrder $block
+ * @var \Magento\Framework\Escaper $escaper
+ */
+
+/** @var \Qliro\QliroOne\ViewModel\Adminhtml\Order\View\Shipping $viewModel */
+$viewModel = $block->getViewModel();
+
+$order = $block->getOrder();
+$ingridShippingInfo = $viewModel->getIngridShippingInfo($order);
+?>
+<table class="data-table admin__table-secondary">
+    <tbody>
+        <?php foreach ($ingridShippingInfo as $key => $value): ?>
+            <tr>
+                <th><?= $escaper->escapeHtml($key) ?></th>
+                <td><?= $escaper->escapeHtml($value) ?></td>
+            </tr>
+        <?php endforeach; ?>
+    </tbody>
+</table>
