@@ -126,6 +126,11 @@ interface QliroOrderCreateRequestInterface extends ContainerInterface
     /**
      * @return string
      */
+    public function getEnforcedJuridicalType();
+
+    /**
+     * @return string
+     */
     public function getAvailableShippingMethods();
 
     /**
@@ -284,6 +289,12 @@ interface QliroOrderCreateRequestInterface extends ContainerInterface
      * @return $this
      */
     public function setCustomerInformation($value);
+
+    /**
+     * @param string $value
+     * @return $this
+     */
+    public function setEnforcedJuridicalType($value);
 
     /**
      * @param array $value

@@ -13,6 +13,10 @@ namespace Qliro\QliroOne\Api\Data;
  */
 interface QliroOrderCustomerInterface extends ContainerInterface
 {
+    const JURIDICAL_TYPE_PHYSICAL = 'Physical';
+
+    const JURIDICAL_TYPE_COMPANY = 'Company';
+    
     /**
      * @return string
      */
@@ -100,4 +104,16 @@ interface QliroOrderCustomerInterface extends ContainerInterface
      * @return $this
      */
     public function setLockCustomerAddress($value);
+
+    /**
+     * @param string $value
+     * @return $this
+     */
+    public function setJuridicalType($value);
+
+    /**
+     * @return string
+     */
+    public function getJuridicalType();
+    
 }
