@@ -54,6 +54,11 @@ class Customer implements QliroOrderCustomerInterface
     private $lockCustomerAddress;
 
     /**
+     * @var string
+     */
+    private $juridicalType = self::JURIDICAL_TYPE_PHYSICAL;
+
+    /**
      * Getter.
      *
      * @return string
@@ -217,6 +222,25 @@ class Customer implements QliroOrderCustomerInterface
     public function setLockCustomerAddress($lockCustomerAddress)
     {
         $this->lockCustomerAddress = $lockCustomerAddress;
+
+        return $this;
+    }
+
+    /**
+     * @return string
+     */
+    public function getJuridicalType()
+    {
+        return $this->juridicalType;
+    }
+
+    /**
+     * @param string $juridicalType
+     * @return $this
+     */
+    public function setJuridicalType($juridicalType)
+    {
+        $this->juridicalType = $juridicalType;
 
         return $this;
     }

@@ -129,6 +129,11 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     /**
      * @var string
      */
+    private $enforcedJuridicalType;
+
+    /**
+     * @var string
+     */
     private $availableShippingMethods;
 
     /**
@@ -626,6 +631,26 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     public function setCustomerInformation($customerInformation)
     {
         $this->customerInformation = $customerInformation;
+
+        return $this;
+    }
+
+    /**
+     * Getter.
+     * @return string
+     */
+    public function getEnforcedJuridicalType()
+    {
+        return $this->enforcedJuridicalType;
+    }
+
+    /**
+     * @param string $enforcedJuridicalType
+     * @return CreateRequest
+     */
+    public function setEnforcedJuridicalType($enforcedJuridicalType)
+    {
+        $this->enforcedJuridicalType = $enforcedJuridicalType;
 
         return $this;
     }

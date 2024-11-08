@@ -93,6 +93,7 @@ class CustomerBuilder
         $qliroOrderCustomer->setLockCustomerEmail(false);
         $qliroOrderCustomer->setLockCustomerMobileNumber(false);
         $qliroOrderCustomer->setLockCustomerAddress(false);
+        $qliroOrderCustomer->setJuridicalType($qliroOrderCustomerAddress->getCompanyName()? \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY : \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL);
 
         $this->customer = null;
 
