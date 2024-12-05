@@ -15,6 +15,7 @@ interface MerchantSavedCreditCardResponseInterface extends ContainerInterface
     const RESPONSE_RECEIVED = 'received';
     const RESPONSE_ORDER_NOT_FOUND = 'Order not found';
     const RESPONSE_CRITICAL_ERROR = 'Critical error';
+    const RESPONSE_ORDER_PENDING = 'Order creation pending';
 
     /**
      * @return string

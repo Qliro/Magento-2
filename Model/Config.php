@@ -30,6 +30,7 @@ class Config
     const QLIROONE_NEWSLETTER_SIGNUP_PRECHECKED = 'api/newsletter_signup_prechecked';
     const QLIROONE_REQUIRE_IDENTITY_VERIFICATION = 'api/require_identity_verification';
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
+    const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
 
     const QLIROONE_API_TYPE = 'qliro_api/type';
     const QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
@@ -674,6 +675,16 @@ class Config
         return (int)$this->adapter->getConfigData(self::QLIROONE_MINIMUM_CUSTOMER_AGE, $storeId);
     }
 
+        /**
+     * Check if only B2B checkout is enabled for companies
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isB2BCheckoutOnlyEnabled($storeId = null): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_B2B_CHECKOUT_ONLY, $storeId);
+    }
     /**
      * @param int|null $storeId
      * @return bool

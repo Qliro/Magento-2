@@ -399,8 +399,6 @@ class PlaceOrder extends AbstractManagement
 
             switch ($link->getQliroOrderStatus()) {
                 case CheckoutStatusInterface::STATUS_COMPLETED:
-                    $this->applyOrderState($order, Order::STATE_NEW);
-
                     if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent()) {
                         try {
                             $this->orderSender->send($order);
@@ -416,31 +414,41 @@ class PlaceOrder extends AbstractManagement
                         }
                     }
 
-                    /*
-                     * If Magento order has already been placed and QliroOne order status is completed,
-                     * the order merchant reference must be replaced with Magento order increment ID
-                     */
-                    /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                    $request = $this->containerMapper->fromArray(
-                        [
-                            'OrderId' => $link->getQliroOrderId(),
-                            'NewMerchantReference' => $order->getIncrementId(),
-                        ],
-                        AdminUpdateMerchantReferenceRequestInterface::class
-                    );
+                    $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
+                    $alreadyUpdatedMerchantRef = $paymentAdditionalInfo['qliroone_updated_merchant_reference'] ?? false;
 
-                    $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-                    $transactionId = 'unknown';
-                    if ($response && $response->getPaymentTransactionId()) {
-                        $transactionId = $response->getPaymentTransactionId();
+                    if (!$alreadyUpdatedMerchantRef) {
+                        /*
+                        * If Magento order has already been placed and QliroOne order status is completed,
+                        * the order merchant reference must be replaced with Magento order increment ID
+                        */
+                        /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
+                        $request = $this->containerMapper->fromArray(
+                            [
+                                'OrderId' => $link->getQliroOrderId(),
+                                'NewMerchantReference' => $order->getIncrementId(),
+                            ],
+                            AdminUpdateMerchantReferenceRequestInterface::class
+                        );
+
+                        $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
+                        $transactionId = 'unknown';
+                        if ($response && $response->getPaymentTransactionId()) {
+                            $transactionId = $response->getPaymentTransactionId();
+                        }
+                        $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
+                            'payment_transaction_id' => $transactionId,
+                            'qliro_order_id' => $link->getQliroOrderId(),
+                            'order_id' => $order->getId(),
+                            'new_merchant_reference' => $order->getIncrementId(),
+                        ]);
+
+                        $paymentAdditionalInfo['qliroone_updated_merchant_reference'] = true;
+                        $order->getPayment()->setAdditionalInformation($paymentAdditionalInfo);
                     }
-                    $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                        'payment_transaction_id' => $transactionId,
-                        'qliro_order_id' => $link->getQliroOrderId(),
-                        'order_id' => $order->getId(),
-                        'new_merchant_reference' => $order->getIncrementId(),
-                    ]);
 
+                    // Finally apply state, this also saves the order and payment
+                    $this->applyOrderState($order, Order::STATE_NEW);
                     break;
 
                 case CheckoutStatusInterface::STATUS_ONHOLD:
@@ -463,6 +471,16 @@ class PlaceOrder extends AbstractManagement
 
                 case CheckoutStatusInterface::STATUS_IN_PROCESS:
                 default:
+                    $this->logManager->debug(
+                        'Order status is not completed, on hold or refused',
+                        [
+                            'extra' => [
+                                'order_id' => $orderId,
+                                'qliro_order_id' => $link->getQliroOrderId(),
+                                'qliro_order_status' => $link->getQliroOrderStatus(),
+                            ],
+                        ]
+                    );
                     return false;
             }
 

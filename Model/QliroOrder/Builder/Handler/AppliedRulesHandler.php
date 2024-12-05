@@ -64,6 +64,16 @@ class AppliedRulesHandler implements OrderItemHandlerInterface
         $formattedAmount = $this->qliroHelper->formatPrice($discountAmount);
 
         if ($discountAmount) {
+            $rates = $quote->getShippingAddress()->getAppliedTaxes();
+            $discountAmountWithoutVat = $discountAmount;
+            if ($rates && is_array($rates)) {
+                $rate = current($rates);
+                if (isset($rate['percent'])) {
+                    $percent = (int)$rate['percent'];
+                    $discountAmountWithoutVat = ($discountAmount/ (100 + $percent)) * 100;
+                }
+            }
+            $formattedAmountWithoutVat = $this->qliroHelper->formatPrice($discountAmountWithoutVat);
             /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem */
             $qliroOrderItem = $this->qliroOrderItemFactory->create();
 
@@ -72,7 +82,7 @@ class AppliedRulesHandler implements OrderItemHandlerInterface
             $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_DISCOUNT);
             $qliroOrderItem->setQuantity(1);
             $qliroOrderItem->setPricePerItemIncVat(\abs($formattedAmount));
-            $qliroOrderItem->setPricePerItemExVat(\abs($formattedAmount));
+            $qliroOrderItem->setPricePerItemExVat(\abs($formattedAmountWithoutVat));
 
             // Note that this event dispatch must be done for every implemented Handler
             $this->eventManager->dispatch(

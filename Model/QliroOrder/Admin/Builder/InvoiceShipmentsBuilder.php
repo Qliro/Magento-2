@@ -11,8 +11,6 @@ use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory;
-use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler;
-use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler;
 
 /**
  * QliroOne Admin Order shipments builder class
@@ -43,16 +41,6 @@ class InvoiceShipmentsBuilder
      * @var \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory
      */
     private $qliroShipmentFactory;
-    
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler
-     */
-    private $shippingFeeHandler;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler
-     */
-    private $invoiceFeeHandler;
 
     /**
      * @var \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[]
@@ -69,25 +57,19 @@ class InvoiceShipmentsBuilder
      *
      * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
      * @param \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory $qliroShipmentFactory
-     * @param \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler $shippingFeeHandler
-     * @param \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler $invoiceFeeHandler
      * @param OrderSourceProvider $orderSourceProvider
      * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
      */
     public function __construct(
         TypePoolHandler $typeResolver,
         QliroShipmentInterfaceFactory $qliroShipmentFactory,
-        ShippingFeeHandler $shippingFeeHandler,
-        InvoiceFeeHandler $invoiceFeeHandler,
         OrderSourceProvider $orderSourceProvider,
         $handlers = []
     ) {
         $this->typeResolver = $typeResolver;
         $this->qliroShipmentFactory = $qliroShipmentFactory;
-        $this->shippingFeeHandler = $shippingFeeHandler;
-        $this->invoiceFeeHandler = $invoiceFeeHandler;
-        $this->handlers = $handlers;
         $this->orderSourceProvider = $orderSourceProvider;
+        $this->handlers = $handlers;
     }
 
     /**
@@ -164,9 +146,6 @@ class InvoiceShipmentsBuilder
                 $shipmentOrderItems = $handler->handle($shipmentOrderItems, $this->order);
             }
         }
-
-        $shipmentOrderItems = $this->shippingFeeHandler->handle($shipmentOrderItems, $this->order);
-        $shipmentOrderItems = $this->invoiceFeeHandler->handle($shipmentOrderItems, $this->order);
 
         $shipment = $this->qliroShipmentFactory->create();
         $shipment->setOrderItems($shipmentOrderItems);

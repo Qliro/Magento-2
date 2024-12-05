@@ -6,6 +6,7 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler;
 
+use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
@@ -54,12 +55,26 @@ class AppliedRulesHandler implements OrderItemHandlerInterface
             return $orderItems;
         }
         $arrayAppliedRules = sprintf('DSC_%s', \str_replace(',', '_', (string)$order->getAppliedRuleIds()));
-        // @todo might not be the exact same amount as quote calculation: $quote->getSubtotalWithDiscount() - $quote->getSubtotal();
         $discountAmount = (float)$order->getDiscountAmount();
 
         $formattedAmount = $this->qliroHelper->formatPrice($discountAmount);
 
         if ($discountAmount) {
+            $discountAmountWithoutVat = $discountAmount;
+            try {
+                $rates = $order->getShippingAddress()->getAppliedTaxes();
+                if ($rates && is_array($rates)) {
+                    $rate = current($rates);
+                    if (isset($rate['percent'])) {
+                        $percent = (int)$rate['percent'];
+                        $discountAmountWithoutVat = ($discountAmount/ (100 + $percent)) * 100;
+                    }
+                }
+            } catch (NoSuchEntityException $e) {
+                // Do nothing
+            }
+            $formattedAmountWithoutVat = $this->qliroHelper->formatPrice($discountAmountWithoutVat);
+
             /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem */
             $qliroOrderItem = $this->qliroOrderItemFactory->create();
 
@@ -67,8 +82,8 @@ class AppliedRulesHandler implements OrderItemHandlerInterface
             $qliroOrderItem->setDescription($arrayAppliedRules);
             $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_DISCOUNT);
             $qliroOrderItem->setQuantity(1);
-            $qliroOrderItem->setPricePerItemIncVat(\abs($formattedAmount));
-            $qliroOrderItem->setPricePerItemExVat(\abs($formattedAmount));
+            $qliroOrderItem->setPricePerItemIncVat(-\abs($formattedAmount));
+            $qliroOrderItem->setPricePerItemExVat(-\abs($formattedAmountWithoutVat));
 
             $orderItems[] = $qliroOrderItem;
         }

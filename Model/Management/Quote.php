@@ -216,6 +216,9 @@ class Quote extends AbstractManagement
                     \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE
                 );
             }
+            if(!$shippingAddress->hasData('item_qty')) {
+                $shippingAddress->setData('item_qty', $quote->getItemsQty());//fix magento bug for shipping per item
+            }
             $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
         }
 
@@ -388,7 +391,6 @@ class Quote extends AbstractManagement
     {
         $request = $this->updateRequestBuilder->setQuote($quote)->create();
         $data = $this->containerMapper->toArray($request);
-        unset($data['AvailableShippingMethods']);
         sort($data);
 
         try {

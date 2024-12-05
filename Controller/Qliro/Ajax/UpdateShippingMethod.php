@@ -128,7 +128,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE;
                 $secondaryOption = $data['methodName'] ?? null;
             } else {
-                $shippingMethodCode = $data['method_code'] . "_" .$data['carrier_code'] ?? null;
+                $shippingMethodCode = $data['method'] ?? null;
             }
             $shippingPrice = $data['price'] ?? null;
             $result = $this->qliroManagement->setQuote($quote)->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
