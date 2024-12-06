@@ -180,13 +180,10 @@ class CheckoutStatus extends AbstractManagement
 
                     $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
                 }
-            } elseif (in_array(
-                $checkoutStatus->getStatus(),
-                [CheckoutStatusInterfaceAlias::STATUS_ONHOLD, CheckoutStatusInterfaceAlias::STATUS_REFUSED]
-            )) {
+            } else {
                 /*
                  * Second major scenario:
-                 * The order already exists; if the status is OnHold or Refused, Order status should be updated
+                 * The order already exists; just update the order with the new QliroOne order status
                  */
                 if (!$this->lock->lock($qliroOrderId)) {
                     throw new FailToLockException(__('Failed to aquire lock when updating order status'));
@@ -198,12 +195,6 @@ class CheckoutStatus extends AbstractManagement
                 } else {
                     $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
                 }
-            } elseif ($checkoutStatus->getStatus() === CheckoutStatusInterfaceAlias::STATUS_COMPLETED) {
-                /**
-                 * Third major scenario: Order exists and is completed
-                 *   = everyhing's good and nothing else to do!
-                 */
-                $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
             }
 
         } catch (NoSuchEntityException $exception) {

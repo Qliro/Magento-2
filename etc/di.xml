@@ -68,7 +68,7 @@
         </arguments>
     </type>
 
-    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceOrderItemsBuilder">
+    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder">
         <arguments>
             <argument name="handlers" xsi:type="array">
                 <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
@@ -78,7 +78,7 @@
         </arguments>
     </type>
 
-    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentOrderItemsBuilder">
+    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentShipmentsBuilder">
         <arguments>
             <argument name="handlers" xsi:type="array">
                 <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>

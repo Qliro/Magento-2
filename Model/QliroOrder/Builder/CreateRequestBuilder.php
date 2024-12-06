@@ -251,10 +251,11 @@ class CreateRequestBuilder
         if ($this->session->isLoggedIn()) {
             $customerInfo = $this->customerBuilder->setCustomer($this->quote->getCustomer())->create();
             $createRequest->setCustomerInformation($customerInfo);
-
-            if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY) {
+            
+            if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
                 $createRequest->setEnforcedJuridicalType($customerInfo->getJuridicalType());
             }
+
         }
 
         $this->quote->getBillingAddress()->setCountryId($createRequest->getCountry());

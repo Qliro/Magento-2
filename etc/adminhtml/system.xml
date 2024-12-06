@@ -109,6 +109,12 @@
                         <label>Minimum Customer Age</label>
                         <validate>validate-number validate-zero-or-greater</validate>
                     </field>
+
+                    <field id="b2b_checkout_only" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1">
+                        <label>Only use B2B checkout on companies</label>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                        <comment>Set to 'Yes' to enforce B2B checkout for users who have provided a company name in their billing address.</comment>
+                    </field>
                 </group>
 
                 <group id="qliro_api" translate="label" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">

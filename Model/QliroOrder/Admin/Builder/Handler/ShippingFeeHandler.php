@@ -66,7 +66,7 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
         $formattedInclAmount = $this->qliroHelper->formatPrice($inclTax);
         $formattedExclAmount = $this->qliroHelper->formatPrice($exclTax);
 
-        if ($inclTax > 0 && $merchantReference) {
+        if ($merchantReference) {
             /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem */
             $qliroOrderItem = $this->qliroOrderItemFactory->create();
 

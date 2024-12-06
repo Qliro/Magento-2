@@ -96,13 +96,18 @@ class SavedCreditCard extends AbstractManagement
         try {
             $link = $this->linkRepository->getByQliroOrderId($updateContainer->getOrderId());
             $this->logManager->setMerchantReference($link->getReference());
-
+            if (!$link->getOrderId()) {
+                return $this->checkoutStatusRespond(
+                    MerchantSavedCreditCardResponseInterface::RESPONSE_ORDER_PENDING,
+                    200
+                );
+            }
             $order = $this->orderRepo->get($link->getOrderId());
             $recurringInfo = $this->recurringDataService->orderGetter($order);
 
             if (!$recurringInfo->getEnabled()) {
                 return $this->checkoutStatusRespond(
-                    'MerchantSavedCreditCardNotification received, but no action taken on this non-Subscription order',
+                    MerchantSavedCreditCardResponseInterface::RESPONSE_RECEIVED,//no action taken on this non-Subscription order send received
                     200
                 );
             }
@@ -113,14 +118,21 @@ class SavedCreditCard extends AbstractManagement
 
             $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($link->getOrderId());
             if (!$recurringInfo->getId()) {
-                $recurringInfo->setOriginalOrderId($order->getEntityId());
+                $this->logManager->notice(
+                    'MerchantSavedCreditCardNotification received before recurring info created, responding with order pending',
+                    $logContext
+                );
+                return $this->checkoutStatusRespond(
+                    MerchantSavedCreditCardResponseInterface::RESPONSE_ORDER_PENDING,
+                    200
+                );
             }
 
             $recurringInfo->setSavedCreditCardId((string)$updateContainer->getId());
             $this->recurringInfoRepo->save($recurringInfo);
 
             return $this->checkoutStatusRespond(
-                'Successfully Saved Credit Card ID for order',
+                MerchantSavedCreditCardResponseInterface::RESPONSE_RECEIVED,//Successfully Saved Credit Card ID for order send received
                 200
             );
         } catch (NoSuchEntityException $exception) {

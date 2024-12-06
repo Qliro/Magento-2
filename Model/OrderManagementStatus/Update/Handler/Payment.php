@@ -139,7 +139,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
      */
     public function handleCancelled($qliroOrderManagementStatus, $omStatus)
     {
-        $this->setOnHold($qliroOrderManagementStatus, $omStatus, 'Cancelled');
+        $this->setCanceled($qliroOrderManagementStatus, $omStatus, 'Cancelled');
     }
 
     /**
@@ -162,13 +162,14 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
+     * The OnHold status is used when the capture is not successful and the order should be put on hold
      * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
      * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
     public function handleOnHold($qliroOrderManagementStatus, $omStatus)
     {
-        $this->setOnHold($qliroOrderManagementStatus, $omStatus, 'OnHold');
+        $this->setPendingPayment($qliroOrderManagementStatus, $omStatus, 'OnHold');
     }
 
     /**
@@ -234,6 +235,73 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
             $order->hold();
             $order->addStatusHistoryComment(
                 __('Order set on hold because Qliro One reported an error with the capture: %1', $contextMessage)
+            );
+            $this->orderRepository->save($order);
+        } catch (\Exception $exception) {
+            $this->logManager->critical(
+                $exception,
+                [
+                    'extra' => [
+                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                    ],
+                ]
+            );
+
+            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+        }
+    }
+
+    
+    /**
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param string $contextMessage
+     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     */
+    private function setPendingPayment($qliroOrderManagementStatus, $omStatus, $contextMessage)
+    {
+        try {
+            $payment = $this->getPayment($omStatus);
+            $order = $payment->getOrder();
+            if ($order->getState() == Order::STATE_PENDING_PAYMENT) {
+                return;
+            }
+            $order->setState(Order::STATE_PENDING_PAYMENT);
+            $order->addStatusHistoryComment(
+                __('Order set to pending payment because Qliro One returned the capture with status: %1', $contextMessage)
+            );
+            $this->orderRepository->save($order);
+        } catch (\Exception $exception) {
+            $this->logManager->critical(
+                $exception,
+                [
+                    'extra' => [
+                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                    ],
+                ]
+            );
+
+            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+        }
+    }
+
+    /**
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param string $contextMessage
+     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     */
+    private function setCanceled($qliroOrderManagementStatus, $omStatus, $contextMessage)
+    {
+        try {
+            $payment = $this->getPayment($omStatus);
+            $order = $payment->getOrder();
+            if ($order->isCanceled()) {
+                return;
+            }
+            $order->cancel();
+            $order->addStatusHistoryComment(
+                __('Order canceled because Qliro One returned the capture with status: %1', $contextMessage)
             );
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {

@@ -159,7 +159,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      */
     public function handleCancelled($qliroOrderManagementStatus, $omStatus)
     {
-        $this->setOnHold($qliroOrderManagementStatus, $omStatus, 'Cancelled');
+        $this->setCanceled($qliroOrderManagementStatus, $omStatus, 'Cancelled');
     }
 
     /**
@@ -188,7 +188,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      */
     public function handleOnHold($qliroOrderManagementStatus, $omStatus)
     {
-        $this->setOnHold($qliroOrderManagementStatus, $omStatus, 'OnHold');
+        $this->setPendingPayment($qliroOrderManagementStatus, $omStatus, 'OnHold');
     }
 
     /**
@@ -238,6 +238,72 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 __('Order set on hold because Qliro One reported an error with the capture: %1', $contextMessage)
             );
 
+            $this->orderRepository->save($order);
+        } catch (\Exception $exception) {
+            $this->logManager->critical(
+                $exception,
+                [
+                    'extra' => [
+                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                    ],
+                ]
+            );
+
+            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+        }
+    }
+
+    /**
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param string $contextMessage
+     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     */
+    private function setPendingPayment($qliroOrderManagementStatus, $omStatus, $contextMessage)
+    {
+        try {
+            $shipment = $this->getShipment($omStatus);
+            $order = $shipment->getOrder();
+            if ($order->getState() == Order::STATE_PENDING_PAYMENT) {
+                return;
+            }
+            $order->setState(Order::STATE_PENDING_PAYMENT);
+            $order->addStatusHistoryComment(
+                __('Order set to pending payment because Qliro One returned the capture with status: %1', $contextMessage)
+            );
+            $this->orderRepository->save($order);
+        } catch (\Exception $exception) {
+            $this->logManager->critical(
+                $exception,
+                [
+                    'extra' => [
+                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                    ],
+                ]
+            );
+
+            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+        }
+    }
+
+    /**
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param string $contextMessage
+     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     */
+    private function setCanceled($qliroOrderManagementStatus, $omStatus, $contextMessage)
+    {
+        try {
+            $shipment = $this->getShipment($omStatus);
+            $order = $shipment->getOrder();
+            if ($order->isCanceled()) {
+                return;
+            }
+            $order->cancel();
+            $order->addStatusHistoryComment(
+                __('Order canceled because Qliro One returned the capture with status: %1', $contextMessage)
+            );
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {
             $this->logManager->critical(

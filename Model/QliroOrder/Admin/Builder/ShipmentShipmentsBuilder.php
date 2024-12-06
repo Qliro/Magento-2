@@ -63,8 +63,8 @@ class ShipmentShipmentsBuilder
     ) {
         $this->typeResolver = $typeResolver;
         $this->qliroShipmentFactory = $qliroShipmentFactory;
-        $this->handlers = $handlers;
         $this->orderSourceProvider = $orderSourceProvider;
+        $this->handlers = $handlers;
     }
 
     /**
