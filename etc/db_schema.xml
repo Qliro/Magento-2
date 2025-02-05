@@ -17,8 +17,134 @@
     </table>
     <table name="sales_order" resource="sales" comment="Sales Flat Order Grid">
         <column xsi:type="varchar" name="recurring_parent_id" nullable="true"/>
+        <column xsi:type="decimal" name="qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount" />
+        <column xsi:type="decimal" name="qliroone_fee_refunded" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount Refunded" />
+        <column xsi:type="decimal" name="base_qliroone_fee_refunded" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount Refunded" />
+        <column xsi:type="decimal" name="qliroone_fee_invoiced" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Amount Invoiced" />
+        <column xsi:type="decimal" name="base_qliroone_fee_invoiced" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount Invoiced" />
+        <column xsi:type="decimal" name="qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Tax Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Tax Amount" />
     </table>
     <table name="qliroone_link" resource="default" engine="innodb" comment="QliroOne Link">
+        <column xsi:type="int" name="link_id" unsigned="true" nullable="false" identity="true" comment="Link ID" />
+        <column xsi:type="smallint" name="is_active" unsigned="true" nullable="false" default="1" comment="Flag indicating if link is still in used" />
+        <column xsi:type="varchar" name="reference" nullable="false" length="25" comment="Unique QliroOne order merchant reference" />
+        <column xsi:type="int" name="quote_id" nullable="false" unsigned="true" comment="Quote ID, null when order has been created" />
+        <column xsi:type="int" name="qliro_order_id" nullable="false" unsigned="true" comment="QliroOne Order ID" />
+        <column xsi:type="varchar" name="qliro_order_status" nullable="true" default="1" length="32" comment="QliroOne Order Status" />
+        <column xsi:type="int" name="order_id" nullable="true" unsigned="true" comment="Order ID, null before order has been created" />
+        <column xsi:type="text" name="quote_snapshot" nullable="false" comment="Quote snapshot signature" />
+        <column xsi:type="text" name="remote_ip" nullable="true" length="32" comment="Client IP when link was created" />
+        <column xsi:type="timestamp" name="created_at" nullable="false"  default="CURRENT_TIMESTAMP" comment="Link creation timestamp" />
+        <column xsi:type="timestamp" name="updated_at" nullable="false"  default="CURRENT_TIMESTAMP" comment="Link last update timestamp" />
+        <column xsi:type="text" name="message" nullable="true" comment="Latest message or error message" />
+        <column xsi:type="timestamp" name="placed_at" nullable="true"  comment="When pending is opened" />
         <column xsi:type="decimal" name="ingrid_shipping_amount" scale="4" precision="12" nullable="true" comment="Ingrid Shipping Amount" />
+        <column xsi:type="float" name="unifaun_shipping_amount" default="0" scale="0" precision="10" nullable="true" comment="If unifaun is used it stores the freight amount here for the shipping method to read" />
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="link_id" />
+        </constraint>
+        <constraint xsi:type="unique" referenceId="QLIROONE_LOG_REFERENCE">
+            <column name="reference"/>
+        </constraint>
+        <index referenceId="QLIROONE_LINK_IS_ACTIVE" indexType="btree">
+            <column name="is_active"/>
+        </index>
+        <index referenceId="QLIROONE_LINK_ORDER_ID" indexType="btree">
+            <column name="qliro_order_id"/>
+        </index>
+        <index referenceId="QLIROONE_LINK_QUOTE_ID" indexType="btree">
+            <column name="quote_id"/>
+        </index>
+        <index referenceId="QLIROONE_LINK_ORDER_ID" indexType="btree">
+            <column name="order_id"/>
+        </index>
+        <index referenceId="QLIROONE_LINK_CREATED_AT" indexType="btree">
+            <column name="created_at"/>
+        </index>
+        <index referenceId="QLIROONE_LINK_UPDATED_AT" indexType="btree">
+            <column name="updated_at"/>
+        </index>
+    </table>
+    <table name="qliroone_log" resource="default" engine="innodb" comment="QliroOne Log">
+        <column xsi:type="int" name="id" unsigned="true" nullable="false" identity="true" comment="Log line id" />
+        <column xsi:type="timestamp" name="date" nullable="false" default="CURRENT_TIMESTAMP" comment="Date" />
+        <column xsi:type="varchar" name="level" length="32" nullable="false" comment="Log level" />
+        <column xsi:type="int" name="process_id" unsigned="true" nullable="false" comment="Process ID" />
+        <column xsi:type="varchar" name="reference" length="25" comment="Merchant ID" />
+        <column xsi:type="text" name="tags" comment="Comma separated list of tags" />
+        <column xsi:type="text" name="message" comment="Message" />
+        <column xsi:type="text" name="extra" comment="Extra data" />
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id" />
+        </constraint>
+        <index referenceId="QLIROONE_LOG_DATE" indexType="btree">
+            <column name="date"/>
+        </index>
+        <index referenceId="QLIROONE_LOG_LEVEL" indexType="btree">
+            <column name="level"/>
+        </index>
+        <index referenceId="QLIROONE_LOG_REFERENCE" indexType="btree">
+            <column name="reference"/>
+        </index>
+        <index referenceId="QLIROONE_LOG_PROCESS_ID" indexType="btree">
+            <column name="process_id"/>
+        </index>
+    </table>
+    <table name="qliroone_om_status" resource="default" engine="innodb" comment="QliroOne OM Notification Statuses">
+        <column xsi:type="int" name="id" unsigned="true" nullable="false" identity="true" comment="Log line id" />
+        <column xsi:type="timestamp" name="date" nullable="false" default="CURRENT_TIMESTAMP" comment="Date" />
+        <column xsi:type="int" name="transaction_id" unsigned="true" nullable="false" comment="Payment Transaction ID" />
+        <column xsi:type="varchar" name="record_type" nullable="true" length="25" comment="Record Type" />
+        <column xsi:type="int" name="record_id" unsigned="true" nullable="false" comment="Record ID" />
+        <column xsi:type="varchar" name="transaction_status" nullable="true" length="255" comment="Transaction Status" />
+        <column xsi:type="varchar" name="notification_status" nullable="true" length="10" comment="Notification Status" />
+        <column xsi:type="text" name="message" nullable="true" comment="Possible Message" />
+        <column xsi:type="int" name="qliro_order_id" length="10" unsigned="true" nullable="false" comment="Qliro Order Id" />
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="id" />
+        </constraint>
+        <index referenceId="QLIROONE_OM_STATUS_DATE" indexType="btree">
+            <column name="date"/>
+        </index>
+        <index referenceId="QLIROONE_OM_STATUS_TRANSACTION_ID" indexType="btree">
+            <column name="transaction_id"/>
+        </index>
+        <index referenceId="QLIROONE_OM_STATUS_TRANSACTION_STATUS" indexType="btree">
+            <column name="transaction_status"/>
+        </index>
+        <index referenceId="QLIROONE_OM_STATUS_RECORD_ID" indexType="btree">
+            <column name="record_id"/>
+        </index>
+    </table>
+    <table name="qliroone_order_lock" resource="default" engine="innodb" comment="Qliro order lock table">
+        <column xsi:type="int" name="qliro_order_id" unsigned="true" nullable="false" identity="true" comment="Order id" />
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="Lock creation timestamp" />
+        <column xsi:type="int" name="process_id" unsigned="true" nullable="false" comment="Process ID" />
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="qliro_order_id" />
+        </constraint>
+        <index referenceId="QLIROONE_ORDER_LOCK_CREATED_AT" indexType="btree">
+            <column name="created_at"/>
+        </index>
+    </table>
+    <table name="quote_address">
+        <column xsi:type="decimal" name="qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount" />
+        <column xsi:type="decimal" name="qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Tax Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Tax Amount" />
+    </table>
+    <table name="sales_invoice">
+        <column xsi:type="decimal" name="qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount" />
+        <column xsi:type="decimal" name="qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Tax Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Tax Amount" />
+    </table>
+    <table name="sales_creditmemo">
+        <column xsi:type="decimal" name="qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Amount" />
+        <column xsi:type="decimal" name="qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Fee Tax Amount" />
+        <column xsi:type="decimal" name="base_qliroone_fee_tax" scale="4" precision="12" nullable="true" default="0.00" comment="Base Fee Tax Amount" />
     </table>
 </schema>
