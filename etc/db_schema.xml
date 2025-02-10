@@ -32,7 +32,7 @@
         <column xsi:type="varchar" name="reference" nullable="false" length="25" comment="Unique QliroOne order merchant reference" />
         <column xsi:type="int" name="quote_id" nullable="false" unsigned="true" comment="Quote ID, null when order has been created" />
         <column xsi:type="int" name="qliro_order_id" nullable="false" unsigned="true" comment="QliroOne Order ID" />
-        <column xsi:type="varchar" name="qliro_order_status" nullable="true" default="1" length="32" comment="QliroOne Order Status" />
+        <column xsi:type="varchar" name="qliro_order_status" nullable="true" default="InProcess" length="32" comment="QliroOne Order Status" />
         <column xsi:type="int" name="order_id" nullable="true" unsigned="true" comment="Order ID, null before order has been created" />
         <column xsi:type="text" name="quote_snapshot" nullable="false" comment="Quote snapshot signature" />
         <column xsi:type="text" name="remote_ip" nullable="true" length="32" comment="Client IP when link was created" />
