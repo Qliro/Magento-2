@@ -135,6 +135,7 @@
                 <item name="capture" xsi:type="string">Qliro\QliroOne\Model\Method\QliroOne\Capture</item>
                 <item name="cancel" xsi:type="string">Qliro\QliroOne\Model\Method\QliroOne\Cancel</item>
                 <item name="void" xsi:type="string">Qliro\QliroOne\Model\Method\QliroOne\Cancel</item>
+                <item name="refund" xsi:type="string">Qliro\QliroOne\Model\Method\QliroOne\Refund</item>
             </argument>
         </arguments>
     </virtualType>
@@ -250,6 +251,31 @@
     <type name="Qliro\QliroOne\Model\Management\PlaceOrder">
         <arguments>
             <argument name="recurringDataService" xsi:type="object">Qliro\QliroOne\Service\RecurringPayments\Data\Proxy</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentShipmentsBuilder">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\QliroOrder\Builder\CreditMemoItemsBuilder">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\Handler\AppliedRulesHandler</item>
+            </argument>
         </arguments>
     </type>
 </config>

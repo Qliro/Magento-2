@@ -180,4 +180,12 @@ interface ManagementInterface
     public function updateOrderSavedCreditCard(
         MerchantSavedCreditCardNotificationInterface $merchantSavedCreditCardNotification
     ): MerchantSavedCreditCardResponseInterface;
+
+    /**
+     * @param \Magento\Payment\Model\InfoInterface $payment
+     * @param float $amount
+     * @return void
+     * @throws \Exception
+     */
+    public function refundByInvoice($payment, $amount);
 }

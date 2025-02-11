@@ -331,4 +331,15 @@ class Management extends AbstractManagement implements ManagementInterface
     ): MerchantSavedCreditCardResponseInterface {
         return $this->savedCreditCardManagement->update($merchantSavedCreditCardNotification);
     }
+
+    /**
+     * @param \Magento\Payment\Model\InfoInterface $payment
+     * @param float $amount
+     * @return void
+     * @throws \Exception
+     */
+    public function refundByInvoice($payment, $amount)
+    {
+        $this->paymentManagement->refundByInvoice($payment, $amount);
+    }
 }

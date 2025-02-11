@@ -42,11 +42,6 @@ interface AdminReturnWithItemsRequestInterface extends ContainerInterface
     public function getFees();
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
-     */
-    public function getDiscounts();
-
-    /**
      * @param string $value
      * @return $this
      */
@@ -83,8 +78,35 @@ interface AdminReturnWithItemsRequestInterface extends ContainerInterface
     public function setFees($value);
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
+     * @param int $value
      * @return $this
      */
-    public function setDiscounts($value);
+    public function setOrderId(int $value);
+
+    /**
+     * @return int
+     */
+    public function getOrderId(): int;
+
+    /**
+     * @param array $value
+     * @return $this
+     */
+    public function setReturns(array $value);
+
+    /**
+     * @return array
+     */
+    public function getReturns(): array;
+
+    /**
+     * @param int $value
+     * @return $this
+     */
+    public function setPaymentTransactionId(int$value);
+
+    /**
+     * @return int
+     */
+    public function getPaymentTransactionId(): int;
 }

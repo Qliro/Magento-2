@@ -7,6 +7,8 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
+use Qliro\QliroOne\Model\ContainerMapper;
 
 /**
  * Return With Items Request class
@@ -34,19 +36,44 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     private $currency;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @var QliroOrderItemInterface[]
      */
     private $orderItems;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @var QliroOrderItemInterface[]
      */
     private $fees;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @var int
      */
-    private $discounts;
+    private int $orderId;
+
+    /**
+     * @var int
+     */
+    private int $paymentTransactionId;
+
+    /**
+     * @var array
+     */
+    private array $returns = [];
+
+    /**
+     * @var ContainerMapper
+     */
+    private $containerMapper;
+
+    /**
+     * @param ContainerMapper $containerMapper
+     */
+    public function __construct(
+        ContainerMapper $containerMapper
+    )
+    {
+        $this->containerMapper = $containerMapper;
+    }
 
     /**
      * Getter.
@@ -135,19 +162,32 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     /**
      * Getter.
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @return QliroOrderItemInterface[]|null
      */
     public function getOrderItems()
     {
-        return $this->orderItems;
+        return null;
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $orderItems
+     * @param QliroOrderItemInterface[] $orderItems
      * @return ReturnWithItemsRequest
      */
     public function setOrderItems($orderItems)
     {
+        if (!count($orderItems)) {
+            return $this;
+        }
+
+        // Convert positive discount numbers to negative
+        foreach ($orderItems as $key => $orderItem) {
+            if ($orderItem->getType() === QliroOrderItemInterface::TYPE_DISCOUNT) {
+                $orderItem->setPricePerItemExVat(-abs($orderItem->getPricePerItemExVat()));
+                $orderItem->setPricePerItemIncVat(-abs($orderItem->getPricePerItemIncVat()));
+            }
+
+        }
+
         $this->orderItems = $orderItems;
 
         return $this;
@@ -156,15 +196,15 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     /**
      * Getter.
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @return QliroOrderItemInterface[]|null
      */
     public function getFees()
     {
-        return $this->fees;
+        return null;
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $fees
+     * @param QliroOrderItemInterface[] $fees
      * @return ReturnWithItemsRequest
      */
     public function setFees($fees)
@@ -175,23 +215,92 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * Getter.
-     *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @inheritDoc
      */
-    public function getDiscounts()
+    public function setOrderId(int $value)
     {
-        return $this->discounts;
+        $this->orderId = $value;
+
+        return $this;
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $discounts
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setDiscounts($discounts)
+    public function getOrderId(): int
     {
-        $this->discounts = $discounts;
+        return $this->orderId;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setReturns(array $value)
+    {
+        $this->returns = $value;
 
         return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getReturns(): array
+    {
+        if ($this->paymentTransactionId) {
+            $this->returns['PaymentTransactionId'] = $this->paymentTransactionId;
+        }
+
+        if (count($this->orderItems)) {
+            $orderItems = [];
+            foreach ($this->orderItems as $orderItem) {
+                $innerItem = $this->containerMapper->toArray($orderItem);
+                if (!count($innerItem)){
+                    continue;
+                }
+
+                $orderItems[] = $innerItem;
+            }
+
+            if (count($orderItems)) {
+                $this->returns['OrderItems'] = $orderItems;
+            }
+        }
+
+        if (count($this->fees)) {
+            $fees = [];
+            foreach ($this->fees as $fee) {
+                $innerItem = $this->containerMapper->toArray($fee);
+                if (!count($innerItem)){
+                    continue;
+                }
+
+                $fees[] = $innerItem;
+            }
+
+            if (count($fees)) {
+                $this->returns['Fees'] = $fees;
+            }
+        }
+
+        return $this->returns;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setPaymentTransactionId(int $value)
+    {
+        $this->paymentTransactionId = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPaymentTransactionId(): int
+    {
+        return $this->paymentTransactionId;
     }
 }

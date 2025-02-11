@@ -244,7 +244,6 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 
     /**
      * Make a call "Return with items"
-     * @todo Not used?
      *
      * @param \Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface $request
      * @param int|null $storeId
@@ -257,11 +256,19 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
         $request->setRequestId($this->idGenerator->generateId());
 
         try {
-            $payload = $this->containerMapper->toArray($request);
+            $payload = [
+                'RequestId' => $request->getRequestId(),
+                'MerchantApiKey' => $request->getMerchantApiKey(),
+                'Currency' => $request->getCurrency(),
+                'OrderId' => $request->getOrderId(),
+                'Returns' => [$request->getReturns()],
+            ];
+
             $response = $this->service->post('checkout/adminapi/v2/returnitems', $payload, $storeId);
+            $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray($response, AdminTransactionResponseInterface::class);
+            $container = $this->containerMapper->fromArray( $paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }

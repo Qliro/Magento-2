@@ -24,47 +24,47 @@ class OrderItemsBuilder
     /**
      * @var \Magento\Quote\Model\Quote
      */
-    private $quote;
+    protected $quote;
 
     /**
      * @var \Magento\Tax\Helper\Data
      */
-    private $taxHelper;
+    protected $taxHelper;
 
     /**
      * @var \Qliro\QliroOne\Model\Product\Type\TypePoolHandler
      */
-    private $typeResolver;
+    protected $typeResolver;
 
     /**
      * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
      */
-    private $qliroOrderItemFactory;
+    protected $qliroOrderItemFactory;
 
     /**
      * @var \Magento\Tax\Model\Calculation
      */
-    private $taxCalculation;
+    protected $taxCalculation;
 
     /**
      * @var \Qliro\QliroOne\Helper\Data
      */
-    private $qliroHelper;
+    protected $qliroHelper;
 
     /**
      * @var \Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface[]
      */
-    private $handlers = [];
+    protected $handlers = [];
 
     /**
      * @var \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider
      */
-    private $quoteSourceProvider;
+    protected $quoteSourceProvider;
 
     /**
      * @var \Magento\Framework\Event\ManagerInterface
      */
-    private $eventManager;
+    protected $eventManager;
 
     /**
      * Inject dependencies

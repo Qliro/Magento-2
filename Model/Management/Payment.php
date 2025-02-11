@@ -6,19 +6,25 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
+use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
+use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
+use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ReturnWithItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 
 /**
@@ -77,6 +83,11 @@ class Payment extends AbstractManagement
     private $shipmentMarkItemsAsShippedRequestBuilder;
 
     /**
+     * @var ReturnWithItemsBuilder
+     */
+    private $returnWithItemsBuilder;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -89,6 +100,7 @@ class Payment extends AbstractManagement
      * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
      * @param InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder
      * @param ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
+     * @param ReturnWithItemsBuilder $returnWithItemsBuilder
      */
     public function __construct(
         Config $qliroConfig,
@@ -100,7 +112,8 @@ class Payment extends AbstractManagement
         OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
-        ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
+        ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
+        ReturnWithItemsBuilder $returnWithItemsBuilder
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -112,6 +125,7 @@ class Payment extends AbstractManagement
         $this->orderManagementStatusRepository = $orderManagementStatusRepository;
         $this->invoiceMarkItemsAsShippedRequestBuilder = $invoiceMarkItemsAsShippedRequestBuilder;
         $this->shipmentMarkItemsAsShippedRequestBuilder = $shipmentMarkItemsAsShippedRequestBuilder;
+        $this->returnWithItemsBuilder = $returnWithItemsBuilder;
     }
 
     /**
@@ -120,7 +134,7 @@ class Payment extends AbstractManagement
      *
      * This should have been done differently, with authorization keyword in method etc...
      *
-     * @param \Magento\Sales\Model\Order $order
+     * @param Order $order
      * @param QliroOrderInterface $qliroOrder
      * @param string $state
      * @throws \Exception
@@ -185,7 +199,7 @@ class Payment extends AbstractManagement
             return;
         }
 
-        /** @var \Magento\Sales\Model\Order $order */
+        /** @var Order $order */
         $order = $payment->getOrder();
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
@@ -197,7 +211,7 @@ class Payment extends AbstractManagement
         $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
 
         try {
-            /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatus */
+            /** @var OrderManagementStatus $omStatus */
             $omStatus = $this->orderManagementStatusInterfaceFactory->create();
             $omStatus->setRecordId($payment->getId());
             $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_PAYMENT);
@@ -224,7 +238,7 @@ class Payment extends AbstractManagement
                 $payment->setTransactionId($result->getPaymentTransactionId());
             }
         } else {
-            throw new \Magento\Framework\Exception\LocalizedException(
+            throw new LocalizedException(
                 __('Unable to capture payment for this order.')
             );
         }
@@ -241,7 +255,7 @@ class Payment extends AbstractManagement
             return;
         }
 
-        /** @var \Magento\Sales\Model\Order $order */
+        /** @var Order $order */
         $order = $shipment->getOrder();
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
@@ -256,7 +270,7 @@ class Payment extends AbstractManagement
         $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
 
         try {
-            /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatus */
+            /** @var OrderManagementStatus $omStatus */
             $omStatus = $this->orderManagementStatusInterfaceFactory->create();
 
             $omStatus->setRecordId($shipment->getId());
@@ -280,9 +294,122 @@ class Payment extends AbstractManagement
         }
 
         if ($result->getStatus() != 'Created') {
-            throw new \Magento\Framework\Exception\LocalizedException(
+            throw new LocalizedException(
                 __('Unable to mark items as shipped.')
             );
         }
+    }
+
+    /**
+     * @param \Magento\Sales\Model\Order\Payment $payment
+     * @param $amount
+     * @return void
+     * @throws LocalizedException
+     */
+    public function refundByInvoice($payment, $amount)
+    {
+        try {
+            $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
+
+            $request = $this->returnWithItemsBuilder
+                ->setPayment($payment)
+                ->create();
+
+            if (!$this->isValidRequestAmount($request, $amount)) {
+                throw new LocalizedException(__('Request amount is not valid.'));
+            }
+
+
+            $result = $this->orderManagementApi->returnWithItems($request, $payment->getOrder()->getStoreId());
+
+            try {
+                /** @var OrderManagementStatus $omStatus */
+                $omStatus = $this->orderManagementStatusInterfaceFactory->create();
+
+                $omStatus->setRecordId($payment->getId());
+                $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_REFUND);
+                $omStatus->setTransactionId($result->getPaymentTransactionId());
+                $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+                $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
+                $omStatus->setMessage('Refund Requested');
+                $omStatus->setQliroOrderId($link->getQliroOrderId());
+
+                $this->orderManagementStatusRepository->save($omStatus);
+            } catch (\Exception $exception) {
+                $this->logManager->debug(
+                    $exception,
+                    [
+                        'extra' => [
+                            'payment_id' => $payment->getId(),
+                        ],
+                    ]
+                );
+            }
+
+            if ($result->getStatus() != 'Created') {
+                throw new LocalizedException(
+                    __('Unable refund items')
+                );
+            }
+        } catch (ClientException $e) {
+            $this->logManager->debug(
+                $e,
+                [
+                    'extra' => [
+                        'order_id' => $payment->getOrder()->getId(),
+                        'quote_id' => $payment->getOrder()->getQuoteId(),
+                    ],
+                ]
+            );
+
+            throw new LocalizedException(
+                __('Unable refund items')
+            );
+        }
+    }
+
+    /**
+     * Validate return request items and requested amount
+     *
+     * @param AdminReturnWithItemsRequestInterface $request
+     * @param $amount
+     * @return bool
+     */
+    private function isValidRequestAmount(AdminReturnWithItemsRequestInterface $request, $amount)
+    {
+        $amount = floatval($amount);
+
+        $returns = $request->getReturns();
+        if (!count($returns)) {
+            return false;
+        }
+
+        $sum = 0;
+        foreach ($returns as $type => $return) {
+            if (is_array($return) && isset($return['PricePerItemIncVat'])) {
+                $sum += $return['PricePerItemIncVat'] * $return['Quantity'];
+                continue;
+            }
+
+            if (!is_array($return)) {
+                continue;
+            }
+
+            foreach ($return as $inner) {
+                if (is_array($inner) && isset($inner['PricePerItemIncVat'])) {
+                    $innerSum = $inner['PricePerItemIncVat'] * $inner['Quantity'];
+                    if ($type === 'Fees') {
+                        $innerSum = -abs($innerSum);
+                    }
+                    $sum += $innerSum;
+                }
+            }
+        }
+
+        if ($sum != $amount) {
+            return false;
+        }
+
+        return true;
     }
 }
