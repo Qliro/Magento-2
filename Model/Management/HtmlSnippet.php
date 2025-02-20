@@ -6,6 +6,8 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Qliro\QliroOne\Model\Logger\Manager;
+
 /**
  * QliroOne management class
  */
@@ -17,14 +19,22 @@ class HtmlSnippet extends AbstractManagement
     private $qliroOrder;
 
     /**
+     * @var Manager
+     */
+    private Manager $logManager;
+
+    /**
      * Inject dependencies
      *
      * @param QliroOrder $qliroOrder
+     * @param Manager $logManager
      */
     public function __construct(
-        QliroOrder $qliroOrder
+        QliroOrder $qliroOrder,
+        Manager $logManager
     ) {
         $this->qliroOrder = $qliroOrder;
+        $this->logManager = $logManager;
     }
 
     /**
@@ -37,6 +47,14 @@ class HtmlSnippet extends AbstractManagement
         try {
             return $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
         } catch (\Exception $exception) {
+            $this->logManager->critical(
+                sprintf(
+                    'QliroOne Checkout has failed to load. %s',
+                    $exception->getMessage()
+                ),
+                ['exception' => $exception, 'extra' => $exception->getTrace()]
+            );
+
             $openTag = '<a href="javascript:;" onclick="location.reload(true)">';
             $closeTag = '</a>';
 
