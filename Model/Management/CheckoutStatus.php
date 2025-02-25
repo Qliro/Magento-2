@@ -245,7 +245,12 @@ class CheckoutStatus extends AbstractManagement
                 $this->qliroOrder->cancel($link->getQliroOrderId());
                 $link->setMessage(sprintf('Requested to cancel QliroOne order #%s', $link->getQliroOrderId()));
             } catch (TerminalException $exception) {
-                $link->setMessage(sprintf('Failed to cancel QliroOne order #%s', $link->getQliroOrderId()));
+                $message = sprintf('Failed to cancel QliroOne order #%s', $link->getQliroOrderId());
+                $this->logManager->critical(
+                    $message,
+                    ['exception' => $exception, 'extra' => $exception->getTrace()]
+                );
+                $link->setMessage($message);
             }
 
             $this->linkRepository->save($link);
