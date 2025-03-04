@@ -70,11 +70,11 @@ class UpdateOrderCommand extends AbstractCommand
     {
         $output->writeln('<comment>Update QliroOne order</comment>');
 
-        /** @var Management */
-        $management = $this->getObjectManager()->get(Management::class);
+        /** @var \Qliro\QliroOne\Model\Management\Quote $management */
+        $management = $this->getObjectManager()->get(\Qliro\QliroOne\Model\Management\Quote::class);
 
         try {
-            $management->updateOrder($this->orderId, $this->force);
+            $management->update($this->orderId, $this->force);
         } catch (\Qliro\QliroOne\Model\Api\Client\Exception\ClientException $exception) {
             /** @var \GuzzleHttp\Exception\RequestException $origException */
             $origException = $exception->getPrevious();
