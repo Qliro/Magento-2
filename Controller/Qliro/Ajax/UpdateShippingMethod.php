@@ -124,13 +124,16 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
             if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE;
                 $secondaryOption = $data['secondaryOption'] ?? null;
+                // for unifaun we set shipping price without taxes
+                $shippingPrice = $data['priceExVat'] ?? null;
             } else if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE;
                 $secondaryOption = $data['methodName'] ?? null;
+                $shippingPrice = $data['price'] ?? null;
             } else {
                 $shippingMethodCode = $data['method'] ?? null;
+                $shippingPrice = $data['price'] ?? null;
             }
-            $shippingPrice = $data['price'] ?? null;
             $result = $this->qliroManagement->setQuote($quote)->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
         } catch (\Exception $exception) {
             return $this->dataHelper->sendPreparedPayload(

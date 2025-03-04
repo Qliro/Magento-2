@@ -121,6 +121,21 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
 
         try {
             $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
+
+            // for unifaun we set shipping price without taxes
+            if ($shippingPrice && $this->qliroConfig->isUnifaunEnabled($quote->getStoreId())){
+                $taxPercentage = 0;
+                $taxes = $quote->getShippingAddress()->getAppliedTaxes();
+                if (is_array($taxes) && count($taxes) > 0) {
+                    $taxRule = current($taxes);
+                    $taxPercentage = (int)$taxRule['percent'];
+                }
+
+                if ($taxPercentage > 0) {
+                    $shippingPrice = $shippingPrice / (1 +  ($taxPercentage / 100));
+                }
+            }
+
             $result = $this->qliroManagement->setQuote($quote)->updateShippingPrice($shippingPrice);
         } catch (\Exception $exception) {
             return $this->dataHelper->sendPreparedPayload(
@@ -141,4 +156,5 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
             'AJAX:UPDATE_SHIPPING_PRICE'
         );
     }
+
 }

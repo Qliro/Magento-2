@@ -41,7 +41,7 @@
         <column xsi:type="text" name="message" nullable="true" comment="Latest message or error message" />
         <column xsi:type="timestamp" name="placed_at" nullable="true"  comment="When pending is opened" />
         <column xsi:type="decimal" name="ingrid_shipping_amount" scale="4" precision="12" nullable="true" comment="Ingrid Shipping Amount" />
-        <column xsi:type="float" name="unifaun_shipping_amount" default="0" scale="0" precision="10" nullable="true" comment="If unifaun is used it stores the freight amount here for the shipping method to read" />
+        <column xsi:type="float" name="unifaun_shipping_amount" default="0" scale="4" precision="10" nullable="true" comment="If unifaun is used it stores the freight amount here for the shipping method to read" />
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="link_id" />
         </constraint>
