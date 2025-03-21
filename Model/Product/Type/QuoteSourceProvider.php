@@ -7,12 +7,14 @@
 namespace Qliro\QliroOne\Model\Product\Type;
 
 use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Item;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
+use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
 
 /**
  * Quote Source Provider class
@@ -25,48 +27,56 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $sourceItems = [];
 
     /**
-     * @var \Magento\Quote\Model\Quote
+     * @var Quote
      */
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Model\Product\ProductPool
+     * @var ProductPool
      */
     private $productPool;
 
     /**
-     * @var \Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory
+     * @var TypeSourceItemInterfaceFactory
      */
     private $typeSourceItemFactory;
 
     /**
-     * @var \Qliro\QliroOne\Model\Config
+     * @var Config
      */
     private $config;
 
     /**
-     * @var \Qliro\QliroOne\Service\RecurringPayments\Data
+     * @var RecurringDataService
      */
     private $recurringDataService;
 
     /**
+     * @var ProductNameResolverInterface
+     */
+    private $productNameResolver;
+
+    /**
      * Inject dependencies
      *
-     * @param \Qliro\QliroOne\Model\Product\ProductPool $productPool
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory $typeSourceItemFactory
-     * @param \Qliro\QliroOne\Model\Config $config
-     * @param \Qliro\QliroOne\Service\RecurringPayments\Data $recurringDataService
+     * @param ProductPool $productPool
+     * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
+     * @param Config $config
+     * @param RecurringDataService $recurringDataService
+     * @param ProductNameResolverInterface $productNameResolver
      */
     public function __construct(
         ProductPool $productPool,
         TypeSourceItemInterfaceFactory $typeSourceItemFactory,
         Config $config,
-        RecurringDataService $recurringDataService
+        RecurringDataService $recurringDataService,
+        ProductNameResolverInterface $productNameResolver
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
         $this->config = $config;
         $this->recurringDataService = $recurringDataService;
+        $this->productNameResolver = $productNameResolver;
     }
 
     /**
@@ -79,7 +89,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
 
     /**
      * @param string $reference
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @return TypeSourceItemInterface
      */
     public function getSourceItemByMerchantReference($reference)
     {
@@ -116,13 +126,13 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     }
 
     /**
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface[]
+     * @return TypeSourceItemInterface[]
      */
     public function getSourceItems()
     {
         $result = [];
 
-        /** @var \Magento\Quote\Model\Quote\Item $item */
+        /** @var Item $item */
         foreach ($this->quote->getAllVisibleItems() as $item) {
             $result[] = $this->generateSourceItem($item, $item->getQty());
         }
@@ -133,7 +143,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     /**
      * Set quote
      *
-     * @param \Magento\Quote\Model\Quote $quote
+     * @param Quote $quote
      */
     public function setQuote($quote)
     {
@@ -141,20 +151,24 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     }
 
     /**
-     * @param \Magento\Quote\Model\Quote\Item $item
+     * @param Item $item
      * @param float $quantity
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @return TypeSourceItemInterface
      */
     public function generateSourceItem($item, $quantity)
     {
         if (!isset($this->sourceItems[$item->getItemId()])) {
-            /** @var \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $sourceItem */
+            /** @var TypeSourceItemInterface $sourceItem */
             $sourceItem = $this->typeSourceItemFactory->create();
 
             $sourceItem->setId($item->getItemId());
-            $sourceItem->setName($item->getName());
-            $sourceItem->setPriceInclTax($item->getRowTotalInclTax() / $quantity); // $item->getPriceInclTax()
-            $sourceItem->setPriceExclTax($item->getRowTotal() / $quantity); // $item->getPrice()
+            $sourceItem->setName($this->productNameResolver->getName($item));
+            $sourceItem->setPriceInclTax(
+                ($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $quantity
+            );
+            $sourceItem->setPriceExclTax(
+                ($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $quantity
+            );
             $sourceItem->setQty($item->getQty());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());

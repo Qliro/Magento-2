@@ -11,6 +11,7 @@ use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
+use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
 
 /**
  * Order Source Provider class
@@ -23,32 +24,40 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     private $sourceItems = [];
 
     /**
-     * @var \Magento\Sales\Model\Order
+     * @var Order
      */
     private $order;
 
     /**
-     * @var \Qliro\QliroOne\Model\Product\ProductPool
+     * @var ProductPool
      */
     private $productPool;
 
     /**
-     * @var \Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory
+     * @var TypeSourceItemInterfaceFactory
      */
     private $typeSourceItemFactory;
 
     /**
+     * @var ProductNameResolverInterface
+     */
+    private $productNameResolver;
+
+    /**
      * Inject dependencies
      *
-     * @param \Qliro\QliroOne\Model\Product\ProductPool $productPool
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory $typeSourceItemFactory
+     * @param ProductPool $productPool
+     * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
+     * @param ProductNameResolverInterface $productNameResolver
      */
     public function __construct(
         ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory
+        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
+        ProductNameResolverInterface $productNameResolver
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
+        $this->productNameResolver = $productNameResolver;
     }
 
     /**
@@ -61,7 +70,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
 
     /**
      * @param string $reference
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @return TypeSourceItemInterface
      */
     public function getSourceItemByMerchantReference($reference)
     {
@@ -96,7 +105,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     }
 
     /**
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface[]
+     * @return TypeSourceItemInterface[]
      */
     public function getSourceItems()
     {
@@ -113,7 +122,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     /**
      * Set order
      *
-     * @param \Magento\Sales\Model\Order $order
+     * @param Order $order
      */
     public function setOrder($order)
     {
@@ -123,18 +132,18 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     /**
      * @param \Magento\Sales\Model\Order\Item $item
      * @param float $quantity
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @return TypeSourceItemInterface
      */
     public function generateSourceItem($item, $quantity)
     {
         if (!isset($this->sourceItems[$item->getQuoteItemId()])) {
-            /** @var \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $sourceItem */
+            /** @var TypeSourceItemInterface $sourceItem */
             $sourceItem = $this->typeSourceItemFactory->create();
 
             $sourceItem->setId($item->getQuoteItemId());
-            $sourceItem->setName($item->getName());
-            $sourceItem->setPriceInclTax($item->getRowTotalInclTax() / $quantity); // $item->getPriceInclTax()
-            $sourceItem->setPriceExclTax($item->getRowTotal() / $quantity); // $item->getPrice()
+            $sourceItem->setName($this->productNameResolver->getName($item));
+            $sourceItem->setPriceInclTax(($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $item->getQtyOrdered());
+            $sourceItem->setPriceExclTax(($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $item->getQtyOrdered());
             $sourceItem->setQty($item->getQtyOrdered());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());

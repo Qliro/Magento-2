@@ -10,17 +10,16 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Sales\Model\Order\Payment;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreditMemoItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\RefundFeeBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler;
 
 class ReturnWithItemsBuilder
 {
@@ -60,11 +59,6 @@ class ReturnWithItemsBuilder
     private $cartRepository;
 
     /**
-     * @var AppliedRulesHandler
-     */
-    private $appliedRulesHandler;
-
-    /**
      * @var ShippingFeeHandler
      */
     private $shippingFeeHandler;
@@ -73,7 +67,16 @@ class ReturnWithItemsBuilder
      * @var CreditMemoItemsBuilder
      */
     private $creditMemoItemsBuilder;
-    private RefundFeeBuilder $refundFeeBuilder;
+
+    /**
+     * @var RefundFeeBuilder
+     */
+    private $refundFeeBuilder;
+
+    /**
+     * @var InvoiceFeeHandler
+     */
+    private $invoiceFeeHandler;
 
 
     /**
@@ -85,10 +88,10 @@ class ReturnWithItemsBuilder
      * @param AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory
      * @param OrderItemsBuilder $orderItemsBuilder
      * @param CartRepositoryInterface $cartRepository
-     * @param AppliedRulesHandler $appliedRulesHandler
      * @param ShippingFeeHandler $shippingFeeHandler
      * @param CreditMemoItemsBuilder $creditMemoItemsBuilder
      * @param RefundFeeBuilder $refundFeeBuilder
+     * @param InvoiceFeeHandler $invoiceFeeHandler
      */
     public function __construct(
         LinkRepositoryInterface                     $linkRepository,
@@ -97,10 +100,10 @@ class ReturnWithItemsBuilder
         AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory,
         OrderItemsBuilder                           $orderItemsBuilder,
         CartRepositoryInterface                     $cartRepository,
-        AppliedRulesHandler                         $appliedRulesHandler,
         ShippingFeeHandler                          $shippingFeeHandler,
         CreditMemoItemsBuilder                      $creditMemoItemsBuilder,
-        RefundFeeBuilder                            $refundFeeBuilder
+        RefundFeeBuilder                            $refundFeeBuilder,
+        InvoiceFeeHandler                           $invoiceFeeHandler
     )
     {
         $this->linkRepository = $linkRepository;
@@ -109,10 +112,10 @@ class ReturnWithItemsBuilder
         $this->adminReturnWithItemsRequestFactory = $adminReturnWithItemsRequestFactory;
         $this->orderItemsBuilder = $orderItemsBuilder;
         $this->cartRepository = $cartRepository;
-        $this->appliedRulesHandler = $appliedRulesHandler;
         $this->shippingFeeHandler = $shippingFeeHandler;
         $this->creditMemoItemsBuilder = $creditMemoItemsBuilder;
         $this->refundFeeBuilder = $refundFeeBuilder;
+        $this->invoiceFeeHandler = $invoiceFeeHandler;
     }
 
 
@@ -169,11 +172,14 @@ class ReturnWithItemsBuilder
             )->setPaymentTransactionId(
                 $this->payment->getParentTransactionId()
             )->setOrderItems(
-                $this->shippingFeeHandler->handle(
-                    $this->creditMemoItemsBuilder
-                        ->setQuote($quote)
-                        ->setCreditMemo($this->payment->getCreditmemo())
-                        ->create(),
+                $this->invoiceFeeHandler->handle(
+                    $this->shippingFeeHandler->handle(
+                        $this->creditMemoItemsBuilder
+                            ->setQuote($quote)
+                            ->setCreditMemo($this->payment->getCreditmemo())
+                            ->create(),
+                        $order
+                    ),
                     $order
                 )
             )->setFees(
