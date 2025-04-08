@@ -406,7 +406,7 @@ class Payment extends AbstractManagement
             }
         }
 
-        if ($sum != $amount) {
+        if (($sum * 100) != ($amount * 100)) { // fix php double type comparison issue
             return false;
         }
 
