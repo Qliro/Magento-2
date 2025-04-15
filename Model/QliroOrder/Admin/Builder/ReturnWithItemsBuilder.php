@@ -155,13 +155,24 @@ class ReturnWithItemsBuilder
         $request = $this->adminReturnWithItemsRequestFactory->create();
 
         $order = $this->payment->getOrder();
-        if ($this->payment->getCreditmemo()->getShippingAmount() > 0) {
-            $order->setFirstCaptureFlag(true);
-        }
+        $order->setFirstCaptureFlag(true);
 
         try {
             $link = $this->linkRepository->getByOrderId($order->getId());
             $quote = $this->cartRepository->get($order->getQuoteId());
+
+            $orderItems = $this->creditMemoItemsBuilder
+                    ->setQuote($quote)
+                    ->setCreditMemo($this->payment->getCreditmemo())
+                    ->create();
+
+            if ($this->payment->getCreditmemo()->getShippingAmount() > 0) {
+                $orderItems =  $this->shippingFeeHandler->handle($orderItems, $order);
+            }
+
+            if ($order->getCreditmemosCollection()->count() === 0) {
+                $orderItems = $this->invoiceFeeHandler->handle($orderItems, $order);
+            }
 
             $request->setMerchantApiKey(
                 $this->qliroConfig->getMerchantApiKey($order->getStoreId())
@@ -172,22 +183,11 @@ class ReturnWithItemsBuilder
             )->setPaymentTransactionId(
                 $this->payment->getParentTransactionId()
             )->setOrderItems(
-                $this->invoiceFeeHandler->handle(
-                    $this->shippingFeeHandler->handle(
-                        $this->creditMemoItemsBuilder
-                            ->setQuote($quote)
-                            ->setCreditMemo($this->payment->getCreditmemo())
-                            ->create(),
-                        $order
-                    ),
-                    $order
-                )
+                $orderItems
             )->setFees(
-                [
-                    $this->refundFeeBuilder
-                        ->setCreditMemo($this->payment->getCreditmemo())
-                        ->create()
-                ]
+                $this->refundFeeBuilder
+                    ->setCreditMemo($this->payment->getCreditmemo())
+                    ->create()
             );
 
         } catch (NoSuchEntityException|ClientException $e) {

@@ -23,7 +23,11 @@ class Fee extends AbstractTotal
         $order = $creditmemo->getOrder();
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
         $qliroFeeTotal = 0;
-        if (is_array($qlirooneFees)) {
+
+        // invoice fee forced to be added to the first refund.
+        // If we do not the first refund, we make sure
+        // that invoice fee will not be added to the calculation
+        if (is_array($qlirooneFees) && $order->getCreditmemosCollection()->count() === 0) {
             foreach ($qlirooneFees as $qlirooneFee) {
                 $qliroFeeTotal += $qlirooneFee["PricePerItemIncVat"];
             }

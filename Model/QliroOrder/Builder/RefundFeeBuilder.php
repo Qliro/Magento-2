@@ -58,7 +58,7 @@ class RefundFeeBuilder
     /**
      * Create a QliroOne refund fee container
      *
-     * @return QliroOrderItemInterface
+     * @return QliroOrderItemInterface[]
      */
     public function create()
     {
@@ -66,30 +66,61 @@ class RefundFeeBuilder
             throw new \LogicException('Credit memo entity is not set.');
         }
 
-
-        /** @var QliroOrderItemInterface $container */
-        $container = $this->qliroOrderItemFactory->create();
-
-        if ($this->creditMemo->getAdjustmentNegative() <= 0) {
-            return $container;
-        }
-
-        $container->setMerchantReference('ReturnFee');
-        $container->setDescription('Return Fee');
-        $container->setPricePerItemIncVat(abs($this->creditMemo->getAdjustmentNegative()));
-        $container->setPricePerItemExVat(abs($this->creditMemo->getAdjustmentNegative()));
-        $container->setQuantity(1);
-        $container->setType(QliroOrderItemInterface::TYPE_FEE);
-
-        $this->eventManager->dispatch(
-            'qliroone_refund_fee_build_after',
-            [
-                'credit_memo' => $this->creditMemo,
-                'container' => $container,
-            ]
-        );
+        $result = [];
+        $result[] = $this->getAdjustmentFeeContainer();
+        $result[] = $this->getAdjustmentRefundContainer();
 
         $this->creditMemo = null;
+
+        return $result;
+    }
+
+    /**
+     * Get credit memo adjustment fee container
+     *
+     * @return QliroOrderItemInterface
+     */
+    protected function getAdjustmentFeeContainer()
+    {
+        $container = $this->qliroOrderItemFactory->create();
+        if ($this->creditMemo->getAdjustmentNegative() > 0) {
+            /** @var QliroOrderItemInterface $container */
+            $container->setMerchantReference('ReturnFee');
+            $container->setDescription('Return Fee');
+            $container->setPricePerItemIncVat(abs($this->creditMemo->getAdjustmentNegative()));
+            $container->setPricePerItemExVat(abs($this->creditMemo->getAdjustmentNegative()));
+            $container->setQuantity(1);
+            $container->setType(QliroOrderItemInterface::TYPE_FEE);
+
+            $this->eventManager->dispatch(
+                'qliroone_refund_fee_build_after',
+                [
+                    'credit_memo' => $this->creditMemo,
+                    'container' => $container,
+                ]
+            );
+        }
+
+        return $container;
+    }
+
+    /**
+     * Get credit memo adjustment refund container
+     *
+     * @return QliroOrderItemInterface
+     */
+    protected function getAdjustmentRefundContainer()
+    {
+        $container = $this->qliroOrderItemFactory->create();
+
+        if ($this->creditMemo->getAdjustmentPositive() > 0) {
+            $container->setMerchantReference('ReturnRefund');
+            $container->setDescription('Return Refund');
+            $container->setPricePerItemIncVat(abs($this->creditMemo->getAdjustmentPositive()));
+            $container->setPricePerItemExVat(abs($this->creditMemo->getAdjustmentPositive()));
+            $container->setQuantity(1);
+            $container->setType(QliroOrderItemInterface::TYPE_FEE);
+        }
 
         return $container;
     }

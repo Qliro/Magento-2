@@ -53,7 +53,6 @@ class InvoiceFeeHandler implements OrderItemHandlerInterface
      */
     public function handle($orderItems, $order)
     {
-        // @todo Handle invoiced and refunded fee
         if (!$order->getFirstCaptureFlag()) {
             return $orderItems;
         }
