@@ -168,6 +168,7 @@
     <preference for="Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface" type="Qliro\QliroOne\Model\OrderManagementStatus\SearchResult" />
     <preference for="Qliro\QliroOne\Api\HashResolverInterface" type="Qliro\QliroOne\Model\QliroOrder\ReferenceHashResolver" />
     <preference for="Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface" type="Qliro\QliroOne\Model\ShippingMethod\BrandResolver" />
+    <preference for="Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface" type="Qliro\QliroOne\Model\QliroOrder\Admin\CreditMemo\InvoiceFeeTotalValidator" />
 
     <preference for="Qliro\QliroOne\Api\Product\TypeSourceItemInterface" type="Qliro\QliroOne\Model\Product\Type\TypeSourceItem" />
 

@@ -308,6 +308,10 @@ class Payment extends AbstractManagement
      */
     public function refundByInvoice($payment, $amount)
     {
+        if (!$amount) {
+            throw new LocalizedException(__('Zero amount is not allowed.'));
+        }
+
         try {
             $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
 

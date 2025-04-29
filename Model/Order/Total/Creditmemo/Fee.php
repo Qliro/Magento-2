@@ -8,9 +8,27 @@ namespace Qliro\QliroOne\Model\Order\Total\Creditmemo;
 
 use Magento\Sales\Model\Order\Creditmemo;
 use Magento\Sales\Model\Order\Creditmemo\Total\AbstractTotal;
+use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 
 class Fee extends AbstractTotal
 {
+    /**
+     * @var InvoiceFeeTotalValidatorInterface
+     */
+    private InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator;
+
+    /**
+     * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
+     * @param array $data
+     */
+    public function __construct(
+        InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        array $data = []
+    )
+    {
+        parent::__construct($data);
+        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
+    }
     /**
      * Collect totals
      *
@@ -24,10 +42,7 @@ class Fee extends AbstractTotal
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
         $qliroFeeTotal = 0;
 
-        // invoice fee forced to be added to the first refund.
-        // If we do not the first refund, we make sure
-        // that invoice fee will not be added to the calculation
-        if (is_array($qlirooneFees) && $order->getCreditmemosCollection()->count() === 0) {
+        if (is_array($qlirooneFees) && $this->invoiceFeeTotalValidator->setCreditMemo($creditmemo)->validate()) {
             foreach ($qlirooneFees as $qlirooneFee) {
                 $qliroFeeTotal += $qlirooneFee["PricePerItemIncVat"];
             }

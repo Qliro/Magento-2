@@ -68,7 +68,6 @@ class RefundFeeBuilder
 
         $result = [];
         $result[] = $this->getAdjustmentFeeContainer();
-        $result[] = $this->getAdjustmentRefundContainer();
 
         $this->creditMemo = null;
 
@@ -99,27 +98,6 @@ class RefundFeeBuilder
                     'container' => $container,
                 ]
             );
-        }
-
-        return $container;
-    }
-
-    /**
-     * Get credit memo adjustment refund container
-     *
-     * @return QliroOrderItemInterface
-     */
-    protected function getAdjustmentRefundContainer()
-    {
-        $container = $this->qliroOrderItemFactory->create();
-
-        if ($this->creditMemo->getAdjustmentPositive() > 0) {
-            $container->setMerchantReference('ReturnRefund');
-            $container->setDescription('Return Refund');
-            $container->setPricePerItemIncVat(abs($this->creditMemo->getAdjustmentPositive()));
-            $container->setPricePerItemExVat(abs($this->creditMemo->getAdjustmentPositive()));
-            $container->setQuantity(1);
-            $container->setType(QliroOrderItemInterface::TYPE_FEE);
         }
 
         return $container;

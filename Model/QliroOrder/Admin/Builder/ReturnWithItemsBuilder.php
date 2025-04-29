@@ -20,6 +20,7 @@ use Magento\Quote\Api\CartRepositoryInterface;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreditMemoItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\RefundFeeBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler;
+use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 
 class ReturnWithItemsBuilder
 {
@@ -78,6 +79,11 @@ class ReturnWithItemsBuilder
      */
     private $invoiceFeeHandler;
 
+    /**
+     * @var InvoiceFeeTotalValidatorInterface
+     */
+    private $invoiceFeeTotalValidator;
+
 
     /**
      * Inject dependencies
@@ -92,6 +98,7 @@ class ReturnWithItemsBuilder
      * @param CreditMemoItemsBuilder $creditMemoItemsBuilder
      * @param RefundFeeBuilder $refundFeeBuilder
      * @param InvoiceFeeHandler $invoiceFeeHandler
+     * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
      */
     public function __construct(
         LinkRepositoryInterface                     $linkRepository,
@@ -103,7 +110,8 @@ class ReturnWithItemsBuilder
         ShippingFeeHandler                          $shippingFeeHandler,
         CreditMemoItemsBuilder                      $creditMemoItemsBuilder,
         RefundFeeBuilder                            $refundFeeBuilder,
-        InvoiceFeeHandler                           $invoiceFeeHandler
+        InvoiceFeeHandler                           $invoiceFeeHandler,
+        InvoiceFeeTotalValidatorInterface           $invoiceFeeTotalValidator
     )
     {
         $this->linkRepository = $linkRepository;
@@ -116,6 +124,7 @@ class ReturnWithItemsBuilder
         $this->creditMemoItemsBuilder = $creditMemoItemsBuilder;
         $this->refundFeeBuilder = $refundFeeBuilder;
         $this->invoiceFeeHandler = $invoiceFeeHandler;
+        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
     }
 
 
@@ -170,7 +179,9 @@ class ReturnWithItemsBuilder
                 $orderItems =  $this->shippingFeeHandler->handle($orderItems, $order);
             }
 
-            if ($order->getCreditmemosCollection()->count() === 0) {
+            if ($this->invoiceFeeTotalValidator->setCreditMemo(
+                $this->payment->getCreditmemo())->validate(true)
+            ) {
                 $orderItems = $this->invoiceFeeHandler->handle($orderItems, $order);
             }
 
