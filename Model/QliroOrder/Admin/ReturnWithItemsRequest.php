@@ -81,9 +81,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheritDoc
      */
     public function getMerchantApiKey()
     {
@@ -91,20 +89,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param string $merchantApiKey
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setMerchantApiKey($merchantApiKey)
+    public function setMerchantApiKey($value)
     {
-        $this->merchantApiKey = $merchantApiKey;
+        $this->merchantApiKey = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return int
+     * @inheritDoc
      */
     public function getPaymentReference()
     {
@@ -112,20 +107,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param int $paymentReference
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setPaymentReference($paymentReference)
+    public function setPaymentReference($value)
     {
-        $this->paymentReference = $paymentReference;
+        $this->paymentReference = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheritDoc
      */
     public function getRequestId()
     {
@@ -133,20 +125,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param string $requestId
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setRequestId($requestId)
+    public function setRequestId($value)
     {
-        $this->requestId = $requestId;
+        $this->requestId = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheritDoc
      */
     public function getCurrency()
     {
@@ -154,20 +143,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param string $currency
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setCurrency($currency)
+    public function setCurrency($value)
     {
-        $this->currency = $currency;
+        $this->currency = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return QliroOrderItemInterface[]|null
+     * @inheritDoc
      */
     public function getOrderItems()
     {
@@ -175,8 +161,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param QliroOrderItemInterface[] $orderItems
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
     public function setOrderItems($orderItems)
     {
@@ -199,9 +184,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * Getter.
-     *
-     * @return QliroOrderItemInterface[]|null
+     * @inheritDoc
      */
     public function getFees()
     {
@@ -209,12 +192,11 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param QliroOrderItemInterface[] $fees
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setFees($fees)
+    public function setFees($value)
     {
-        $this->fees = $fees;
+        $this->fees = $value;
 
         return $this;
     }
@@ -336,9 +318,9 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     /**
      * @inheritDoc
      */
-    public function setDiscounts($discounts)
+    public function setDiscounts($value)
     {
-        $this->discounts = $discounts;
+        $this->discounts = $value;
 
         return $this;
     }

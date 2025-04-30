@@ -51,11 +51,6 @@ class ReturnWithItemsBuilder
     private $adminReturnWithItemsRequestFactory;
 
     /**
-     * @var OrderItemsBuilder
-     */
-    private $orderItemsBuilder;
-
-    /**
      * @var CartRepositoryInterface
      */
     private $cartRepository;
@@ -98,7 +93,6 @@ class ReturnWithItemsBuilder
      * @param LogManager $logManager
      * @param Config $qliroConfig
      * @param AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory
-     * @param OrderItemsBuilder $orderItemsBuilder
      * @param CartRepositoryInterface $cartRepository
      * @param ShippingFeeHandler $shippingFeeHandler
      * @param CreditMemoItemsBuilder $creditMemoItemsBuilder
@@ -112,7 +106,6 @@ class ReturnWithItemsBuilder
         LogManager                                  $logManager,
         Config                                      $qliroConfig,
         AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory,
-        OrderItemsBuilder                           $orderItemsBuilder,
         CartRepositoryInterface                     $cartRepository,
         ShippingFeeHandler                          $shippingFeeHandler,
         CreditMemoItemsBuilder                      $creditMemoItemsBuilder,
@@ -126,7 +119,6 @@ class ReturnWithItemsBuilder
         $this->logManager = $logManager;
         $this->qliroConfig = $qliroConfig;
         $this->adminReturnWithItemsRequestFactory = $adminReturnWithItemsRequestFactory;
-        $this->orderItemsBuilder = $orderItemsBuilder;
         $this->cartRepository = $cartRepository;
         $this->shippingFeeHandler = $shippingFeeHandler;
         $this->creditMemoItemsBuilder = $creditMemoItemsBuilder;
