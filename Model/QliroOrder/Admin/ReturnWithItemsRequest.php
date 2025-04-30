@@ -46,6 +46,11 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     private $fees;
 
     /**
+     * @var QliroOrderItemInterface[]
+     */
+    private $discounts;
+
+    /**
      * @var int
      */
     private int $orderId;
@@ -283,6 +288,22 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
             }
         }
 
+        if (count($this->discounts)) {
+            $discounts = [];
+            foreach ($this->discounts as $discount) {
+                $innerItem = $this->containerMapper->toArray($discount);
+                if (!count($innerItem)){
+                    continue;
+                }
+
+                $discounts[] = $innerItem;
+            }
+
+            if (count($discounts)) {
+                $this->returns['Discounts'] = $discounts;
+            }
+        }
+
         return $this->returns;
     }
 
@@ -302,5 +323,23 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     public function getPaymentTransactionId(): int
     {
         return $this->paymentTransactionId;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getDiscounts()
+    {
+        return $this->discounts;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setDiscounts($discounts)
+    {
+        $this->discounts = $discounts;
+
+        return $this;
     }
 }

@@ -21,6 +21,7 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\CreditMemoItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\RefundFeeBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler;
 use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
+use Qliro\QliroOne\Model\QliroOrder\Builder\RefundDiscountBuilder;
 
 class ReturnWithItemsBuilder
 {
@@ -84,6 +85,11 @@ class ReturnWithItemsBuilder
      */
     private $invoiceFeeTotalValidator;
 
+    /**
+     * @var RefundDiscountBuilder
+     */
+    private $refundDiscountBuilder;
+
 
     /**
      * Inject dependencies
@@ -99,6 +105,7 @@ class ReturnWithItemsBuilder
      * @param RefundFeeBuilder $refundFeeBuilder
      * @param InvoiceFeeHandler $invoiceFeeHandler
      * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
+     * @param RefundDiscountBuilder $refundDiscountBuilder
      */
     public function __construct(
         LinkRepositoryInterface                     $linkRepository,
@@ -111,7 +118,8 @@ class ReturnWithItemsBuilder
         CreditMemoItemsBuilder                      $creditMemoItemsBuilder,
         RefundFeeBuilder                            $refundFeeBuilder,
         InvoiceFeeHandler                           $invoiceFeeHandler,
-        InvoiceFeeTotalValidatorInterface           $invoiceFeeTotalValidator
+        InvoiceFeeTotalValidatorInterface           $invoiceFeeTotalValidator,
+        RefundDiscountBuilder                       $refundDiscountBuilder
     )
     {
         $this->linkRepository = $linkRepository;
@@ -125,6 +133,7 @@ class ReturnWithItemsBuilder
         $this->refundFeeBuilder = $refundFeeBuilder;
         $this->invoiceFeeHandler = $invoiceFeeHandler;
         $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
+        $this->refundDiscountBuilder = $refundDiscountBuilder;
     }
 
 
@@ -197,6 +206,10 @@ class ReturnWithItemsBuilder
                 $orderItems
             )->setFees(
                 $this->refundFeeBuilder
+                    ->setCreditMemo($this->payment->getCreditmemo())
+                    ->create()
+            )->setDiscounts(
+                $this->refundDiscountBuilder
                     ->setCreditMemo($this->payment->getCreditmemo())
                     ->create()
             );

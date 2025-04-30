@@ -402,9 +402,15 @@ class Payment extends AbstractManagement
             foreach ($return as $inner) {
                 if (is_array($inner) && isset($inner['PricePerItemIncVat'])) {
                     $innerSum = $inner['PricePerItemIncVat'] * $inner['Quantity'];
-                    if ($type === 'Fees' && $inner['MerchantReference'] == 'ReturnFee') {
-                        $innerSum = -abs($innerSum);
+                    switch ($type) {
+                        case 'Fees':
+                            $innerSum = -abs($innerSum);
+                            break;
+                        default:
+                            $innerSum = abs($innerSum);
+                            break;
                     }
+
                     $sum += $innerSum;
                 }
             }

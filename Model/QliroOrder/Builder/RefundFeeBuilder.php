@@ -84,8 +84,10 @@ class RefundFeeBuilder
         $container = $this->qliroOrderItemFactory->create();
         if ($this->creditMemo->getAdjustmentNegative() > 0) {
             /** @var QliroOrderItemInterface $container */
-            $container->setMerchantReference('ReturnFee');
-            $container->setDescription('Return Fee');
+            $container->setMerchantReference(
+                sprintf("ReturnFee_%s", $this->creditMemo->getOrder()->getCreditmemosCollection()->getSize())
+            );
+            $container->setDescription('Adjustment Fee');
             $container->setPricePerItemIncVat(abs($this->creditMemo->getAdjustmentNegative()));
             $container->setPricePerItemExVat(abs($this->creditMemo->getAdjustmentNegative()));
             $container->setQuantity(1);

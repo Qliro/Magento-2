@@ -109,4 +109,15 @@ interface AdminReturnWithItemsRequestInterface extends ContainerInterface
      * @return int
      */
     public function getPaymentTransactionId(): int;
+
+    /**
+     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     */
+    public function getDiscounts();
+
+    /**
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
+     * @return $this
+     */
+    public function setDiscounts($value);
 }
