@@ -181,7 +181,7 @@ class ReturnWithItemsBuilder
             }
 
             if ($this->invoiceFeeTotalValidator->setCreditMemo(
-                $this->payment->getCreditmemo())->validate(true)
+                $this->payment->getCreditmemo())->validate(true, true)
             ) {
                 $orderItems = $this->invoiceFeeHandler->handle($orderItems, $order);
             }

@@ -13,38 +13,68 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
     protected CreditmemoInterface $creditMemo;
 
     /**
+     * @var float
+     */
+    private $totalFee;
+
+    /**
      * @inheritDoc
      */
-    public function validate(bool $useQtyRefundedOnly = false)
+    public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false)
     {
         if (!$this->getCreditMemo()) {
             return false;
         }
 
-        $result = true;
-        foreach ($this->getCreditMemo()->getItems() as $creditMemoItem) {
-            if ($useQtyRefundedOnly) {
-                if ($creditMemoItem->getOrderItem()->getQtyRefunded() != $creditMemoItem->getOrderItem()->getQtyInvoiced()) {
-                    $result = false;
-                    break;
-                }
-            } else {
-                if (($creditMemoItem->getQty() + $creditMemoItem->getOrderItem()->getQtyRefunded()
-                    != $creditMemoItem->getOrderItem()->getQtyInvoiced())) {
-                    $result = false;
-                    break;
-                }
+        if ($this->getOrderFeesTotal() == 0) {
+            return false;
+        }
+
+        if ($useQtyRefundedOnly) {
+            return $this->getCreditMemo()->getOrder()->getTotalInvoiced() <= $this->getCreditMemo()->getOrder()->getTotalRefunded();
+        }
+
+        $orderGrandTotal = $this->getCreditMemo()->getOrder()->getTotalInvoiced() - $this->getOrderFeesTotal();
+
+        $totalRefunded = floatval($this->getCreditMemo()->getOrder()->getTotalRefunded());
+        $totalCreditMemo = floatval($this->getCreditMemo()->getGrandTotal());
+        $fee = $this->getOrderFeesTotal();
+        $orderTotalRefunded = $feeIsAddedAsTotal ? $totalRefunded + $totalCreditMemo - $fee : $totalRefunded + $totalCreditMemo;
+
+        if ($orderGrandTotal <= $orderTotalRefunded) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Calculates and retrieves the total fees associated with an order.
+     *
+     * If the fees have already been calculated and cached in the $totalFee property,
+     * the method returns this value directly. Otherwise, it calculates the total
+     * by summing up the prices (including VAT) from the payment's additional information,
+     * caches the result, and then returns it.
+     *
+     * @return float The total fees for the order, including VAT.
+     */
+    private function getOrderFeesTotal()
+    {
+        if (!$this->totalFee) {
+            $feeTotal = floatval(0);
+            $qlirooneFees = $this->getCreditMemo()->getOrder()->getPayment()->getAdditionalInformation('qliroone_fees');
+            if (!is_array($qlirooneFees) || !count($qlirooneFees)) {
+                $this->totalFee = $feeTotal;
+                return $this->totalFee;
+            }
+
+            foreach ($qlirooneFees as $qlirooneFee) {
+                $this->totalFee = $this->totalFee + floatval($qlirooneFee['PricePerItemIncVat']);
             }
 
         }
 
-        if ($result &&
-            $this->getCreditMemo()->getOrder()->getShippingRefunded() == 0 &&
-            ($this->getCreditMemo()->getShippingInclTax() != $this->getCreditMemo()->getOrder()->getShippingInclTax())) {
-            $result = false;
-        }
-
-        return $result;
+        return $this->totalFee;
     }
 
     /**

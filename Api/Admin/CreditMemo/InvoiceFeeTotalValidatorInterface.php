@@ -7,13 +7,14 @@ use Magento\Sales\Api\Data\CreditmemoInterface;
 interface InvoiceFeeTotalValidatorInterface
 {
     /**
-     * Validates the given data based on the provided flag.
+     * Validates the provided data or configuration.
      *
+     * @param bool $feeIsAddedAsTotal Indicates whether the fee is added as a total.
      * @param bool $useQtyRefundedOnly Flag to determine if validation should only consider refunded quantities.
      * @return bool
      *
      */
-    public function validate(bool $useQtyRefundedOnly = false);
+    public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false);
 
     /**
      * Sets the credit memo object.

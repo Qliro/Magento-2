@@ -13,7 +13,7 @@
     </section>
     <section name="order_creditmemo">
         <group name="totals">
-            <item name="qliroone_fees" instance="Qliro\QliroOne\Model\Order\Total\Creditmemo\Fee" sort_order="210"/>
+            <item name="qliroone_fees" instance="Qliro\QliroOne\Model\Order\Total\Creditmemo\Fee" sort_order="999"/>
         </group>
     </section>
 </config>

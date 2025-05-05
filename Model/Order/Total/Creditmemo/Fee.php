@@ -42,7 +42,7 @@ class Fee extends AbstractTotal
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
         $qliroFeeTotal = 0;
 
-        if (is_array($qlirooneFees) && $this->invoiceFeeTotalValidator->setCreditMemo($creditmemo)->validate()) {
+        if (is_array($qlirooneFees) && $this->invoiceFeeTotalValidator->setCreditMemo($creditmemo)->validate(false)) {
             foreach ($qlirooneFees as $qlirooneFee) {
                 $qliroFeeTotal += $qlirooneFee["PricePerItemIncVat"];
             }
