@@ -132,7 +132,9 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         try {
             $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
             if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME && $shippingPrice
-                && $this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+                && ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())
+                    || $this->qliroConfig->isIngridEnabled($quote->getStoreId()))
+            ) {
                 $taxPercentage = 0;
                 $taxes = $quote->getShippingAddress()->getAppliedTaxes();
                 if (is_array($taxes) && count($taxes) > 0) {
