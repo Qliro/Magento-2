@@ -31,17 +31,20 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
         }
 
         if ($useQtyRefundedOnly) {
-            return $this->getCreditMemo()->getOrder()->getTotalInvoiced() <= $this->getCreditMemo()->getOrder()->getTotalRefunded();
+            return bccomp(
+                $this->getCreditMemo()->getInvoice()->getBaseTotalRefunded(),
+                $this->getCreditMemo()->getInvoice()->getGrandTotal()
+            ) != -1;
         }
 
-        $orderGrandTotal = $this->getCreditMemo()->getOrder()->getTotalInvoiced() - $this->getOrderFeesTotal();
+        $invoiceGrandTotal = $this->getCreditMemo()->getInvoice()->getGrandTotal() - $this->getOrderFeesTotal();
 
-        $totalRefunded = floatval($this->getCreditMemo()->getOrder()->getTotalRefunded());
+        $totalRefunded = floatval($this->getCreditMemo()->getInvoice()->getBaseTotalRefunded());
         $totalCreditMemo = floatval($this->getCreditMemo()->getGrandTotal());
         $fee = $this->getOrderFeesTotal();
         $orderTotalRefunded = $feeIsAddedAsTotal ? $totalRefunded + $totalCreditMemo - $fee : $totalRefunded + $totalCreditMemo;
 
-        if ($orderGrandTotal <= $orderTotalRefunded) {
+        if (bccomp($orderTotalRefunded, $invoiceGrandTotal) != -1) {
             return true;
         }
 
