@@ -1,5 +1,10 @@
 
 # Change Log
+## [1.6.1] - 2025-05-07
+
+### Fixed
+
+- Fix db_schema.xml file. Remove duplicated index definition and unnecessary 'length' attributes from specific columns
 
 ## [1.6.0] - 2025-05-07
 

@@ -35,7 +35,7 @@
         <column xsi:type="varchar" name="qliro_order_status" nullable="true" default="InProcess" length="32" comment="QliroOne Order Status" />
         <column xsi:type="int" name="order_id" nullable="true" unsigned="true" comment="Order ID, null before order has been created" />
         <column xsi:type="text" name="quote_snapshot" nullable="false" comment="Quote snapshot signature" />
-        <column xsi:type="text" name="remote_ip" nullable="true" length="32" comment="Client IP when link was created" />
+        <column xsi:type="text" name="remote_ip" nullable="true" comment="Client IP when link was created" />
         <column xsi:type="timestamp" name="created_at" nullable="false"  default="CURRENT_TIMESTAMP" comment="Link creation timestamp" />
         <column xsi:type="timestamp" name="updated_at" nullable="false"  default="CURRENT_TIMESTAMP" comment="Link last update timestamp" />
         <column xsi:type="text" name="message" nullable="true" comment="Latest message or error message" />
@@ -51,7 +51,7 @@
         <index referenceId="QLIROONE_LINK_IS_ACTIVE" indexType="btree">
             <column name="is_active"/>
         </index>
-        <index referenceId="QLIROONE_LINK_ORDER_ID" indexType="btree">
+        <index referenceId="QLIROONE_LINK_QLIRO_ORDER_ID" indexType="btree">
             <column name="qliro_order_id"/>
         </index>
         <index referenceId="QLIROONE_LINK_QUOTE_ID" indexType="btree">
@@ -101,7 +101,7 @@
         <column xsi:type="varchar" name="transaction_status" nullable="true" length="255" comment="Transaction Status" />
         <column xsi:type="varchar" name="notification_status" nullable="true" length="10" comment="Notification Status" />
         <column xsi:type="text" name="message" nullable="true" comment="Possible Message" />
-        <column xsi:type="int" name="qliro_order_id" length="10" unsigned="true" nullable="false" comment="Qliro Order Id" />
+        <column xsi:type="int" name="qliro_order_id" unsigned="true" nullable="false" comment="Qliro Order Id" />
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="id" />
         </constraint>
