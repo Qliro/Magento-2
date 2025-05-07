@@ -8,9 +8,27 @@ namespace Qliro\QliroOne\Model\Order\Total\Creditmemo;
 
 use Magento\Sales\Model\Order\Creditmemo;
 use Magento\Sales\Model\Order\Creditmemo\Total\AbstractTotal;
+use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 
 class Fee extends AbstractTotal
 {
+    /**
+     * @var InvoiceFeeTotalValidatorInterface
+     */
+    private InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator;
+
+    /**
+     * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
+     * @param array $data
+     */
+    public function __construct(
+        InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        array $data = []
+    )
+    {
+        parent::__construct($data);
+        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
+    }
     /**
      * Collect totals
      *
@@ -23,7 +41,8 @@ class Fee extends AbstractTotal
         $order = $creditmemo->getOrder();
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
         $qliroFeeTotal = 0;
-        if (is_array($qlirooneFees)) {
+
+        if (is_array($qlirooneFees) && $this->invoiceFeeTotalValidator->setCreditMemo($creditmemo)->validate(false)) {
             foreach ($qlirooneFees as $qlirooneFee) {
                 $qliroFeeTotal += $qlirooneFee["PricePerItemIncVat"];
             }

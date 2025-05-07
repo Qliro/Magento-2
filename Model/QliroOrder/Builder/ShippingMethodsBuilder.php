@@ -99,6 +99,7 @@ class ShippingMethodsBuilder
             return $container;
         }
 
+        $this->quote->getShippingAddress()->setCollectShippingRates(true)->collectShippingRates();
         $shippingAddress = $this->quote->getShippingAddress();
         $this->quote->collectTotals();
         $rateGroups = $shippingAddress->getGroupedAllShippingRates();

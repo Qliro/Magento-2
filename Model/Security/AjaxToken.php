@@ -37,7 +37,7 @@ class AjaxToken extends CallbackToken
      */
     public function getExpirationTimestamp()
     {
-        return strtotime('+1 hour');
+        return strtotime('+2 hour');
     }
 
     /**

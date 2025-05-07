@@ -108,6 +108,7 @@ class ShippingMethodBuilder
      *
      * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface
      */
+
     public function create()
     {
         if (empty($this->quote)) {
@@ -123,14 +124,14 @@ class ShippingMethodBuilder
         $container = $this->shippingMethodFactory->create();
 
         $priceExVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice(),
+            $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
             false,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
         );
 
         $priceIncVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice(),
+            $this->rate->getPrice() - $shippingAddress->getShippingDiscountAmount(),
             true,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
@@ -157,7 +158,7 @@ class ShippingMethodBuilder
         $container->setPriceIncVat($this->qliroHelper->formatPrice($priceIncVat));
         $container->setPriceExVat($this->qliroHelper->formatPrice($priceExVat));
         $container->setSupportsDynamicSecondaryOptions(false);
-        
+
         $this->eventManager->dispatch(
             'qliroone_shipping_method_build_after',
             [

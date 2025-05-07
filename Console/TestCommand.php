@@ -6,11 +6,16 @@
 
 namespace Qliro\QliroOne\Console;
 
+use Magento\Framework\App\ObjectManagerFactory;
+use Magento\Store\Model\Store;
+use Qliro\QliroOne\Model\Api\ServiceFactory;
 use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Qliro\QliroOne\Model\Api\Service;
+use Qliro\QliroOne\Model\ContainerMapperFactory;
+use Magento\Store\Model\StoreManagerInterface;
 
 /**
  * Class TestCommand
@@ -19,6 +24,44 @@ use Qliro\QliroOne\Model\Api\Service;
 class TestCommand extends AbstractCommand
 {
     const COMMAND_RUN = 'qliroone:api:test';
+
+    /**
+     * @var ServiceFactory
+     */
+    private ServiceFactory $serviceFactory;
+
+    /**
+     * @var ContainerMapperFactory
+     */
+    private ContainerMapperFactory $containerMapperFactory;
+
+    /**
+     * @var QliroOrderCreateRequestInterface
+     */
+    private QliroOrderCreateRequestInterface $orderCreateRequest;
+    private StoreManagerInterface $storeManager;
+
+    /**
+     * @param ObjectManagerFactory $objectManagerFactory
+     * @param ServiceFactory $serviceFactory
+     * @param ContainerMapperFactory $containerMapperFactory
+     * @param QliroOrderCreateRequestInterface $orderCreateRequest
+     * @param StoreManagerInterface $storeManager
+     */
+    public function __construct(
+        ObjectManagerFactory             $objectManagerFactory,
+        ServiceFactory                   $serviceFactory,
+        ContainerMapperFactory           $containerMapperFactory,
+        QliroOrderCreateRequestInterface $orderCreateRequest,
+        StoreManagerInterface $storeManager
+    )
+    {
+        parent::__construct($objectManagerFactory);
+        $this->serviceFactory = $serviceFactory;
+        $this->containerMapperFactory = $containerMapperFactory;
+        $this->orderCreateRequest = $orderCreateRequest;
+        $this->storeManager = $storeManager;
+    }
 
     /**
      * Configure the CLI command
@@ -54,25 +97,24 @@ class TestCommand extends AbstractCommand
         $output->writeln('<comment>Test</comment>');
 
         /** @var Service $service */
-        $service = $this->getObjectManager()->get(Service::class);
+        $service = $this->serviceFactory->create();
 
-        /** @var \Qliro\QliroOne\Model\ContainerMapper $containerMapper */
-        $containerMapper = $this->getObjectManager()->get(ContainerMapper::class);
+        /** @var ContainerMapper $containerMapper */
+        $containerMapper = $this->containerMapperFactory->create();
 
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface $createRequest */
-        $createRequest = $this->getObjectManager()->get(QliroOrderCreateRequestInterface::class);
+        $baseUrl =  $this->storeManager->getStore(Store::DEFAULT_STORE_ID)->getBaseUrl();
 
         $payload = [
-            "MerchantReference" => "211300540",
+            "MerchantReference" => bin2hex(random_bytes(10)),
             "Currency" => "SEK",
             "Country" => "SE",
             "Language" => "sv-se",
-            "MerchantConfirmationUrl" => "http://baw.ddns.net:8080/qliroone/htdocs/sv/checkout/qliro/saveOrder?XDEBUG_SESSION_START=PHPSTORM",
-            "MerchantTermsUrl" => "http://baw.ddns.net:8080/qliroone/htdocs/sv/terms",
-            "MerchantOrderValidationUrl" => "http://baw.ddns.net:8080/qliroone/htdocs/sv/checkout/qliro/validate?XDEBUG_SESSION_START=PHPSTORM",
-            "MerchantOrderAvailableShippingMethodsUrl" => "http://baw.ddns.net:8080/qliroone/htdocs/sv/checkout/qliro/shipping?XDEBUG_SESSION_START=PHPSTORM",
-            "MerchantCheckoutStatusPushUrl" => "http://baw.ddns.net:8080/qliroone/htdocs/qliroapi/order/index/order_id/211300540/token/NmIwMTNmY2Q0YzYwOWE2ZjQ3MzVkMDcyNDMzNTg1ZjMwZDkyMmI1NDhlNDFhN2Q1YWJiZWI1MmVhZWNiYWQwYQ==/",
-            "MerchantOrderManagementStatusPushUrl" => "http://baw.ddns.net:8080/qliroone/htdocs/sv/qliroapi/notification?XDEBUG_SESSION_START=PHPSTORM",
+            "MerchantConfirmationUrl" => $baseUrl . "checkout/qliro/saveOrder?XDEBUG_SESSION_START=PHPSTORM",
+            "MerchantTermsUrl" => $baseUrl . "terms",
+            "MerchantOrderValidationUrl" => $baseUrl . "checkout/qliro/validate?XDEBUG_SESSION_START=PHPSTORM",
+            "MerchantOrderAvailableShippingMethodsUrl" => $baseUrl . "checkout/qliro/shipping?XDEBUG_SESSION_START=PHPSTORM",
+            "MerchantCheckoutStatusPushUrl" => $baseUrl . "qliroapi/order/index/order_id/211300540/token/NmIwMTNmY2Q0YzYwOWE2ZjQ3MzVkMDcyNDMzNTg1ZjMwZDkyMmI1NDhlNDFhN2Q1YWJiZWI1MmVhZWNiYWQwYQ==/",
+            "MerchantOrderManagementStatusPushUrl" => $baseUrl . "qliroapi/notification?XDEBUG_SESSION_START=PHPSTORM",
             "PrimaryColor" => "#000000",
             "CallToActionColor" => "#0000FF",
             "BackgroundColor" => "#FFFFFF",
@@ -89,19 +131,16 @@ class TestCommand extends AbstractCommand
             ],
         ];
 
-        $containerMapper->fromArray($payload, $createRequest);
-
-        $a = 1;
+        $containerMapper->fromArray($payload, $this->orderCreateRequest);
 
         try {
             $response = $service->post('checkout/merchantapi/orders', $payload);
 
             print_r([
-                'headers' => $service->getResponseHeaders(),
                 'response' => $response,
-                'status_code' => $service->getResponseStatusCode(),
-                'reason' => $service->getResponseReason(),
             ]);
+
+            $output->writeln('<comment>API connection successful</comment>');
         } catch (\GuzzleHttp\Exception\RequestException $exception) {
             print_r([
                 'request.uri' => $exception->getRequest()->getUri(),
@@ -113,12 +152,6 @@ class TestCommand extends AbstractCommand
                 'response.body' => $exception->getResponse()->getBody()->getContents(),
             ]);
         }
-
-        //$response = $service->get('checkout/merchantapi/orders/', ['merchantReference' => '211300540']);
-        //if (!is_string($response)) {
-        //    $response = var_export($response, true);
-        //}
-        //$output->writeln("<info>$response</info>");
 
         return 0;
     }

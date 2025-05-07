@@ -353,7 +353,7 @@ class Quote extends AbstractManagement
                     );
                 }
             } else {
-                $this->logManager->debug('Can\'t update QliroOne order');
+                $this->logManager->debug('Order update is skipped due to not suitable order status. Current order status: ' . $link->getQliroOrderStatus());
             }
         } catch (\Exception $exception) {
             $this->logManager->critical(

@@ -283,7 +283,6 @@ class QliroOne implements MethodInterface
      */
     public function refund(InfoInterface $payment, $amount)
     {
-        throw new \Exception("refund - feature not implemented\n");
         return $this->adapter->refund($payment, $amount);
     }
 

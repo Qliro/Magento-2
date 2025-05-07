@@ -7,6 +7,8 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
+use Qliro\QliroOne\Model\ContainerMapper;
 
 /**
  * Return With Items Request class
@@ -34,24 +36,52 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     private $currency;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @var QliroOrderItemInterface[]
      */
     private $orderItems;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @var QliroOrderItemInterface[]
      */
     private $fees;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @var QliroOrderItemInterface[]
      */
     private $discounts;
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @var int
+     */
+    private int $orderId;
+
+    /**
+     * @var int
+     */
+    private int $paymentTransactionId;
+
+    /**
+     * @var array
+     */
+    private array $returns = [];
+
+    /**
+     * @var ContainerMapper
+     */
+    private $containerMapper;
+
+    /**
+     * @param ContainerMapper $containerMapper
+     */
+    public function __construct(
+        ContainerMapper $containerMapper
+    )
+    {
+        $this->containerMapper = $containerMapper;
+    }
+
+    /**
+     * @inheritDoc
      */
     public function getMerchantApiKey()
     {
@@ -59,20 +89,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param string $merchantApiKey
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setMerchantApiKey($merchantApiKey)
+    public function setMerchantApiKey($value)
     {
-        $this->merchantApiKey = $merchantApiKey;
+        $this->merchantApiKey = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return int
+     * @inheritDoc
      */
     public function getPaymentReference()
     {
@@ -80,20 +107,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param int $paymentReference
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setPaymentReference($paymentReference)
+    public function setPaymentReference($value)
     {
-        $this->paymentReference = $paymentReference;
+        $this->paymentReference = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheritDoc
      */
     public function getRequestId()
     {
@@ -101,20 +125,17 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param string $requestId
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setRequestId($requestId)
+    public function setRequestId($value)
     {
-        $this->requestId = $requestId;
+        $this->requestId = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheritDoc
      */
     public function getCurrency()
     {
@@ -122,62 +143,172 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param string $currency
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setCurrency($currency)
+    public function setCurrency($value)
     {
-        $this->currency = $currency;
+        $this->currency = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @inheritDoc
      */
     public function getOrderItems()
     {
-        return $this->orderItems;
+        return null;
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $orderItems
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
     public function setOrderItems($orderItems)
     {
+        if (!count($orderItems)) {
+            return $this;
+        }
+
+        // Convert positive discount numbers to negative
+        foreach ($orderItems as $key => $orderItem) {
+            if ($orderItem->getType() === QliroOrderItemInterface::TYPE_DISCOUNT) {
+                $orderItem->setPricePerItemExVat(-abs($orderItem->getPricePerItemExVat()));
+                $orderItem->setPricePerItemIncVat(-abs($orderItem->getPricePerItemIncVat()));
+            }
+
+        }
+
         $this->orderItems = $orderItems;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @inheritDoc
      */
     public function getFees()
     {
-        return $this->fees;
+        return null;
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $fees
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setFees($fees)
+    public function setFees($value)
     {
-        $this->fees = $fees;
+        $this->fees = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @inheritDoc
+     */
+    public function setOrderId(int $value)
+    {
+        $this->orderId = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getOrderId(): int
+    {
+        return $this->orderId;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setReturns(array $value)
+    {
+        $this->returns = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getReturns(): array
+    {
+        if ($this->paymentTransactionId) {
+            $this->returns['PaymentTransactionId'] = $this->paymentTransactionId;
+        }
+
+        if (count($this->orderItems)) {
+            $orderItems = [];
+            foreach ($this->orderItems as $orderItem) {
+                $innerItem = $this->containerMapper->toArray($orderItem);
+                if (!count($innerItem)){
+                    continue;
+                }
+
+                $orderItems[] = $innerItem;
+            }
+
+            if (count($orderItems)) {
+                $this->returns['OrderItems'] = $orderItems;
+            }
+        }
+
+        if (count($this->fees)) {
+            $fees = [];
+            foreach ($this->fees as $fee) {
+                $innerItem = $this->containerMapper->toArray($fee);
+                if (!count($innerItem)){
+                    continue;
+                }
+
+                $fees[] = $innerItem;
+            }
+
+            if (count($fees)) {
+                $this->returns['Fees'] = $fees;
+            }
+        }
+
+        if (count($this->discounts)) {
+            $discounts = [];
+            foreach ($this->discounts as $discount) {
+                $innerItem = $this->containerMapper->toArray($discount);
+                if (!count($innerItem)){
+                    continue;
+                }
+
+                $discounts[] = $innerItem;
+            }
+
+            if (count($discounts)) {
+                $this->returns['Discounts'] = $discounts;
+            }
+        }
+
+        return $this->returns;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setPaymentTransactionId(int $value)
+    {
+        $this->paymentTransactionId = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function getPaymentTransactionId(): int
+    {
+        return $this->paymentTransactionId;
+    }
+
+    /**
+     * @inheritDoc
      */
     public function getDiscounts()
     {
@@ -185,12 +316,11 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $discounts
-     * @return ReturnWithItemsRequest
+     * @inheritDoc
      */
-    public function setDiscounts($discounts)
+    public function setDiscounts($value)
     {
-        $this->discounts = $discounts;
+        $this->discounts = $value;
 
         return $this;
     }

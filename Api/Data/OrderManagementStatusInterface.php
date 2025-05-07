@@ -28,6 +28,7 @@ interface OrderManagementStatusInterface
      */
     const RECORD_TYPE_SHIPMENT = 'shipment';
     const RECORD_TYPE_PAYMENT = 'payment';
+    const RECORD_TYPE_REFUND = 'refund';
     const RECORD_TYPE_CANCEL = 'cancel';
 
     /**

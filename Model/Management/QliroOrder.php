@@ -334,14 +334,20 @@ class QliroOrder extends AbstractManagement
              */
             try {
                 $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
-                $order = $this->orderRepository->get($link->getOrderId());
-                $request->setMerchantApiKey($this->qliroConfig->getMerchantApiKey($order->getStoreId()));
+                if ($link->getOrderId()) {
+                    $order = $this->orderRepository->get($link->getOrderId());
+                    $storeId = $order->getStoreId();
+                } else {
+                    $quote = $this->quoteRepository->get($link->getQuoteId());
+                    $storeId = $quote->getStoreId();
+                }
+                $request->setMerchantApiKey($this->qliroConfig->getMerchantApiKey($storeId));
             } catch (NoSuchEntityException $exception) {
                 $this->linkRepository->getByQliroOrderId($qliroOrderId, false);
                 throw new LinkInactiveException('This order has already been processed and the link deactivated.');
             }
 
-            $responseContainer = $this->orderManagementApi->cancelOrder($request, $order->getStoreId());
+            $responseContainer = $this->orderManagementApi->cancelOrder($request, $storeId);
 
             /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatus */
             $omStatus = $this->orderManagementStatusInterfaceFactory->create();

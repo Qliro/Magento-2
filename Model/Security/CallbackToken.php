@@ -120,7 +120,8 @@ class CallbackToken
             $this->logManager->debug(
                 'expired {expired} seconds ago',
                 [
-                    'expired' => time() - $expiresAt
+                    'expired' => time() - $expiresAt,
+                    'extra' => array_merge($payload, ['token' => $token])
                 ]
             );
 

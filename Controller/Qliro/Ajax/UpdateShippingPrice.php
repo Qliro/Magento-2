@@ -8,12 +8,14 @@ namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Security\AjaxToken;
+use Magento\Framework\App\ProductMetadataInterface;
 
 /**
  * Update shipping method options AJAX controller action class
@@ -51,15 +53,21 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
     private $logManager;
 
     /**
+     * @var ProductMetadataInterface
+     */
+    private $productMetadata;
+
+    /**
      * Inject dependnecies
      *
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Helper\Data $dataHelper
-     * @param \Qliro\QliroOne\Model\Security\AjaxToken $ajaxToken
-     * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
-     * @param \Magento\Checkout\Model\Session $checkoutSession
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param Context $context
+     * @param Config $qliroConfig
+     * @param Data $dataHelper
+     * @param AjaxToken $ajaxToken
+     * @param ManagementInterface $qliroManagement
+     * @param Session $checkoutSession
+     * @param Manager $logManager
+     * @param ProductMetadataInterface $productMetadata
      */
     public function __construct(
         Context $context,
@@ -68,7 +76,8 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         AjaxToken $ajaxToken,
         ManagementInterface $qliroManagement,
         Session $checkoutSession,
-        Manager $logManager
+        Manager $logManager,
+        ProductMetadataInterface $productMetadata
     ) {
         parent::__construct($context);
         $this->dataHelper = $dataHelper;
@@ -77,6 +86,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         $this->qliroManagement = $qliroManagement;
         $this->checkoutSession = $checkoutSession;
         $this->logManager = $logManager;
+        $this->productMetadata = $productMetadata;
     }
 
     /**
@@ -121,6 +131,21 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
 
         try {
             $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
+            if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME && $shippingPrice
+                && ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())
+                    || $this->qliroConfig->isIngridEnabled($quote->getStoreId()))
+            ) {
+                $taxPercentage = 0;
+                $taxes = $quote->getShippingAddress()->getAppliedTaxes();
+                if (is_array($taxes) && count($taxes) > 0) {
+                    $taxRule = current($taxes);
+                    $taxPercentage = (int)$taxRule['percent'];
+                }
+
+                if ($taxPercentage > 0) {
+                    $shippingPrice = $shippingPrice / (1 +  ($taxPercentage / 100));
+                }
+            }
             $result = $this->qliroManagement->setQuote($quote)->updateShippingPrice($shippingPrice);
         } catch (\Exception $exception) {
             return $this->dataHelper->sendPreparedPayload(
