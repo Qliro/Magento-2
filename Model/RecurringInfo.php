@@ -12,8 +12,6 @@ use Qliro\QliroOne\Api\Data\RecurringInfoInterface;
  * @method string getFrequencyOption()
  * @method self setOriginalOrderId(int $orderId)
  * @method int getOriginalOrderId()
- * @method self setFrequencyOption(string $frequencyOption)
- * @method string getFrequencyOption()
  * @method self setPaymentMethod(string $paymentMethod)
  * @method string getPaymentMethod()
  * @method self setSavedCreditCardId(string $id)
