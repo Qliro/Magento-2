@@ -105,7 +105,10 @@ class ShippingMethod implements QliroOrderShippingMethodInterface
      */
     public function setDisplayName($displayName)
     {
-        $this->displayName = $displayName;
+        $this->displayName = $this->shortenIfTooLong(
+            strval($displayName),
+            self::MAX_LENGTH_DISPLAY_NAME
+        );
 
         return $this;
     }
@@ -189,6 +192,15 @@ class ShippingMethod implements QliroOrderShippingMethodInterface
      */
     public function setDescriptions($descriptions)
     {
+        if (is_array($descriptions) && count($descriptions)) {
+            foreach (array_slice($descriptions, 0, 3) as $key => $description) {
+                $descriptions[$key] = $this->shortenIfTooLong(
+                    strval($description),
+                    self::MAX_LENGTH_DESCRIPTION
+                );
+            }
+        }
+
         $this->descriptions = $descriptions;
 
         return $this;
@@ -210,7 +222,10 @@ class ShippingMethod implements QliroOrderShippingMethodInterface
      */
     public function setBrand($brand)
     {
-        $this->brand = $brand;
+        $this->brand = $this->shortenIfTooLong(
+            strval($brand),
+            self::MAX_LENGTH_BRAND
+        );
 
         return $this;
     }
@@ -297,5 +312,23 @@ class ShippingMethod implements QliroOrderShippingMethodInterface
         $this->supportsDynamicSecondaryOptions = $supportsDynamicSecondaryOptions;
 
         return $this;
+    }
+
+    /**
+     * @param string $string The input string to be checked and potentially shortened.
+     * @param int $maxLength The maximum allowed length for the string, including any suffix.
+     * @return string The string shortened to the maximum length if it exceeds the limit, otherwise the original string.
+     */
+    protected function shortenIfTooLong(string $string, int $maxLength): string
+    {
+        if (strlen($string) <= $maxLength) {
+            return $string;
+        }
+
+        return substr(
+                $string,
+                0,
+                $maxLength - strlen(self::MAX_LENGTH_SUFFIX)
+            ) . self::MAX_LENGTH_SUFFIX;
     }
 }

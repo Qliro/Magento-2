@@ -13,6 +13,14 @@ namespace Qliro\QliroOne\Api\Data;
  */
 interface QliroOrderShippingMethodInterface extends ContainerInterface
 {
+    const MAX_LENGTH_DISPLAY_NAME = 100;
+
+    const MAX_LENGTH_DESCRIPTION = 200;
+
+    const MAX_LENGTH_BRAND = 50;
+
+    const MAX_LENGTH_SUFFIX = '...';
+
     /**
      * @return string
      */
@@ -69,68 +77,68 @@ interface QliroOrderShippingMethodInterface extends ContainerInterface
     public function getSupportsDynamicSecondaryOptions();
 
     /**
-     * @param string $value
+     * @param string $merchantReference
      * @return $this
      */
-    public function setMerchantReference($value);
+    public function setMerchantReference($merchantReference);
 
     /**
-     * @param string $value
+     * @param string $displayName
      * @return $this
      */
-    public function setDisplayName($value);
+    public function setDisplayName($displayName);
 
     /**
-     * @param float $value
+     * @param float $priceIncVat
      * @return $this
      */
-    public function setPriceIncVat($value);
+    public function setPriceIncVat($priceIncVat);
 
     /**
-     * @param float $value
+     * @param float $priceExVat
      * @return $this
      */
-    public function setPriceExVat($value);
+    public function setPriceExVat($priceExVat);
 
     /**
-     * @param float $value
+     * @param float $originalPrice
      * @return $this
      */
-    public function setOriginalPrice($value);
+    public function setOriginalPrice($originalPrice);
 
     /**
-     * @param array $value
+     * @param array $descriptions
      * @return $this
      */
-    public function setDescriptions($value);
+    public function setDescriptions($descriptions);
 
     /**
-     * @param string $value
+     * @param string $brand
      * @return $this
      */
-    public function setBrand($value);
+    public function setBrand($brand);
 
     /**
-     * @param bool $value
+     * @param bool $supportsAccessCode
      * @return $this
      */
-    public function setSupportsAccessCode($value);
+    public function setSupportsAccessCode($supportsAccessCode);
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodOptionInterface[] $value
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodOptionInterface[] $secondaryOptions
      * @return $this
      */
-    public function setSecondaryOptions($value);
+    public function setSecondaryOptions($secondaryOptions);
 
     /**
-     * @param string $value
+     * @param string $shippingFeeMerchantReference
      * @return $this
      */
-    public function setShippingFeeMerchantReference($value);
+    public function setShippingFeeMerchantReference($shippingFeeMerchantReference);
 
     /**
-     * @param bool $value
+     * @param bool $supportsDynamicSecondaryOptions
      * @return $this
      */
-    public function setSupportsDynamicSecondaryOptions($value);
+    public function setSupportsDynamicSecondaryOptions($supportsDynamicSecondaryOptions);
 }
