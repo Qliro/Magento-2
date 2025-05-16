@@ -65,7 +65,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
      */
     public function getStoreId()
     {
-        return $this->getStoreId();
+        return $this->order->getStoreId();
     }
 
     /**

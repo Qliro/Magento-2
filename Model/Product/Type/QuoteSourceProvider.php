@@ -84,7 +84,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      */
     public function getStoreId()
     {
-        return $this->getStoreId();
+        return $this->quote->getStoreId();
     }
 
     /**

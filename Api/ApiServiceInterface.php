@@ -33,7 +33,7 @@ interface ApiServiceInterface
      * @return array
      * @throws \GuzzleHttp\Exception\GuzzleException
      */
-    public function post($endpoint, $data = [], $storeId = nulls);
+    public function post($endpoint, $data = [], $storeId = null);
 
     /**
      * Perform PUT request

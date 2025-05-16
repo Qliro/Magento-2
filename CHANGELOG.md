@@ -1,5 +1,19 @@
 
 # Change Log
+
+## [1.6.2] - 2025-05-15
+
+### Fixed
+
+- Removed redundant `setFrequencyOption` methods and updated `setNextOrderDate` type hints.
+- Corrected a typo in `post` method argument in `ApiServiceInterface`.
+- Replaced `CommandList` with `CommandListInterface` in the DI configuration to align with Magento framework standards. This change ensures better compatibility and adherence to interface-driven programming practices
+- Fixed recursion in `\Qliro\QliroOne\Model\Product\Type\OrderSourceProvider::getStoreId` and `\Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider::getStoreId` methods
+
+### Added
+
+- Enforce length limits on shipping method attributes. Added logic to shorten display name, descriptions, and brand if they exceed predefined length limits. Introduced constants for maximum lengths and a function `shortenIfTooLong` to handle string truncation with a suffix. Updated relevant method signatures for clarity and consistency. 
+
 ## [1.6.1] - 2025-05-07
 
 ### Fixed
