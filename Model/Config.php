@@ -221,14 +221,6 @@ class Config
     }
 
     /**
-     * @return int
-     */
-    public function getLoggingLevel()
-    {
-        return (int)$this->adapter->getConfigData(self::QLIROONE_LOGGING_LEVEL);
-    }
-
-    /**
      * Get payment method title
      *
      * @return string

@@ -16,7 +16,6 @@
                 <eager_checkout_refresh>0</eager_checkout_refresh>
                 <api>
                     <geoip>0</geoip>
-                    <logging>100</logging>
                     <order_status>pending</order_status>
                     <allowspecific>0</allowspecific>
                     <capture_on_shipment>1</capture_on_shipment>
