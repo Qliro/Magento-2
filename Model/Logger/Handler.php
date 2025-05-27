@@ -10,12 +10,10 @@
 namespace Qliro\QliroOne\Model\Logger;
 
 use Monolog\Handler\AbstractProcessingHandler;
-use Monolog\Logger;
-use Qliro\QliroOne\Model\Config;
+use Monolog\LogRecord;
 use Monolog\Formatter\FormatterInterface;
-use Qliro\QliroOne\Model\ResourceModel\LogRecord;
 use Qliro\QliroOne\Api\Data\LogRecordInterface;
-use Qliro\QliroOne\Model\Logger\ConnectionProvider;
+use Qliro\QliroOne\Model\ResourceModel\LogRecord as DbLogRecord;
 
 /**
  * Logger DB handler class
@@ -23,12 +21,7 @@ use Qliro\QliroOne\Model\Logger\ConnectionProvider;
 class Handler extends AbstractProcessingHandler
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $config;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\ConnectionProvider
+     * @var ConnectionProvider
      */
     private $connectionProvider;
 
@@ -36,50 +29,22 @@ class Handler extends AbstractProcessingHandler
      * Handler constructor.
      *
      * @param FormatterInterface $formatter
-     * @param Config $config
-     * @param \Qliro\QliroOne\Model\Logger\ConnectionProvider $connectionProvider
+     * @param ConnectionProvider $connectionProvider
      */
     public function __construct(
         FormatterInterface $formatter,
-        Config $config,
         ConnectionProvider $connectionProvider
     ) {
         $this->formatter = $formatter;
-        $this->config = $config;
+        $this->connectionProvider = $connectionProvider;
 
         parent::__construct();
-        $this->connectionProvider = $connectionProvider;
     }
 
     /**
-     * Make the level be dynamically aware of the configured log level
-     *
-     * @param array $record
-     * @return bool
+     * @param array|LogRecord $record
      */
-    public function isHandling(array $record): bool
-    {
-        return $record['level'] >= $this->getLevel();
-
-    }
-
-    /**
-     * Make the level be dynamically aware of the configured log level
-     *
-     * @return int
-     */
-    public function getLevel(): int
-    {
-        $this->level = Logger::toMonologLevel($this->config->getLoggingLevel());
-
-        return $this->level;
-    }
-
-    /**
-     * @param array $record
-     * @throws \DomainException
-     */
-    protected function write(array $record): void
+    protected function write(array|LogRecord $record): void
     {
         $context = $record['context'];
         $record = $record['formatted'];
@@ -89,7 +54,7 @@ class Handler extends AbstractProcessingHandler
 
         $connection = $this->connectionProvider->getConnection();
         $connection->insert(
-            $connection->getTableName(LogRecord::TABLE_LOG),
+            $connection->getTableName(DbLogRecord::TABLE_LOG),
             [
                 LogRecordInterface::FIELD_DATE => $record['datetime'],
                 LogRecordInterface::FIELD_LEVEL => $record['level_name'],
