@@ -456,16 +456,18 @@ class PlaceOrder extends AbstractManagement
                     break;
 
                 case CheckoutStatusInterface::STATUS_REFUSED:
-                    // Deactivate link regardless of if the upcoming order cancellation successful or not
                     $link->setIsActive(false);
                     $link->setMessage(sprintf('Order #%s marked as canceled', $order->getIncrementId()));
                     $this->linkRepository->save($link);
-                    $this->applyOrderState($order, Order::STATE_NEW);
 
-                    if ($order->canCancel()) {
-                        $order->cancel();
-                        $this->orderRepository->save($order);
-                    }
+                    $order->addCommentToStatusHistory(
+                        'Customer checkout was refused by QLiro. Proceeding with order cancellation.'
+                    )->setIsCustomerNotified(false);
+
+                    $order->getPayment()->setNotificationResult(true);
+                    $order->getPayment()->deny(false);
+
+                    $this->orderRepository->save($order);
 
                     break;
 
