@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.6.3] - 2025-06-09
+
+### Added
+
+- Added 2.4.8 magneto version support
+
+### Removed
+
+- Remove dynamic log level configuration support which breaks `monolog/monolog` api 3 compatibility
+
 ## [1.6.2] - 2025-05-15
 
 ### Fixed

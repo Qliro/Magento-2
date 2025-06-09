@@ -7,6 +7,7 @@
 namespace Qliro\QliroOne\Model\Logger;
 
 use Monolog\Formatter\FormatterInterface;
+use Monolog\LogRecord;
 
 class Formatter implements FormatterInterface
 {
@@ -30,9 +31,11 @@ class Formatter implements FormatterInterface
     /**
      * {@inheritDoc}
      */
-    public function format(array $record)
+    public function format(array|LogRecord $record)
     {
-        return $this->formatArray($record);
+        return $this->formatArray(
+            $record instanceof LogRecord ? $record->toArray() : $record,
+        );
     }
 
     /**

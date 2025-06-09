@@ -41,8 +41,7 @@ All settings here are website-specific.
 
 - **Geo IP** — a flag that enables country detection using current GeoIP functionality on the server.
   By default only built-in PHP GeoIP extension is supported, but there is a way to extend support of custom GeoIP system.
-- **Logging Level** — a level of logging records that are being stored in the log, may be used to reduce versatility
-  of the logging as required.
+
 - **New Order Status** — a status that is used for marking newly placed Magento orders.
 - **Payment from Applicable Countries** — Magento standard countries setting, can limit which countries that can pay
 - **Trigger capture when shipment is created** — makes Magento trigger capturing money on shipment creation.

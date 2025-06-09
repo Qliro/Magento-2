@@ -46,7 +46,7 @@ class Manager
     private $logResource;
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\LinkRepositoryInterface
+     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
      */
     private $linkRepository;
 
@@ -55,7 +55,7 @@ class Manager
      *
      * @param LoggerInterface $psrLogger
      * @param \Qliro\QliroOne\Model\ResourceModel\LogRecord $logResource
-     * @param \Qliro\QliroOne\Model\Logger\LinkRepositoryInterface $linkRepository
+     * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
      */
     public function __construct(
         LoggerInterface $psrLogger,
