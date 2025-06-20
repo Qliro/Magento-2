@@ -10,7 +10,8 @@ define([], function () {
 
     return function (shippingFunction) {
         var result = {};
-        if (window.checkoutConfig.qliro.enabled) {
+
+        if (window.checkoutConfig.qliro.enabled && window.checkoutConfig.qliro.checkoutUrl === window.location.href) {
             result = {defaults: {template: ''}};
         }
         return shippingFunction.extend(result);

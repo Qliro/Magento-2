@@ -80,6 +80,10 @@ class QliroCheckoutRedirect implements ObserverInterface
             'redirect_url' => $this->url->getRouteUrl('checkout/qliro'),
         ]);
 
+        if ($this->qliroConfig->getShowAsPaymentMethod()) {
+            $state->setMustDisable(true);
+        }
+
         $this->manager->dispatch(
             'qliroone_override_load_checkout',
             [

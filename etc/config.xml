@@ -21,7 +21,11 @@
                     <capture_on_shipment>1</capture_on_shipment>
                     <capture_on_invoice>1</capture_on_invoice>
                     <newsletter_signup>0</newsletter_signup>
+                    <newsletter_signup_prechecked>0</newsletter_signup_prechecked>
                     <require_identity_verification>0</require_identity_verification>
+                    <minimum_customer_age/>
+                    <b2b_checkout_only>0</b2b_checkout_only>
+                    <show_as_payment_method>0</show_as_payment_method>
                 </api>
                 <qliro_api>
                     <type>sandbox</type>

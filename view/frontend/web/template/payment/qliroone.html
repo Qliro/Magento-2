@@ -24,14 +24,14 @@
                 <button data-role="review-save"
                         type="submit"
                         data-bind="
-                        attr: {title: $t('Place Order')},
+                        attr: {title: $t('Proceed to Qliro Checkout')},
                         enable: (getCode() == isChecked()),
-                        click: placeOrder,
+                        click: redirectToQliroCheckout,
                         css: {disabled: !isPlaceOrderActionAllowed()}
                         "
                         class="action primary checkout"
                         disabled>
-                    <span data-bind="i18n: 'Place Order'"></span>
+                    <span data-bind="i18n: 'Proceed to Qliro Checkout'"></span>
                 </button>
             </div>
         </div>
