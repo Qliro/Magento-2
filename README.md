@@ -53,6 +53,8 @@ All settings here are website-specific.
   from gift cards to vouchers and various downloadable content.
 - **Minimum Customer Age** - Write the minimum age a person shopping on the site must be. If you enter anything in here
   it becomes mandatory for the customer to identify his age.
+- **Only use B2B checkout on companies** - Set to 'Yes' to enforce B2B checkout for users who have provided a company name in their billing address.
+- **Show as payment method** - If enabled show native magneto checkout with the possibility to select different payment options (not only Qliro). Qliro option stays available on checkout as well
 
 ### CSS Styling Input Fields
 

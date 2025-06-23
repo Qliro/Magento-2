@@ -248,14 +248,17 @@ class CreateRequestBuilder
             $createRequest->setShippingConfiguration($shippingConfig);
         }
 
-        if ($this->session->isLoggedIn()) {
-            $customerInfo = $this->customerBuilder->setCustomer($this->quote->getCustomer())->create();
+        $customerInfo = $this->customerBuilder
+            ->setQuote($this->quote)
+            ->setCustomer($this->session->isLoggedIn() ? $this->quote->getCustomer() : null)
+            ->create();
+
+        if ($customerInfo->getEmail()) {
             $createRequest->setCustomerInformation($customerInfo);
-            
+
             if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
                 $createRequest->setEnforcedJuridicalType($customerInfo->getJuridicalType());
             }
-
         }
 
         $this->quote->getBillingAddress()->setCountryId($createRequest->getCountry());

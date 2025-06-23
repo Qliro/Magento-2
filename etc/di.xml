@@ -78,12 +78,6 @@
         </arguments>
     </type>
 
-    <type name="Qliro\QliroOne\Model\Config\Source\LogLevels">
-        <arguments>
-            <argument name="logger" xsi:type="object">QliroLogger</argument>
-        </arguments>
-    </type>
-
     <virtualType name="QliroLogger" type="Magento\Framework\Logger\Monolog">
         <arguments>
             <argument name="name" xsi:type="string">qliroone_logger</argument>
