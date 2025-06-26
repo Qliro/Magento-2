@@ -14,7 +14,6 @@ use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
-use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
 
 /**
  * Quote Source Provider class
@@ -52,31 +51,23 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $recurringDataService;
 
     /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
      * @param Config $config
      * @param RecurringDataService $recurringDataService
-     * @param ProductNameResolverInterface $productNameResolver
      */
     public function __construct(
         ProductPool $productPool,
         TypeSourceItemInterfaceFactory $typeSourceItemFactory,
         Config $config,
         RecurringDataService $recurringDataService,
-        ProductNameResolverInterface $productNameResolver
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
         $this->config = $config;
         $this->recurringDataService = $recurringDataService;
-        $this->productNameResolver = $productNameResolver;
     }
 
     /**
@@ -162,13 +153,9 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
             $sourceItem = $this->typeSourceItemFactory->create();
 
             $sourceItem->setId($item->getItemId());
-            $sourceItem->setName($this->productNameResolver->getName($item));
-            $sourceItem->setPriceInclTax(
-                ($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $quantity
-            );
-            $sourceItem->setPriceExclTax(
-                ($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $quantity
-            );
+            $sourceItem->setName($item->getName());
+            $sourceItem->setPriceInclTax($item->getRowTotalInclTax() / $quantity);
+            $sourceItem->setPriceExclTax($item->getRowTotal() / $quantity);
             $sourceItem->setQty($item->getQty());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());

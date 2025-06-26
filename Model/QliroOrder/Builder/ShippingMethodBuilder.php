@@ -124,14 +124,14 @@ class ShippingMethodBuilder
         $container = $this->shippingMethodFactory->create();
 
         $priceExVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
+            $this->rate->getPrice(),
             false,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
         );
 
         $priceIncVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() - $shippingAddress->getShippingDiscountAmount(),
+            $this->rate->getPrice(),
             true,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()

@@ -60,9 +60,18 @@
         </arguments>
     </type>
 
+    <type name="Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\Handler\AppliedRulesHandler</item>
+            </argument>
+        </arguments>
+    </type>
+
     <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder">
         <arguments>
             <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
                 <item name="invoice_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler</item>
             </argument>
@@ -72,6 +81,7 @@
     <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentShipmentsBuilder">
         <arguments>
             <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
                 <item name="invoice_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler</item>
             </argument>
@@ -222,8 +232,6 @@
     <preference for="Qliro\QliroOne\Api\Data\RecurringInfoInterface" type="Qliro\QliroOne\Model\RecurringInfo" />
     <preference for="Qliro\QliroOne\Api\RecurringInfoRepositoryInterface" type="Qliro\QliroOne\Model\RecurringInfoRepository" />
 
-    <preference for="Qliro\QliroOne\Api\Product\ProductNameResolverInterface" type="Qliro\QliroOne\Model\Product\ProductNameResolver" />
-
     <type name="Magento\Framework\App\Request\CsrfValidator">
         <plugin name="qliroone_onepage_csrf_validator_skip" type="Qliro\QliroOne\Plugin\Callbacks\CsrfValidatorSkip" />
     </type>
@@ -247,10 +255,27 @@
         </arguments>
     </type>
 
+    <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
+            </argument>
+        </arguments>
+    </type>
+
     <type name="Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentShipmentsBuilder">
         <arguments>
             <argument name="handlers" xsi:type="array">
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
+            </argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\QliroOrder\Builder\CreditMemoItemsBuilder">
+        <arguments>
+            <argument name="handlers" xsi:type="array">
+                <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\Handler\AppliedRulesHandler</item>
             </argument>
         </arguments>
     </type>

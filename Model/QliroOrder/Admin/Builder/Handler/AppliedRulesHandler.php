@@ -6,18 +6,17 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler;
 
+use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
 
 /**
- * Shipping Fee Handler class for order items builder
+ * Applied Rules Handler class for order items builder
  */
-class ShippingFeeHandler implements OrderItemHandlerInterface
+class AppliedRulesHandler implements OrderItemHandlerInterface
 {
-    const MERCHANT_REFERENCE_CODE_FIELD = 'qliro_shipping_merchant_ref';
-
     /**
      * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
      */
@@ -52,30 +51,39 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
      */
     public function handle($orderItems, $order)
     {
-        // @todo Handle invoiced and refunded shipping
         if (!$order->getFirstCaptureFlag()) {
             return $orderItems;
         }
+        $arrayAppliedRules = sprintf('DSC_%s', \str_replace(',', '_', (string)$order->getAppliedRuleIds()));
+        $discountAmount = (float)$order->getDiscountAmount();
 
-        $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
-        $merchantReference = $paymentAdditionalInfo[self::MERCHANT_REFERENCE_CODE_FIELD] ?? false;
+        $formattedAmount = $this->qliroHelper->formatPrice($discountAmount);
 
-        $inclTax = (float)$order->getShippingAmount() + $order->getShippingTaxAmount();
-        $exclTax = (float)$order->getShippingAmount();
+        if ($discountAmount) {
+            $discountAmountWithoutVat = $discountAmount;
+            try {
+                $rates = $order->getShippingAddress()->getAppliedTaxes();
+                if ($rates && is_array($rates)) {
+                    $rate = current($rates);
+                    if (isset($rate['percent'])) {
+                        $percent = (int)$rate['percent'];
+                        $discountAmountWithoutVat = ($discountAmount/ (100 + $percent)) * 100;
+                    }
+                }
+            } catch (NoSuchEntityException $e) {
+                // Do nothing
+            }
+            $formattedAmountWithoutVat = $this->qliroHelper->formatPrice($discountAmountWithoutVat);
 
-        $formattedInclAmount = $this->qliroHelper->formatPrice($inclTax);
-        $formattedExclAmount = $this->qliroHelper->formatPrice($exclTax);
-
-        if ($merchantReference) {
             /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem */
             $qliroOrderItem = $this->qliroOrderItemFactory->create();
 
-            $qliroOrderItem->setMerchantReference($merchantReference);
-            $qliroOrderItem->setDescription($merchantReference);
-            $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_SHIPPING);
+            $qliroOrderItem->setMerchantReference($arrayAppliedRules);
+            $qliroOrderItem->setDescription($arrayAppliedRules);
+            $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_DISCOUNT);
             $qliroOrderItem->setQuantity(1);
-            $qliroOrderItem->setPricePerItemIncVat($formattedInclAmount);
-            $qliroOrderItem->setPricePerItemExVat($formattedExclAmount);
+            $qliroOrderItem->setPricePerItemIncVat(-\abs($formattedAmount));
+            $qliroOrderItem->setPricePerItemExVat(-\abs($formattedAmountWithoutVat));
 
             $orderItems[] = $qliroOrderItem;
         }

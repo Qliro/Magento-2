@@ -11,7 +11,6 @@ use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
-use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
 
 /**
  * Order Source Provider class
@@ -39,25 +38,17 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     private $typeSourceItemFactory;
 
     /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
-     * @param ProductNameResolverInterface $productNameResolver
      */
     public function __construct(
         ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
-        ProductNameResolverInterface $productNameResolver
+        TypeSourceItemInterfaceFactory $typeSourceItemFactory
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
-        $this->productNameResolver = $productNameResolver;
     }
 
     /**
@@ -141,9 +132,9 @@ class OrderSourceProvider implements TypeSourceProviderInterface
             $sourceItem = $this->typeSourceItemFactory->create();
 
             $sourceItem->setId($item->getQuoteItemId());
-            $sourceItem->setName($this->productNameResolver->getName($item));
-            $sourceItem->setPriceInclTax(($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $item->getQtyOrdered());
-            $sourceItem->setPriceExclTax(($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $item->getQtyOrdered());
+            $sourceItem->setName($item->getName());
+            $sourceItem->setPriceInclTax($item->getRowTotalInclTax() / $quantity);
+            $sourceItem->setPriceExclTax($item->getRowTotal() / $quantity);
             $sourceItem->setQty($item->getQtyOrdered());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());
