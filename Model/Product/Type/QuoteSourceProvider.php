@@ -15,6 +15,7 @@ use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
+use Magento\Tax\Helper\Data as TaxHelper;
 
 /**
  * Quote Source Provider class
@@ -57,6 +58,11 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $productNameResolver;
 
     /**
+     * @var TaxHelper
+     */
+    private $taxHelper;
+
+    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
@@ -64,19 +70,22 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      * @param Config $config
      * @param RecurringDataService $recurringDataService
      * @param ProductNameResolverInterface $productNameResolver
+     * @param TaxHelper $taxHelper
      */
     public function __construct(
         ProductPool $productPool,
         TypeSourceItemInterfaceFactory $typeSourceItemFactory,
         Config $config,
         RecurringDataService $recurringDataService,
-        ProductNameResolverInterface $productNameResolver
+        ProductNameResolverInterface $productNameResolver,
+        TaxHelper $taxHelper,
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
         $this->config = $config;
         $this->recurringDataService = $recurringDataService;
         $this->productNameResolver = $productNameResolver;
+        $this->taxHelper = $taxHelper;
     }
 
     /**
@@ -163,12 +172,23 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
 
             $sourceItem->setId($item->getItemId());
             $sourceItem->setName($this->productNameResolver->getName($item));
-            $sourceItem->setPriceInclTax(
-                ($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $quantity
-            );
-            $sourceItem->setPriceExclTax(
-                ($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $quantity
-            );
+
+            if ($this->taxHelper->discountTax($item->getStore())) {
+                $sourceItem->setPriceInclTax(
+                    ($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $quantity
+                );
+                $sourceItem->setPriceExclTax(
+                    ($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $quantity
+                );
+            } else {
+                $sourceItem->setPriceInclTax(
+                    ($item->getRowTotal() - $item->getDiscountAmount() + $item->getTaxAmount()) / $quantity
+                );
+                $sourceItem->setPriceExclTax(
+                    ($item->getRowTotal() - $item->getDiscountAmount()) / $quantity
+                );
+            }
+
             $sourceItem->setQty($item->getQty());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());
