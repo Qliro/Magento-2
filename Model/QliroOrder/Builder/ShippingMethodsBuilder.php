@@ -8,6 +8,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
@@ -100,41 +101,14 @@ class ShippingMethodsBuilder
         }
 
         $this->quote->getShippingAddress()->setCollectShippingRates(true)->collectShippingRates();
-        $shippingAddress = $this->quote->getShippingAddress();
         $this->quote->collectTotals();
-        $rateGroups = $shippingAddress->getGroupedAllShippingRates();
 
         $collectedShippingMethods = [];
 
         if ($this->quote->getIsVirtual()) {
             $container->setAvailableShippingMethods($collectedShippingMethods);
         } else {
-            foreach ($rateGroups as $group) {
-                /** @var \Magento\Quote\Model\Quote\Address\Rate $rate */
-                foreach ($group as $rate) {
-                    if (substr($rate->getCode(), -6) === '_error') {
-                        continue;
-                    }
-
-                    $this->shippingMethodBuilder->setQuote($this->quote);
-
-                    /** @var \Magento\Store\Api\Data\StoreInterface */
-                    $store = $this->storeManager->getStore();
-                    $amountPrice = $store->getBaseCurrency()
-                        ->convert($rate->getPrice(), $store->getCurrentCurrencyCode());
-                    $rate->setPrice($amountPrice);
-
-                    $this->shippingMethodBuilder->setShippingRate($rate);
-                    $shippingMethodContainer = $this->shippingMethodBuilder->create();
-
-                    if (!$shippingMethodContainer->getMerchantReference()) {
-                        continue;
-                    }
-
-                    $collectedShippingMethods[] = $shippingMethodContainer;
-                }
-            }
-
+            $collectedShippingMethods = $this->collectShippingMethods();
             if (empty($collectedShippingMethods)) {
                 $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
             } else {
@@ -154,4 +128,81 @@ class ShippingMethodsBuilder
 
         return $container;
     }
+
+    /**
+     * Collects and processes available shipping methods for the current quote.
+     *
+     * Gathers the shipping rates grouped by method and converts them into a structured format
+     * while filtering out invalid or error-related shipping methods. Adjusts prices based on
+     * the current store's currency and builds the corresponding shipping method containers.
+     *
+     * @return array Returns an array of processed shipping method objects that include
+     *               valid merchant references and adjusted pricing details.
+     */
+     protected function collectShippingMethods(): array
+     {
+         $shippingMethods = [];
+         $rateGroups = $this->quote->getShippingAddress()->getGroupedAllShippingRates();
+
+         foreach ($rateGroups as $group) {
+             /** @var Rate $rate */
+             foreach ($group as $rate) {
+                 if (substr($rate->getCode(), -6) === '_error') {
+                     continue;
+                 }
+
+                 $this->shippingMethodBuilder->setQuote($this->quote);
+
+                 /** @var \Magento\Store\Api\Data\StoreInterface */
+                 $store = $this->storeManager->getStore();
+                 $amountPrice = $store->getBaseCurrency()
+                     ->convert($rate->getPrice(), $store->getCurrentCurrencyCode());
+                 $rate->setPrice($amountPrice);
+
+                 $this->shippingMethodBuilder->setShippingRate($rate);
+                 $shippingMethodContainer = $this->shippingMethodBuilder->create();
+
+                 if (!$shippingMethodContainer->getMerchantReference()) {
+                     continue;
+                 }
+
+                 $shippingMethods[] = $shippingMethodContainer;
+             }
+         }
+
+         return $this->reorderShippingMethods($shippingMethods);
+     }
+
+    /**
+     * Reorder shipping methods to prioritize the preselected method
+     *
+     * Preselected shipping method used only with qliro as a payment option.
+     * See $this->qliroConfig->getShowAsPaymentMethod()
+     *
+     * Qliro iframe uses the first provided shipping method to preselect.
+     * That is why we move the preselected method to the top of the array
+     *
+     * @param array $shippingMethods List of shipping methods to be reordered
+     * @return array Reordered list of shipping methods
+     */
+     protected function reorderShippingMethods(array $shippingMethods) : array
+     {
+         if (!count($shippingMethods) || !$this->qliroConfig->getShowAsPaymentMethod()) {
+             return $shippingMethods;
+         }
+
+         $preselectedMethod = $this->quote->getShippingAddress()->getShippingMethod();
+         foreach ($shippingMethods as $index => $method) {
+             if (method_exists($method, 'getMerchantReference') &&
+                 $method->getMerchantReference() === $preselectedMethod) {
+
+                 $preferred = $shippingMethods[$index];
+                 unset($shippingMethods[$index]);
+                 array_unshift($shippingMethods, $preferred);
+                 break;
+             }
+         }
+
+         return array_values($shippingMethods);
+     }
 }

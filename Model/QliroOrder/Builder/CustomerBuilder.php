@@ -167,11 +167,11 @@ class CustomerBuilder
         $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
 
         $qliroOrderCustomer->setEmail($address->getEmail());
-        $qliroOrderCustomer->setLockCustomerEmail(false);
         $qliroOrderCustomer->setMobileNumber($address->getTelephone());
-        $qliroOrderCustomer->setLockCustomerMobileNumber(false);
         $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
-        $qliroOrderCustomer->setLockCustomerInformation(true);
+        $qliroOrderCustomer->setLockCustomerEmail(false);
+        $qliroOrderCustomer->setLockCustomerMobileNumber(false);
+        $qliroOrderCustomer->setLockCustomerInformation(false);
         $qliroOrderCustomer->setLockCustomerAddress(false);
 
         $qliroOrderCustomer->setJuridicalType(
