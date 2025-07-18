@@ -101,10 +101,39 @@ class CustomerBuilder
      */
     public function create()
     {
-        /** @var QliroOrderCustomerInterface $qliroOrderCustomer */
-        $qliroOrderCustomer = $this->extractVisitorData(
-            $this->extractDataFromCustomer($this->orderCustomerFactory->create())
-        );
+        $qliroOrderCustomer = $this->orderCustomerFactory->create();
+
+        if (!$this->quote) {
+            $this->customer = null;
+            $this->quote = null;
+            return $qliroOrderCustomer;
+        }
+
+        try {
+            if ($address = $this->getAddress()) {
+                $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
+                $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
+                $qliroOrderCustomer->setLockCustomerAddress(false);
+                $qliroOrderCustomer->setJuridicalType(
+                    $qliroOrderCustomerAddress->getCompanyName() ? QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY
+                        : QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL
+                );
+            }
+        } catch (LocalizedException $e) {
+            $this->customer = null;
+            $this->quote = null;
+            return $qliroOrderCustomer;
+        }
+
+        if ($email = $this->getEmail()) {
+            $qliroOrderCustomer->setEmail($email);
+            $qliroOrderCustomer->setLockCustomerEmail((bool)$this->customer);
+        }
+
+        if ($mobileNumber = $this->getMobileNumber()) {
+            $qliroOrderCustomer->setMobileNumber($mobileNumber);
+            $qliroOrderCustomer->setLockCustomerMobileNumber(false);
+        }
 
         $this->customer = null;
         $this->quote = null;
@@ -113,72 +142,51 @@ class CustomerBuilder
     }
 
     /**
-     * Extract data from the given Qliro order customer.
-     *
-     * @param QliroOrderCustomerInterface $qliroOrderCustomer The provided Qliro order customer instance.
-     * @return QliroOrderCustomerInterface The provided Qliro order customer instance.
+     * @return \Magento\Customer\Model\Address|Quote\Address|null
      */
-    protected function extractDataFromCustomer(QliroOrderCustomerInterface $qliroOrderCustomer)
+    protected function getAddress()
     {
-        if (empty($this->customer)) {
-            return $qliroOrderCustomer;
+        $shippingAddress = $this->quote->getShippingAddress();
+        if ($this->qliroConfig->getShowAsPaymentMethod()) {
+            return $shippingAddress;
         }
 
-        try {
-            $addressId = $this->customer->getDefaultBilling();
-            $address = $this->addressFactory->create()->load($addressId);
-        } catch (LocalizedException $e) {
-            return $qliroOrderCustomer;
+        if (is_object($this->customer) && $this->customer->getDefaultBilling()) {
+            return $this->addressFactory->create()->load($this->customer->getDefaultBilling());
         }
 
-        $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
-
-        $qliroOrderCustomer->setEmail($this->customer->getEmail());
-        $qliroOrderCustomer->setMobileNumber(null);
-        $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
-        $qliroOrderCustomer->setLockCustomerEmail(true);
-        $qliroOrderCustomer->setLockCustomerMobileNumber(false);
-        $qliroOrderCustomer->setLockCustomerAddress(false);
-        $qliroOrderCustomer->setJuridicalType(
-            $qliroOrderCustomerAddress->getCompanyName() ? QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY
-                : QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL
-        );
-
-        return $qliroOrderCustomer;
+        return null;
     }
 
     /**
-     * Extract visitor data from the given quote.
-     *
-     * @param QliroOrderCustomerInterface $qliroOrderCustomer The provided Qliro order customer instance.
-     * @return QliroOrderCustomerInterface The provided Qliro order customer instance.
+     * @return string|null
      */
-    protected function extractVisitorData(QliroOrderCustomerInterface $qliroOrderCustomer)
+    protected function getEmail()
     {
-        if (!$this->quote || !$this->qliroConfig->getShowAsPaymentMethod()) {
-            return $qliroOrderCustomer;
+        if ($this->customer && $this->customer->getEmail()) {
+            return $this->customer->getEmail();
         }
 
-        $address = $this->quote->getBillingAddress();
-        if (!$address) {
-            return $qliroOrderCustomer;
+        if ($this->quote->getShippingAddress() && $this->quote->getShippingAddress()->getEmail()) {
+            return $this->quote->getShippingAddress()->getEmail();
         }
 
-        $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
+        if ($this->quote->getBillingAddress() && $this->quote->getBillingAddress()->getEmail()) {
+            return $this->quote->getBillingAddress()->getEmail();
+        }
 
-        $qliroOrderCustomer->setEmail($address->getEmail());
-        $qliroOrderCustomer->setMobileNumber($address->getTelephone());
-        $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
-        $qliroOrderCustomer->setLockCustomerEmail(false);
-        $qliroOrderCustomer->setLockCustomerMobileNumber(false);
-        $qliroOrderCustomer->setLockCustomerInformation(false);
-        $qliroOrderCustomer->setLockCustomerAddress(false);
+        return null;
+    }
 
-        $qliroOrderCustomer->setJuridicalType(
-            $qliroOrderCustomerAddress->getCompanyName() ? QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY
-                : QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL
-        );
+    /**
+     * @return string|null
+     */
+    protected function getMobileNumber()
+    {
+        if ($this->quote->getShippingAddress()) {
+            return $this->quote->getShippingAddress()->getTelephone();
+        }
 
-        return $qliroOrderCustomer;
+        return null;
     }
 }
