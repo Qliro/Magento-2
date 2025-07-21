@@ -461,7 +461,7 @@ class PlaceOrder extends AbstractManagement
                     $this->linkRepository->save($link);
 
                     $order->addCommentToStatusHistory(
-                        'Customer checkout was refused by QLiro. Proceeding with order cancellation.'
+                        'Customer payment was refused by Qliro. Proceeding with order cancellation.'
                     )->setIsCustomerNotified(false);
 
                     $order->getPayment()->setNotificationResult(true);
