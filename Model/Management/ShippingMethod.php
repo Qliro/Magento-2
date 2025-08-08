@@ -204,6 +204,16 @@ class ShippingMethod extends AbstractManagement
             $this->quoteManagement->setQuote($this->getQuote())->updateReceivedAmount($container);
 
             if (!$container->getCanSaveQuote()) {
+                $this->logManager->debug(
+                    'AJAX:UPDATE_SHIPPING_METHOD: skip reason',
+                    [
+                        'extra' => [
+                            'message' => 'Shipping method is already set',
+                            'quote_method' => $shippingAddress->getShippingMethod(),
+                            'qliro_method' => $code,
+                        ],
+                    ]
+                );
                 return false;
             }
 
@@ -212,6 +222,16 @@ class ShippingMethod extends AbstractManagement
 
             // For some reason shipping code that was previously set, is not applied
             if ($shippingAddress->getShippingMethod() !== $container->getShippingMethod()) {
+                $this->logManager->debug(
+                    'AJAX:UPDATE_SHIPPING_METHOD: skip reason',
+                    [
+                        'extra' => [
+                            'message' => 'Unable to change shipping method. Check magento and server logs',
+                            'quote_method' => $shippingAddress->getShippingMethod(),
+                            'qliro_method' => $code,
+                        ],
+                    ]
+                );
                 return false;
             }
 
