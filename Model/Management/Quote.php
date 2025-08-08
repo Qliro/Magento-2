@@ -434,34 +434,58 @@ class Quote extends AbstractManagement
      */
     public function updateShippingPrice($price)
     {
+        if (is_null($price)) {
+            $this->logManager->debug(
+                'AJAX:UPDATE_SHIPPING_PRICE: skip reason',
+                [
+                    'extra' => [
+                        'message' => 'Price is empty',
+                    ],
+                ]
+            );
+
+            return false;
+        }
+
         $quote = $this->getQuote();
 
-        if ($price && !$quote->isVirtual()) {
-            // @codingStandardsIgnoreStart
-            // phpcs:disable
-            $container = new DataObject(
+        if ($quote->isVirtual()) {
+            $this->logManager->debug(
+                'AJAX:UPDATE_SHIPPING_PRICE: skip reason',
                 [
-                    'shipping_price' => $price,
-                    'can_save_quote' => false,
+                    'extra' => [
+                        'message' => 'Virtual quote cant be used to set shipping data',
+                    ],
                 ]
             );
-            // @codingStandardsIgnoreEnd
-            // phpcs:enable
 
-            $this->eventManager->dispatch(
-                'qliroone_shipping_price_update_before',
-                [
-                    'quote' => $quote,
-                    'container' => $container,
-                ]
-            );
-            $this->updateReceivedAmount($container);
+            return false;
+        }
 
-            if ($container->getCanSaveQuote()) {
-                $this->recalculateAndSaveQuote();
+        // @codingStandardsIgnoreStart
+        // phpcs:disable
+        $container = new DataObject(
+            [
+                'shipping_price' => $price,
+                'can_save_quote' => false,
+            ]
+        );
+        // @codingStandardsIgnoreEnd
+        // phpcs:enable
 
-                return true;
-            }
+        $this->eventManager->dispatch(
+            'qliroone_shipping_price_update_before',
+            [
+                'quote' => $quote,
+                'container' => $container,
+            ]
+        );
+        $this->updateReceivedAmount($container);
+
+        if ($container->getCanSaveQuote()) {
+            $this->recalculateAndSaveQuote();
+
+            return true;
         }
 
         return false;
