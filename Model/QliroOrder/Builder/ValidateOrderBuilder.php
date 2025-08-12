@@ -129,6 +129,17 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
         }
 
+        if (!$this->quote->isVirtual() && !$this->validationRequest->getSelectedShippingMethod()) {
+            $this->quote = null;
+            $this->validationRequest = null;
+            $this->logValidateError(
+                'create',
+                'No shipping method selected in qliro'
+            );
+
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
+        }
+
         if (!$this->quote->isVirtual() && !$this->quote->getShippingAddress()->getShippingMethod()) {
             $method = $this->quote->getShippingAddress()->getShippingMethod();
             $this->quote = null;
