@@ -7,6 +7,7 @@
 namespace Qliro\QliroOne\Model\Product\Type;
 
 use Magento\Sales\Model\Order;
+use Magento\Tax\Helper\Data as TaxHelper;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
@@ -44,20 +45,28 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     private $productNameResolver;
 
     /**
+     * @var TaxHelper
+     */
+    private $taxHelper;
+
+    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
      * @param ProductNameResolverInterface $productNameResolver
+     * @param TaxHelper $taxHelper
      */
     public function __construct(
         ProductPool $productPool,
         TypeSourceItemInterfaceFactory $typeSourceItemFactory,
-        ProductNameResolverInterface $productNameResolver
+        ProductNameResolverInterface $productNameResolver,
+        TaxHelper $taxHelper
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
         $this->productNameResolver = $productNameResolver;
+        $this->taxHelper = $taxHelper;
     }
 
     /**
@@ -142,8 +151,22 @@ class OrderSourceProvider implements TypeSourceProviderInterface
 
             $sourceItem->setId($item->getQuoteItemId());
             $sourceItem->setName($this->productNameResolver->getName($item));
-            $sourceItem->setPriceInclTax(($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $item->getQtyOrdered());
-            $sourceItem->setPriceExclTax(($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $item->getQtyOrdered());
+            if ($this->taxHelper->discountTax($item->getStore())) {
+                $sourceItem->setPriceInclTax(
+                    ($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $item->getQtyOrdered()
+                );
+                $sourceItem->setPriceExclTax(
+                    ($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $item->getQtyOrdered()
+                );
+            } else {
+                $sourceItem->setPriceInclTax(
+                    ($item->getRowTotal() - $item->getDiscountAmount() + $item->getTaxAmount()) / $item->getQtyOrdered()
+                );
+                $sourceItem->setPriceExclTax(
+                    ($item->getRowTotal() - $item->getDiscountAmount()) / $item->getQtyOrdered()
+                );
+            }
+
             $sourceItem->setQty($item->getQtyOrdered());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());

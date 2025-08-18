@@ -17,4 +17,8 @@
     <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
         <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Block\Checkout\LayoutProcessorPlugin" sortOrder="99999" />
     </type>
+
+    <type name="Magento\Checkout\Model\Type\Onepage">
+        <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Model\Type\Onepage" />
+    </type>
 </config>

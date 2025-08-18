@@ -12,6 +12,10 @@ define([
         return Component.extend({
             defaults: {
                 template: 'Qliro_QliroOne/payment/qliroone'
+            },
+
+            redirectToQliroCheckout: function () {
+                window.location = window.checkoutConfig.qliro.checkoutUrl
             }
         });
     }

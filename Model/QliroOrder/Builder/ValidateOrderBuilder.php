@@ -7,7 +7,10 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\CatalogInventory\Api\StockRegistryInterface;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Validator\Exception;
 use Magento\Quote\Api\Data\CartInterface;
+use Magento\Quote\Model\SubmitQuoteValidator;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
@@ -49,6 +52,11 @@ class ValidateOrderBuilder
     private $logManager;
 
     /**
+     * @var SubmitQuoteValidator
+     */
+    private SubmitQuoteValidator $submitQuoteValidator;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory
@@ -60,12 +68,14 @@ class ValidateOrderBuilder
         ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
         StockRegistryInterface $stockRegistry,
         OrderItemsBuilder $orderItemsBuilder,
-        LogManager $logManager
+        LogManager $logManager,
+        SubmitQuoteValidator $submitQuoteValidator
     ) {
         $this->validateOrderResponseFactory = $validateOrderResponseFactory;
         $this->stockRegistry = $stockRegistry;
         $this->orderItemsBuilder = $orderItemsBuilder;
         $this->logManager = $logManager;
+        $this->submitQuoteValidator = $submitQuoteValidator;
     }
 
     /**
@@ -119,6 +129,17 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
         }
 
+        if (!$this->quote->isVirtual() && !$this->validationRequest->getSelectedShippingMethod()) {
+            $this->quote = null;
+            $this->validationRequest = null;
+            $this->logValidateError(
+                'create',
+                'No shipping method selected in qliro'
+            );
+
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
+        }
+
         if (!$this->quote->isVirtual() && !$this->quote->getShippingAddress()->getShippingMethod()) {
             $method = $this->quote->getShippingAddress()->getShippingMethod();
             $this->quote = null;
@@ -140,6 +161,22 @@ class ValidateOrderBuilder
         );
 
         if (!$allMatch) {
+            $this->quote = null;
+            $this->validationRequest = null;
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
+        }
+
+        try {
+            $this->submitQuoteValidator->validateQuote($this->quote);
+        } catch (Exception|LocalizedException $e) {
+            $this->quote = null;
+            $this->validationRequest = null;
+            $this->logValidateError(
+                'create',
+                $e->getMessage(),
+                ['trace' => $e->getTraceAsString()]
+            );
+
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
         }
 
@@ -305,7 +342,7 @@ class ValidateOrderBuilder
     private function logValidateError($function, $reason, $details = [])
     {
         $this->logManager->debug(
-            'ValidateOrder',
+            'CALLBACK:VALIDATE',
             [
                 'extra' => [
                     'function' => $function,

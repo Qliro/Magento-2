@@ -31,6 +31,7 @@ class Config
     const QLIROONE_REQUIRE_IDENTITY_VERIFICATION = 'api/require_identity_verification';
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
+    const QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
 
     const QLIROONE_API_TYPE = 'qliro_api/type';
     const QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
@@ -667,7 +668,7 @@ class Config
         return (int)$this->adapter->getConfigData(self::QLIROONE_MINIMUM_CUSTOMER_AGE, $storeId);
     }
 
-        /**
+     /**
      * Check if only B2B checkout is enabled for companies
      *
      * @param int|null $storeId
@@ -677,6 +678,18 @@ class Config
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_B2B_CHECKOUT_ONLY, $storeId);
     }
+
+    /**
+     * Check if qliro set to be shown as a payment method
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function getShowAsPaymentMethod($storeId = null): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_SHOW_AS_PAYMENT_METHOD, $storeId);
+    }
+
     /**
      * @param int|null $storeId
      * @return bool
