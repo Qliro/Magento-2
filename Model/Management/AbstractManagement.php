@@ -18,8 +18,8 @@ abstract class AbstractManagement
     // CheckoutStatus can only create an order, if POLL was unsuccessful for 1 minute
     const QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT = 60;
 
-    // If placed_at fails, it will still attempt to reply to checkout status, 1 hour after customer has opened checkout
-    const QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT_FINAL = 3600;
+    // If placed_at fails, it will still attempt to reply to checkout status, 3 minutes after customer has opened checkout
+    const QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT_FINAL = 180;
 
     /**
      * @var \Magento\Quote\Model\Quote
