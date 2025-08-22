@@ -14,39 +14,35 @@ use Magento\Quote\Model\Quote;
 class AjaxToken extends CallbackToken
 {
     /**
-     * @var \Magento\Quote\Model\Quote
+     * @var Quote
      */
     private $quote;
 
     /**
      * Set quote to properly calculate the token
      *
-     * @param \Magento\Quote\Model\Quote $quote
-     * @return \Qliro\QliroOne\Model\Security\AjaxToken
+     * @param Quote $quote
+     * @return AjaxToken
      */
-    public function setQuote($quote)
+    public function setQuote($quote) : self
     {
         $this->quote = $quote;
         return $this;
     }
 
     /**
-     * Get an expiration timestamp for the token
-     *
-     * @return int
+     * @inerhitDoc
      */
-    public function getExpirationTimestamp()
+    public function getExpirationTimestamp(): int
     {
         return strtotime('+2 hour');
     }
 
     /**
-     * Add quote ID to the token
-     *
-     * @return mixed
+     * @inerhitDoc
      */
-    public function getAdditionalData()
+    public function getAdditionalData(): ?string
     {
-        return $this->quote instanceof Quote ? (int)$this->quote->getId() : null;
+        return $this->quote instanceof Quote ? (string)$this->quote->getId() : null;
     }
 }
