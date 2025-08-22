@@ -15,43 +15,26 @@ use Qliro\QliroOne\Model\Logger\Manager;
 class CallbackToken
 {
     /**
-     * @var \Qliro\QliroOne\Model\Security\Jwt
-     */
-    private $jwt;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
      * Inject dependencies
      *
-     * @param \Qliro\QliroOne\Model\Security\Jwt $jwt
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param Jwt $jwt
+     * @param Config $qliroConfig
+     * @param Manager $logManager
      */
     public function __construct(
-        Jwt $jwt,
-        Config $qliroConfig,
-        Manager $logManager
+        private Jwt $jwt,
+        private Config $qliroConfig,
+        private Manager $logManager
     ) {
-        $this->jwt = $jwt;
-        $this->qliroConfig = $qliroConfig;
-        $this->logManager = $logManager;
+
     }
 
     /**
-     * Get a new token that will expire in 2 hours
+     * Generate and retrieve a JWT token based on the payload data.
      *
-     * @return string
+     * @return string Encoded JWT token.
      */
-    public function getToken()
+    public function getToken(): string
     {
         $payload = [
             'merchant' => $this->qliroConfig->getMerchantApiKey(),
@@ -63,12 +46,12 @@ class CallbackToken
     }
 
     /**
-     * Verify if the token is valid
+     * Verifies the validity of a security token.
      *
-     * @param string $token
-     * @return bool
+     * @param string $token The token to be verified.
+     * @return bool Returns true if the token is valid, otherwise false.
      */
-    public function verifyToken($token)
+    public function verifyToken($token): bool
     {
         try {
             $payload = $this->jwt->decode($token, $this->qliroConfig->getMerchantApiSecret(), true);
@@ -138,26 +121,21 @@ class CallbackToken
     }
 
     /**
-     * Get an expiration timestamp for the token
+     * Get the expiration timestamp.
      *
-     * @return int
+     * @return int The UNIX timestamp representing the expiration
      */
-    public function getExpirationTimestamp()
+    public function getExpirationTimestamp(): int
     {
-        /* Reason from QliroOne API documentation:
-         * If the callback is not received by Qliro One, seven retry attempts are scheduled
-         * at 30 seconds, 60 seconds, 2 minutes, 30 minutes, 1 hour, 24 hours and 3 days.
-         * We also need an additional day for the shopper taking their time before placing the order.
-         */
-        return strtotime('+4 day');
+        return strtotime('+30 day');
     }
 
     /**
      * Get additional data used for modifying security token
      *
-     * @return mixed
+     * @return string|null Additional data or null if none exists
      */
-    public function getAdditionalData()
+    public function getAdditionalData(): ?string
     {
         return null;
     }
