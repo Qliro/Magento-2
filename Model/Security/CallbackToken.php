@@ -127,7 +127,7 @@ class CallbackToken
      */
     public function getExpirationTimestamp(): int
     {
-        return strtotime('+30 day');
+        return strtotime('+3 years');
     }
 
     /**
