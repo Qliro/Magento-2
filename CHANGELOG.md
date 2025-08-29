@@ -1,6 +1,35 @@
 
 # Change Log
 
+## [1.6.4] - 2-25-08-29
+
+### Added
+
+- Added the possibility to combine native magento checkout with QliroOne as a payment option in it. New configuration "Show as payment method" introduced with related functionality.
+- Added extra order validation checks to the Order Validation Callback. Introduced `SubmitQuoteValidator` to ensure more reliable quote handling during validation.
+- Added logging for skipped shipping method ajax operations, providing detailed reasons for the skips.
+- Wiki documentation added https://github.com/Qliro/Magento-2/wiki
+- Added status history comments for refused orders to improve visibility.
+- Added clearer explanations for Ingrid and nShift admin configuration to improve usability.
+
+### Removed
+
+### Fixed
+
+- Adjusted price calculations based on tax configuration. Updated `OrderSourceProvider` and `QuoteSourceProvider` to factor in store-specific tax configurations when calculating prices.
+- Fixed address and email locking for logged-in users. Disable address locking for the logged-in users with preset address. Enable email locking for the logged-in users
+- Fixed native magento `flatrate` shipping method price calculation with `per item` price type
+- Fixed the authorization token expiration error
+- Fixed the delayed (1h) order creation issue 
+
+### Changed
+
+- Simplify README by replacing detailed content with links to the Wiki. Streamlined documentation and added direct references for setup, configuration, customization, and troubleshooting, etc.
+- Updated `QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT_FINAL` constant value from 3600 seconds to 180 seconds to modify final checkout status timeout duration which prevent delayed order creation in magento.
+- Refactor security token classes and update type hints
+- Increased callback authorization token expiration time from 4 to 3 years, according to EU law.
+- Refined order cancellation flow for refused checkouts
+
 ## [1.6.3] - 2025-06-09
 
 ### Added
