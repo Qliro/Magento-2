@@ -12,8 +12,6 @@
 - Added status history comments for refused orders to improve visibility.
 - Added clearer explanations for Ingrid and nShift admin configuration to improve usability.
 
-### Removed
-
 ### Fixed
 
 - Adjusted price calculations based on tax configuration. Updated `OrderSourceProvider` and `QuoteSourceProvider` to factor in store-specific tax configurations when calculating prices.
