@@ -10,6 +10,7 @@ use Magento\Payment\Model\Method\Adapter;
 use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Directory\Model\ResourceModel\Country\CollectionFactory as CountryCollectionFactory;
+use Magento\Store\Model\ScopeInterface;
 
 class Config
 {
@@ -31,6 +32,7 @@ class Config
     const QLIROONE_REQUIRE_IDENTITY_VERIFICATION = 'api/require_identity_verification';
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
+    const QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
 
     const QLIROONE_API_TYPE = 'qliro_api/type';
     const QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
@@ -70,10 +72,12 @@ class Config
     const TOTALS_BASE_FEE_CODE_TAX = 'base_qliroone_fee_tax';
 
     const QLIROONE_UNIFAUN_ENABLED = 'unifaun/enable';
+    const QLIROONE_UNIFAUN_SHIPPING_ENABLED = 'carriers/qlirounifaun/active';
     const QLIROONE_UNIFAUN_CHECKOUT_ID = 'unifaun/checkout_id';
     const QLIROONE_UNIFAUN_PARAMETERS = 'unifaun/parameters';
 
     const QLIROONE_INGRID_ENABLED = 'ingrid/enable';
+    const QLIROONE_INGRID_SHIPPING_ENABLED = 'carriers/qliroingrid/active';
 
     const QLIROONE_RECURRING_ENABLE = 'recurring_payments/enable';
     const QLIROONE_RECURRING_FREQUENCY_OPTIONS = 'recurring_payments/frequency_options';
@@ -498,7 +502,7 @@ class Config
     {
         return $this->config->getValue(
             self::XML_PATH_TAX_CLASS,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
     }
@@ -513,7 +517,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::XML_PATH_PRICE_DISPLAY_CART_PAYMENT_FEE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return $configValue == \Magento\Tax\Model\Config::DISPLAY_TYPE_BOTH ||
@@ -530,7 +534,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::XML_PATH_PRICE_DISPLAY_CART_PAYMENT_FEE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return $configValue == \Magento\Tax\Model\Config::DISPLAY_TYPE_EXCLUDING_TAX;
@@ -546,7 +550,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::XML_PATH_PRICE_DISPLAY_CART_PAYMENT_FEE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return $configValue == \Magento\Tax\Model\Config::DISPLAY_TYPE_BOTH;
@@ -562,7 +566,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::XML_PATH_PRICE_DISPLAY_SALES_PAYMENT_FEE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return $configValue == \Magento\Tax\Model\Config::DISPLAY_TYPE_BOTH ||
@@ -579,7 +583,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::XML_PATH_PRICE_DISPLAY_SALES_PAYMENT_FEE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return $configValue == \Magento\Tax\Model\Config::DISPLAY_TYPE_EXCLUDING_TAX;
@@ -595,7 +599,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::XML_PATH_PRICE_DISPLAY_SALES_PAYMENT_FEE,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return $configValue == \Magento\Tax\Model\Config::DISPLAY_TYPE_BOTH;
@@ -611,7 +615,7 @@ class Config
     {
         $configValue = $this->config->getValue(
             self::CONFIG_XML_PATH_PAYMENT_FEE_INCLUDES_TAX,
-            \Magento\Store\Model\ScopeInterface::SCOPE_STORE,
+            ScopeInterface::SCOPE_STORE,
             $store
         );
         return (bool)$configValue;
@@ -623,7 +627,15 @@ class Config
      */
     public function isUnifaunEnabled($storeId)
     {
-        return (bool)$this->adapter->getConfigData(self::QLIROONE_UNIFAUN_ENABLED, $storeId);
+        if (!$this->adapter->getConfigData(self::QLIROONE_UNIFAUN_ENABLED, $storeId)) {
+            return false;
+        }
+
+        if (!$this->config->getValue(self::QLIROONE_UNIFAUN_SHIPPING_ENABLED, ScopeInterface::SCOPE_STORE, $storeId)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -655,7 +667,15 @@ class Config
      */
     public function isIngridEnabled($storeId)
     {
-        return (bool)$this->adapter->getConfigData(self::QLIROONE_INGRID_ENABLED, $storeId);
+        if (!$this->adapter->getConfigData(self::QLIROONE_INGRID_ENABLED, $storeId)) {
+            return false;
+        }
+
+        if (!$this->config->getValue(self::QLIROONE_INGRID_SHIPPING_ENABLED, ScopeInterface::SCOPE_STORE, $storeId)) {
+            return false;
+        }
+
+        return true;
     }
 
     /**
@@ -667,7 +687,7 @@ class Config
         return (int)$this->adapter->getConfigData(self::QLIROONE_MINIMUM_CUSTOMER_AGE, $storeId);
     }
 
-        /**
+     /**
      * Check if only B2B checkout is enabled for companies
      *
      * @param int|null $storeId
@@ -677,6 +697,18 @@ class Config
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_B2B_CHECKOUT_ONLY, $storeId);
     }
+
+    /**
+     * Check if qliro set to be shown as a payment method
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function getShowAsPaymentMethod($storeId = null): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_SHOW_AS_PAYMENT_METHOD, $storeId);
+    }
+
     /**
      * @param int|null $storeId
      * @return bool

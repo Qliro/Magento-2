@@ -105,10 +105,16 @@
                         <validate>validate-number validate-zero-or-greater</validate>
                     </field>
 
-                    <field id="b2b_checkout_only" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <field id="b2b_checkout_only" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
                         <label>Only use B2B checkout on companies</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                         <comment>Set to 'Yes' to enforce B2B checkout for users who have provided a company name in their billing address.</comment>
+                    </field>
+
+                    <field id="show_as_payment_method" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                        <label>Show as payment method</label>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                        <comment>Set to 'Yes' to use native magento checkout with Qliro payment option</comment>
                     </field>
                 </group>
 
@@ -242,7 +248,7 @@
                     <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
                         <label>Enabled</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                        <comment>If you active this, your Qliro account must also have it activated</comment>
+                        <comment><![CDATA[If you activate this, <b>your Qliro account must also be activated</b>. You must also <b>enable nShift in Stores > Configuration > Sales > Delivery Methods</b>.]]></comment>
                     </field>
 
                     <field id="checkout_id" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
@@ -288,7 +294,7 @@
                     <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
                         <label>Enabled</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                        <comment>If you active this, your Qliro account must also have it activated</comment>
+                        <comment><![CDATA[If you activate this, <b>your Qliro account must also be activated</b>. You must also <b>enable Ingrid in Stores > Configuration > Sales > Delivery Methods</b>.]]></comment>
                     </field>
                     <field id="admin_show_ingrid_shipping_info" translate="label comment" type="select" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
                         <label>Show Ingrid Shipping Info</label>

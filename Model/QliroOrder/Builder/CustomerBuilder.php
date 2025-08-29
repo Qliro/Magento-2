@@ -8,7 +8,11 @@ namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Customer\Api\Data\CustomerInterface;
 use Magento\Customer\Model\AddressFactory;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Quote\Model\Quote;
+use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory;
+use Qliro\QliroOne\Model\Config;
 
 /**
  * QliroOne Order Customer builder class
@@ -16,49 +20,61 @@ use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory;
 class CustomerBuilder
 {
     /**
-     * @var \Magento\Customer\Api\Data\CustomerInterface
+     * @var CustomerInterface
      */
     private $customer;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory
+     * @var QliroOrderCustomerInterfaceFactory
      */
     private $orderCustomerFactory;
 
     /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerAddressBuilder
+     * @var CustomerAddressBuilder
      */
     private $customerAddressBuilder;
 
     /**
-     * @var \Magento\Customer\Model\AddressFactory
+     * @var AddressFactory
      */
     private $addressFactory;
 
     /**
+     * @var Quote
+     */
+    private $quote;
+
+    /**
+     * @var Config
+     */
+    private $qliroConfig;
+
+    /**
      * Inject dependencies
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory $orderCustomerFactory
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerAddressBuilder $customerAddressBuilder
-     * @param \Magento\Customer\Model\AddressFactory $addressFactory
+     * @param QliroOrderCustomerInterfaceFactory $orderCustomerFactory
+     * @param CustomerAddressBuilder $customerAddressBuilder
+     * @param AddressFactory $addressFactory
      */
     public function __construct(
         QliroOrderCustomerInterfaceFactory $orderCustomerFactory,
         CustomerAddressBuilder $customerAddressBuilder,
-        AddressFactory $addressFactory
+        AddressFactory $addressFactory,
+        Config $qliroConfig,
     ) {
         $this->orderCustomerFactory = $orderCustomerFactory;
         $this->customerAddressBuilder = $customerAddressBuilder;
         $this->addressFactory = $addressFactory;
+        $this->qliroConfig = $qliroConfig;
     }
 
     /**
      * Set a customer to extract data
      *
-     * @param \Magento\Customer\Api\Data\CustomerInterface $customer
+     * @param CustomerInterface|null $customer
      * @return $this
      */
-    public function setCustomer(CustomerInterface $customer)
+    public function setCustomer(?CustomerInterface $customer)
     {
         $this->customer = $customer;
 
@@ -66,37 +82,111 @@ class CustomerBuilder
     }
 
     /**
+     * Set quote for data extraction
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @return $this
+     */
+    public function setQuote(Quote $quote)
+    {
+        $this->quote = $quote;
+
+        return $this;
+    }
+
+    /**
      * Create a container
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface
+     * @return QliroOrderCustomerInterface
      */
     public function create()
     {
-        if (empty($this->customer)) {
-            throw new \LogicException('Customer entity is not set.');
-        }
-
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroOrderCustomer */
         $qliroOrderCustomer = $this->orderCustomerFactory->create();
 
-        $addressId = $this->customer->getDefaultBilling();
+        if (!$this->quote) {
+            $this->customer = null;
+            $this->quote = null;
+            return $qliroOrderCustomer;
+        }
 
+        try {
+            if ($address = $this->getAddress()) {
+                $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
+                $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
+                $qliroOrderCustomer->setLockCustomerAddress(false);
+                $qliroOrderCustomer->setJuridicalType(
+                    $qliroOrderCustomerAddress->getCompanyName() ? QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY
+                        : QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL
+                );
+            }
+        } catch (LocalizedException $e) {
+            $this->customer = null;
+            $this->quote = null;
+            return $qliroOrderCustomer;
+        }
 
-        $address = $this->addressFactory->create()->load($addressId);
+        if ($email = $this->getEmail()) {
+            $qliroOrderCustomer->setEmail($email);
+            $qliroOrderCustomer->setLockCustomerEmail((bool)$this->customer);
+        }
 
-        $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
-
-        $qliroOrderCustomer->setEmail($this->customer->getEmail());
-        $qliroOrderCustomer->setMobileNumber(null);
-        $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
-        $qliroOrderCustomer->setLockCustomerInformation(true);
-        $qliroOrderCustomer->setLockCustomerEmail(false);
-        $qliroOrderCustomer->setLockCustomerMobileNumber(false);
-        $qliroOrderCustomer->setLockCustomerAddress(false);
-        $qliroOrderCustomer->setJuridicalType($qliroOrderCustomerAddress->getCompanyName()? \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY : \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL);
+        if ($mobileNumber = $this->getMobileNumber()) {
+            $qliroOrderCustomer->setMobileNumber($mobileNumber);
+            $qliroOrderCustomer->setLockCustomerMobileNumber(false);
+        }
 
         $this->customer = null;
+        $this->quote = null;
 
         return $qliroOrderCustomer;
+    }
+
+    /**
+     * @return \Magento\Customer\Model\Address|Quote\Address|null
+     */
+    protected function getAddress()
+    {
+        $shippingAddress = $this->quote->getShippingAddress();
+        if ($this->qliroConfig->getShowAsPaymentMethod()) {
+            return $shippingAddress;
+        }
+
+        if (is_object($this->customer) && $this->customer->getDefaultBilling()) {
+            return $this->addressFactory->create()->load($this->customer->getDefaultBilling());
+        }
+
+        return null;
+    }
+
+    /**
+     * @return string|null
+     */
+    protected function getEmail()
+    {
+        if ($this->customer && $this->customer->getEmail()) {
+            return $this->customer->getEmail();
+        }
+
+        if ($this->quote->getShippingAddress() && $this->quote->getShippingAddress()->getEmail()) {
+            return $this->quote->getShippingAddress()->getEmail();
+        }
+
+        if ($this->quote->getBillingAddress() && $this->quote->getBillingAddress()->getEmail()) {
+            return $this->quote->getBillingAddress()->getEmail();
+        }
+
+        return null;
+    }
+
+    /**
+     * @return string|null
+     */
+    protected function getMobileNumber()
+    {
+        if ($this->quote->getShippingAddress()) {
+            return $this->quote->getShippingAddress()->getTelephone();
+        }
+
+        return null;
     }
 }
