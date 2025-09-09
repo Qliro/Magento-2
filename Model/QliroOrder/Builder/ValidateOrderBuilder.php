@@ -12,9 +12,11 @@ use Magento\Framework\Validator\Exception;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\SubmitQuoteValidator;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
+use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Magento\Quote\Model\CustomerManagement;
 
 /**
  * Shipping Methods Builder class
@@ -22,7 +24,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 class ValidateOrderBuilder
 {
     /**
-     * @var \Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface
+     * @var ValidateOrderNotificationInterface
      */
     private $validationRequest;
 
@@ -32,50 +34,23 @@ class ValidateOrderBuilder
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory
-     */
-    private $validateOrderResponseFactory;
-
-    /**
-     * @var \Magento\CatalogInventory\Api\StockRegistryInterface
-     */
-    private $stockRegistry;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder
-     */
-    private $orderItemsBuilder;
-
-    /**
-     * @var LogManager
-     */
-    private $logManager;
-
-    /**
-     * @var SubmitQuoteValidator
-     */
-    private SubmitQuoteValidator $submitQuoteValidator;
-
-    /**
      * Inject dependencies
      *
-     * @param \Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory
-     * @param \Magento\CatalogInventory\Api\StockRegistryInterface $stockRegistry
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder $orderItemsBuilder
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory
+     * @param StockRegistryInterface $stockRegistry
+     * @param OrderItemsBuilder $orderItemsBuilder
+     * @param LogManager $logManager
+     * @param SubmitQuoteValidator $submitQuoteValidator
+     * @param CustomerManagement $customerManagement
      */
     public function __construct(
-        ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
-        StockRegistryInterface $stockRegistry,
-        OrderItemsBuilder $orderItemsBuilder,
-        LogManager $logManager,
-        SubmitQuoteValidator $submitQuoteValidator
+        private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
+        private StockRegistryInterface $stockRegistry,
+        private OrderItemsBuilder $orderItemsBuilder,
+        private LogManager $logManager,
+        private SubmitQuoteValidator $submitQuoteValidator,
+        private CustomerManagement $customerManagement
     ) {
-        $this->validateOrderResponseFactory = $validateOrderResponseFactory;
-        $this->stockRegistry = $stockRegistry;
-        $this->orderItemsBuilder = $orderItemsBuilder;
-        $this->logManager = $logManager;
-        $this->submitQuoteValidator = $submitQuoteValidator;
     }
 
     /**
@@ -94,7 +69,7 @@ class ValidateOrderBuilder
     /**
      * Set validation request for data extraction
      *
-     * @param \Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface $validationRequest
+     * @param ValidateOrderNotificationInterface $validationRequest
      * @return $this
      */
     public function setValidationRequest($validationRequest)
@@ -151,6 +126,20 @@ class ValidateOrderBuilder
             );
 
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
+        }
+
+        try {
+            $this->customerManagement->validateAddresses($this->quote);
+        } catch (Exception $e) {
+            $this->quote = null;
+            $this->validationRequest = null;
+            $this->logValidateError(
+                'create',
+                $e->getMessage(),
+                ['trace' => $e->getTraceAsString()]
+            );
+
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_POSTAL_CODE);
         }
 
         $orderItemsFromQuote = $this->orderItemsBuilder->setQuote($this->quote)->create();
