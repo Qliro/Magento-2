@@ -328,23 +328,27 @@ class QliroOrder extends AbstractManagement
                 CancelOrderRequest::class
             );
 
-            /*
-             * First we try to load an active link, then, when it fails, we try to load the inactive link
-             * and throw a specific exception if that exists.
-             */
-            try {
-                $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
-                if ($link->getOrderId()) {
-                    $order = $this->orderRepository->get($link->getOrderId());
-                    $storeId = $order->getStoreId();
-                } else {
-                    $quote = $this->quoteRepository->get($link->getQuoteId());
-                    $storeId = $quote->getStoreId();
+            $link = false;
+
+            foreach ([true, false] as $flag) {
+                try {
+                    $link = $this->linkRepository->getByQliroOrderId($qliroOrderId, $flag);
+                    break;
+                } catch (NoSuchEntityException $e) {
+                    continue;
                 }
-                $request->setMerchantApiKey($this->qliroConfig->getMerchantApiKey($storeId));
-            } catch (NoSuchEntityException $exception) {
-                $this->linkRepository->getByQliroOrderId($qliroOrderId, false);
-                throw new LinkInactiveException('This order has already been processed and the link deactivated.');
+            }
+
+            if (!$link) {
+                throw new \LogicException('Couldn\'t fetch the QliroOne order.');
+            }
+
+            if ($link->getOrderId()) {
+                $order = $this->orderRepository->get($link->getOrderId());
+                $storeId = $order->getStoreId();
+            } else {
+                $quote = $this->quoteRepository->get($link->getQuoteId());
+                $storeId = $quote->getStoreId();
             }
 
             $responseContainer = $this->orderManagementApi->cancelOrder($request, $storeId);
@@ -363,9 +367,9 @@ class QliroOrder extends AbstractManagement
 
             $link->setIsActive(false);
             $this->linkRepository->save($link);
-        } catch (LinkInactiveException $exception) {
+        } catch (\LogicException $exception) {
             throw new TerminalException(
-                'Couldn\'t request to cancel QliroOne order with inactive link.',
+                'Couldn\'t request to cancel QliroOne order. No link found',
                 $exception->getCode(),
                 $exception
             );
