@@ -25,29 +25,9 @@ class CustomerBuilder
     private $customer;
 
     /**
-     * @var QliroOrderCustomerInterfaceFactory
-     */
-    private $orderCustomerFactory;
-
-    /**
-     * @var CustomerAddressBuilder
-     */
-    private $customerAddressBuilder;
-
-    /**
-     * @var AddressFactory
-     */
-    private $addressFactory;
-
-    /**
      * @var Quote
      */
     private $quote;
-
-    /**
-     * @var Config
-     */
-    private $qliroConfig;
 
     /**
      * Inject dependencies
@@ -57,15 +37,11 @@ class CustomerBuilder
      * @param AddressFactory $addressFactory
      */
     public function __construct(
-        QliroOrderCustomerInterfaceFactory $orderCustomerFactory,
-        CustomerAddressBuilder $customerAddressBuilder,
-        AddressFactory $addressFactory,
-        Config $qliroConfig,
+        private QliroOrderCustomerInterfaceFactory $orderCustomerFactory,
+        private CustomerAddressBuilder $customerAddressBuilder,
+        private AddressFactory $addressFactory,
+        private Config $qliroConfig
     ) {
-        $this->orderCustomerFactory = $orderCustomerFactory;
-        $this->customerAddressBuilder = $customerAddressBuilder;
-        $this->addressFactory = $addressFactory;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
@@ -146,9 +122,12 @@ class CustomerBuilder
      */
     protected function getAddress()
     {
-        $shippingAddress = $this->quote->getShippingAddress();
         if ($this->qliroConfig->getShowAsPaymentMethod()) {
-            return $shippingAddress;
+            if ($this->quote->getIsVirtual()) {
+                return $this->quote->getBillingAddress();
+            } else {
+                return $this->quote->getShippingAddress();
+            }
         }
 
         if (is_object($this->customer) && $this->customer->getDefaultBilling()) {
