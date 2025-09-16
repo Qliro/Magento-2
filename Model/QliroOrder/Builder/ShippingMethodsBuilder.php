@@ -113,7 +113,6 @@ class ShippingMethodsBuilder
         $this->quote->getShippingAddress()
             ->setCollectShippingRates(true)
             ->collectShippingRates();
-        $this->cartRepository->save($this->quote);
 
         $collectedShippingMethods = [];
 
