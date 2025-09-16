@@ -21,4 +21,8 @@
     <type name="Magento\Checkout\Model\Type\Onepage">
         <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Model\Type\Onepage" />
     </type>
+
+    <type name="\Magento\Quote\Model\Quote\Item\CartItemOptionsProcessor">
+        <plugin name="kco_fix_Cart_item_processor" type="Qliro\QliroOne\Plugin\Model\Quote\Item\CartItemOptionsProcessor" sortOrder="999"/>
+    </type>
 </config>
