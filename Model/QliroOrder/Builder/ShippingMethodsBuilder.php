@@ -13,7 +13,6 @@ use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Config;
-use Magento\Quote\Api\CartRepositoryInterface;
 
 /**
  * Shipping Methods Builder class
@@ -50,11 +49,6 @@ class ShippingMethodsBuilder
     private $qliroConfig;
 
     /**
-     * @var CartRepositoryInterface
-     */
-    private $cartRepository;
-
-    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory
@@ -69,14 +63,12 @@ class ShippingMethodsBuilder
         ManagerInterface $eventManager,
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
-        CartRepositoryInterface $cartRepository
     ) {
         $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
         $this->shippingMethodBuilder = $shippingMethodBuilder;
         $this->eventManager = $eventManager;
         $this->storeManager = $storeManager;
         $this->qliroConfig = $qliroConfig;
-        $this->cartRepository = $cartRepository;
     }
 
     /**
@@ -113,7 +105,6 @@ class ShippingMethodsBuilder
         $this->quote->getShippingAddress()
             ->setCollectShippingRates(true)
             ->collectShippingRates();
-        $this->cartRepository->save($this->quote);
 
         $collectedShippingMethods = [];
 
