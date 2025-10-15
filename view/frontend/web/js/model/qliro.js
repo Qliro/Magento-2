@@ -15,6 +15,7 @@ define([
     'Magento_Customer/js/customer-data',
     'mage/translate',
     'Magento_Checkout/js/model/checkout-data-resolver',
+    'Magento_Checkout/js/action/get-payment-information'
 ], function(
     $,
     config,
@@ -23,7 +24,8 @@ define([
     cartCache,
     customerData,
     __,
-    checkoutDataResolver
+    checkoutDataResolver,
+    getPaymentInformationAction
 ) {
     function sendUpdateQuote() {
         return (
@@ -66,8 +68,7 @@ define([
     }
 
     function updateTotals() {
-        cartCache.set('totals', null);
-        totalsProcessor.estimateTotals(quote.shippingAddress());
+        getPaymentInformationAction();
     }
 
     return {
