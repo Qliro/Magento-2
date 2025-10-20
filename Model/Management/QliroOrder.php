@@ -16,6 +16,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
+use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Exception\LinkInactiveException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CancelOrderRequest;
@@ -170,12 +171,11 @@ class QliroOrder extends AbstractManagement
     /**
      * Fetch a QliroOne order and return it as a container
      *
-     * @param bool $allowRecreate
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      * @throws \Magento\Framework\Exception\AlreadyExistsException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function get($allowRecreate = true)
+    public function get()
     {
         $link = $this->quoteManagement->setQuote($this->getQuote())->getLinkFromQuote();
         $this->logManager->setMark('GET QLIRO ORDER');
@@ -189,18 +189,8 @@ class QliroOrder extends AbstractManagement
             if ($this->lock->lock($qliroOrderId)) {
                 if (empty($link->getOrderId())) {
                     if ($qliroOrder->isPlaced()) {
-                        if ($allowRecreate) {
-                            $link->setIsActive(false);
-                            $link->setMessage("getQliroOrder - allowRecreate");
-                            $this->linkRepository->save($link);
-
-                            return $this->get(false); // Recursion, but will max call it once
-                        }
-                        /*
-                        * Reaching this point implies that the link between Qliro and Magento is out of sync.
-                        * It should not happen.
-                        */
-                        throw new \LogicException('Order has already been processed.');
+                        $this->lock->unlock($qliroOrderId);
+                        throw new AlreadyPlacedException('Order has already been placed.');
                     }
                     try {
                         $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
@@ -235,7 +225,10 @@ class QliroOrder extends AbstractManagement
                     ]
                 );
             }
-        } catch (\Exception $exception) {
+        } catch (AlreadyPlacedException $e) {
+            throw $e;
+        }
+        catch (\Exception $exception) {
             $this->logManager->debug(
                 $exception,
                 [

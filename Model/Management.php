@@ -125,14 +125,13 @@ class Management extends AbstractManagement implements ManagementInterface
     /**
      * Fetch a QliroOne order and return it as a container
      *
-     * @param bool $allowRecreate
      * @return QliroOrderInterface
      * @throws \Magento\Framework\Exception\AlreadyExistsException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function getQliroOrder($allowRecreate = true)
+    public function getQliroOrder()
     {
-        return $this->qliroOrderManagement->setQuote($this->getQuote())->get($allowRecreate);
+        return $this->qliroOrderManagement->setQuote($this->getQuote())->get();
     }
 
     /**
@@ -311,7 +310,7 @@ class Management extends AbstractManagement implements ManagementInterface
     {
         return $this->adminManagement->getQliroOrder($qliroOrderId);
     }
-    
+
     /**
      * @inheritDoc
      */
