@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder;
 
@@ -16,7 +17,7 @@ class Item implements QliroOrderItemInterface
     /**
      * @var string
      */
-    protected $merchantReference;
+    private string $merchantReference = '';
 
     /**
      * Get item type.
@@ -24,176 +25,182 @@ class Item implements QliroOrderItemInterface
      *
      * @var string
      */
-    protected $type;
-
-    /**
-     * @var int
-     */
-    protected $quantity;
+    private string $type = '';
 
     /**
      * @var float
      */
-    protected $pricePerItemIncVat;
+    private float $quantity = 0.0;
 
     /**
      * @var float
      */
-    protected $pricePerItemExVat;
+    private float $pricePerItemIncVat  = 0.0;
+
+    /**
+     * @var float
+     */
+    private float $pricePerItemExVat   = 0.0;
+
+    /**
+     * @var float
+     */
+    private float $vatRate = 0.0;
 
     /**
      * @var string
      */
-    protected $description;
+    private string $description = '';
 
     /**
      * @var array
      */
-    protected $metadata;
+    private array $metadata = [];
+
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getMerchantReference()
+    public function getMerchantReference(): string
     {
         return $this->merchantReference;
     }
 
     /**
-     * @param string $merchantReference
-     * @return Item
+     * @inheirtDoc
      */
-    public function setMerchantReference($merchantReference)
+    public function setMerchantReference(string $value): static
     {
-        $this->merchantReference = $merchantReference;
+        $this->merchantReference = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getType()
+    public function getType(): string
     {
         return $this->type;
     }
 
     /**
-     * @param string $type
-     * @return Item
+     * @inheirtDoc
      */
-    public function setType($type)
+    public function setType(string $value): static
     {
-        $this->type = $type;
+        $this->type = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return int
+     * @inheirtDoc
      */
-    public function getQuantity()
+    public function getQuantity(): float
     {
         return $this->quantity;
     }
 
     /**
-     * @param int $quantity
-     * @return Item
+     * @inheirtDoc
      */
-    public function setQuantity($quantity)
+    public function setQuantity(float $value): static
     {
-        $this->quantity = $quantity;
+        $this->quantity = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return float
+     * @inheirtDoc
      */
-    public function getPricePerItemIncVat()
+    public function getPricePerItemIncVat(): float
     {
         return $this->pricePerItemIncVat;
     }
 
     /**
-     * @param float $pricePerItemIncVat
-     * @return Item
+     * @inheirtDoc
      */
-    public function setPricePerItemIncVat($pricePerItemIncVat)
+    public function setPricePerItemIncVat(float $value): static
     {
-        $this->pricePerItemIncVat = $pricePerItemIncVat;
+        $this->pricePerItemIncVat = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return float
+     * @inheirtDoc
      */
-    public function getPricePerItemExVat()
+    public function getPricePerItemExVat(): float
     {
         return $this->pricePerItemExVat;
     }
 
     /**
-     * @param float $pricePerItemExVat
-     * @return Item
+     * @inheirtDoc
      */
-    public function setPricePerItemExVat($pricePerItemExVat)
+    public function setPricePerItemExVat(float $value): static
     {
-        $this->pricePerItemExVat = $pricePerItemExVat;
+        $this->pricePerItemExVat = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getDescription()
+    public function getVatRate(): float
+    {
+        return $this->vatRate;
+    }
+
+    /**
+     * @inheirtDoc
+     */
+    public function setVatRate(float $value): static
+    {
+        $this->vatRate = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheirtDoc
+     */
+    public function getDescription(): string
     {
         return $this->description;
     }
 
     /**
-     * @param string $description
-     * @return Item
+     * @inheirtDoc
      */
-    public function setDescription($description)
+    public function setDescription(string $value): static
     {
-        $this->description = $description;
+        $this->description = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return array
+     * @inheirtDoc
      */
-    public function getMetadata()
+    public function getMetadata(): array
     {
         return $this->metadata;
     }
 
     /**
-     * @param array $metadata
-     * @return Item
+     * @inheirtDoc
      */
-    public function setMetadata($metadata)
+    public function setMetadata(array $value): static
     {
-        $this->metadata = $metadata;
+        if (is_null($value)) {
+            return $this;
+        }
+        $this->metadata = $value;
 
         return $this;
     }
