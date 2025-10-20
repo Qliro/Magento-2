@@ -6,7 +6,9 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Magento\Framework\App\Response\Http;
 
 /**
  * QliroOne management class
@@ -14,27 +16,17 @@ use Qliro\QliroOne\Model\Logger\Manager;
 class HtmlSnippet extends AbstractManagement
 {
     /**
-     * @var QliroOrder
-     */
-    private $qliroOrder;
-
-    /**
-     * @var Manager
-     */
-    private Manager $logManager;
-
-    /**
      * Inject dependencies
      *
      * @param QliroOrder $qliroOrder
      * @param Manager $logManager
+     * @param Http $http
      */
     public function __construct(
-        QliroOrder $qliroOrder,
-        Manager $logManager
+        private QliroOrder $qliroOrder,
+        private Manager $logManager,
+        private Http $http
     ) {
-        $this->qliroOrder = $qliroOrder;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -46,6 +38,11 @@ class HtmlSnippet extends AbstractManagement
     {
         try {
             return $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
+        } catch (AlreadyPlacedException $exception) {
+            $this->http->setRedirect(
+                $this->getQuote()->getStore()->getUrl('checkout/qliro/pending')
+            );
+            return '';
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 sprintf(
