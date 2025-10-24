@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.6.5] - 2025-10-24
+
+### Added
+- Enhanced virtual product handling: improved configuration and logic so that checkouts containing only virtual products no longer require shipping, ensuring a smoother checkout experience and accurate payment method visibility.
+
+### Fixed
+- Improved order creation reliability: resolved an issue where some checkouts failed to create orders, ensuring consistent order generation and proper callback handling.
+- Addressed Magento 2.4.8 compatibility issue: fixed a **City** field validation error introduced in the new version.
+- Prevented unintended order cancellation when a user navigates back to the cart page during checkout, ensuring order status remains stable throughout the session.
+
+### Security
+- Updated dependencies and resolved security alerts flagged by Dependabot to maintain module integrity and compliance.
+
+
 ## [1.6.4] - 2025-08-29
 
 ### Added
