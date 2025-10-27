@@ -10,20 +10,18 @@ define([
     'jquery',
     'Qliro_QliroOne/js/model/config',
     'Magento_Checkout/js/model/quote',
-    'Magento_Checkout/js/model/cart/totals-processor/default',
-    'Magento_Checkout/js/model/cart/cache',
     'Magento_Customer/js/customer-data',
     'mage/translate',
     'Magento_Checkout/js/model/checkout-data-resolver',
+    'Magento_Checkout/js/action/get-payment-information'
 ], function(
     $,
     config,
     quote,
-    totalsProcessor,
-    cartCache,
     customerData,
     __,
-    checkoutDataResolver
+    checkoutDataResolver,
+    getPaymentInformationAction
 ) {
     function sendUpdateQuote() {
         return (
@@ -66,8 +64,7 @@ define([
     }
 
     function updateTotals() {
-        cartCache.set('totals', null);
-        totalsProcessor.estimateTotals(quote.shippingAddress());
+        getPaymentInformationAction();
     }
 
     return {

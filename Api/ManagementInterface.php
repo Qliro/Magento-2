@@ -27,11 +27,10 @@ interface ManagementInterface
     /**
      * Fetch a QliroOne order and return it as a container
      *
-     * @param bool $allowRecreate if the qliro order is stale, create a new one
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function getQliroOrder($allowRecreate = true);
+    public function getQliroOrder();
 
     /**
      * Fetch an HTML snippet from QliroOne order
