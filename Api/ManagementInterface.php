@@ -25,12 +25,13 @@ use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 interface ManagementInterface
 {
     /**
-     * Fetch a QliroOne order and return it as a container
+     * Retrieve the Qliro order.
      *
+     * @param bool $allowRecreate Flag to allow recreation of the Qliro order if necessary.
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function getQliroOrder();
+    public function getQliroOrder($allowRecreate = true);
 
     /**
      * Fetch an HTML snippet from QliroOne order

@@ -39,6 +39,7 @@ class HtmlSnippet extends AbstractManagement
         try {
             return $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
         } catch (AlreadyPlacedException $exception) {
+            $this->logManager->debug('The order has already been placed. Redirecting to pending order page.');
             $this->http->setRedirect(
                 $this->getQuote()->getStore()->getUrl('checkout/qliro/pending')
             );
