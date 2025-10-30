@@ -1,7 +1,8 @@
 var config = {
     map: {
         '*': {
-            pollPending: 'Qliro_QliroOne/js/poll-pending'
+            pollPending: 'Qliro_QliroOne/js/poll-pending',
+            qliroExpiryListener: 'Qliro_QliroOne/js/expiry-listener'
         }
     },
     config: {
