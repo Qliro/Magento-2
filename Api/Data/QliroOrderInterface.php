@@ -199,5 +199,12 @@ interface QliroOrderInterface extends ContainerInterface
      *
      * @return bool
      */
-    public function isPlaced();
+    public function isPlaced(): bool;
+
+    /**
+     * Check if QliroOne order was refused
+     *
+     * @return bool
+     */
+    public function isRefused(): bool;
 }
