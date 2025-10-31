@@ -1,6 +1,11 @@
 
 # Change Log
 
+## [1.6.6] - 2025-10-31
+
+### Fixed
+- Prevented orders from being created with an empty payment method by improving handling of refused Qliro orders
+
 ## [1.6.5] - 2025-10-24
 
 ### Added
