@@ -16,6 +16,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
+use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Exception\LinkInactiveException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CancelOrderRequest;
@@ -189,19 +190,29 @@ class QliroOrder extends AbstractManagement
             if ($this->lock->lock($qliroOrderId)) {
                 if (empty($link->getOrderId())) {
                     if ($qliroOrder->isPlaced()) {
-                        if ($allowRecreate) {
-                            $link->setIsActive(false);
-                            $link->setMessage("getQliroOrder - allowRecreate");
-                            $this->linkRepository->save($link);
-
-                            return $this->get(false); // Recursion, but will max call it once
-                        }
-                        /*
-                        * Reaching this point implies that the link between Qliro and Magento is out of sync.
-                        * It should not happen.
-                        */
-                        throw new \LogicException('Order has already been processed.');
+                        $this->lock->unlock($qliroOrderId);
+                        throw new AlreadyPlacedException('Order has already been placed.');
                     }
+
+                    if ($qliroOrder->isRefused() && $allowRecreate) {
+                        $link->setIsActive(false);
+                        $link->setMessage("Refused order. Create new order");
+                        $link->setQliroOrderStatus($qliroOrder->getCustomerCheckoutStatus());
+                        $this->linkRepository->save($link);
+                        $this->logManager->debug(
+                            'Refused order detected. New order creation triggered.',
+                            [
+                                'extra' => [
+                                    'link_id' => $link->getId(),
+                                    'quote_id' => $link->getQuoteId(),
+                                    'qliro_order_id' => $qliroOrderId,
+                                ],
+                            ]
+                        );
+
+                        return $this->get(false); // Recursion, but will max call it once
+                    }
+
                     try {
                         $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
                         $this->quoteManagement->recalculateAndSaveQuote();
@@ -235,7 +246,10 @@ class QliroOrder extends AbstractManagement
                     ]
                 );
             }
-        } catch (\Exception $exception) {
+        } catch (AlreadyPlacedException $e) {
+            throw $e;
+        }
+        catch (\Exception $exception) {
             $this->logManager->debug(
                 $exception,
                 [
@@ -328,23 +342,27 @@ class QliroOrder extends AbstractManagement
                 CancelOrderRequest::class
             );
 
-            /*
-             * First we try to load an active link, then, when it fails, we try to load the inactive link
-             * and throw a specific exception if that exists.
-             */
-            try {
-                $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
-                if ($link->getOrderId()) {
-                    $order = $this->orderRepository->get($link->getOrderId());
-                    $storeId = $order->getStoreId();
-                } else {
-                    $quote = $this->quoteRepository->get($link->getQuoteId());
-                    $storeId = $quote->getStoreId();
+            $link = false;
+
+            foreach ([true, false] as $flag) {
+                try {
+                    $link = $this->linkRepository->getByQliroOrderId($qliroOrderId, $flag);
+                    break;
+                } catch (NoSuchEntityException $e) {
+                    continue;
                 }
-                $request->setMerchantApiKey($this->qliroConfig->getMerchantApiKey($storeId));
-            } catch (NoSuchEntityException $exception) {
-                $this->linkRepository->getByQliroOrderId($qliroOrderId, false);
-                throw new LinkInactiveException('This order has already been processed and the link deactivated.');
+            }
+
+            if (!$link) {
+                throw new \LogicException('Couldn\'t fetch the QliroOne order.');
+            }
+
+            if ($link->getOrderId()) {
+                $order = $this->orderRepository->get($link->getOrderId());
+                $storeId = $order->getStoreId();
+            } else {
+                $quote = $this->quoteRepository->get($link->getQuoteId());
+                $storeId = $quote->getStoreId();
             }
 
             $responseContainer = $this->orderManagementApi->cancelOrder($request, $storeId);
@@ -363,9 +381,9 @@ class QliroOrder extends AbstractManagement
 
             $link->setIsActive(false);
             $this->linkRepository->save($link);
-        } catch (LinkInactiveException $exception) {
+        } catch (\LogicException $exception) {
             throw new TerminalException(
-                'Couldn\'t request to cancel QliroOne order with inactive link.',
+                'Couldn\'t request to cancel QliroOne order. No link found',
                 $exception->getCode(),
                 $exception
             );

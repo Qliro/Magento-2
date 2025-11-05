@@ -25,9 +25,9 @@ use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 interface ManagementInterface
 {
     /**
-     * Fetch a QliroOne order and return it as a container
+     * Retrieve the Qliro order.
      *
-     * @param bool $allowRecreate if the qliro order is stale, create a new one
+     * @param bool $allowRecreate Flag to allow recreation of the Qliro order if necessary.
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */

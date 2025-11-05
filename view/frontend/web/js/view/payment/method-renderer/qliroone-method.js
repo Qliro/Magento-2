@@ -15,7 +15,10 @@ define([
             },
 
             redirectToQliroCheckout: function () {
-                window.location = window.checkoutConfig.qliro.checkoutUrl
+                this.selectPaymentMethod();
+                setTimeout(function () {
+                    window.location = window.checkoutConfig.qliro.checkoutUrl;
+                }, 1000);
             }
         });
     }

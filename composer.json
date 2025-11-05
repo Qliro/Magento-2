@@ -1,9 +1,9 @@
 {
     "name": "qliro/module-qliroone",
     "type": "magento2-module",
-    "description": "QliroOne checkout",
+    "description": "QliroOne checkout integration for Magento 2",
     "license": "proprietary",
-    "version": "1.6.4",
+    "version": "1.6.6",
     "authors": [
         {
             "name": "Andreas Wickberg",
@@ -12,12 +12,16 @@
         {
             "name": "Kjell Holmqvist",
             "email": "kjell.holmqvist@vaimo.com"
+        },
+        {
+            "name": "Volodymyr Butenko",
+            "email": "vova@newamsterdam.se"
         }
     ],
     "require": {
         "ext-json": "*",
-        "magento/framework": ">=100.0",
-        "guzzlehttp/guzzle": ">=6.0"
+        "magento/framework": "^103.0",
+        "guzzlehttp/guzzle": "^7.5"
     },
     "autoload": {
         "files": [
@@ -27,13 +31,13 @@
             "Qliro\\QliroOne\\": ""
         }
     },
-    "extra": {
-        "vaimo-module-category": "Payment"
-    },
     "repositories": [
         {
             "url": "https://repo.magento.com/",
             "type": "composer"
         }
-    ]
+    ],
+    "support": {
+        "issues": "https://github.com/Qliro/Magento-2/wiki"
+    }
 }

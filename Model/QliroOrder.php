@@ -412,18 +412,18 @@ class QliroOrder implements QliroOrderInterface
     }
 
     /**
-     * Check if QliroOne order was already placed
-     *
-     * @return bool
+     * @inheriDoc
      */
-    public function isPlaced()
+    public function isPlaced(): bool
     {
-        return !in_array(
-            $this->getCustomerCheckoutStatus(),
-            [
-                CheckoutStatus::STATUS_IN_PROCESS,
-                CheckoutStatus::STATUS_ONHOLD
-            ]
-        );
+        return $this->getCustomerCheckoutStatus() === CheckoutStatus::STATUS_COMPLETED;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function isRefused(): bool
+    {
+        return $this->getCustomerCheckoutStatus() === CheckoutStatus::STATUS_REFUSED;
     }
 }

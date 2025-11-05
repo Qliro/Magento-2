@@ -311,7 +311,7 @@ class Management extends AbstractManagement implements ManagementInterface
     {
         return $this->adminManagement->getQliroOrder($qliroOrderId);
     }
-    
+
     /**
      * @inheritDoc
      */
