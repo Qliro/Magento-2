@@ -207,8 +207,8 @@ class ValidateOrderBuilder
     /**
      * Return true if the quote items and QliroOne order items match
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $quoteItems
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $qliroOrderItems
+     * @param QliroOrderItemInterface[] $quoteItems
+     * @param QliroOrderItemInterface[] $qliroOrderItems
      * @return bool
      */
     private function compareQuoteAndQliroOrderItems($quoteItems, $qliroOrderItems)
@@ -278,17 +278,20 @@ class ValidateOrderBuilder
     /**
      * Compare two QliroOne order items
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $item1
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $item2
+     * @param QliroOrderItemInterface $item1
+     * @param QliroOrderItemInterface $item2
      * @return bool
      */
-    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2)
+    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2): bool
     {
         if ($item1->getPricePerItemExVat() != $item2->getPricePerItemExVat()) {
             $this->logValidateError(
                 'compareItems',
                 'pricePerItemExVat different',
-                ['item1' => $item1->getPricePerItemExVat(), 'item2 => $item2->getPricePerItemExVat()']
+                [
+                    'item1' => $item1->getPricePerItemExVat(),
+                    'item2' => $item2->getPricePerItemExVat()
+                ]
             );
             return false;
         }
@@ -297,7 +300,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'pricePerItemIncVat different',
-                ['item1' => $item1->getPricePerItemIncVat(), 'item2 => $item2->getPricePerItemIncVat()']
+                [
+                    'item1' => $item1->getPricePerItemIncVat(),
+                    'item2' => $item2->getPricePerItemIncVat()
+                ]
             );
             return false;
         }
@@ -306,7 +312,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'quantity different',
-                ['item1' => $item1->getQuantity(), 'item2 => $item2->getQuantity()']
+                [
+                    'item1' => $item1->getQuantity(),
+                    'item2' => $item2->getQuantity()
+                ]
             );
             return false;
         }
@@ -315,7 +324,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'type different',
-                ['item1' => $item1->getType(), 'item2 => $item2->getType()']
+                [
+                    'item1' => $item1->getType(),
+                    'item2' => $item2->getType()
+                ]
             );
             return false;
         }
