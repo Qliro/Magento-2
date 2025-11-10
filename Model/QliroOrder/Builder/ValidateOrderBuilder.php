@@ -17,6 +17,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
+use \Qliro\QliroOne\Model\Config;
 
 /**
  * Shipping Methods Builder class
@@ -42,6 +43,7 @@ class ValidateOrderBuilder
      * @param LogManager $logManager
      * @param SubmitQuoteValidator $submitQuoteValidator
      * @param CustomerManagement $customerManagement
+     * @param Config $config
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -49,7 +51,8 @@ class ValidateOrderBuilder
         private OrderItemsBuilder $orderItemsBuilder,
         private LogManager $logManager,
         private SubmitQuoteValidator $submitQuoteValidator,
-        private CustomerManagement $customerManagement
+        private CustomerManagement $customerManagement,
+        private Config $config
     ) {
     }
 
@@ -104,7 +107,7 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
         }
 
-        if (!$this->quote->isVirtual() && !$this->validationRequest->getSelectedShippingMethod()) {
+        if (!$this->isQliroShippingDataValid()) {
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -175,6 +178,38 @@ class ValidateOrderBuilder
         $this->validationRequest = null;
 
         return $container;
+    }
+
+    /**
+     * Validates if the Qliro shipping data is valid based on shipping method, order items, and configuration.
+     *
+     * @return bool Returns true if the shipping data is valid; otherwise, false.
+     */
+    private function isQliroShippingDataValid() :bool
+    {
+        if ($this->quote->isVirtual()) {
+            return true;
+        }
+
+        $isIngridEnabled = $this->config->isIngridEnabled($this->quote->getStoreId());
+        if (!$isIngridEnabled && !$this->validationRequest->getSelectedShippingMethod()) {
+            return false;
+        }
+
+        $isShippingMethodFound = false;
+        foreach ($this->validationRequest->getOrderItems() as $item) {
+            if ($item->getType() !== \Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+
+            $isShippingMethodFound = true;
+        }
+
+        if ($isIngridEnabled && !$isShippingMethodFound) {
+            return false;
+        }
+
+        return true;
     }
 
     /**

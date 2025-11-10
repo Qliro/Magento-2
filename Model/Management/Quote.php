@@ -219,6 +219,10 @@ class Quote extends AbstractManagement
             if(!$shippingAddress->hasData('item_qty')) {
                 $shippingAddress->setData('item_qty', $quote->getItemsQty());//fix magento bug for shipping per item
             }
+
+            $weight = $this->getQuoteItemsWeight();
+            $shippingAddress->setWeight($weight);
+            $shippingAddress->setFreeMethodWeight($weight);
             $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
         }
 
@@ -240,6 +244,30 @@ class Quote extends AbstractManagement
 
         $shippingAddress->save();
         $this->quoteRepository->save($quote);
+    }
+
+    /**
+     * Calculates the total weight of all applicable items in the quote.
+     *
+     * This method iterates through the quote's items to compute the combined
+     * weight of items that contribute to the shipping weight.
+     *
+     * @return float The total calculated weight of the quote items.
+     */
+    public function getQuoteItemsWeight(): float
+    {
+        $quote = $this->getQuote();
+
+        $computedWeight = 0.0;
+
+        /** @var \Magento\Quote\Model\Quote\Item $item */
+        foreach ($quote->getAllItems() as $item) {
+            if ($item->getRowWeight() > 0) {
+                $computedWeight = $computedWeight + floatval($item->getRowWeight());
+            }
+        }
+
+        return $computedWeight;
     }
 
     /**

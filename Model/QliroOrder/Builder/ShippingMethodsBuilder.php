@@ -12,6 +12,7 @@ use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
+use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Model\Config;
 
 /**
@@ -147,10 +148,16 @@ class ShippingMethodsBuilder
          $shippingMethods = [];
          $rateGroups = $this->quote->getShippingAddress()->getGroupedAllShippingRates();
 
+         $isIngridEnabled = $this->qliroConfig->isIngridEnabled($this->quote->getStoreId());
          foreach ($rateGroups as $group) {
              /** @var Rate $rate */
              foreach ($group as $rate) {
                  if (substr($rate->getCode(), -6) === '_error') {
+                     continue;
+                 }
+
+                 // if ingrid delivery method is enabled - make sure only this shipping method is sent to qliro
+                 if ($isIngridEnabled && $rate->getCode() !== Ingrid::QLIRO_INGRID_SHIPPING_CODE) {
                      continue;
                  }
 
