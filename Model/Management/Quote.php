@@ -3,177 +3,82 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\DataObject;
-use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Event\ManagerInterface as EventManager;
+use Magento\Framework\Exception\AlreadyExistsException;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Quote\Api\CartRepositoryInterface;
-use Qliro\QliroOne\Api\Client\MerchantInterface;
-use Qliro\QliroOne\Api\Data\LinkInterface;
-use Qliro\QliroOne\Api\Data\LinkInterfaceFactory;
-use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
-use Qliro\QliroOne\Model\Config;
+use Magento\Framework\Serialize\SerializerInterface as JsonSerializer;
+use Magento\Quote\Api\CartRepositoryInterface as CartRepository;
+use Magento\Quote\Model\Quote as QuoteModel;
+use Magento\Quote\Model\QuoteRepository\LoadHandler;
+use Qliro\QliroOne\Api\Client\MerchantInterface as MerchantClient;
+use Qliro\QliroOne\Api\Data\LinkInterface as LinkData;
+use Qliro\QliroOne\Api\Data\LinkInterfaceFactory as LinkFactory;
+use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface as QliroOrderCustomer;
+use Qliro\QliroOne\Api\Data\CheckoutStatusInterface as CheckoutStatus;
+use Qliro\QliroOne\Api\LinkRepositoryInterface as LinkRepository;
+use Qliro\QliroOne\Model\Carrier\Ingrid;
+use Qliro\QliroOne\Model\Carrier\Unifaun;
+use Qliro\QliroOne\Model\Config as ConfigModel;
 use Qliro\QliroOne\Model\ContainerMapper;
-use Qliro\QliroOne\Model\Fee;
+use Qliro\QliroOne\Model\Fee as FeeModel;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\Method\QliroOne;
+use Qliro\QliroOne\Model\Method\QliroOne as QliroOnePaymentModel;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\CustomerConverter;
-use Qliro\QliroOne\Model\Management\CountrySelect;
-use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Quote\Model\Quote as ModelQuote;
-use Magento\Quote\Model\QuoteRepository\LoadHandler;
 use Qliro\QliroOne\Helper\Data as Helper;
 use Qliro\QliroOne\Service\General\LinkService;
 
 /**
- * QliroOne management class
+ * Class Quote
  */
 class Quote extends AbstractManagement
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var LinkService
-     */
-    private $linkService;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Client\MerchantInterface
-     */
-    private $merchantApi;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder
-     */
-    private $createRequestBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\LinkInterfaceFactory
-     */
-    private $linkFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartRepositoryInterface
-     */
-    private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder
-     */
-    private $updateRequestBuilder;
-
-    /**
-     * @var \Magento\Framework\Serialize\Serializer\Json
-     */
-    private $json;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\CustomerConverter
-     */
-    private $customerConverter;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Fee
-     */
-    private $fee;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $helper;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * @var LoadHandler
-     */
-    private LoadHandler $loadHandler;
-
-    private CountrySelect $countrySelectManagement;
-
-    /**
-     * Inject dependencies
-     * @param Config $qliroConfig
-     * @param LinkService $merchantReferenceGenerator
-     * @param MerchantInterface $merchantApi
-     * @param CreateRequestBuilder $createRequestBuilder
-     * @param UpdateRequestBuilder $updateRequestBuilder
-     * @param CustomerConverter $customerConverter
-     * @param LinkInterfaceFactory $linkFactory
-     * @param LinkRepositoryInterface $linkRepository
-     * @param CartRepositoryInterface $quoteRepository
-     * @param ContainerMapper $containerMapper
-     * @param LogManager $logManager
-     * @param Json $json
-     * @param Fee $fee
-     * @param Helper $helper
-     * @param ManagerInterface $eventManager,
-     * @param LoadHandler $loadHandler
-     * @param CountrySelect $countrySelectManagement
+     * Class constructor
+     *
+     * @param EventManager                    $eventManager
+     * @param JsonSerializer                  $jsonSerializer
+     * @param CartRepository                  $quoteRepository
+     * @param LoadHandler                     $loadHandler
+     * @param MerchantClient                  $merchantClient
+     * @param LinkFactory                     $linkFactory
+     * @param LinkRepository                  $linkRepository
+     * @param ConfigModel                     $configModel
+     * @param ContainerMapper                 $containerMapper
+     * @param FeeModel                        $feeModel
+     * @param LogManager                      $logManager
+     * @param CreateRequestBuilder            $createRequestBuilder
+     * @param UpdateRequestBuilder            $updateRequestBuilder
+     * @param CustomerConverter               $customerConverter
+     * @param Helper                          $helper
+     * @param LinkService                     $linkService
+     * @param CountrySelect                   $countrySelectManagement
      */
     public function __construct(
-        Config $qliroConfig,
-        LinkService $merchantReferenceGenerator,
-        MerchantInterface $merchantApi,
-        CreateRequestBuilder $createRequestBuilder,
-        UpdateRequestBuilder $updateRequestBuilder,
-        CustomerConverter $customerConverter,
-        LinkInterfaceFactory $linkFactory,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        ContainerMapper $containerMapper,
-        LogManager $logManager,
-        Json $json,
-        Fee $fee,
-        Helper $helper,
-        ManagerInterface $eventManager,
-        LoadHandler $loadHandler,
-        CountrySelect $countrySelectManagement
+        private readonly EventManager         $eventManager,
+        private readonly JsonSerializer       $jsonSerializer,
+        private readonly CartRepository       $quoteRepository,
+        private readonly LoadHandler          $loadHandler,
+        private readonly MerchantClient       $merchantClient,
+        private readonly LinkFactory          $linkFactory,
+        private readonly LinkRepository       $linkRepository,
+        private readonly ConfigModel          $configModel,
+        private readonly ContainerMapper      $containerMapper,
+        private FeeModel                      $feeModel,
+        private readonly LogManager           $logManager,
+        private readonly CreateRequestBuilder $createRequestBuilder,
+        private readonly UpdateRequestBuilder $updateRequestBuilder,
+        private readonly CustomerConverter    $customerConverter,
+        private readonly Helper               $helper,
+        private readonly LinkService          $linkService,
+        private readonly CountrySelect        $countrySelectManagement
     ) {
-        $this->qliroConfig = $qliroConfig;
-        $this->linkService = $merchantReferenceGenerator;
-        $this->merchantApi = $merchantApi;
-        $this->createRequestBuilder = $createRequestBuilder;
-        $this->linkFactory = $linkFactory;
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->containerMapper = $containerMapper;
-        $this->logManager = $logManager;
-        $this->updateRequestBuilder = $updateRequestBuilder;
-        $this->json = $json;
-        $this->customerConverter = $customerConverter;
-        $this->fee = $fee;
-        $this->helper = $helper;
-        $this->eventManager = $eventManager;
-        $this->loadHandler = $loadHandler;
-        $this->countrySelectManagement = $countrySelectManagement;
     }
 
     /**
@@ -181,20 +86,19 @@ class Quote extends AbstractManagement
      *
      * @throws \Exception
      */
-    public function recalculateAndSaveQuote()
+    public function recalculateAndSaveQuote(): void
     {
-        $data['method'] = QliroOne::PAYMENT_METHOD_CHECKOUT_CODE;
+        $data['method'] = QliroOnePaymentModel::PAYMENT_METHOD_CHECKOUT_CODE;
 
         $quote = $this->getQuote();
+        $this->logManager->debug('Recalculating quote: ' . $quote->getId());
         $customer = $quote->getCustomer();
         $shippingAddress = $quote->getShippingAddress();
+        $this->logManager->debug('Shipping method from quote: ' . $shippingAddress->getShippingMethod());
         $billingAddress = $quote->getBillingAddress();
 
-        if ($quote->isVirtual()) {
-            $billingAddress->setPaymentMethod($data['method']);
-        } else {
-            $shippingAddress->setPaymentMethod($data['method']);
-        }
+        $quote->isVirtual() ?
+            $billingAddress->setPaymentMethod($data['method']) : $shippingAddress->setPaymentMethod($data['method']);
 
         $billingAddress->save();
 
@@ -205,18 +109,14 @@ class Quote extends AbstractManagement
         $quote->assignCustomerWithAddressChange($customer, $billingAddress, $shippingAddress);
         $quote->setTotalsCollectedFlag(false);
 
-        if (!$quote->isVirtual()) {
-            if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
-                $shippingAddress->setShippingMethod(
-                    \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE
-                );
+        if (!$quote->isVirtual() && $shippingAddress->getShippingMethod() !== '') {
+            if ($this->configModel->isUnifaunEnabled($quote->getStoreId())) {
+                $shippingAddress->setShippingMethod(Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE);
             }
-            if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
-                $shippingAddress->setShippingMethod(
-                    \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE
-                );
+            if ($this->configModel->isIngridEnabled($quote->getStoreId())) {
+                $shippingAddress->setShippingMethod(Ingrid::QLIRO_INGRID_SHIPPING_CODE);
             }
-            if(!$shippingAddress->hasData('item_qty')) {
+            if (!$shippingAddress->hasData('item_qty')) {
                 $shippingAddress->setData('item_qty', $quote->getItemsQty());//fix magento bug for shipping per item
             }
             $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
@@ -233,6 +133,7 @@ class Quote extends AbstractManagement
                 }
             }
         }
+
         $quote->collectTotals();
 
         $payment = $quote->getPayment();
@@ -245,10 +146,10 @@ class Quote extends AbstractManagement
     /**
      * Get a link for the current quote
      *
-     * @return \Qliro\QliroOne\Api\Data\LinkInterface
-     * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @return LinkData
+     * @throws AlreadyExistsException
      */
-    public function getLinkFromQuote()
+    public function getLinkFromQuote(): LinkData
     {
         $quote = $this->getQuote();
         $quoteId = $quote->getEntityId();
@@ -256,7 +157,6 @@ class Quote extends AbstractManagement
         try {
             $link = $this->linkRepository->getByQuoteId($quoteId);
         } catch (NoSuchEntityException $exception) {
-            /** @var \Qliro\QliroOne\Api\Data\LinkInterface $link */
             $link = $this->linkFactory->create();
             $link->setRemoteIp($this->helper->getRemoteIp());
             $link->setIsActive(true);
@@ -276,7 +176,7 @@ class Quote extends AbstractManagement
             $request->setMerchantReference($orderReference);
 
             try {
-                $orderId = $this->merchantApi->createOrder($request);
+                $orderId = $this->merchantClient->createOrder($request);
             } catch (\Exception $exception) {
                 $orderId = null;
             }
@@ -299,7 +199,7 @@ class Quote extends AbstractManagement
      * @param int|null $orderId
      * @param bool $force
      */
-    public function update($orderId, $force = false)
+    public function update(?int $orderId, bool $force = false): void
     {
         $this->logManager->setMark('UPDATE ORDER');
 
@@ -308,14 +208,14 @@ class Quote extends AbstractManagement
             $this->logManager->setMerchantReference($link->getReference());
 
             $isQliroOrderStatusEmpty = empty($link->getQliroOrderStatus());
-            $isQliroOrderStatusInProcess = $link->getQliroOrderStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS;
+            $isQliroOrderStatusInProcess = $link->getQliroOrderStatus() == CheckoutStatus::STATUS_IN_PROCESS;
 
             if ($isQliroOrderStatusEmpty || $isQliroOrderStatusInProcess) {
                 $this->logManager->debug('update qliro order');     // @todo: remove
                 $quoteId = $link->getQuoteId();
 
                 try {
-                    /** @var \Magento\Quote\Model\Quote $quote */
+                    /** @var QuoteModel $quote */
                     $quote = $this->quoteRepository->get($quoteId);
                     $this->completeQuoteLoading($quote);
 
@@ -330,13 +230,13 @@ class Quote extends AbstractManagement
 
                     if ($force || $this->canUpdateOrder($hash, $link)) {
                         $request = $this->updateRequestBuilder->setQuote($quote)->create();
-                        $this->merchantApi->updateOrder($orderId, $request);
+                        $this->merchantClient->updateOrder($orderId, $request);
                         $link->setQuoteSnapshot($hash);
                         $this->linkRepository->save($link);
                         $this->logManager->debug(sprintf('updated order %s', $orderId));     // @todo: remove
                     }
                 } catch (\Exception $exception) {
-                    if ($link && $link->getId()) {
+                    if ($link->getId()) {
                         $link->setIsActive(false);
                         $link->setMessage($exception->getMessage());
                         $this->linkRepository->save($link);
@@ -373,10 +273,10 @@ class Quote extends AbstractManagement
      * Check if QliroOne order can be updated
      *
      * @param string $hash
-     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @param LinkData $link
      * @return bool
      */
-    private function canUpdateOrder($hash, LinkInterface $link)
+    private function canUpdateOrder(string $hash, LinkData $link): bool
     {
         return empty($this->getQuote()->getShippingAddress()->getShippingMethod()) || $link->getQuoteSnapshot() !== $hash;
     }
@@ -384,17 +284,17 @@ class Quote extends AbstractManagement
     /**
      * Generate a hash for quote content comparison
      *
-     * @param \Magento\Quote\Model\Quote $quote
+     * @param QuoteModel $quote
      * @return string
      */
-    private function generateUpdateHash($quote)
+    private function generateUpdateHash(QuoteModel $quote): ?string
     {
         $request = $this->updateRequestBuilder->setQuote($quote)->create();
         $data = $this->containerMapper->toArray($request);
         sort($data);
 
         try {
-            $serializedData = $this->json->serialize($data);
+            $serializedData = $this->jsonSerializer->serialize($data);
         } catch (\InvalidArgumentException $exception) {
             $serializedData = null;
         }
@@ -415,10 +315,10 @@ class Quote extends AbstractManagement
      * @param array $customerData
      * @throws \Exception
      */
-    public function updateCustomer($customerData)
+    public function updateCustomer(array $customerData): void
     {
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer */
-        $qliroCustomer = $this->containerMapper->fromArray($customerData, QliroOrderCustomerInterface::class);
+        /** @var QliroOrderCustomer $qliroCustomer */
+        $qliroCustomer = $this->containerMapper->fromArray($customerData, QliroOrderCustomer::class);
 
         $this->customerConverter->convert($qliroCustomer, $this->getQuote());
         $this->recalculateAndSaveQuote();
@@ -432,7 +332,7 @@ class Quote extends AbstractManagement
      * @return bool
      * @throws \Exception
      */
-    public function updateShippingPrice($price)
+    public function updateShippingPrice(?float $price): bool
     {
         if (is_null($price)) {
             $this->logManager->debug(
@@ -496,11 +396,11 @@ class Quote extends AbstractManagement
      *
      * @param $container
      */
-    public function updateReceivedAmount($container)
+    public function updateReceivedAmount($container): void
     {
         try {
             $quote = $this->getQuote();
-            if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+            if ($this->configModel->isUnifaunEnabled($quote->getStoreId())) {
                 $link = $this->linkRepository->getByQuoteId($quote->getId());
                 if ($link->getUnifaunShippingAmount() != $container->getData('shipping_price')) {
                     $link->setUnifaunShippingAmount($container->getData('shipping_price'));
@@ -508,7 +408,7 @@ class Quote extends AbstractManagement
                     $container->setData('can_save_quote', true);
                 }
             }
-            if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
+            if ($this->configModel->isIngridEnabled($quote->getStoreId())) {
                 $link = $this->linkRepository->getByQuoteId($quote->getId());
                 if ($link->getIngridShippingAmount() != $container->getData('shipping_price')) {
                     $link->setIngridShippingAmount($container->getData('shipping_price'));
@@ -528,10 +428,10 @@ class Quote extends AbstractManagement
      * @return bool
      * @throws \Exception
      */
-    public function updateFee($fee)
+    public function updateFee(float $fee): bool
     {
         try {
-            //$this->fee->setQlirooneFeeInclTax($this->getQuote(), $fee);
+            //$this->feeModel->setQlirooneFeeInclTax($this->getQuote(), $fee);
             $this->recalculateAndSaveQuote();
         } catch (\Exception $exception) {
             $link = $this->getLinkFromQuote();
@@ -554,10 +454,10 @@ class Quote extends AbstractManagement
      * If quote was not active when loaded, it will be missing some necessary data such as Items.
      * In this case, we complete the loading here using the load handler.
      *
-     * @param ModelQuote $quote
+     * @param QuoteModel $quote
      * @return void
      */
-    private function completeQuoteLoading(ModelQuote $quote): void
+    private function completeQuoteLoading(QuoteModel $quote): void
     {
         if ($quote->getIsActive()) {
             return;
@@ -574,10 +474,11 @@ class Quote extends AbstractManagement
      * If country selector is enabled, and customer has changed country,
      * we reset the Qliro order id so a new will be created
      *
-     * @param LinkInterface $link
+     * @param LinkData $link
      * @return void
+     * @throws AlreadyExistsException
      */
-    private function handleCountrySelect(LinkInterface $link): void
+    private function handleCountrySelect(LinkData $link): void
     {
         if (!$this->countrySelectManagement->isEnabled()) {
             return;
