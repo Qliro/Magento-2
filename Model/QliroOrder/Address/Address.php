@@ -16,181 +16,183 @@ class Address implements QliroOrderCustomerAddressInterface
     /**
      * @var string
      */
-    private $firstName;
+    private string $firstName = '';
 
     /**
      * @var string
      */
-    private $lastName;
+    private string $lastName = '';
 
     /**
      * @var string
      */
-    private $careOf;
+    private string $careOf = '';
 
     /**
      * @var string
      */
-    private $companyName;
+    private string $companyName = '';
 
     /**
      * @var string
      */
-    private $street;
+    private string $street = '';
 
     /**
      * @var string
      */
-    private $postalCode;
+    private string $postalCode = '';
 
     /**
      * @var string
      */
-    private $city;
+    private string $city = '';
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @var string
      */
-    public function getFirstName()
+    private string $countryId = '';
+
+    /**
+     * @inheirtDoc
+     */
+    public function getFirstName(): string
     {
         return $this->firstName;
     }
 
     /**
-     * @param string $firstName
-     * @return Address
+     * @inheirtDoc
      */
-    public function setFirstName($firstName)
+    public function setFirstName(string $value): static
     {
-        $this->firstName = $firstName;
+        $this->firstName = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getLastName()
+    public function getLastName(): string
     {
         return $this->lastName;
     }
 
     /**
-     * @param string $lastName
-     * @return Address
+     * @inheirtDoc
      */
-    public function setLastName($lastName)
+    public function setLastName(string $value): static
     {
-        $this->lastName = $lastName;
+        $this->lastName = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getCareOf()
+    public function getCareOf(): string
     {
         return $this->careOf;
     }
 
     /**
-     * @param string $careOf
-     * @return Address
+     * @inheirtDoc
      */
-    public function setCareOf($careOf)
+    public function setCareOf(string $value): static
     {
-        $this->careOf = $careOf;
+        $this->careOf = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getCompanyName()
+    public function getCompanyName(): string
     {
         return $this->companyName;
     }
 
     /**
-     * @param string $companyName
-     * @return Address
+     * @inheirtDoc
      */
-    public function setCompanyName($companyName)
+    public function setCompanyName(string $value): static
     {
-        $this->companyName = $companyName;
+        $this->companyName = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getStreet()
+    public function getStreet(): string
     {
         return $this->street;
     }
 
     /**
-     * @param string $street
-     * @return Address
+     * @inheirtDoc
      */
-    public function setStreet($street)
+    public function setStreet(string $value): static
     {
-        $this->street = $street;
+        $this->street = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getPostalCode()
+    public function getPostalCode(): string
     {
         return $this->postalCode;
     }
 
     /**
-     * @param string $postalCode
-     * @return Address
+     * @inheirtDoc
      */
-    public function setPostalCode($postalCode)
+    public function setPostalCode(string $value): static
     {
-        $this->postalCode = $postalCode;
+        $this->postalCode = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getCity()
+    public function getCity(): string
     {
         return $this->city;
     }
 
     /**
-     * @param string $city
-     * @return Address
+     * @inheirtDoc
      */
-    public function setCity($city)
+    public function setCity(string $value): static
     {
-        $this->city = $city;
+        $this->city = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheirtDoc
+     */
+    public function getCountryCode(): string
+    {
+        return $this->countryId;
+    }
+
+    /**
+     * @inheirtDoc
+     */
+    public function setCountryCode(string $value): static
+    {
+        $this->countryId = $value;
 
         return $this;
     }

@@ -7,6 +7,8 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
 use Magento\Quote\Model\Quote\Address;
+use Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface as QliroOrderCustomerAddress;
+use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface as QliroOrderCustomer;
 
 /**
  * QliroOne order address converter class
@@ -16,38 +18,39 @@ class AddressConverter
     /**
      * Convert given quote address from QliroOne address and other parameters
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroAddress
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
-     * @param \Magento\Quote\Model\Quote\Address $address
-     * @param string|null $countryCode
+     * @param QliroOrderCustomerAddress $qliroAddress
+     * @param QliroOrderCustomer        $qliroCustomer
+     * @param Address                   $address
+     * @param string|null               $countryCode
      */
     public function convert(
-        $qliroAddress,
-        $qliroCustomer,
-        Address $address,
-        $countryCode = null
-    ) {
+        QliroOrderCustomerAddress $qliroAddress,
+        QliroOrderCustomer        $qliroCustomer,
+        Address                   $address,
+        string                    $countryCode = null
+    ): void {
         $addressData = [
-            'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
-            'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,
-            'email' => $qliroCustomer? $qliroCustomer->getEmail() : null,
-            'care_of' => $qliroAddress ? $qliroAddress->getCareOf() : null, // Is ignored for now if no attribute
-            'street' => $qliroAddress ? $qliroAddress->getStreet() : null,
-            'telephone' => $qliroCustomer ? $qliroCustomer->getMobileNumber() : null,
-            'city' => $qliroAddress ? $qliroAddress->getCity() : null,
-            'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
-            'company' => $qliroAddress ? $qliroAddress->getCompanyName() : null,
+            'firstname'  => $qliroAddress?->getFirstName(),
+            'lastname'   => $qliroAddress?->getLastName(),
+            'email'      => $qliroCustomer?->getEmail(),
+            'care_of'    => $qliroAddress?->getCareOf(), // Is ignored for now if no attribute
+            'street'     => $qliroAddress?->getStreet(),
+            'telephone'  => $qliroCustomer?->getMobileNumber(),
+            'city'       => $qliroAddress?->getCity(),
+            'country_id' => $qliroAddress?->getCountryCode(),
+            'postcode'   => $qliroAddress?->getPostalCode(),
+            'company'    => $qliroAddress?->getCompanyName(),
         ];
 
         $changed = false;
         foreach ($addressData as $key => $value) {
-            if ($value !== null && $address->getData($key) != $value) {
+            if (null !== $value && $address->getData($key) != $value) {
                 $address->setData($key, $value);
                 $changed = true;
             }
         }
 
-        if (!$address->getCountryId() && $countryCode !== null) {
+        if (null !== $countryCode && !$address->getCountryId()) {
             $address->setCountryId($countryCode);
             $changed = true;
         }
