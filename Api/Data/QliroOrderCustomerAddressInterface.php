@@ -16,77 +16,88 @@ interface QliroOrderCustomerAddressInterface extends ContainerInterface
     /**
      * @return string
      */
-    public function getFirstName();
+    public function getFirstName(): string;
 
     /**
      * @return string
      */
-    public function getLastName();
+    public function getLastName(): string;
 
     /**
      * @return string
      */
-    public function getCareOf();
+    public function getCareOf(): string;
 
     /**
      * @return string
      */
-    public function getCompanyName();
+    public function getCompanyName(): string;
 
     /**
      * @return string
      */
-    public function getStreet();
+    public function getStreet(): string;
 
     /**
      * @return string
      */
-    public function getPostalCode();
+    public function getPostalCode(): string;
 
     /**
      * @return string
      */
-    public function getCity();
+    public function getCity(): string;
+
+    /**
+     * @return string
+     */
+    public function getCountryCode(): string;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setFirstName($value);
+    public function setFirstName(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setLastName($value);
+    public function setLastName(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setCareOf($value);
+    public function setCareOf(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setCompanyName($value);
+    public function setCompanyName(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setStreet($value);
+    public function setStreet(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setPostalCode($value);
+    public function setPostalCode(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setCity($value);
+    public function setCity(string $value): static;
+
+    /**
+     * @param string $value
+     * @return $this
+     */
+    public function setCountryCode(string $value): static;
 }

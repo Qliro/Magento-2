@@ -420,6 +420,10 @@ class Quote extends AbstractManagement
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer */
         $qliroCustomer = $this->containerMapper->fromArray($customerData, QliroOrderCustomerInterface::class);
 
+        if (empty($qliroCustomer->getAddress()->getCountryCode())) {
+            $qliroCustomer->getAddress()->setCountryCode($customerData['address']['country_id']);
+        }
+
         $this->customerConverter->convert($qliroCustomer, $this->getQuote());
         $this->recalculateAndSaveQuote();
     }
