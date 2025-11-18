@@ -194,7 +194,7 @@ class Quote extends AbstractManagement
         $this->handleCountrySelect($link);
 
         if ($link->getQliroOrderId()) {
-            $this->update($link->getQliroOrderId());
+            $this->update((int)$link->getQliroOrderId());
         } else {
             $this->logManager->debug('create new qliro order'); // @todo: remove
             $orderReference = $this->linkService->generateOrderReference($quote);
