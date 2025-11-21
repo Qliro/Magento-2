@@ -8,6 +8,7 @@ namespace Qliro\QliroOne\Model\Product\Type;
 
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Item;
+use Magento\Tax\Helper\Data as TaxHelper;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
@@ -15,7 +16,7 @@ use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
-use Magento\Tax\Helper\Data as TaxHelper;
+use Qliro\QliroOne\Model\Product\VatRate;
 
 /**
  * Quote Source Provider class
@@ -63,6 +64,11 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $taxHelper;
 
     /**
+     * @var VatRate
+     */
+    private $vatRate;
+
+    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
@@ -79,6 +85,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
         RecurringDataService $recurringDataService,
         ProductNameResolverInterface $productNameResolver,
         TaxHelper $taxHelper,
+        VatRate $vatRate
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
@@ -86,6 +93,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
         $this->recurringDataService = $recurringDataService;
         $this->productNameResolver = $productNameResolver;
         $this->taxHelper = $taxHelper;
+        $this->vatRate = $vatRate;
     }
 
     /**
@@ -189,6 +197,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
                 );
             }
 
+            $sourceItem->setVatRate($this->vatRate->getVatRateForProduct($item));
             $sourceItem->setQty($item->getQty());
             $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());

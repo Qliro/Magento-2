@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
@@ -33,7 +34,7 @@ interface QliroOrderItemInterface extends ContainerInterface
     /**
      * @return string
      */
-    public function getMerchantReference();
+    public function getMerchantReference(): string;
 
     /**
      * Get item type.
@@ -41,38 +42,43 @@ interface QliroOrderItemInterface extends ContainerInterface
      *
      * @return string
      */
-    public function getType();
-
-    /**
-     * @return int
-     */
-    public function getQuantity();
+    public function getType(): string;
 
     /**
      * @return float
      */
-    public function getPricePerItemIncVat();
+    public function getQuantity(): float;
 
     /**
      * @return float
      */
-    public function getPricePerItemExVat();
+    public function getPricePerItemIncVat(): float;
+
+    /**
+     * @return float
+     */
+    public function getPricePerItemExVat(): float;
+
+    /**
+     * @return float
+     */
+    public function getVatRate(): float;
 
     /**
      * @return string
      */
-    public function getDescription();
+    public function getDescription(): string;
 
     /**
      * @return array
      */
-    public function getMetadata();
+    public function getMetadata(): array;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setMerchantReference($value);
+    public function setMerchantReference(string $value): static;
 
     /**
      * Set item type.
@@ -81,43 +87,49 @@ interface QliroOrderItemInterface extends ContainerInterface
      * @param string $value
      * @return $this
      */
-    public function setType($value);
-
-    /**
-     * @param int $value
-     * @return $this
-     */
-    public function setQuantity($value);
+    public function setType(string $value): static;
 
     /**
      * @param float $value
      * @return $this
      */
-    public function setPricePerItemIncVat($value);
+    public function setQuantity(float $value): static;
 
     /**
      * @param float $value
      * @return $this
      */
-    public function setPricePerItemExVat($value);
+    public function setPricePerItemIncVat(float $value): static;
+
+    /**
+     * @param float $value
+     * @return $this
+     */
+    public function setPricePerItemExVat(float $value): static;
+
+    /**
+     * @param float $value
+     * @return $this
+     */
+    public function setVatRate(float $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setDescription($value);
+    public function setDescription(string $value): static;
 
     /**
      * Additional metadata.
      *
      * In OrderManagement API can be used to have two possible elements
-     * - HeaderLines (array) Array of strings that will be diplayed above the item on the invoice.
+     * - HeaderLines (array) Array of strings that will be displayed above the item on the invoice.
      *   Maximum number of strings is 5 and maximum length of each string is 115 characters.
-     * - FooterLines (array) Array of strings that will be diplayed below the item on the invoice.
+     * - FooterLines (array) Array of strings that will be displayed below the item on the invoice.
      *   Maximum number of strings is 5 and maximum length of each string is 115 characters.
      *
      * @param array $value
      * @return $this
      */
-    public function setMetadata($value);
+    public function setMetadata(array $value): static;
 }
