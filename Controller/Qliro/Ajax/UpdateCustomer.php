@@ -132,11 +132,6 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
             $data['address'] = [];
         }
 
-        if (!array_key_exists('country_id', $data['address'])) {
-            $shippingAddress = $quote->getShippingAddress();
-            $data['address']['country_id'] = $shippingAddress->getCountryId();
-        }
-
         try {
             $this->qliroManagement->setQuote($quote)->updateCustomer($data);
         } catch (\Exception $exception) {
