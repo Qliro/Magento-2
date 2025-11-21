@@ -9,13 +9,20 @@ namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadata;
+use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Controller\ResultInterface;
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Quote\Api\Data\CartInterface;
+use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Tax\Helper\Data as TaxHelper;
 
 /**
  * Update shipping method options AJAX controller action class
@@ -23,39 +30,9 @@ use Magento\Framework\App\ProductMetadataInterface;
 class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
 {
     /**
-     * @var \Qliro\QliroOne\Helper\Data
+     * @var Quote|CartInterface
      */
-    private $dataHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\AjaxToken
-     */
-    private $ajaxToken;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $checkoutSession;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var ProductMetadataInterface
-     */
-    private $productMetadata;
+    private $quote;
 
     /**
      * Inject dependnecies
@@ -68,31 +45,26 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
      * @param Session $checkoutSession
      * @param Manager $logManager
      * @param ProductMetadataInterface $productMetadata
+     * @param TaxHelper $taxHelper
      */
     public function __construct(
         Context $context,
-        Config $qliroConfig,
-        Data $dataHelper,
-        AjaxToken $ajaxToken,
-        ManagementInterface $qliroManagement,
-        Session $checkoutSession,
-        Manager $logManager,
-        ProductMetadataInterface $productMetadata
+        readonly private Config $qliroConfig,
+        readonly private Data $dataHelper,
+        readonly private AjaxToken $ajaxToken,
+        readonly private ManagementInterface $qliroManagement,
+        readonly private Session $checkoutSession,
+        readonly private Manager $logManager,
+        readonly private ProductMetadataInterface $productMetadata,
+        readonly private TaxHelper $taxHelper
     ) {
         parent::__construct($context);
-        $this->dataHelper = $dataHelper;
-        $this->ajaxToken = $ajaxToken;
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroManagement = $qliroManagement;
-        $this->checkoutSession = $checkoutSession;
-        $this->logManager = $logManager;
-        $this->productMetadata = $productMetadata;
     }
 
     /**
      * Dispatch the action
      *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
+     * @return ResultInterface|ResponseInterface
      */
     public function execute()
     {
@@ -108,10 +80,23 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
             );
         }
 
-        /** @var \Magento\Framework\App\Request\Http $request */
+        /** @var Http $request */
         $request = $this->getRequest();
 
-        $quote = $this->checkoutSession->getQuote();
+        try {
+            $quote = $this->getQuote();
+        } catch (NoSuchEntityException|LocalizedException $e) {
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'FAILED',
+                    'error' => (string)__("Quote does not exist.")
+                ],
+                403,
+                null,
+                'AJAX:UPDATE_SHIPPING_PRICE:ERROR_QUOTE_NOT_FOUND'
+            );
+        }
+
         $this->logManager->setMerchantReferenceFromQuote($quote);
         $this->ajaxToken->setQuote($quote);
 
@@ -127,26 +112,8 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
             );
         }
 
-        $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_PRICE');
-
         try {
-            $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
-            if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME && $shippingPrice
-                && ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())
-                    || $this->qliroConfig->isIngridEnabled($quote->getStoreId()))
-            ) {
-                $taxPercentage = 0;
-                $taxes = $quote->getShippingAddress()->getAppliedTaxes();
-                if (is_array($taxes) && count($taxes) > 0) {
-                    $taxRule = current($taxes);
-                    $taxPercentage = (int)$taxRule['percent'];
-                }
-
-                if ($taxPercentage > 0) {
-                    $shippingPrice = $shippingPrice / (1 +  ($taxPercentage / 100));
-                }
-            }
-            $result = $this->qliroManagement->setQuote($quote)->updateShippingPrice($shippingPrice);
+            $result = $this->qliroManagement->setQuote($quote)->updateShippingPrice($this->getShippingPrice());
         } catch (\Exception $exception) {
             return $this->dataHelper->sendPreparedPayload(
                 [
@@ -165,5 +132,99 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
             null,
             'AJAX:UPDATE_SHIPPING_PRICE'
         );
+    }
+
+    /**
+     * Retrieve the current quote from the checkout session.
+     *
+     * @return Quote The current quote object.
+     * @throws LocalizedException
+     * @throws NoSuchEntityException
+     */
+    protected function getQuote(): Quote
+    {
+        if (!$this->quote) {
+            $this->quote = $this->checkoutSession->getQuote();
+        }
+        return $this->quote;
+    }
+
+    /**
+     * Calculate and retrieve the shipping price from the request payload.
+     * Adjusts the shipping price to exclude/including tax if certain conditions are met.
+     *
+     * @return float The calculated shipping price, excluding tax if applicable.
+     */
+    protected function getShippingPrice(): float
+    {
+        /** @var Http $request */
+        $request = $this->getRequest();
+
+        $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_PRICE');
+        $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
+
+        $taxPercentage = $this->getTaxPercentage();
+
+        if (!$shippingPrice || $taxPercentage <= 0) {
+            return $shippingPrice;
+        }
+
+        if ($this->isTaxReduceAllowed()) {
+            return $shippingPrice / (1 + ($taxPercentage / 100));
+        }
+
+        return $shippingPrice;
+    }
+
+    /**
+     * Determines whether tax reduction is allowed based on the store's shipping price tax configuration.
+     *
+     * @return bool True if tax reduction is allowed, false otherwise.
+     */
+    private function isTaxReduceAllowed(): bool
+    {
+        try {
+            $quote = $this->getQuote();
+        } catch (NoSuchEntityException|LocalizedException $e) {
+            return false;
+        }
+
+        if ($this->taxHelper->shippingPriceIncludesTax($this->getQuote()->getStore()) === false
+            && ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())
+                || $this->qliroConfig->isIngridEnabled($quote->getStoreId()))
+        ) {
+            return true;
+        }
+
+        if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME
+            && ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())
+                || $this->qliroConfig->isIngridEnabled($quote->getStoreId()))
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Retrieve the tax percentage applied to the shipping address in the current quote.
+     *
+     * @return float The tax percentage applied to the shipping address, or 0.0 if no taxes are applied.
+     */
+    private function getTaxPercentage(): float
+    {
+        $taxPercentage = 0.0;
+
+        try {
+            $taxes = $this->getQuote()->getShippingAddress()->getAppliedTaxes();
+        } catch (NoSuchEntityException|LocalizedException $e) {
+            return $taxPercentage;
+        }
+        if (is_array($taxes) && count($taxes) > 0) {
+            $taxRule = current($taxes);
+            $taxPercentage = (float)$taxRule['percent'];
+        }
+
+        return $taxPercentage;
     }
 }

@@ -12,8 +12,8 @@ use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
+use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Model\Config;
-use Magento\Quote\Api\CartRepositoryInterface;
 
 /**
  * Shipping Methods Builder class
@@ -50,11 +50,6 @@ class ShippingMethodsBuilder
     private $qliroConfig;
 
     /**
-     * @var CartRepositoryInterface
-     */
-    private $cartRepository;
-
-    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory
@@ -69,14 +64,12 @@ class ShippingMethodsBuilder
         ManagerInterface $eventManager,
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
-        CartRepositoryInterface $cartRepository
     ) {
         $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
         $this->shippingMethodBuilder = $shippingMethodBuilder;
         $this->eventManager = $eventManager;
         $this->storeManager = $storeManager;
         $this->qliroConfig = $qliroConfig;
-        $this->cartRepository = $cartRepository;
     }
 
     /**
@@ -113,7 +106,6 @@ class ShippingMethodsBuilder
         $this->quote->getShippingAddress()
             ->setCollectShippingRates(true)
             ->collectShippingRates();
-        $this->cartRepository->save($this->quote);
 
         $collectedShippingMethods = [];
 
@@ -156,10 +148,16 @@ class ShippingMethodsBuilder
          $shippingMethods = [];
          $rateGroups = $this->quote->getShippingAddress()->getGroupedAllShippingRates();
 
+         $isIngridEnabled = $this->qliroConfig->isIngridEnabled($this->quote->getStoreId());
          foreach ($rateGroups as $group) {
              /** @var Rate $rate */
              foreach ($group as $rate) {
                  if (substr($rate->getCode(), -6) === '_error') {
+                     continue;
+                 }
+
+                 // if ingrid delivery method is enabled - make sure only this shipping method is sent to qliro
+                 if ($isIngridEnabled && $rate->getCode() !== Ingrid::QLIRO_INGRID_SHIPPING_CODE) {
                      continue;
                  }
 
