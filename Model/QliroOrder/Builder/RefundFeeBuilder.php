@@ -66,9 +66,8 @@ class RefundFeeBuilder
             throw new \LogicException('Credit memo entity is not set.');
         }
 
-        $result = [];
-        $result[] = $this->getAdjustmentFeeContainer();
-
+        $container = $this->getAdjustmentFeeContainer();
+        $result = $container->getMerchantReference() ? [$container] : [];
         $this->creditMemo = null;
 
         return $result;
