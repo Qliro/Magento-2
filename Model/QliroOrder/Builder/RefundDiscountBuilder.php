@@ -68,9 +68,8 @@ class RefundDiscountBuilder
             throw new \LogicException('Credit memo entity is not set.');
         }
 
-        $result = [];
-        $result[] = $this->getDiscounts();
-
+        $container = $this->getDiscounts();
+        $result = $container->getMerchantReference() ? [$container] : [];
         $this->creditMemo = null;
 
         return $result;
