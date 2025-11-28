@@ -28,6 +28,7 @@ interface LinkInterface
     const FIELD_PLACED_AT = 'placed_at';
     const FIELD_UNIFAUN_SHIPPING_AMOUNT = 'unifaun_shipping_amount';
     const FIELD_INGRID_SHIPPING_AMOUNT = 'ingrid_shipping_amount';
+    const FIELD_IS_LOCKED = 'is_locked';
 
     /**
      * Get ID
@@ -133,6 +134,13 @@ interface LinkInterface
      * @return float
      */
     public function getIngridShippingAmount();
+
+    /**
+     * Get "is_locked" flag
+     *
+     * @return bool
+     */
+    public function getIsLocked(): bool;
 
     /**
      * Set ID
@@ -253,4 +261,12 @@ interface LinkInterface
      * @return $this
      */
     public function setIngridShippingAmount($value);
+
+    /**
+     * Set "is_locked" flag
+     *
+     * @param bool $value
+     * @return LinkInterface
+     */
+    public function setIsLocked(bool $value): LinkInterface;
 }
