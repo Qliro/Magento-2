@@ -146,6 +146,14 @@ class Link extends AbstractModel implements LinkInterface
     }
 
     /**
+     * @inheritDoc
+     */
+    public function getIsLocked(): bool
+    {
+        return (bool)$this->getData(self::FIELD_IS_LOCKED);
+    }
+
+    /**
      * @inheritdoc
      */
     public function setIsActive($value)
@@ -255,5 +263,14 @@ class Link extends AbstractModel implements LinkInterface
     public function setIngridShippingAmount($value)
     {
         return $this->setData(self::FIELD_INGRID_SHIPPING_AMOUNT, $value);
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setIsLocked(bool $value): LinkInterface
+    {
+        $this->setData(self::FIELD_IS_LOCKED, $value);
+        return $this;
     }
 }

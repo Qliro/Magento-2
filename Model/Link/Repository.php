@@ -253,4 +253,32 @@ class Repository implements LinkRepositoryInterface
 
         return $link;
     }
+
+    /**
+     * @inheritDoc
+     */
+    public function lock(int $quoteId): LinkInterface
+    {
+        $link = $this->getByQuoteId($quoteId);
+        if (!$link->getIsLocked()) {
+            $link->setIsLocked(true);
+            $this->save($link);
+        }
+
+        return $link;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function unlock(int $quoteId): LinkInterface
+    {
+        $link = $this->getByQuoteId($quoteId);
+        if ($link->getIsLocked()) {
+            $link->setIsLocked(false);
+            $this->save($link);
+        }
+
+        return $link;
+    }
 }

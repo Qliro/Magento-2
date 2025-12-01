@@ -21,4 +21,12 @@
     <type name="Magento\Checkout\Model\Type\Onepage">
         <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Model\Type\Onepage" />
     </type>
+
+    <type name="Magento\Checkout\Model\Cart">
+        <plugin name="qliro_prevent_cart_changes_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Cart"/>
+    </type>
+
+    <type name="Magento\Checkout\Controller\Cart\CouponPost">
+        <plugin name="qliro_prevent_coupon_changes_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Coupon"/>
+    </type>
 </config>
