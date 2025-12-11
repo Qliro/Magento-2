@@ -18,6 +18,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\GeoIpResolverInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Security\CallbackToken;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 use \Magento\Framework\Url\QueryParamsResolverInterface;
@@ -124,6 +125,11 @@ class CreateRequestBuilder
     private CountrySelect $countrySelectManagement;
 
     /**
+     * @var Manager
+     */
+    private $logManager;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory $createRequestFactory
@@ -142,6 +148,7 @@ class CreateRequestBuilder
      * @param \Magento\Store\Model\Information $information
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
      * @param \Qliro\QliroOne\Model\Management\CountrySelect $countrySelect
+     * @param Manager $logManager
      */
     public function __construct(
         QliroOrderCreateRequestInterfaceFactory $createRequestFactory,
@@ -160,7 +167,8 @@ class CreateRequestBuilder
         ShippingConfigBuilder $shippingConfigBuilder,
         Information $information,
         ManagerInterface $eventManager,
-        CountrySelect $countrySelectManagement
+        CountrySelect $countrySelectManagement,
+        Manager $logManager
     ) {
         $this->createRequestFactory = $createRequestFactory;
         $this->languageMapper = $languageMapper;
@@ -179,6 +187,7 @@ class CreateRequestBuilder
         $this->eventManager = $eventManager;
         $this->shippingConfigBuilder = $shippingConfigBuilder;
         $this->countrySelectManagement = $countrySelectManagement;
+        $this->logManager = $logManager;
     }
 
     /**
@@ -208,14 +217,17 @@ class CreateRequestBuilder
             throw new \LogicException('Quote entity is not set.');
         }
 
+        $this->logManager->debug('Starting to create request object for quote: ' . $this->quote->getId());
         $createRequest = $this->prepareCreateRequest();
 
         $orderItems = $this->orderItemsBuilder->setQuote($this->quote)->create();
 
+        $this->logManager->debug('Starting to set order items to request object');
         $createRequest->setOrderItems($orderItems);
         $presetAddress = $this->qliroConfig->presetAddress();
         $shippingAddress = $this->quote->getShippingAddress();
         if ($presetAddress && empty($shippingAddress->getPostcode())) {
+            $this->logManager->debug('Starting to set fake address as don\'t have real one yet');
             /* set a fake address since we don't have the real one yet */
             $storeInfo = $this->information->getStoreInformationObject($this->quote->getStore());
             if (!empty($storeInfo)) {
@@ -236,6 +248,7 @@ class CreateRequestBuilder
             }
         }
         $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
+        $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
         $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
         $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();
         if (!empty($storeInfo)) {

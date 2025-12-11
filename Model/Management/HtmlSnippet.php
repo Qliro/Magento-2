@@ -37,7 +37,9 @@ class HtmlSnippet extends AbstractManagement
     public function get()
     {
         try {
-            return $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
+            $qliroOrderHtmlSnippet = $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
+            $this->logManager->debug('HTML snippet fetched successfully from QliroOne order.');
+            return $qliroOrderHtmlSnippet;
         } catch (AlreadyPlacedException $exception) {
             $this->logManager->debug('The order has already been placed. Redirecting to pending order page.');
             $this->http->setRedirect(

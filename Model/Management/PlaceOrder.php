@@ -321,7 +321,9 @@ class PlaceOrder extends AbstractManagement
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
 
+                    $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
                     $order = $this->orderPlacer->place($this->getQuote());
+                    $this->logManager->debug('Finished to place order from quote: ' . $this->getQuote()->getId() . ' Order ID: ' . $order->getId());
                     $orderId = $order->getId();
 
                     $link->setOrderId($orderId);
@@ -346,6 +348,7 @@ class PlaceOrder extends AbstractManagement
 
                 $this->applyQliroOrderStatus($order);
             } catch (\Exception $exception) {
+                $this->logManager->debug('Failed to place order from quote: ' . $this->getQuote()->getId() . PHP_EOL . $exception->getMessage());
                 $link->setIsActive(false);
                 $link->setMessage($exception->getMessage());
                 $this->linkRepository->save($link);

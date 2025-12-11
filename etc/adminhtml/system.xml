@@ -319,10 +319,18 @@
                 </group>
                 <group id="debugging" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
                     <label>Debugging</label>
-                    <field id="download_logs" translate="label" type="button" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                    <group id="download" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
                         <label>Download Logs</label>
-                        <frontend_model>Qliro\QliroOne\Block\Adminhtml\System\Config\LogDownload</frontend_model>
-                    </field>
+                        <field id="download_logs" translate="label" type="button" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                            <label>Module Logs</label>
+                            <frontend_model>Qliro\QliroOne\Block\Adminhtml\System\Config\Download\Logs</frontend_model>
+                        </field>
+                        <field id="download_configs" translate="label" type="button" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
+                            <label>Module Configs</label>
+                            <frontend_model>Qliro\QliroOne\Block\Adminhtml\System\Config\Download\Configs</frontend_model>
+                            <comment>Sensitive information as API Key and Secret will be hided</comment>
+                        </field>
+                    </group>
                 </group>
             </group>
         </section>
