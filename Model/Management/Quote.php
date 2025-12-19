@@ -273,7 +273,7 @@ class Quote extends AbstractManagement
             $this->update($link->getQliroOrderId());
             $this->logManager->debug('Updated qliro order from quote ' . $quoteId);
         } else {
-            $this->logManager->debug('Creating new qliro order ' . $quoteId);
+            $this->logManager->debug('Generating new qliro order reference' . $quoteId);
             $orderReference = $this->linkService->generateOrderReference($quote);
             $this->logManager->debug('Qliro order reference created: ' . $orderReference);
             $this->logManager->setMerchantReference($orderReference);
@@ -281,6 +281,7 @@ class Quote extends AbstractManagement
             $this->logManager->debug('Creating request for Qliro order reference: ' . $orderReference);
             $request = $this->createRequestBuilder->setQuote($quote)->create();
             $request->setMerchantReference($orderReference);
+            $this->logManager->debug('Request for Qliro order reference created: ' . $orderReference);
 
             try {
                 $this->logManager->debug('Sending request to create order ' . $orderReference);

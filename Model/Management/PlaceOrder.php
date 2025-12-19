@@ -169,15 +169,18 @@ class PlaceOrder extends AbstractManagement
     public function poll()
     {
         $quoteId = $this->getQuote()->getId();
+        $this->logManager->debug('Starting to place order for quote id: ' . $quoteId);
 
         try {
             $link = $this->linkRepository->getByQuoteId($quoteId);
             $orderId = $link->getOrderId();
             $qliroOrderId = $link->getQliroOrderId();
+            $this->logManager->debug('Found link, Qliro order id: ' . $qliroOrderId . ' order id: ' . $orderId . ' quote id: ' . $quoteId);
             $this->logManager->setMerchantReference($link->getReference());
 
             if (empty($orderId)) {
                 try {
+                    $this->logManager->debug('Order id is empty: ' . $orderId . ' sending request to Qliro to get order: ' . $qliroOrderId);
                     $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
@@ -185,7 +188,9 @@ class PlaceOrder extends AbstractManagement
                             __('QliroOne order status is "InProcess" and order cannot be placed.')
                         );
                     }
+                    $this->logManager->debug('Starting to lock Qliro order id: ' . $qliroOrderId);
                     if (!$this->lock->lock($qliroOrderId)) {
+                        $this->logManager->debug('Lock failed for order id: ' . $qliroOrderId);
                         throw new FailToLockException(__('Failed to aquire lock when placing order'));
                     }
 
