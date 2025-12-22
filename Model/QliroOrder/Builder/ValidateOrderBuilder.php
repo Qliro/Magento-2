@@ -17,6 +17,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
+use \Qliro\QliroOne\Model\Config;
 
 /**
  * Shipping Methods Builder class
@@ -42,6 +43,7 @@ class ValidateOrderBuilder
      * @param LogManager $logManager
      * @param SubmitQuoteValidator $submitQuoteValidator
      * @param CustomerManagement $customerManagement
+     * @param Config $config
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -49,7 +51,8 @@ class ValidateOrderBuilder
         private OrderItemsBuilder $orderItemsBuilder,
         private LogManager $logManager,
         private SubmitQuoteValidator $submitQuoteValidator,
-        private CustomerManagement $customerManagement
+        private CustomerManagement $customerManagement,
+        private Config $config
     ) {
     }
 
@@ -105,12 +108,7 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
         }
 
-        $this->logManager->debug('All products are in stock: ' . $this->quote->getId());
-
-        $this->logManager->debug('Starting to validate selected shipping method for quote id: ' .
-            $this->quote->getId() . ' Selected shipping method: ' . $this->validationRequest->getSelectedShippingMethod()
-        );
-        if (!$this->quote->isVirtual() && !$this->validationRequest->getSelectedShippingMethod()) {
+        if (!$this->isQliroShippingDataValid()) {
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -191,6 +189,38 @@ class ValidateOrderBuilder
     }
 
     /**
+     * Validates if the Qliro shipping data is valid based on shipping method, order items, and configuration.
+     *
+     * @return bool Returns true if the shipping data is valid; otherwise, false.
+     */
+    private function isQliroShippingDataValid() :bool
+    {
+        if ($this->quote->isVirtual()) {
+            return true;
+        }
+
+        $isIngridEnabled = $this->config->isIngridEnabled($this->quote->getStoreId());
+        if (!$isIngridEnabled && !$this->validationRequest->getSelectedShippingMethod()) {
+            return false;
+        }
+
+        $isShippingMethodFound = false;
+        foreach ($this->validationRequest->getOrderItems() as $item) {
+            if ($item->getType() !== \Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+
+            $isShippingMethodFound = true;
+        }
+
+        if ($isIngridEnabled && !$isShippingMethodFound) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Check if any items are out of stock
      *
      * @return bool
@@ -222,8 +252,8 @@ class ValidateOrderBuilder
     /**
      * Return true if the quote items and QliroOne order items match
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $quoteItems
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $qliroOrderItems
+     * @param QliroOrderItemInterface[] $quoteItems
+     * @param QliroOrderItemInterface[] $qliroOrderItems
      * @return bool
      */
     private function compareQuoteAndQliroOrderItems($quoteItems, $qliroOrderItems)
@@ -293,17 +323,20 @@ class ValidateOrderBuilder
     /**
      * Compare two QliroOne order items
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $item1
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $item2
+     * @param QliroOrderItemInterface $item1
+     * @param QliroOrderItemInterface $item2
      * @return bool
      */
-    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2)
+    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2): bool
     {
         if ($item1->getPricePerItemExVat() != $item2->getPricePerItemExVat()) {
             $this->logValidateError(
                 'compareItems',
                 'pricePerItemExVat different',
-                ['item1' => $item1->getPricePerItemExVat(), 'item2 => $item2->getPricePerItemExVat()']
+                [
+                    'item1' => $item1->getPricePerItemExVat(),
+                    'item2' => $item2->getPricePerItemExVat()
+                ]
             );
             return false;
         }
@@ -312,7 +345,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'pricePerItemIncVat different',
-                ['item1' => $item1->getPricePerItemIncVat(), 'item2 => $item2->getPricePerItemIncVat()']
+                [
+                    'item1' => $item1->getPricePerItemIncVat(),
+                    'item2' => $item2->getPricePerItemIncVat()
+                ]
             );
             return false;
         }
@@ -321,7 +357,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'quantity different',
-                ['item1' => $item1->getQuantity(), 'item2 => $item2->getQuantity()']
+                [
+                    'item1' => $item1->getQuantity(),
+                    'item2' => $item2->getQuantity()
+                ]
             );
             return false;
         }
@@ -330,7 +369,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'type different',
-                ['item1' => $item1->getType(), 'item2 => $item2->getType()']
+                [
+                    'item1' => $item1->getType(),
+                    'item2' => $item2->getType()
+                ]
             );
             return false;
         }
