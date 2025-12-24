@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Product;
 
@@ -18,7 +19,7 @@ interface TypeSourceProviderInterface
 
     /**
      * @param string $reference
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
      */
     public function getSourceItemByMerchantReference($reference);
 
