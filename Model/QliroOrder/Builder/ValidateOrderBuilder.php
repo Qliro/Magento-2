@@ -17,6 +17,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
+use \Qliro\QliroOne\Model\Config;
 
 /**
  * Shipping Methods Builder class
@@ -42,6 +43,7 @@ class ValidateOrderBuilder
      * @param LogManager $logManager
      * @param SubmitQuoteValidator $submitQuoteValidator
      * @param CustomerManagement $customerManagement
+     * @param Config $config
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -49,7 +51,8 @@ class ValidateOrderBuilder
         private OrderItemsBuilder $orderItemsBuilder,
         private LogManager $logManager,
         private SubmitQuoteValidator $submitQuoteValidator,
-        private CustomerManagement $customerManagement
+        private CustomerManagement $customerManagement,
+        private Config $config
     ) {
     }
 
@@ -98,13 +101,14 @@ class ValidateOrderBuilder
         $allInStock = $this->checkItemsInStock();
 
         if (!$allInStock) {
+            $this->logManager->debug('Not all products are in stock: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
 
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
         }
 
-        if (!$this->quote->isVirtual() && !$this->validationRequest->getSelectedShippingMethod()) {
+        if (!$this->isQliroShippingDataValid()) {
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -129,8 +133,10 @@ class ValidateOrderBuilder
         }
 
         try {
+            $this->logManager->debug('Starting to validate address for quote id: ' . $this->quote->getId());
             $this->customerManagement->validateAddresses($this->quote);
         } catch (Exception $e) {
+            $this->logManager->debug('Validation address failed for quote id: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -144,20 +150,25 @@ class ValidateOrderBuilder
 
         $orderItemsFromQuote = $this->orderItemsBuilder->setQuote($this->quote)->create();
 
+        $this->logManager->debug('Starting to compare quote and Qliro order items: ' . $this->quote->getId());
         $allMatch = $this->compareQuoteAndQliroOrderItems(
             $orderItemsFromQuote,
             $this->validationRequest->getOrderItems()
         );
 
         if (!$allMatch) {
+            $this->logManager->debug('Not all order lines match: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
         }
 
         try {
+            $this->logManager->debug('Starting to validate quote: ' . $this->quote->getId());
             $this->submitQuoteValidator->validateQuote($this->quote);
+            $this->logManager->debug('Finished to validate quote: ' . $this->quote->getId());
         } catch (Exception|LocalizedException $e) {
+            $this->logManager->debug('Validation failed for quote: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -178,6 +189,38 @@ class ValidateOrderBuilder
     }
 
     /**
+     * Validates if the Qliro shipping data is valid based on shipping method, order items, and configuration.
+     *
+     * @return bool Returns true if the shipping data is valid; otherwise, false.
+     */
+    private function isQliroShippingDataValid() :bool
+    {
+        if ($this->quote->isVirtual()) {
+            return true;
+        }
+
+        $isIngridEnabled = $this->config->isIngridEnabled($this->quote->getStoreId());
+        if (!$isIngridEnabled && !$this->validationRequest->getSelectedShippingMethod()) {
+            return false;
+        }
+
+        $isShippingMethodFound = false;
+        foreach ($this->validationRequest->getOrderItems() as $item) {
+            if ($item->getType() !== \Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+
+            $isShippingMethodFound = true;
+        }
+
+        if ($isIngridEnabled && !$isShippingMethodFound) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
      * Check if any items are out of stock
      *
      * @return bool
@@ -186,12 +229,14 @@ class ValidateOrderBuilder
     {
         /** @var \Magento\Quote\Model\Quote\Item $quoteItem */
         foreach ($this->quote->getAllVisibleItems() as $quoteItem) {
+            $this->logManager->debug('Getting stock for product id: ' . $quoteItem->getProduct()->getId());
             $stockItem = $this->stockRegistry->getStockItem(
                 $quoteItem->getProduct()->getId(),
                 $quoteItem->getProduct()->getStore()->getWebsiteId()
             );
 
             if (!$stockItem->getIsInStock()) {
+                $this->logManager->debug('Product id is out of stock: ' . $quoteItem->getProduct()->getId());
                 $this->logValidateError(
                     'checkItemsInStock',
                     'not enough stock',

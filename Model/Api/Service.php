@@ -199,8 +199,10 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
         );
 
         try {
+            $this->logManager->debug('Sending request to Qliro Uri: ' . $endpointUri);
             $response = $this->client->request($method, $endpointUri, $options);
             $responseData = $this->getResponseData($response);
+            $this->logManager->debug('Received response from Qliro Uri: ' . $endpointUri);
 
             $this->logManager->debug(
                 '<<< Result in {duration} seconds',
@@ -210,11 +212,12 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
                         'uri' => $endpointUri,
                         'request' => $body,
                         'status_code' => $response->getStatusCode(),
-                        'response' => $responseData,
+                        'response' => print_r($responseData, true),
                     ]
                 ]
             );
         } catch (\Exception $exception) {
+            $this->logManager->debug('Error response from Qliro Uri: ' . $endpointUri . PHP_EOL . $exception->getMessage());
             $exceptionData = [
                 'exception' => $exception->getMessage(),
                 'uri' => $endpointUri,

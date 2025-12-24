@@ -96,6 +96,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
     public function execute()
     {
         if (!$this->qliroConfig->isActive()) {
+            $this->logManager->debug('Qliro One is not enabled for ' . $this->getRequest()->getRequestUri());
             return $this->dataHelper->sendPreparedPayload(
                 [
                     'status' => 'FAILED',
@@ -133,8 +134,11 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         }
 
         try {
+            $this->logManager->debug('Starting to update customer in Qliro quote ' . $quote->getId());
             $this->qliroManagement->setQuote($quote)->updateCustomer($data);
+            $this->logManager->debug('Finished to update customer in Qliro quote ' . $quote->getId());
         } catch (\Exception $exception) {
+            $this->logManager->debug('Failed to update customer in Qliro quote ' . $quote->getId());
             return $this->dataHelper->sendPreparedPayload(
                 [
                     'status' => 'FAILED',

@@ -179,6 +179,16 @@ class QliroOrder extends AbstractManagement
     public function get($allowRecreate = true)
     {
         $link = $this->quoteManagement->setQuote($this->getQuote())->getLinkFromQuote();
+        $this->logManager->debug(
+            'Link from quote:',
+            [
+                'extra' => [
+                    'link_id' => $link->getId(),
+                    'quote_id' => $link->getQuoteId(),
+                    'qliro_order_id' => $link->getQliroOrderId(),
+                ],
+            ]
+        );
         $this->logManager->setMark('GET QLIRO ORDER');
 
         $qliroOrder = null; // Logical placeholder, may never happen
@@ -191,6 +201,15 @@ class QliroOrder extends AbstractManagement
                 if (empty($link->getOrderId())) {
                     if ($qliroOrder->isPlaced()) {
                         $this->lock->unlock($qliroOrderId);
+                        $this->logManager->debug(
+                            'Order has already been placed:',
+                            [
+                                'extra' => [
+                                    'qliro_order_id' => $qliroOrder->getOrderId(),
+                                    'quote_id' => $link->getQuoteId(),
+                                ],
+                            ]
+                        );
                         throw new AlreadyPlacedException('Order has already been placed.');
                     }
 
@@ -215,6 +234,7 @@ class QliroOrder extends AbstractManagement
 
                     try {
                         $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
+                        $this->logManager->debug('Convert update shipping methods request into quote: ' . $qliroOrder->getOrderId());
                         $this->quoteManagement->recalculateAndSaveQuote();
                     } catch (\Exception $exception) {
                         $this->logManager->debug(
