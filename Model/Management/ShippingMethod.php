@@ -156,9 +156,11 @@ class ShippingMethod extends AbstractManagement
      */
     public function update($code, $secondaryOption = null, $price = null)
     {
+        $this->logManager->debug('Starting to update shipping method for quote: ' . $this->getQuote()->getId());
         $quote = $this->getQuote();
 
         if ($code && !$quote->isVirtual()) {
+            $this->logManager->debug('Code for quote is: ' . $code);
             $shippingAddress = $quote->getShippingAddress();
 
             if (!$shippingAddress->getPostcode()) {
@@ -222,6 +224,9 @@ class ShippingMethod extends AbstractManagement
 
             // For some reason shipping code that was previously set, is not applied
             if ($shippingAddress->getShippingMethod() !== $container->getShippingMethod()) {
+                $this->logManager->debug('Shipping method from quote: ' . $shippingAddress->getShippingMethod() .
+                ' not equal to shipping method from container: ' . $container->getShippingMethod()
+                );
                 $this->logManager->debug(
                     'AJAX:UPDATE_SHIPPING_METHOD: skip reason',
                     [

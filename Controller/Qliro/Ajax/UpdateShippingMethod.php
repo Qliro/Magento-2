@@ -112,6 +112,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         $request = $this->getRequest();
 
         $quote = $this->checkoutSession->getQuote();
+        $this->logManager->debug('Starting to update shipping method for quote: ' . $quote->getId());
         $this->logManager->setMerchantReferenceFromQuote($quote);
         $this->ajaxToken->setQuote($quote);
 
@@ -127,11 +128,14 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
             );
         }
 
+        $this->logManager->debug('Starting to read prepared payload');
         $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
+        $this->logManager->debug('Finished to read prepared payload');
 
         try {
             $secondaryOption = null;
             if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+                $this->logManager->debug('Unifaun enabled: ' . $quote->getId());
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE;
                 $secondaryOption = $data['secondaryOption'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
@@ -139,6 +143,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                     $shippingPrice = $data['priceExVat'] ?? null;
                 }
             } else if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
+                $this->logManager->debug('Ingrid enabled: ' . $quote->getId());
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE;
                 $secondaryOption = $data['methodName'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
@@ -151,6 +156,9 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
             }
             $result = $this->qliroManagement->setQuote($quote)->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
         } catch (\Exception $exception) {
+            $this->logManager->debug('Failed to update shipping method in quote: ' .
+                $quote->getId() . ' error: ' . $exception->getMessage()
+            );
             return $this->dataHelper->sendPreparedPayload(
                 [
                     'status' => 'FAILED',

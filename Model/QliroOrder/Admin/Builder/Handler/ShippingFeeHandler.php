@@ -76,6 +76,7 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
             $qliroOrderItem->setQuantity(1);
             $qliroOrderItem->setPricePerItemIncVat($formattedInclAmount);
             $qliroOrderItem->setPricePerItemExVat($formattedExclAmount);
+            $qliroOrderItem->setMetadata(['qliro' => 'checkout']);
 
             $orderItems[] = $qliroOrderItem;
         }

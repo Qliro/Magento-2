@@ -24,6 +24,7 @@ use Magento\Framework\View\Result\LayoutFactory as ResultLayoutFactory;
 use Magento\Framework\View\Result\PageFactory;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 
 /**
  * Checkout page controller action
@@ -39,6 +40,11 @@ class Index extends \Magento\Checkout\Controller\Index\Index
      * @var \Magento\Framework\Controller\Result\ForwardFactory
      */
     private $resultForwardFactory;
+
+    /**
+     * @var \Qliro\QliroOne\Model\Logger\Manager
+     */
+    private $logManager;
 
     /**
      * Inject dependencies
@@ -59,6 +65,7 @@ class Index extends \Magento\Checkout\Controller\Index\Index
      * @param \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory
      * @param \Magento\Framework\Controller\Result\ForwardFactory $resultForwardFactory
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
         Context $context,
@@ -76,7 +83,8 @@ class Index extends \Magento\Checkout\Controller\Index\Index
         RawFactory $resultRawFactory,
         JsonFactory $resultJsonFactory,
         ForwardFactory $resultForwardFactory,
-        Config $qliroConfig
+        Config $qliroConfig,
+        LogManager $logManager
     ) {
         parent::__construct(
             $context,
@@ -97,6 +105,7 @@ class Index extends \Magento\Checkout\Controller\Index\Index
 
         $this->qliroConfig = $qliroConfig;
         $this->resultForwardFactory = $resultForwardFactory;
+        $this->logManager = $logManager;
     }
 
     /**
@@ -107,6 +116,7 @@ class Index extends \Magento\Checkout\Controller\Index\Index
     public function execute()
     {
         if (!$this->qliroConfig->isActive()) {
+            $this->logManager->debug('Qliro One is not enabled for ' . $this->getRequest()->getRequestUri());
             $resultForward = $this->resultForwardFactory->create();
             return $resultForward->forward('noroute');
         }
@@ -114,10 +124,12 @@ class Index extends \Magento\Checkout\Controller\Index\Index
         $resultPage = parent::execute();
 
         if ($resultPage instanceof Redirect) {
+            $this->logManager->debug('Qliro One is enabled, redirect detected');
             return $resultPage;
         }
 
         $resultPage->getConfig()->getTitle()->set($this->qliroConfig->getTitle());
+        $this->logManager->debug('Qliro One is enabled, starting checkout process');
 
         return $resultPage;
     }

@@ -111,6 +111,7 @@ class Lock extends AbstractDb
                 }
             }
 
+            $this->logManager->debug('Lock failed for Qliro order id: ' . $qliroOrderId . ' Error: ' . $e->getMessage());
             return false;
         }
 

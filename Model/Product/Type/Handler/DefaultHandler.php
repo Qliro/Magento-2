@@ -3,18 +3,18 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory as QliroOrderItemFactory;
 use Qliro\QliroOne\Api\Product\TypeHandlerInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Helper\Data;
-use Qliro\QliroOne\Model\Product\ProductPool;
-use Qliro\QliroOne\Model\Product\Type\TypeResolver;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Product\VatRate;
 
 /**
  * Default product type handler class
@@ -22,72 +22,36 @@ use Qliro\QliroOne\Model\Config;
 class DefaultHandler implements TypeHandlerInterface
 {
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    private $qliroOrderItemFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypeResolver
-     */
-    private $typeResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\ProductPool
-     */
-    private $productPool;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $qliroHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $config;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param \Qliro\QliroOne\Model\Product\Type\TypeResolver $typeResolver
-     * @param \Qliro\QliroOne\Model\Product\ProductPool $productPool
-     * @param \Qliro\QliroOne\Helper\Data $qliroHelper
-     * @param \Qliro\QliroOne\Model\Config $config
+     * @param QliroOrderItemFactory            $qliroOrderItemFactory
+     * @param Data                             $qliroHelper
+     * @param Config                           $config
+     * @param VatRate                          $vatRate
      */
     public function __construct(
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        TypeResolver $typeResolver,
-        ProductPool $productPool,
-        Data $qliroHelper,
-        Config $config
+        private readonly QliroOrderItemFactory $qliroOrderItemFactory,
+        private readonly Data                  $qliroHelper,
+        private readonly Config                $config,
+        private readonly VatRate               $vatRate
     ) {
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->typeResolver = $typeResolver;
-        $this->productPool = $productPool;
-        $this->qliroHelper = $qliroHelper;
-        $this->config = $config;
     }
 
     /**
-     * Get QliroOne order item out of a source item, or null if not applicable
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface|null
+     * @inheirtDoc
      */
     public function getQliroOrderItem(TypeSourceItemInterface $item)
     {
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem */
-        $qliroOrderItem = $this->qliroOrderItemFactory->create();
-
-        $pricePerItemIncVat = $this->preparePrice($item, true);
+        $pricePerItemIncVat = $this->preparePrice($item);
         $pricePerItemExVat = $this->preparePrice($item, false);
 
+        $qliroOrderItem = $this->qliroOrderItemFactory->create();
         $qliroOrderItem->setMerchantReference($this->prepareMerchantReference($item));
         $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_PRODUCT);
         $qliroOrderItem->setQuantity($this->prepareQuantity($item));
-        $qliroOrderItem->setPricePerItemIncVat($this->qliroHelper->formatPrice($pricePerItemIncVat));
-        $qliroOrderItem->setPricePerItemExVat($this->qliroHelper->formatPrice($pricePerItemExVat));
+        $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
+        $qliroOrderItem->setPricePerItemExVat((float)$this->qliroHelper->formatPrice($pricePerItemExVat));
+        $qliroOrderItem->setVatRate($this->vatRate->getVatRateForProduct($item)); //@Todo make value dynamic
         $qliroOrderItem->setDescription($this->prepareDescription($item));
         $qliroOrderItem->setMetaData($this->prepareMetaData($item));
 
@@ -95,26 +59,23 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * Get a reference to source item out of QliroOne order item, or null if not applicable
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
+     * @inheirtDoc
      */
-    public function getItem(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
-    {
+    public function getItem(
+        QliroOrderItemInterface $qliroOrderItem,
+        TypeSourceProviderInterface $typeSourceProvider
+    ) {
         if ($qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT) {
             return null;
         }
 
-        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMerchantReference());
+        return $typeSourceProvider->getSourceItemByMerchantReference(
+            $qliroOrderItem->getMerchantReference()
+        );
     }
 
     /**
-     * Prepare QliroOne order item's merchant reference
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return string
+     * @inheirtDoc
      */
     public function prepareMerchantReference(TypeSourceItemInterface $item)
     {
@@ -122,11 +83,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * Prepare QliroOne order item's price
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @param bool $taxIncluded
-     * @return float
+     * @inheirtDoc
      */
     public function preparePrice(TypeSourceItemInterface $item, $taxIncluded = true)
     {
@@ -134,10 +91,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * Prepare QliroOne order item's quantity
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return int
+     * @inheirtDoc
      */
     public function prepareQuantity(TypeSourceItemInterface $item)
     {
@@ -145,10 +99,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * Prepare QliroOne order item's description
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return string
+     * @inheirtDoc
      */
     public function prepareDescription(TypeSourceItemInterface $item)
     {
@@ -156,14 +107,13 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * Prepare QliroOne order item's metadata
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return array|null
+     * @inheirtDoc
      */
     public function prepareMetaData(TypeSourceItemInterface $item)
     {
-        $meta = null;
+        $meta = [
+            'qliro' => 'checkout'
+        ];
         if ($item->getSubscription()) {
             
             $meta = [
@@ -174,9 +124,9 @@ class DefaultHandler implements TypeHandlerInterface
         }
         $product = $item->getProduct();
         if ($this->config->isIngridEnabled($product->getStoreId())) {
-            if($meta == null) {
-                $meta = [];
-            }
+            //if($meta == null) {
+            //    $meta = [];
+            //}
             $meta['Ingrid'] = [
                 'Weight' => intval($product->getWeight() * 1000),
                 'Sku' => $product->getSku(),
@@ -187,7 +137,9 @@ class DefaultHandler implements TypeHandlerInterface
                     'Width' => 0
                 ],
                 'OutOfStock' => !$product->getExtensionAttributes()->getStockItem()->getIsInStock(),
-                'Discount' => $item->getParent() ? intval($item->getParent()->getItem()->getDiscountAmount() * 100) : intval($item->getItem()->getDiscountAmount() * 100)
+                'Discount' => $item->getParent() ?
+                    intval($item->getParent()->getItem()->getDiscountAmount() * 100) :
+                    intval($item->getItem()->getDiscountAmount() * 100)
             ];
             return $meta;
             
