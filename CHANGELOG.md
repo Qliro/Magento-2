@@ -1,7 +1,13 @@
 
 # Change Log
 
-## [1.6.7] - 2025-12-22
+## [1.6.8] - 2026-01-05
+
+### Fixed
+- Issue with checkout not being loaded
+
+## [1.6.7] - 2025-12-24
+
 ### Fixed
 - Improved logging during comparing items
 
