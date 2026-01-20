@@ -9,21 +9,9 @@ namespace Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked;
 
 use Magento\Checkout\Model\Cart as Subject;
 use Magento\Framework\Exception\LocalizedException;
-use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Quote\Api\Data\CartInterface;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 
-class Cart
+class Cart extends AbstractAction
 {
-    /**
-     * @param LinkRepositoryInterface $linkRepository
-     */
-    public function __construct(
-        private readonly LinkRepositoryInterface $linkRepository,
-    )
-    {
-    }
-
     /**
      *  Prevent card mutation by adding items for locked quote
      *
@@ -62,6 +50,7 @@ class Cart
      * @param mixed|null $updatingParams Parameters for updating the item (optional).
      *
      * @return array An array containing the item ID, request information, and updating parameters.
+     * @throws LocalizedException
      */
     public function beforeUpdateItem(Subject $subject, $itemId, $requestInfo = null, $updatingParams = null)
     {
@@ -83,32 +72,5 @@ class Cart
         $this->isLocked($subject->getQuote());
 
         return [$itemId];
-    }
-
-    /**
-     * Checks if the cart is locked and throws an exception if it is.
-     *
-     * @param CartInterface $quote The cart instance to check for the locked status.
-     * @return void
-     * @throws LocalizedException If the cart is locked and contains a Qliro payment.
-     */
-    private function isLocked(CartInterface $quote): void
-    {
-        if (!$quote->getId()) {
-            return;
-        }
-
-        try {
-            $link = $this->linkRepository->getByQuoteId($quote->getId());
-        } catch (NoSuchEntityException $e) {
-            return;
-        }
-
-        if ($link->getIsLocked()) {
-            throw new LocalizedException(
-                __('You have an ongoing Qliro payment. Please complete or cancel it before updating your cart')
-            );
-        }
-
     }
 }

@@ -7,7 +7,7 @@
 
 namespace Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked;
 
-use \Magento\Checkout\Controller\Cart\CouponPost as Subject;
+use \Magento\Customer\Controller\Account\Logout as Subject;
 use \Magento\Framework\Exception\LocalizedException;
 use \Magento\Framework\Exception\NoSuchEntityException;
 use \Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -16,7 +16,7 @@ use \Magento\Framework\Message\ManagerInterface as MessageManagerInterface;
 use \Magento\Framework\Controller\Result\RedirectFactory;
 use \Magento\Framework\App\Response\RedirectInterface;
 
-class Coupon extends AbstractAction
+class Logout extends AbstractAction
 {
     /**
      * @param LinkRepositoryInterface $linkRepository
