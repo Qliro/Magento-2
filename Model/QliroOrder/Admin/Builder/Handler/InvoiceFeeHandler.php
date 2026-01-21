@@ -66,6 +66,7 @@ class InvoiceFeeHandler implements OrderItemHandlerInterface
                 $qliroOrderItem->setQuantity($qlirooneFee['Quantity']);
                 $qliroOrderItem->setPricePerItemIncVat($qlirooneFee['PricePerItemIncVat']);
                 $qliroOrderItem->setPricePerItemExVat($qlirooneFee['PricePerItemExVat']);
+                $qliroOrderItem->setMetadata(['qliro' => 'checkout']);
                 $orderItems[] = $qliroOrderItem;
             }
         }

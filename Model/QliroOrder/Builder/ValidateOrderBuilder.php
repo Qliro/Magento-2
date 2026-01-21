@@ -101,6 +101,7 @@ class ValidateOrderBuilder
         $allInStock = $this->checkItemsInStock();
 
         if (!$allInStock) {
+            $this->logManager->debug('Not all products are in stock: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
 
@@ -132,8 +133,10 @@ class ValidateOrderBuilder
         }
 
         try {
+            $this->logManager->debug('Starting to validate address for quote id: ' . $this->quote->getId());
             $this->customerManagement->validateAddresses($this->quote);
         } catch (Exception $e) {
+            $this->logManager->debug('Validation address failed for quote id: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -147,20 +150,25 @@ class ValidateOrderBuilder
 
         $orderItemsFromQuote = $this->orderItemsBuilder->setQuote($this->quote)->create();
 
+        $this->logManager->debug('Starting to compare quote and Qliro order items: ' . $this->quote->getId());
         $allMatch = $this->compareQuoteAndQliroOrderItems(
             $orderItemsFromQuote,
             $this->validationRequest->getOrderItems()
         );
 
         if (!$allMatch) {
+            $this->logManager->debug('Not all order lines match: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
         }
 
         try {
+            $this->logManager->debug('Starting to validate quote: ' . $this->quote->getId());
             $this->submitQuoteValidator->validateQuote($this->quote);
+            $this->logManager->debug('Finished to validate quote: ' . $this->quote->getId());
         } catch (Exception|LocalizedException $e) {
+            $this->logManager->debug('Validation failed for quote: ' . $this->quote->getId());
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
@@ -221,12 +229,14 @@ class ValidateOrderBuilder
     {
         /** @var \Magento\Quote\Model\Quote\Item $quoteItem */
         foreach ($this->quote->getAllVisibleItems() as $quoteItem) {
+            $this->logManager->debug('Getting stock for product id: ' . $quoteItem->getProduct()->getId());
             $stockItem = $this->stockRegistry->getStockItem(
                 $quoteItem->getProduct()->getId(),
                 $quoteItem->getProduct()->getStore()->getWebsiteId()
             );
 
             if (!$stockItem->getIsInStock()) {
+                $this->logManager->debug('Product id is out of stock: ' . $quoteItem->getProduct()->getId());
                 $this->logValidateError(
                     'checkItemsInStock',
                     'not enough stock',
@@ -242,8 +252,8 @@ class ValidateOrderBuilder
     /**
      * Return true if the quote items and QliroOne order items match
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $quoteItems
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $qliroOrderItems
+     * @param QliroOrderItemInterface[] $quoteItems
+     * @param QliroOrderItemInterface[] $qliroOrderItems
      * @return bool
      */
     private function compareQuoteAndQliroOrderItems($quoteItems, $qliroOrderItems)
@@ -313,17 +323,20 @@ class ValidateOrderBuilder
     /**
      * Compare two QliroOne order items
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $item1
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $item2
+     * @param QliroOrderItemInterface $item1
+     * @param QliroOrderItemInterface $item2
      * @return bool
      */
-    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2)
+    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2): bool
     {
         if ($item1->getPricePerItemExVat() != $item2->getPricePerItemExVat()) {
             $this->logValidateError(
                 'compareItems',
                 'pricePerItemExVat different',
-                ['item1' => $item1->getPricePerItemExVat(), 'item2 => $item2->getPricePerItemExVat()']
+                [
+                    'item1' => $item1->getPricePerItemExVat(),
+                    'item2' => $item2->getPricePerItemExVat()
+                ]
             );
             return false;
         }
@@ -332,7 +345,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'pricePerItemIncVat different',
-                ['item1' => $item1->getPricePerItemIncVat(), 'item2 => $item2->getPricePerItemIncVat()']
+                [
+                    'item1' => $item1->getPricePerItemIncVat(),
+                    'item2' => $item2->getPricePerItemIncVat()
+                ]
             );
             return false;
         }
@@ -341,7 +357,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'quantity different',
-                ['item1' => $item1->getQuantity(), 'item2 => $item2->getQuantity()']
+                [
+                    'item1' => $item1->getQuantity(),
+                    'item2' => $item2->getQuantity()
+                ]
             );
             return false;
         }
@@ -350,7 +369,10 @@ class ValidateOrderBuilder
             $this->logValidateError(
                 'compareItems',
                 'type different',
-                ['item1' => $item1->getType(), 'item2 => $item2->getType()']
+                [
+                    'item1' => $item1->getType(),
+                    'item2' => $item2->getType()
+                ]
             );
             return false;
         }

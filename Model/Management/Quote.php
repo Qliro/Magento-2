@@ -283,29 +283,40 @@ class Quote extends AbstractManagement
 
         try {
             $link = $this->linkRepository->getByQuoteId($quoteId);
+            $this->logManager->debug('Link found for quote ' . $quoteId);
         } catch (NoSuchEntityException $exception) {
+            $this->logManager->debug('No Link found for quote ' . $quoteId . ', creating new one');
             /** @var \Qliro\QliroOne\Api\Data\LinkInterface $link */
             $link = $this->linkFactory->create();
             $link->setRemoteIp($this->helper->getRemoteIp());
             $link->setIsActive(true);
             $link->setQuoteId($quoteId);
+            $this->logManager->debug('Link created, quote_id: ' . $quoteId);
         }
 
         $this->handleCountrySelect($link);
 
         if ($link->getQliroOrderId()) {
+            $this->logManager->debug('Starting to update qliro order from quote ' . $quoteId);
             $this->update($link->getQliroOrderId());
+            $this->logManager->debug('Updated qliro order from quote ' . $quoteId);
         } else {
-            $this->logManager->debug('create new qliro order'); // @todo: remove
+            $this->logManager->debug('Generating new qliro order reference' . $quoteId);
             $orderReference = $this->linkService->generateOrderReference($quote);
+            $this->logManager->debug('Qliro order reference created: ' . $orderReference);
             $this->logManager->setMerchantReference($orderReference);
 
+            $this->logManager->debug('Creating request for Qliro order reference: ' . $orderReference);
             $request = $this->createRequestBuilder->setQuote($quote)->create();
             $request->setMerchantReference($orderReference);
+            $this->logManager->debug('Request for Qliro order reference created: ' . $orderReference);
 
             try {
+                $this->logManager->debug('Sending request to create order ' . $orderReference);
                 $orderId = $this->merchantApi->createOrder($request);
+                $this->logManager->debug('Order created ' . $orderId);
             } catch (\Exception $exception) {
+                $this->logManager->debug('Order creation failed: ' . $exception->getMessage());
                 $orderId = null;
             }
 
@@ -315,6 +326,7 @@ class Quote extends AbstractManagement
             $link->setIsActive(true);
             $link->setReference($orderReference);
             $link->setQliroOrderId($orderId);
+            $this->logManager->debug('Saving Link: ' . $link->getReference());
             $this->linkRepository->save($link);
         }
 
@@ -508,10 +520,12 @@ class Quote extends AbstractManagement
                 'container' => $container,
             ]
         );
+        $this->logManager->debug('Starting to update shipping price in Qliro quote ' . $quote->getId());
         $this->updateReceivedAmount($container);
 
         if ($container->getCanSaveQuote()) {
             $this->recalculateAndSaveQuote();
+            $this->logManager->debug('Finished to update shipping price in Qliro quote ' . $quote->getId());
 
             return true;
         }

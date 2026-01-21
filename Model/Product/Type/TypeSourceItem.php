@@ -3,9 +3,11 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type;
 
+use Magento\Catalog\Model\Product;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 
 /**
@@ -17,52 +19,57 @@ class TypeSourceItem implements TypeSourceItemInterface
     /**
      * @var int
      */
-    private $id;
+    private int $id;
 
     /**
      * @var string
      */
-    private $sku;
+    private string $sku;
 
     /**
      * @var string
      */
-    private $type;
+    private string $type;
 
     /**
      * @var string
      */
-    private $name;
+    private string $name;
 
     /**
-     * @var \Magento\Catalog\Model\Product
+     * @var Product
      */
-    private $product;
-
-    /**
-     * @var float
-     */
-    private $qty;
+    private Product $product;
 
     /**
      * @var float
      */
-    private $priceInclTax;
+    private float $qty;
 
     /**
      * @var float
      */
-    private $priceExclTax;
+    private float $priceInclTax;
+
+    /**
+     * @var float
+     */
+    private float $priceExclTax;
+
+    /**
+     * @var float
+     */
+    private float $vatRate;
 
     /**
      * @var mixed
      */
-    private $item;
+    private mixed $item;
 
     /**
-     * @var \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @var TypeSourceItemInterface|null
      */
-    private $parent;
+    private ?TypeSourceItemInterface $parent = null;
 
     /**
      * @var boolean
@@ -70,207 +77,197 @@ class TypeSourceItem implements TypeSourceItemInterface
     private bool $subscription = false;
 
     /**
-     * Getter.
-     *
-     * @return int
+     * @inheirtDoc
      */
-    public function getId()
+    public function getId(): int
     {
         return $this->id;
     }
 
     /**
-     * @param int $id
-     * @return $this
+     * @inheirtDoc
      */
-    public function setId($id)
+    public function setId(int $value): static
     {
-        $this->id = $id;
+        $this->id = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getSku()
+    public function getSku(): string
     {
         return $this->sku;
     }
 
     /**
-     * @param string $sku
-     * @return $this
+     * @inheirtDoc
      */
-    public function setSku($sku)
+    public function setSku(string $value): static
     {
-        $this->sku = $sku;
+        $this->sku = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getType()
+    public function getType(): string
     {
         return $this->type;
     }
 
     /**
-     * @param string $type
-     * @return $this
+     * @inheirtDoc
      */
-    public function setType($type)
+    public function setType(string $value): static
     {
-        $this->type = $type;
+        $this->type = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return string
+     * @inheirtDoc
      */
-    public function getName()
+    public function getName(): string
     {
         return $this->name;
     }
 
     /**
-     * @param string $name
-     * @return $this
+     * @inheirtDoc
      */
-    public function setName($name)
+    public function setName(string $value): static
     {
-        $this->name = $name;
+        $this->name = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return \Magento\Catalog\Model\Product
+     * @inheirtDoc
      */
-    public function getProduct()
+    public function getProduct(): Product
     {
         return $this->product;
     }
 
     /**
-     * @param \Magento\Catalog\Model\Product $product
-     * @return $this
+     * @inheirtDoc
      */
-    public function setProduct($product)
+    public function setProduct(Product $value): static
     {
-        $this->product = $product;
+        $this->product = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return float
+     * @inheirtDoc
      */
-    public function getQty()
+    public function getQty(): float
     {
         return $this->qty;
     }
 
     /**
-     * @param float $qty
-     * @return $this
+     * @inheirtDoc
      */
-    public function setQty($qty)
+    public function setQty(float $value): static
     {
-        $this->qty = $qty;
+        $this->qty = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return float
+     * @inheirtDoc
      */
-    public function getPriceInclTax()
+    public function getPriceInclTax(): float
     {
         return $this->priceInclTax;
     }
 
     /**
-     * @param float $priceInclTax
-     * @return $this
+     * @inheirtDoc
      */
-    public function setPriceInclTax($priceInclTax)
+    public function setPriceInclTax(float $value): static
     {
-        $this->priceInclTax = $priceInclTax;
+        $this->priceInclTax = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return float
+     * @inheirtDoc
      */
-    public function getPriceExclTax()
+    public function getPriceExclTax(): float
     {
         return $this->priceExclTax;
     }
 
     /**
-     * @param float $priceExclTax
-     * @return $this
+     * @inheirtDoc
      */
-    public function setPriceExclTax($priceExclTax)
+    public function setPriceExclTax(float $value): static
     {
-        $this->priceExclTax = $priceExclTax;
+        $this->priceExclTax = $value;
 
         return $this;
     }
 
     /**
-     * Getter.
-     *
-     * @return mixed
+     * @inheirtDoc
      */
-    public function getItem()
+    public function getVatRate(): float
+    {
+        return $this->vatRate;
+    }
+
+    /**
+     * @inheirtDoc
+     */
+    public function setVatRate(float $value): static
+    {
+        $this->vatRate = $value;
+
+        return $this;
+    }
+
+    /**
+     * @inheirtDoc
+     */
+    public function getItem(): mixed
     {
         return $this->item;
     }
 
     /**
-     * @param mixed $item
-     * @return $this
+     * @inheirtDoc
      */
-    public function setItem($item)
+    public function setItem(mixed $value): static
     {
-        $this->item = $item;
+        $this->item = $value;
 
         return $this;
     }
 
     /**
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
+     * @inheirtDoc
      */
-    public function getParent()
+    public function getParent(): ?TypeSourceItemInterface
     {
         return $this->parent;
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $value
-     * @return $this
+     * @inheirtDoc
      */
-    public function setParent($value)
+    public function setParent(TypeSourceItemInterface $value): static
     {
         $this->parent = $value;
 
@@ -278,18 +275,17 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @return bool
+     * @inheirtDoc
      */
-    public function getSubscription()
+    public function getSubscription(): bool
     {
         return $this->subscription;
     }
 
     /**
-     * @param bool $value
-     * @return $this
+     * @inheirtDoc
      */
-    public function setSubscription(bool $value)
+    public function setSubscription(bool $value): static
     {
         $this->subscription = $value;
 
