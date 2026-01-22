@@ -171,13 +171,24 @@ class QliroOrder extends AbstractManagement
     /**
      * Fetch a QliroOne order and return it as a container
      *
+     * @param bool $allowRecreate
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      * @throws \Magento\Framework\Exception\AlreadyExistsException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function get()
+    public function get($allowRecreate = true)
     {
         $link = $this->quoteManagement->setQuote($this->getQuote())->getLinkFromQuote();
+        $this->logManager->debug(
+            'Link from quote:',
+            [
+                'extra' => [
+                    'link_id' => $link->getId(),
+                    'quote_id' => $link->getQuoteId(),
+                    'qliro_order_id' => $link->getQliroOrderId(),
+                ],
+            ]
+        );
         $this->logManager->setMark('GET QLIRO ORDER');
 
         $qliroOrder = null; // Logical placeholder, may never happen
@@ -190,10 +201,40 @@ class QliroOrder extends AbstractManagement
                 if (empty($link->getOrderId())) {
                     if ($qliroOrder->isPlaced()) {
                         $this->lock->unlock($qliroOrderId);
+                        $this->logManager->debug(
+                            'Order has already been placed:',
+                            [
+                                'extra' => [
+                                    'qliro_order_id' => $qliroOrder->getOrderId(),
+                                    'quote_id' => $link->getQuoteId(),
+                                ],
+                            ]
+                        );
                         throw new AlreadyPlacedException('Order has already been placed.');
                     }
+
+                    if ($qliroOrder->isRefused() && $allowRecreate) {
+                        $link->setIsActive(false);
+                        $link->setMessage("Refused order. Create new order");
+                        $link->setQliroOrderStatus($qliroOrder->getCustomerCheckoutStatus());
+                        $this->linkRepository->save($link);
+                        $this->logManager->debug(
+                            'Refused order detected. New order creation triggered.',
+                            [
+                                'extra' => [
+                                    'link_id' => $link->getId(),
+                                    'quote_id' => $link->getQuoteId(),
+                                    'qliro_order_id' => $qliroOrderId,
+                                ],
+                            ]
+                        );
+
+                        return $this->get(false); // Recursion, but will max call it once
+                    }
+
                     try {
                         $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
+                        $this->logManager->debug('Convert update shipping methods request into quote: ' . $qliroOrder->getOrderId());
                         $this->quoteManagement->recalculateAndSaveQuote();
                     } catch (\Exception $exception) {
                         $this->logManager->debug(

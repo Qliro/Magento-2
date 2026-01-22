@@ -3,8 +3,11 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Product;
+
+use Magento\Catalog\Model\Product;
 
 /**
  * Type Source Item interface
@@ -14,121 +17,132 @@ interface TypeSourceItemInterface
     /**
      * @return int
      */
-    public function getId();
+    public function getId(): int;
 
     /**
      * @return string
      */
-    public function getSku();
+    public function getSku(): string;
 
     /**
      * @return string
      */
-    public function getType();
+    public function getType(): string;
 
     /**
      * @return string
      */
-    public function getName();
+    public function getName(): string;
 
     /**
-     * @return \Magento\Catalog\Model\Product
+     * @return Product
      */
-    public function getProduct();
-
-    /**
-     * @return float
-     */
-    public function getQty();
+    public function getProduct(): Product;
 
     /**
      * @return float
      */
-    public function getPriceInclTax();
+    public function getQty(): float;
 
     /**
      * @return float
      */
-    public function getPriceExclTax();
+    public function getPriceInclTax(): float;
+
+    /**
+     * @return float
+     */
+    public function getPriceExclTax(): float;
+
+    /**
+     * @return float
+     */
+    public function getVatRate(): float;
 
     /**
      * @return mixed
      */
-    public function getItem();
+    public function getItem(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
+     * @return TypeSourceItemInterface|null
      */
-    public function getParent();
+    public function getParent(): ?TypeSourceItemInterface;
 
     /**
      * @param int $value
      * @return $this
      */
-    public function setId($value);
+    public function setId(int $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setSku($value);
+    public function setSku(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setType($value);
+    public function setType(string $value): static;
 
     /**
      * @param string $value
      * @return $this
      */
-    public function setName($value);
+    public function setName(string $value): static;
 
     /**
-     * @param \Magento\Catalog\Model\Product $value
+     * @param Product $value
      * @return $this
      */
-    public function setProduct($value);
-
-    /**
-     * @param float $value
-     * @return $this
-     */
-    public function setQty($value);
+    public function setProduct(Product $value): static;
 
     /**
      * @param float $value
      * @return $this
      */
-    public function setPriceInclTax($value);
+    public function setQty(float $value): static;
 
     /**
      * @param float $value
      * @return $this
      */
-    public function setPriceExclTax($value);
+    public function setPriceInclTax(float $value): static;
+
+    /**
+     * @param float $value
+     * @return $this
+     */
+    public function setPriceExclTax(float $value): static;
+
+    /**
+     * @param float $value
+     * @return $this
+     */
+    public function setVatRate(float $value): static;
 
     /**
      * @param mixed $value
      * @return $this
      */
-    public function setItem($value);
+    public function setItem(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $value
+     * @param TypeSourceItemInterface $value
      * @return $this
      */
-    public function setParent($value);
+    public function setParent(TypeSourceItemInterface $value): static;
 
     /**
      * @param boolean $value
      * @return $this
      */
-    public function setSubscription(bool $value);
+    public function setSubscription(bool $value): static;
 
     /**
      * @return bool
      */
-    public function getSubscription();
+    public function getSubscription(): bool;
 }

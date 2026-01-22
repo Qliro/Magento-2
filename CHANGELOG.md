@@ -1,6 +1,25 @@
 
 # Change Log
 
+## [1.6.8] - 2026-01-05
+
+### Fixed
+- Issue with checkout not being loaded
+
+## [1.6.7] - 2025-12-24
+
+### Fixed
+- Improved logging during comparing items
+
+### Added
+- VAT Rate to Qliro Order API
+- Improved logging, ability to download logs from an admin panel
+
+## [1.6.6] - 2025-10-31
+
+### Fixed
+- Prevented orders from being created with an empty payment method by improving handling of refused Qliro orders
+
 ## [1.6.5] - 2025-10-24
 
 ### Added
