@@ -39,6 +39,9 @@ class QuoteManagement implements ObserverInterface
             return;
         }
 
-        $this->itemLimitValidator->validateQuoteItemsLimit($quote);
+        $paymentMethod = $quote->getPayment()->getMethod();
+        if ($paymentMethod == 'qliroone') {
+            $this->itemLimitValidator->validateQuoteItemsLimit($quote);
+        }
     }
 }
