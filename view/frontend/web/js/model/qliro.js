@@ -162,6 +162,7 @@ define([
 
         onSessionExpired: function() {
             qliroSuccessDebug('onSessionExpired', q1);
+            window.location.reload();
         },
 
         onShippingMethodChanged: function(shipping) {
