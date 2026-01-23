@@ -12,10 +12,11 @@ use Magento\Framework\App\Request\Http;
 use Magento\Framework\Controller\Result\Json as JsonResult;
 use Magento\Framework\Controller\ResultFactory;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Framework\Stdlib\DateTime\DateTime;
 use Qliro\QliroOne\Api\Data\ContainerInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use \Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
+use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
 
 /**
  * QliroOne Data helper class
@@ -38,6 +39,11 @@ class Data extends AbstractHelper
     private $json;
 
     /**
+     * @var DateTime
+     */
+    private DateTime $dateTime;
+
+    /**
      * @var \Magento\Framework\Controller\ResultFactory
      */
     private $resultFactory;
@@ -54,6 +60,7 @@ class Data extends AbstractHelper
      * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Magento\Framework\Serialize\Serializer\Json $json
+     * @param DateTime $dateTime
      * @param \Magento\Framework\Controller\ResultFactory $resultFactory
      * @param \Magento\Framework\HTTP\PhpEnvironment\RemoteAddress $remoteAddress
      */
@@ -62,6 +69,7 @@ class Data extends AbstractHelper
         ContainerMapper $containerMapper,
         LogManager $logManager,
         Json $json,
+        DateTime $dateTime,
         ResultFactory $resultFactory,
         RemoteAddress $remoteAddress
     ) {
@@ -69,6 +77,7 @@ class Data extends AbstractHelper
         $this->containerMapper = $containerMapper;
         $this->logManager = $logManager;
         $this->json = $json;
+        $this->dateTime = $dateTime;
         $this->resultFactory = $resultFactory;
         $this->remoteAddress = $remoteAddress;
     }
@@ -217,6 +226,21 @@ class Data extends AbstractHelper
         } else {
             return \shell_exec(sprintf('ps -p %s | wc -l', $pid )) > 1;
         }
+    }
+
+    /**
+     * Compare saved date with current and check if the first one is older than the second one.
+     *
+     * @param string $date
+     * @return bool
+     */
+    public function isTimePassed(string $date): bool
+    {
+        $seconds = 10;
+        $savedTimestamp = strtotime($date);
+        $currentTimestamp = $this->dateTime->gmtTimestamp();
+
+        return ($currentTimestamp - $savedTimestamp) > $seconds;
     }
 
     /**

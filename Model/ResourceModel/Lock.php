@@ -95,12 +95,13 @@ class Lock extends AbstractDb
         } catch (\Exception $e) {
             if ($checkProcess) {
                 $select = $connection->select()
-                    ->from($this->getTable(self::TABLE_LOCK), self::FIELD_PROCESS_ID)
+                    ->from($this->getTable(self::TABLE_LOCK), [self::FIELD_PROCESS_ID, self::FIELD_CREATED_AT])
                     ->where(sprintf('%s = :id', self::FIELD_ID ));
                 $row = $connection->fetchRow($select, [':id' => $qliroOrderId]);
                 if (!empty($row[self::FIELD_PROCESS_ID])) {
                     $pid = $row[self::FIELD_PROCESS_ID];
-                    if (!$this->helper->isProcessAlive($pid)) {
+                    if (!$this->helper->isProcessAlive($pid) &&
+                    $this->helper->isTimePassed($row[self::FIELD_CREATED_AT])) {
                         $rows = $this->unlock($qliroOrderId, true);
                         if ($rows > 0) {
                             $this->logManager->notice('lock: retired lock for dead process {pid}', ['pid' => $pid]);
