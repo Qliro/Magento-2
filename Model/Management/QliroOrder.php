@@ -310,7 +310,6 @@ class QliroOrder extends AbstractManagement
             try {
                 $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
                 $this->quoteFromValidateConverter->convert($validateContainer, $this->getQuote());
-                $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
 
                 return $this->validateOrderBuilder->setQuote($this->getQuote())->setValidationRequest(
                     $validateContainer
