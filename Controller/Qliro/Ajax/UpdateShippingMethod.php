@@ -16,47 +16,13 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Framework\App\ProductMetadataInterface;
+use Magento\Tax\Helper\Data as TaxHelper;
 
 /**
  * Update shipping method AJAX controller action class
  */
 class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
 {
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $dataHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\AjaxToken
-     */
-    private $ajaxToken;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $checkoutSession;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var ProductMetadataInterface
-     */
-    private $productMetadata;
-
     /**
      * Inject dependnecies
      *
@@ -66,27 +32,22 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
      * @param AjaxToken $ajaxToken
      * @param ManagementInterface $qliroManagement
      * @param Session $checkoutSession
-     * @param Manager $logManager
+     * @param LogManager $logManager
      * @param ProductMetadataInterface $productMetadata
+     * @param TaxHelper $taxHelper
      */
     public function __construct(
         Context $context,
-        Config $qliroConfig,
-        Data $dataHelper,
-        AjaxToken $ajaxToken,
-        ManagementInterface $qliroManagement,
-        Session $checkoutSession,
-        LogManager $logManager,
-        ProductMetadataInterface $productMetadata
+        readonly private Config $qliroConfig,
+        readonly private Data $dataHelper,
+        readonly private AjaxToken $ajaxToken,
+        readonly private ManagementInterface $qliroManagement,
+        readonly private Session $checkoutSession,
+        readonly private LogManager $logManager,
+        readonly private ProductMetadataInterface $productMetadata,
+        readonly private TaxHelper $taxHelper
     ) {
         parent::__construct($context);
-        $this->dataHelper = $dataHelper;
-        $this->ajaxToken = $ajaxToken;
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroManagement = $qliroManagement;
-        $this->checkoutSession = $checkoutSession;
-        $this->logManager = $logManager;
-        $this->productMetadata = $productMetadata;
     }
 
     /**
@@ -139,7 +100,9 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE;
                 $secondaryOption = $data['secondaryOption'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
-                if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME) {
+                if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME
+                    || $this->taxHelper->shippingPriceIncludesTax($quote->getStoreId()) === false)
+                {
                     $shippingPrice = $data['priceExVat'] ?? null;
                 }
             } else if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
@@ -147,7 +110,9 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                 $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE;
                 $secondaryOption = $data['methodName'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
-                if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME) {
+                if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME
+                    || $this->taxHelper->shippingPriceIncludesTax($quote->getStoreId()) === false)
+                {
                     $shippingPrice = $data['priceExVat'] ?? null;
                 }
             } else {
