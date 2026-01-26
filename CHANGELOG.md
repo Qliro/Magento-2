@@ -1,6 +1,25 @@
 
 # Change Log
 
+## [1.6.9] - 2026-01-26
+
+### Fixed
+
+- Resolved an issue with order refunds caused by empty discount and fee items in the refund request
+- Fixed an issue where duplicate orders could be created during checkout in multi-node Magento application setups
+- Prevented order items from being modified after payment initiation
+- Fixed the `400 ORDER_EXPIRED: Unable to update as too much time has passed after order creation time` error
+- Resolved the `Not enough items for sale` error for quote items with a quantity of 1 in stock
+- Fixed price calculation issues for Table Rates, Ingrid, and nShift shipping methods
+
+### Removed
+
+- Removed quote total recollection (`recalculateAndSaveQuote`) during validation requests to prevent deadlocks
+
+### Added
+
+- Improved logging
+
 ## [1.6.8] - 2026-01-05
 
 ### Fixed
