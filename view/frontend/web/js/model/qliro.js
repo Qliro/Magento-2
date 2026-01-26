@@ -154,10 +154,32 @@ define([
             );
         },
 
-        onPaymentProcess: function() {
+        onPaymentProcessStart: function() {
             $(".opc-block-summary").hide();
             $(".discount-code").hide();
-            qliroSuccessDebug('onPaymentProcess', q1);
+            sendAjaxAsJson(config.lockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
+                function(data) {
+                    qliroSuccessDebug('Quote is locked', data);
+                },
+                function(response) {
+                    qliroDebug('Failed to lock quote', response);
+                }
+            );
+            qliroSuccessDebug('onPaymentProcessStart', q1);
+        },
+
+        onPaymentProcessEnd: function() {
+            $(".opc-block-summary").show();
+            $(".discount-code").show();
+            sendAjaxAsJson(config.unlockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
+                function(data) {
+                    qliroSuccessDebug('Quote is unlocked', data);
+                },
+                function(response) {
+                    qliroDebug('Failed to unlock quote', response);
+                }
+            );
+            qliroSuccessDebug('onPaymentProcessEnd', q1);
         },
 
         onSessionExpired: function() {

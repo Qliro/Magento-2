@@ -21,4 +21,20 @@
     <type name="Magento\Checkout\Model\Type\Onepage">
         <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Model\Type\Onepage" />
     </type>
+
+    <type name="Magento\Checkout\Model\Cart">
+        <plugin name="qliro_prevent_cart_changes_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Cart"/>
+    </type>
+
+    <type name="Magento\Checkout\Controller\Cart\CouponPost">
+        <plugin name="qliro_prevent_coupon_changes_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Coupon"/>
+    </type>
+
+    <type name="Magento\Customer\Model\AccountManagement">
+        <plugin name="qliro_prevent_login_in_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Login"/>
+    </type>
+
+    <type name="Magento\Customer\Controller\Account\Logout">
+        <plugin name="qliro_prevent_logout_in_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Logout"/>
+    </type>
 </config>

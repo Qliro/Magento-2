@@ -102,6 +102,8 @@ class CheckoutConfigProvider implements ConfigProviderInterface
                 'updateShippingPriceUrl' => $this->getUrl('checkout/qliro_ajax/updateShippingPrice'),
                 'updatePaymentMethodUrl' => $this->getUrl('checkout/qliro_ajax/updatePaymentMethod'),
                 'pollPendingUrl' => $this->getUrl('checkout/qliro_ajax/pollPending'),
+                'lockQuoteUrl' => $this->getUrl('checkout/qliro_ajax/lockQuote'),
+                'unlockQuoteUrl' => $this->getUrl('checkout/qliro_ajax/unlockQuote'),
                 'qliroone_fee' => []
             ],
         ];

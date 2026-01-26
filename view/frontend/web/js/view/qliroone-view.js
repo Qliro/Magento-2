@@ -78,7 +78,7 @@ define([
                 q1.onCustomerInfoChanged(qliro.onCustomerInfoChanged);
                 q1.onPaymentDeclined(qliro.onPaymentDeclined);
                 q1.onPaymentMethodChanged(qliro.onPaymentMethodChanged);
-                q1.onPaymentProcess(qliro.onPaymentProcess);
+                q1.onPaymentProcess(qliro.onPaymentProcessStart, qliro.onPaymentProcessEnd)
                 q1.onSessionExpired(qliro.onSessionExpired);
                 q1.onShippingMethodChanged(qliro.onShippingMethodChanged);
                 q1.onShippingPriceChanged(qliro.onShippingPriceChanged);
