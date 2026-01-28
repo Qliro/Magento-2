@@ -126,11 +126,6 @@ class UpdateRequestBuilder
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest */
         $qliroOrderUpdateRequest = $this->updateRequestFactory->create();
         $qliroOrderUpdateRequest->setRequireIdentityVerification($this->qliroConfig->requireIdentityVerification());
-        foreach ($this->quote->getAllItems() as $item) {
-            if ($item->getProductType() == Type::TYPE_VIRTUAL && !$item->getParentItemId()) {
-                $qliroOrderUpdateRequest->setRequireIdentityVerification(1);
-            }
-        }
 
         return $qliroOrderUpdateRequest;
     }
