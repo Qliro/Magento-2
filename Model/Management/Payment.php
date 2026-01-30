@@ -12,6 +12,7 @@ use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
+use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -237,6 +238,9 @@ class Payment extends AbstractManagement
             if ($result->getPaymentTransactionId()) {
                 $payment->setTransactionId($result->getPaymentTransactionId());
             }
+        } elseif ($result->getStatus() == CheckoutStatusInterface::STATUS_REFUSED) {
+            $order->setState(Order::STATE_CANCELED);
+            $order->addCommentToStatusHistory('Capture failed');
         } else {
             throw new LocalizedException(
                 __('Unable to capture payment for this order.')
