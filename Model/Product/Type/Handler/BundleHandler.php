@@ -27,7 +27,7 @@ class BundleHandler extends DefaultHandler
             return null;
         }
 
-        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMerchantReference());
+        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
     }
 
     /**

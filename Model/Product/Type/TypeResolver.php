@@ -44,7 +44,7 @@ class TypeResolver
             return null;
         }
 
-        $sourceItem = $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMerchantReference());
+        $sourceItem = $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
 
         if ($sourceItem) {
             $typeHash = [$sourceItem->getProduct()->getTypeId()];
