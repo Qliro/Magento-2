@@ -46,7 +46,7 @@ class DefaultHandler implements TypeHandlerInterface
         $pricePerItemExVat = $this->preparePrice($item, false);
 
         $qliroOrderItem = $this->qliroOrderItemFactory->create();
-        $qliroOrderItem->setMerchantReference($this->prepareMerchantReference($item));
+        $qliroOrderItem->setMerchantReference($item->getSku());
         $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_PRODUCT);
         $qliroOrderItem->setQuantity($this->prepareQuantity($item));
         $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
