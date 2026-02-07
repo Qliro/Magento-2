@@ -116,7 +116,7 @@ class Data
      * @return void
      * @throws \Exception
      */
-    public function saveNewOrderRecurringInfo(Order $order, string $personalNumber = null): void
+    public function saveNewOrderRecurringInfo(Order $order, ?string $personalNumber = null): void
     {
         $recurringInfoData = $this->orderGetter($order);
         $recurringInfoModel = $this->recurringInfoModelFactory->create();

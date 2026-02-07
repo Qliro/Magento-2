@@ -348,7 +348,7 @@ class QliroOne implements MethodInterface
     /**
      * @inheritdoc
      */
-    public function isAvailable(CartInterface $quote = null)
+    public function isAvailable(?CartInterface $quote = null)
     {
         return $this->adapter->isAvailable($quote);
     }
