@@ -12,7 +12,7 @@
 ### Added
 
 - Support for PHP 8.4
-- Limitation of items in the order to be not morw that 200
+- Limitation of items in the order to be not more than 200
 
 ## [1.6.9] - 2026-01-26
 
