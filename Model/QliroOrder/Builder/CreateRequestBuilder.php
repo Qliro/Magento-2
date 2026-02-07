@@ -348,11 +348,6 @@ class CreateRequestBuilder
         $createRequest->setAskForNewsletterSignup($this->qliroConfig->shouldAskForNewsletterSignup());
         $createRequest->setAskForNewsletterSignupChecked($this->qliroConfig->askForNewsletterSignupChecked());
         $createRequest->setRequireIdentityVerification($this->qliroConfig->requireIdentityVerification());
-        foreach ($this->quote->getAllItems() as $item) {
-            if ($item->getProductType() == Type::TYPE_VIRTUAL && !$item->getParentItemId()) {
-                $createRequest->setRequireIdentityVerification(1);
-            }
-        }
 
         return $createRequest;
     }
