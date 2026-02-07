@@ -46,7 +46,7 @@ class DefaultHandler implements TypeHandlerInterface
         $pricePerItemExVat = $this->preparePrice($item, false);
 
         $qliroOrderItem = $this->qliroOrderItemFactory->create();
-        $qliroOrderItem->setMerchantReference($this->prepareMerchantReference($item));
+        $qliroOrderItem->setMerchantReference($item->getSku());
         $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_PRODUCT);
         $qliroOrderItem->setQuantity($this->prepareQuantity($item));
         $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
@@ -69,9 +69,7 @@ class DefaultHandler implements TypeHandlerInterface
             return null;
         }
 
-        return $typeSourceProvider->getSourceItemByMerchantReference(
-            $qliroOrderItem->getMerchantReference()
-        );
+        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
     }
 
     /**
@@ -122,6 +120,11 @@ class DefaultHandler implements TypeHandlerInterface
                 ]
             ];
         }
+
+        $meta['quoteItems'] = [
+            $this->prepareMerchantReference($item) => $this->prepareMerchantReference($item),
+        ];
+
         $product = $item->getProduct();
         if ($this->config->isIngridEnabled($product->getStoreId())) {
             //if($meta == null) {
