@@ -4,7 +4,7 @@
  * See LICENSE.txt for license details.
  */
 
-namespace Qliro\QliroOneController\Checkout;
+namespace Qliro\QliroOne\Controller\Checkout;
 
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Action;
