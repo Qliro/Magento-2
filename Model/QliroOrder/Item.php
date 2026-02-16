@@ -195,7 +195,7 @@ class Item implements QliroOrderItemInterface
     /**
      * @inheirtDoc
      */
-    public function setMetadata(array $value): static
+    public function setMetadata(?array $value): static
     {
         if (is_null($value)) {
             return $this;
