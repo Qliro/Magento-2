@@ -3,51 +3,50 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 
 /**
- * Default product type handler class
+ * Configurable product type handler class
  */
 class ConfigurableHandler extends DefaultHandler
 {
     /**
-     * Prepare QliroOne order item's price
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @param bool $taxIncluded
-     * @return float
+     * @inheritDoc
      */
-    public function preparePrice(TypeSourceItemInterface $item, $taxIncluded = true)
+    public function preparePrice(TypeSourceItemInterface $item, bool $taxIncluded = true): float
     {
         $parent = $item->getParent();
 
-        return $taxIncluded ? $parent->getPriceInclTax() : $parent->getPriceExclTax();
+        if ($parent === null) {
+            return parent::preparePrice($item, $taxIncluded);
+        }
+
+        return (float) ($taxIncluded ? $parent->getPriceInclTax() : $parent->getPriceExclTax());
     }
 
     /**
-     * Prepare QliroOne order item's quantity
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return int
+     * @inheritDoc
      */
-    public function prepareQuantity(TypeSourceItemInterface $item)
+    public function prepareQuantity(TypeSourceItemInterface $item): float
     {
         $parent = $item->getParent();
 
-        return $parent->getQty();
+        if ($parent === null) {
+            return parent::prepareQuantity($item);
+        }
+
+        return (float) $parent->getQty();
     }
 
     /**
-     * Prepare QliroOne order item's description
-     *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return string
+     * @inheritDoc
      */
-    public function prepareDescription(TypeSourceItemInterface $item)
+    public function prepareDescription(TypeSourceItemInterface $item): string
     {
-        return $item->getName();
+        return (string) $item->getName();
     }
 }

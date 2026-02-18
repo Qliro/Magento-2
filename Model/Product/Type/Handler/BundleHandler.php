@@ -1,29 +1,35 @@
 <?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
+use Magento\Bundle\Model\Product\Type as BundleType;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
-use Magento\Bundle\Model\Product\Type as BundleType;
 
 /**
  * Bundle product type handler class
  */
 class BundleHandler extends DefaultHandler
 {
+    private const BUNDLE_PRICE_TYPE_DYNAMIC = 0;
 
     /**
-     * Get a reference to source item out of QliroOne order item, or null if not applicable
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
+     * @inheritDoc
      */
-    public function getItem(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
+    public function getItem(
+        QliroOrderItemInterface $qliroOrderItem,
+        TypeSourceProviderInterface $typeSourceProvider
+    ): ?TypeSourceItemInterface
     {
-        if ($qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT &&
-            $qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_BUNDLE) {
+        $type = $qliroOrderItem->getType();
+        if ($type !== QliroOrderItemInterface::TYPE_PRODUCT &&
+            $type !== QliroOrderItemInterface::TYPE_BUNDLE) {
             return null;
         }
 
@@ -31,20 +37,21 @@ class BundleHandler extends DefaultHandler
     }
 
     /**
-     * Prepare price depending on bundle dynamic pricing setting
+     * Prepare price depending on bundle dynamic pricing setting.
+     * Returns 0.0 for dynamically-priced bundles (price is sum of children).
      *
      * @param TypeSourceItemInterface $item
-     * @param boolean $taxIncluded
-     * @return void
+     * @param bool $taxIncluded
+     * @return float
      */
-    public function preparePrice(TypeSourceItemInterface $item, $taxIncluded = true)
+    public function preparePrice(TypeSourceItemInterface $item, bool $taxIncluded = true): float
     {
         if ($item->getType() !== BundleType::TYPE_CODE) {
             return parent::preparePrice($item, $taxIncluded);
         }
 
-        if ((int)$item->getProduct()->getPriceType() === 0) {
-            return 0;
+        if ((int) $item->getProduct()->getPriceType() === self::BUNDLE_PRICE_TYPE_DYNAMIC) {
+            return 0.0;
         }
 
         return parent::preparePrice($item, $taxIncluded);
