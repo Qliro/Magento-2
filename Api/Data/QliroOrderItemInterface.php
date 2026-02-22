@@ -128,8 +128,8 @@ interface QliroOrderItemInterface extends ContainerInterface
      * - FooterLines (array) Array of strings that will be displayed below the item on the invoice.
      *   Maximum number of strings is 5 and maximum length of each string is 115 characters.
      *
-     * @param array $value
+     * @param array|null $value
      * @return $this
      */
-    public function setMetadata(array $value): static;
+    public function setMetadata(?array $value): static;
 }
