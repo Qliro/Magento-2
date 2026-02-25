@@ -246,7 +246,7 @@ class ShippingMethod extends AbstractManagement
                 $quote->getBillingAddress()->setCountryId($defaultCountry);
             }
 
-            $this->quoteManagement->recalculateAndSaveQuote();
+            $this->quoteManagement->recalculateAndSaveQuote($container->getShippingMethod());
 
             // For some reason shipping code that was previously set, is not applied
             if ($shippingAddress->getShippingMethod() !== $container->getShippingMethod()) {
