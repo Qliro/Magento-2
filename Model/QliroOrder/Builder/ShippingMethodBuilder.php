@@ -123,15 +123,19 @@ class ShippingMethodBuilder
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface $container */
         $container = $this->shippingMethodFactory->create();
 
+        $effectivePrice = $shippingAddress->getFreeShipping()
+            ? 0.0
+            : $this->rate->getPrice() - (float)$shippingAddress->getShippingDiscountAmount();
+
         $priceExVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
+            $effectivePrice,
             false,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
         );
 
         $priceIncVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() - $shippingAddress->getShippingDiscountAmount(),
+            $effectivePrice,
             true,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()

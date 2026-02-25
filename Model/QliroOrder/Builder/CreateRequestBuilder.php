@@ -247,7 +247,6 @@ class CreateRequestBuilder
                 ]);
             }
         }
-        $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
         $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
         $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
         $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();

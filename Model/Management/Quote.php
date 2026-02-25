@@ -181,14 +181,15 @@ class Quote extends AbstractManagement
      *
      * @throws \Exception
      */
-    public function recalculateAndSaveQuote()
+    public function recalculateAndSaveQuote(?string $requestedShippingMethod = null)
     {
         $data['method'] = QliroOne::PAYMENT_METHOD_CHECKOUT_CODE;
 
         $quote = $this->getQuote();
         $customer = $quote->getCustomer();
+
         $shippingAddress = $quote->getShippingAddress();
-        $billingAddress = $quote->getBillingAddress();
+        $billingAddress  = $quote->getBillingAddress();
 
         if ($quote->isVirtual()) {
             $billingAddress->setPaymentMethod($data['method']);
@@ -196,53 +197,55 @@ class Quote extends AbstractManagement
             $shippingAddress->setPaymentMethod($data['method']);
         }
 
-        $billingAddress->save();
-
-        if (!$quote->isVirtual()) {
-            $shippingAddress->save();
-        }
-
         $quote->assignCustomerWithAddressChange($customer, $billingAddress, $shippingAddress);
-        $quote->setTotalsCollectedFlag(false);
 
-        if (!$quote->isVirtual()) {
-            if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
-                $shippingAddress->setShippingMethod(
-                    \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE
-                );
-            }
-            if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
-                $shippingAddress->setShippingMethod(
-                    \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE
-                );
-            }
-            if(!$shippingAddress->hasData('item_qty')) {
-                $shippingAddress->setData('item_qty', $quote->getItemsQty());//fix magento bug for shipping per item
-            }
+        $shippingAddress = $quote->getShippingAddress();
+        $billingAddress  = $quote->getBillingAddress();
 
-            $weight = $this->getQuoteItemsWeight();
-            $shippingAddress->setWeight($weight);
-            $shippingAddress->setFreeMethodWeight($weight);
-            $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
-        }
+        // Apply requested shipping method in the quote model space
+        if (!$quote->isVirtual() && $requestedShippingMethod) {
+            $shippingAddress->setShippingMethod($requestedShippingMethod);
 
-        $extensionAttributes = $quote->getExtensionAttributes();
-
-        if (!empty($extensionAttributes)) {
-            $shippingAssignments = $extensionAttributes->getShippingAssignments();
-
-            if ($shippingAssignments) {
-                foreach ($shippingAssignments as $assignment) {
-                    $assignment->getShipping()->setMethod($shippingAddress->getShippingMethod());
+            // Also sync shipping assignments (important in 2.4.x)
+            $ext = $quote->getExtensionAttributes();
+            if ($ext && $ext->getShippingAssignments()) {
+                foreach ($ext->getShippingAssignments() as $assignment) {
+                    $assignment->getShipping()->setMethod($requestedShippingMethod);
                 }
             }
         }
+
+        // Fix "shipping per item" qty if needed
+        if (!$quote->isVirtual() && !$shippingAddress->hasData('item_qty')) {
+            $shippingAddress->setData('item_qty', $quote->getItemsQty());
+        }
+
+        // Ensure correct weights
+        if (!$quote->isVirtual()) {
+            $weight = $this->getQuoteItemsWeight();
+            $shippingAddress->setWeight($weight);
+            $shippingAddress->setFreeMethodWeight($weight);
+        }
+
+        if (!$quote->isVirtual() && (int)$shippingAddress->getFreeShipping() === 1) {
+            foreach ($quote->getAllItems() as $item) {
+                if ($item->getParentItem() || $item->getProduct()->isVirtual()) {
+                    continue;
+                }
+
+                $fs = $item->getFreeShipping();
+
+                // If rule set boolean/1, convert to "all qty free" for tablerate logic
+                if ($fs === true || $fs === 1 || $fs === '1') {
+                    $item->setFreeShipping((float)$item->getQty());
+                }
+            }
+        }
+
+        $quote->setTotalsCollectedFlag(false);
         $quote->collectTotals();
 
-        $payment = $quote->getPayment();
-        $payment->importData($data);
-
-        $shippingAddress->save();
+        $quote->getPayment()->importData($data);
         $this->quoteRepository->save($quote);
     }
 

@@ -219,8 +219,7 @@ class ShippingMethod extends AbstractManagement
                 return false;
             }
 
-            $shippingAddress->setShippingMethod($container->getShippingMethod());
-            $this->quoteManagement->recalculateAndSaveQuote();
+            $this->quoteManagement->recalculateAndSaveQuote($container->getShippingMethod());
 
             // For some reason shipping code that was previously set, is not applied
             if ($shippingAddress->getShippingMethod() !== $container->getShippingMethod()) {
