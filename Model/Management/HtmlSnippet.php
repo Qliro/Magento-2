@@ -6,11 +6,9 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
-use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Magento\Framework\App\Response\Http;
-use \Qliro\QliroOne\Api\LinkRepositoryInterface;
 /**
  * QliroOne management class
  */
@@ -22,14 +20,13 @@ class HtmlSnippet extends AbstractManagement
      * @param QliroOrder $qliroOrder
      * @param Manager $logManager
      * @param Http $http
-     * @param LinkRepositoryInterface $linkRepository
      */
     public function __construct(
         private readonly QliroOrder $qliroOrder,
-        private readonly  Manager $logManager,
-        private readonly  Http $http,
-        private readonly  LinkRepositoryInterface $linkRepository
-    ) {
+        private readonly Manager $logManager,
+        private readonly Http $http,
+    )
+    {
     }
 
     /**
@@ -37,13 +34,9 @@ class HtmlSnippet extends AbstractManagement
      *
      * @return string
      */
-    public function get()
+    public function get(): string
     {
         try {
-            try {
-                $this->linkRepository->unlock($this->getQuote()->getId());
-            } catch (NoSuchEntityException $exception) {}
-
             return $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
         } catch (AlreadyPlacedException $exception) {
             $this->logManager->debug('The order has already been placed. Redirecting to pending order page.');
