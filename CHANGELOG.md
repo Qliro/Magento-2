@@ -1,6 +1,12 @@
 
 # Change Log
 
+## [1.7.1] - 2026-03-03
+
+### Fixed
+
+- TypeError in validate callback when item metadata is null (`Item::setMetadata` expects array)
+
 ## [1.7.0] - 2026-02-06
 
 ### Fixed
