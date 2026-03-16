@@ -9,7 +9,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * AdminMarkItemsAsShippedRequestInterface interface
  */
-interface AdminMarkItemsAsShippedRequestInterface extends ContainerInterface
+interface AdminMarkItemsAsShippedRequestInterface
 {
     /**
      * @return string

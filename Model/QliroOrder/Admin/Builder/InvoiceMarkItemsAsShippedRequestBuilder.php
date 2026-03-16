@@ -34,51 +34,21 @@ class InvoiceMarkItemsAsShippedRequestBuilder
     private $amount;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory
-     */
-    private $requestFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder
-     */
-    private $shipmentsBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory
-     * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
-     * @param \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder $shipmentsBuilder
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory
+     * @param LinkRepositoryInterface $linkRepository
+     * @param LogManager $logManager
+     * @param InvoiceShipmentsBuilder $shipmentsBuilder
+     * @param Config $qliroConfig
      */
     public function __construct(
-        AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory,
-        LinkRepositoryInterface $linkRepository,
-        LogManager $logManager,
-        InvoiceShipmentsBuilder $shipmentsBuilder,
-        Config $qliroConfig
+        private readonly AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly LogManager $logManager,
+        private readonly InvoiceShipmentsBuilder $shipmentsBuilder,
+        private readonly Config $qliroConfig
     ) {
-        $this->requestFactory = $requestFactory;
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->shipmentsBuilder = $shipmentsBuilder;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**

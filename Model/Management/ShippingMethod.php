@@ -9,155 +9,76 @@ namespace Qliro\QliroOne\Model\Management;
 use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Api\CartRepositoryInterface;
-use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
+use Magento\Quote\Model\Quote as MagentoQuote;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
-use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface;
+use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromShippingMethodsConverter;
 
 /**
- * QliroOne management class
+ * Shipping method operations for QliroOne.
+ *
+ * All methods accept the quote as an explicit parameter where needed.
  */
-class ShippingMethod extends AbstractManagement
+class ShippingMethod
 {
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartRepositoryInterface
-     */
-    private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder
-     */
-    private $shippingMethodsBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromShippingMethodsConverter
-     */
-    private $quoteFromShippingMethodsConverter;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-    /**
-     * @var Quote
-     */
-    private $quoteManagement;
-
-    /**
-     * Inject dependencies
-     *
-     * @param ShippingMethodsBuilder $shippingMethodsBuilder
-     * @param QuoteFromShippingMethodsConverter $quoteFromShippingConverter
-     * @param LinkRepositoryInterface $linkRepository
-     * @param CartRepositoryInterface $quoteRepository
-     * @param ContainerMapper $containerMapper
-     * @param LogManager $logManager
-     * @param ManagerInterface $eventManager
-     * @param Quote $quoteManagement
-     */
     public function __construct(
-        ShippingMethodsBuilder $shippingMethodsBuilder,
-        QuoteFromShippingMethodsConverter $quoteFromShippingConverter,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        ContainerMapper $containerMapper,
-        LogManager $logManager,
-        ManagerInterface $eventManager,
-        Quote $quoteManagement
+        private readonly ShippingMethodsBuilder $shippingMethodsBuilder,
+        private readonly QuoteFromShippingMethodsConverter $quoteFromShippingMethodsConverter,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly PayloadConverter $payloadConverter,
+        private readonly LogManager $logManager,
+        private readonly ManagerInterface $eventManager,
+        private readonly Quote $quoteManagement
     ) {
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->shippingMethodsBuilder = $shippingMethodsBuilder;
-        $this->containerMapper = $containerMapper;
-        $this->logManager = $logManager;
-        $this->quoteFromShippingMethodsConverter = $quoteFromShippingConverter;
-        $this->eventManager = $eventManager;
-        $this->quoteManagement = $quoteManagement;
     }
 
     /**
-     * Update quote with received data in the container and return a list of available shipping methods
-     *
-     * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface $updateContainer
-     * @return \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface
+     * Update quote with received data and return a list of available shipping methods.
      */
-    public function get(UpdateShippingMethodsNotificationInterface $updateContainer)
+    public function get(array $updateContainer): array
     {
-        /** @var \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface $declineContainer */
-        $declineContainer = $this->containerMapper->fromArray(
-            ['DeclineReason' => UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE],
-            UpdateShippingMethodsResponseInterface::class
-        );
+        $declineContainer = ['DeclineReason' => 'PostalCode'];
 
         try {
-            $link = $this->linkRepository->getByQliroOrderId($updateContainer->getOrderId());
+            $link = $this->linkRepository->getByQliroOrderId($updateContainer['OrderId'] ?? null);
             $this->logManager->setMerchantReference($link->getReference());
 
             try {
-                $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
-                $this->quoteFromShippingMethodsConverter->convert($updateContainer, $this->getQuote());
-                $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+                $quote = $this->quoteRepository->get($link->getQuoteId());
+                $this->quoteFromShippingMethodsConverter->convert($updateContainer, $quote);
+                $this->quoteManagement->recalculateAndSaveQuote($quote);
 
-                return $this->shippingMethodsBuilder->setQuote($this->getQuote())->create();
+                return $this->shippingMethodsBuilder->setQuote($quote)->create();
             } catch (\Exception $exception) {
-                $this->logManager->critical(
-                    $exception,
-                    [
-                        'extra' => [
-                            'qliro_order_id' => $updateContainer->getOrderId(),
-                            'quote_id' => $link->getQuoteId(),
-                        ],
-                    ]
-                );
-
+                $this->logManager->critical($exception, [
+                    'extra' => [
+                        'qliro_order_id' => $updateContainer['OrderId'] ?? null,
+                        'quote_id'       => $link->getQuoteId(),
+                    ],
+                ]);
                 return $declineContainer;
             }
         } catch (\Exception $exception) {
-            $this->logManager->critical(
-                $exception,
-                [
-                    'extra' => [
-                        'qliro_order_id' => $updateContainer->getOrderId(),
-                    ],
-                ]
-            );
-
+            $this->logManager->critical($exception, [
+                'extra' => ['qliro_order_id' => $updateContainer['OrderId'] ?? null],
+            ]);
             return $declineContainer;
         }
     }
 
     /**
-     * Update selected shipping method in quote
-     * Return true in case shipping method was set, or false if the quote is virtual or method was not changed
+     * Update selected shipping method on a quote.
      *
-     * @param string $code
-     * @param string|null $secondaryOption
-     * @param float|null $price
-     * @return bool
+     * Returns true when the method was changed and the quote saved, false otherwise.
+     *
      * @throws \Exception
      */
-    public function update($code, $secondaryOption = null, $price = null)
+    public function update(MagentoQuote $quote, string $code, ?string $secondaryOption = null, ?float $price = null): bool
     {
-        $this->logManager->debug('Starting to update shipping method for quote: ' . $this->getQuote()->getId());
-        $quote = $this->getQuote();
+        $this->logManager->debug('Starting to update shipping method for quote: ' . $quote->getId());
 
         if ($code && !$quote->isVirtual()) {
             $this->logManager->debug('Code for quote is: ' . $code);
@@ -165,78 +86,62 @@ class ShippingMethod extends AbstractManagement
 
             if (!$shippingAddress->getPostcode()) {
                 $billingAddress = $quote->getBillingAddress();
-                $shippingAddress->addData(
-                    [
-                        'email' => $billingAddress->getEmail(),
-                        'firstname' => $billingAddress->getFirstname(),
-                        'lastname' => $billingAddress->getLastname(),
-                        'company' => $billingAddress->getCompany(),
-                        'street' => $billingAddress->getStreetFull(),
-                        'city' => $billingAddress->getCity(),
-                        'region' => $billingAddress->getRegion(),
-                        'region_id' => $billingAddress->getRegionId(),
-                        'postcode' => $billingAddress->getPostcode(),
-                        'country_id' => $billingAddress->getCountryId(),
-                        'telephone' => $billingAddress->getTelephone(),
-                        'same_as_billing' => true,
-                    ]
-                );
+                $shippingAddress->addData([
+                    'email'      => $billingAddress->getEmail(),
+                    'firstname'  => $billingAddress->getFirstname(),
+                    'lastname'   => $billingAddress->getLastname(),
+                    'company'    => $billingAddress->getCompany(),
+                    'street'     => $billingAddress->getStreetFull(),
+                    'city'       => $billingAddress->getCity(),
+                    'region'     => $billingAddress->getRegion(),
+                    'region_id'  => $billingAddress->getRegionId(),
+                    'postcode'   => $billingAddress->getPostcode(),
+                    'country_id' => $billingAddress->getCountryId(),
+                    'telephone'  => $billingAddress->getTelephone(),
+                    'same_as_billing' => true,
+                ]);
             }
 
-            // @codingStandardsIgnoreStart
-            // phpcs:disable
-            $container = new DataObject(
-                [
-                    'shipping_method' => $code,
-                    'secondary_option' => $secondaryOption,
-                    'shipping_price' => $price,
-                    'can_save_quote' => $shippingAddress->getShippingMethod() !== $code,
-                ]
-            );
-            // @codingStandardsIgnoreEnd
-            // phpcs:enable
+            $container = new DataObject([
+                'shipping_method'  => $code,
+                'secondary_option' => $secondaryOption,
+                'shipping_price'   => $price,
+                'can_save_quote'   => $shippingAddress->getShippingMethod() !== $code,
+            ]);
 
-            $this->eventManager->dispatch(
-                'qliroone_shipping_method_update_before',
-                [
-                    'quote' => $quote,
-                    'container' => $container,
-                ]
-            );
-            $this->quoteManagement->setQuote($this->getQuote())->updateReceivedAmount($container);
+            $this->eventManager->dispatch('qliroone_shipping_method_update_before', [
+                'quote'     => $quote,
+                'container' => $container,
+            ]);
+
+            $this->quoteManagement->updateReceivedAmount($quote, $container);
 
             if (!$container->getCanSaveQuote()) {
-                $this->logManager->debug(
-                    'AJAX:UPDATE_SHIPPING_METHOD: skip reason',
-                    [
-                        'extra' => [
-                            'message' => 'Shipping method is already set',
-                            'quote_method' => $shippingAddress->getShippingMethod(),
-                            'qliro_method' => $code,
-                        ],
-                    ]
-                );
+                $this->logManager->debug('AJAX:UPDATE_SHIPPING_METHOD: skip reason', [
+                    'extra' => [
+                        'message'      => 'Shipping method is already set',
+                        'quote_method' => $shippingAddress->getShippingMethod(),
+                        'qliro_method' => $code,
+                    ],
+                ]);
                 return false;
             }
 
             $shippingAddress->setShippingMethod($container->getShippingMethod());
-            $this->quoteManagement->recalculateAndSaveQuote();
+            $this->quoteManagement->recalculateAndSaveQuote($quote);
 
-            // For some reason shipping code that was previously set, is not applied
             if ($shippingAddress->getShippingMethod() !== $container->getShippingMethod()) {
-                $this->logManager->debug('Shipping method from quote: ' . $shippingAddress->getShippingMethod() .
-                ' not equal to shipping method from container: ' . $container->getShippingMethod()
-                );
                 $this->logManager->debug(
-                    'AJAX:UPDATE_SHIPPING_METHOD: skip reason',
-                    [
-                        'extra' => [
-                            'message' => 'Unable to change shipping method. Check magento and server logs',
-                            'quote_method' => $shippingAddress->getShippingMethod(),
-                            'qliro_method' => $code,
-                        ],
-                    ]
+                    'Shipping method from quote: ' . $shippingAddress->getShippingMethod() .
+                    ' not equal to shipping method from container: ' . $container->getShippingMethod()
                 );
+                $this->logManager->debug('AJAX:UPDATE_SHIPPING_METHOD: skip reason', [
+                    'extra' => [
+                        'message'      => 'Unable to change shipping method. Check magento and server logs',
+                        'quote_method' => $shippingAddress->getShippingMethod(),
+                        'qliro_method' => $code,
+                    ],
+                ]);
                 return false;
             }
 

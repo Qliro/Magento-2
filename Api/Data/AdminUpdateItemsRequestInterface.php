@@ -9,7 +9,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * Admin Update Items Request interface
  */
-interface AdminUpdateItemsRequestInterface extends ContainerInterface
+interface AdminUpdateItemsRequestInterface
 {
     /**
      * @return string

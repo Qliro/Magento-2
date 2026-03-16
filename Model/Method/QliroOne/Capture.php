@@ -5,6 +5,9 @@
  */
 namespace Qliro\QliroOne\Model\Method\QliroOne;
 
+use Magento\Framework\Exception\LocalizedException;
+use Qliro\QliroOne\Api\Admin\OrderServiceInterface;
+
 use Magento\Payment\Gateway\Command;
 use Magento\Payment\Gateway\CommandInterface;
 use Magento\Payment\Gateway\Command\ResultInterface;
@@ -15,27 +18,15 @@ use Magento\Payment\Gateway\Command\ResultInterface;
 class Capture implements CommandInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Management
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Management $qliroManagement
+     * @param OrderServiceInterface $qliroManagement
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
      */
     public function __construct(
-        \Qliro\QliroOne\Model\Management $qliroManagement,
-        \Qliro\QliroOne\Model\Config $qliroConfig
+        private readonly OrderServiceInterface $qliroManagement,
+        private readonly \Qliro\QliroOne\Model\Config $qliroConfig
     ) {
-        $this->qliroManagement = $qliroManagement;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
@@ -44,7 +35,7 @@ class Capture implements CommandInterface
      * @param array $commandSubject
      *
      * @return ResultInterface|null
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws LocalizedException
      * @throws \Magento\Framework\Exception\NoSuchEntityException
      */
     public function execute(array $commandSubject)
@@ -60,7 +51,7 @@ class Capture implements CommandInterface
                 $this->qliroManagement->captureByInvoice($payment, $amount);
             }
         } catch (\Exception $exception) {
-            throw new \Magento\Framework\Exception\LocalizedException(
+            throw new LocalizedException(
                 __('Unable to capture payment for this order.')
             );
         }

@@ -3,135 +3,88 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Callback;
 
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\ResponseInterface;
-use Qliro\QliroOne\Api\Data\UpdateShippingMethodNotificationInterfaceFactory;
-use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
-use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
+use Magento\Framework\Controller\ResultInterface;
+use Qliro\QliroOne\Api\Checkout\OrderServiceInterface as OrderService;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\ContainerMapper;
-use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Security\CallbackToken;
 
 /**
  * Validate callback controller action
  */
-class Validate extends \Magento\Framework\App\Action\Action
+class Validate implements HttpPostActionInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $dataHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
-     */
-    private $callbackToken;
-
-    /**
-     * @var Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
-     * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
-     * @param \Qliro\QliroOne\Helper\Data $dataHelper
-     * @param \Qliro\QliroOne\Model\Security\CallbackToken $callbackToken
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param HttpRequest              $request
+     * @param OrderService             $orderService
+     * @param Config                   $qliroConfig
+     * @param Data                     $dataHelper
+     * @param CallbackToken            $callbackToken
+     * @param LogManager               $logManager
      */
     public function __construct(
-        Context $context,
-        Config $qliroConfig,
-        ManagementInterface $qliroManagement,
-        ContainerMapper $containerMapper,
-        Data $dataHelper,
-        CallbackToken $callbackToken,
-        Manager $logManager
+        private readonly HttpRequest   $request,
+        private readonly OrderService  $orderService,
+        private readonly Config        $qliroConfig,
+        private readonly Data          $dataHelper,
+        private readonly CallbackToken $callbackToken,
+        private readonly LogManager    $logManager
     ) {
-        parent::__construct($context);
-
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroManagement = $qliroManagement;
-        $this->containerMapper = $containerMapper;
-        $this->dataHelper = $dataHelper;
-        $this->callbackToken = $callbackToken;
-        $this->logManager = $logManager;
     }
 
     /**
      * Dispatch request
      *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
+     * @return ResultInterface|ResponseInterface
      */
-    public function execute()
+    public function execute(): ResultInterface|ResponseInterface
     {
-        $start = \microtime(true);
+        $start = microtime(true);
         $this->logManager->info('Notification Validate start');
 
         if (!$this->qliroConfig->isActive()) {
             return $this->dataHelper->sendPreparedPayload(
-                ['error' => ValidateOrderResponseInterface::REASON_OTHER],
+                [ 'error' => 'Other' ],
                 400,
                 null,
                 'CALLBACK:VALIDATE:ERROR_INACTIVE'
             );
         }
 
-        /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
-
-        if (!$this->callbackToken->verifyToken($request->getParam('token'))) {
+        if (!$this->callbackToken->verifyToken($this->request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
-                ['error' => ValidateOrderResponseInterface::REASON_OTHER],
+                [ 'error' => 'Other' ],
                 400,
                 null,
                 'CALLBACK:VALIDATE:ERROR_TOKEN'
             );
         }
 
-        $payload = $this->dataHelper->readPreparedPayload($request, 'CALLBACK:VALIDATE');
+        $payload = $this->dataHelper->readPreparedPayload($this->request, 'CALLBACK:VALIDATE');
 
-        /** @var \Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface $validateContainer */
-        $validateContainer = $this->containerMapper->fromArray(
-            $payload,
-            ValidateOrderNotificationInterface::class
-        );
-
-        $responseContainer = $this->qliroManagement->validateQliroOrder($validateContainer);
+        $responseContainer = $this->orderService->validateQliroOrder($payload);
 
         $response = $this->dataHelper->sendPreparedPayload(
             $responseContainer,
-            $responseContainer->getDeclineReason() ? 400 : 200,
+            !empty($responseContainer['DeclineReason']) ? 400 : 200,
             null,
             'CALLBACK:VALIDATE'
         );
 
-        $this->logManager->info('Notification Validate done in {duration} seconds', ['duration' => \microtime(true) - $start]);
+        $this->logManager->info(
+            'Notification Validate done in {duration} seconds',
+            [ 'duration' => microtime(true) - $start ]
+        );
 
         return $response;
     }

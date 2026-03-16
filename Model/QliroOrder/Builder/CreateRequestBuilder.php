@@ -13,8 +13,6 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory;
-use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\GeoIpResolverInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Config;
@@ -40,154 +38,43 @@ class CreateRequestBuilder
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory
-     */
-    private $createRequestFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LanguageMapperInterface
-     */
-    private $languageMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Magento\Framework\App\Config\ScopeConfigInterface
-     */
-    private $scopeConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory
-     */
-    private $shippingMethodFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerBuilder
-     */
-    private $customerBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder
-     */
-    private $orderItemsBuilder;
-
-    /**
-     * @var \Magento\Customer\Model\Session
-     */
-    private $session;
-
-    /**
-     * @var \Magento\Store\Model\StoreManagerInterface
-     */
-    private $storeManager;
-
-    /**
-     * @var \Qliro\QliroOne\Api\GeoIpResolverInterface
-     */
-    private $geoIpResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
-     */
-    private $callbackToken;
-
-    /**
-     * @var \Magento\Framework\Url\QueryParamsResolverInterface
-     */
-    private $queryParamsResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder
-     */
-    private $shippingMethodsBuilder;
-
-    /**
-     * @var \Magento\Store\Model\Information
-     */
-    private $information;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * @var ShippingConfigBuilder
-     */
-    private $shippingConfigBuilder;
-
-    /**
-     * @var CountrySelect
-     */
-    private CountrySelect $countrySelectManagement;
-
-    /**
-     * @var Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory $createRequestFactory
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerBuilder $customerBuilderm
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder $orderItemsBuilder
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory $shippingMethodFactory
-     * @param \Qliro\QliroOne\Api\LanguageMapperInterface $languageMapper
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
-     * @param \Magento\Customer\Model\Session $session
-     * @param \Magento\Store\Model\StoreManagerInterface $storeManager
-     * @param \Qliro\QliroOne\Api\GeoIpResolverInterface $geoIpResolver
-     * @param \Qliro\QliroOne\Model\Security\CallbackToken $callbackToken
-     * @param \Magento\Framework\Url\QueryParamsResolverInterface $queryParamsResolver
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder $shippingMethodsBuilder
-     * @param \Magento\Store\Model\Information $information
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
-     * @param \Qliro\QliroOne\Model\Management\CountrySelect $countrySelect
+     * @param CustomerBuilder $customerBuilder
+     * @param OrderItemsBuilder $orderItemsBuilder
+     * @param LanguageMapperInterface $languageMapper
+     * @param Config $qliroConfig
+     * @param ScopeConfigInterface $scopeConfig
+     * @param Session $session
+     * @param StoreManagerInterface $storeManager
+     * @param GeoIpResolverInterface $geoIpResolver
+     * @param CallbackToken $callbackToken
+     * @param QueryParamsResolverInterface $queryParamsResolver
+     * @param ShippingMethodsBuilder $shippingMethodsBuilder
+     * @param ShippingConfigBuilder $shippingConfigBuilder
+     * @param Information $information
+     * @param ManagerInterface $eventManager
+     * @param CountrySelect $countrySelectManagement
      * @param Manager $logManager
      */
     public function __construct(
-        QliroOrderCreateRequestInterfaceFactory $createRequestFactory,
-        CustomerBuilder $customerBuilderm,
-        OrderItemsBuilder $orderItemsBuilder,
-        QliroOrderShippingMethodInterfaceFactory $shippingMethodFactory,
-        LanguageMapperInterface $languageMapper,
-        Config $qliroConfig,
-        ScopeConfigInterface $scopeConfig,
-        Session $session,
-        StoreManagerInterface $storeManager,
-        GeoIpResolverInterface $geoIpResolver,
-        CallbackToken $callbackToken,
-        QueryParamsResolverInterface $queryParamsResolver,
-        ShippingMethodsBuilder $shippingMethodsBuilder,
-        ShippingConfigBuilder $shippingConfigBuilder,
-        Information $information,
-        ManagerInterface $eventManager,
-        CountrySelect $countrySelectManagement,
-        Manager $logManager
+        private readonly CustomerBuilder $customerBuilder,
+        private readonly OrderItemsBuilder $orderItemsBuilder,
+        private readonly LanguageMapperInterface $languageMapper,
+        private readonly Config $qliroConfig,
+        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly Session $session,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly GeoIpResolverInterface $geoIpResolver,
+        private readonly CallbackToken $callbackToken,
+        private readonly QueryParamsResolverInterface $queryParamsResolver,
+        private readonly ShippingMethodsBuilder $shippingMethodsBuilder,
+        private readonly ShippingConfigBuilder $shippingConfigBuilder,
+        private readonly Information $information,
+        private readonly ManagerInterface $eventManager,
+        private readonly CountrySelect $countrySelectManagement,
+        private readonly Manager $logManager
     ) {
-        $this->createRequestFactory = $createRequestFactory;
-        $this->languageMapper = $languageMapper;
-        $this->qliroConfig = $qliroConfig;
-        $this->scopeConfig = $scopeConfig;
-        $this->shippingMethodFactory = $shippingMethodFactory;
-        $this->customerBuilder = $customerBuilderm;
-        $this->orderItemsBuilder = $orderItemsBuilder;
-        $this->session = $session;
-        $this->storeManager = $storeManager;
-        $this->geoIpResolver = $geoIpResolver;
-        $this->callbackToken = $callbackToken;
-        $this->queryParamsResolver = $queryParamsResolver;
-        $this->shippingMethodsBuilder = $shippingMethodsBuilder;
-        $this->information = $information;
-        $this->eventManager = $eventManager;
-        $this->shippingConfigBuilder = $shippingConfigBuilder;
-        $this->countrySelectManagement = $countrySelectManagement;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -206,7 +93,7 @@ class CreateRequestBuilder
     /**
      * Generate a QliroOne order create request object
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface
+     * @return array
      * @throws \Exception
      * @todo: should we always supply shipping methods, or should it be a configuration?
      * @todo: what about virtual quotes, they should not have any shipping methods or what?
@@ -217,13 +104,13 @@ class CreateRequestBuilder
             throw new \LogicException('Quote entity is not set.');
         }
 
-        $this->logManager->debug('Starting to create request object for quote: ' . $this->quote->getId());
+        $this->logManager->debug('Starting to create request payload for quote: ' . $this->quote->getId());
         $createRequest = $this->prepareCreateRequest();
 
         $orderItems = $this->orderItemsBuilder->setQuote($this->quote)->create();
 
-        $this->logManager->debug('Starting to set order items to request object');
-        $createRequest->setOrderItems($orderItems);
+        $this->logManager->debug('Starting to set order items to request payload');
+        $createRequest['OrderItems'] = $orderItems;
         $presetAddress = $this->qliroConfig->presetAddress();
         $shippingAddress = $this->quote->getShippingAddress();
         if ($presetAddress && empty($shippingAddress->getPostcode())) {
@@ -247,18 +134,20 @@ class CreateRequestBuilder
                 ]);
             }
         }
-        $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
+        if (empty($shippingAddress->getGroupedAllShippingRates())) {
+            $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
+        }
         $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
         $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
-        $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();
+        $availableShippingMethods = $shippingMethods['AvailableShippingMethods'] ?? [];
         if (!empty($storeInfo)) {
             $shippingAddress->clearInstance()->save();
         }
-        $createRequest->setAvailableShippingMethods($availableShippingMethods);
+        $createRequest['AvailableShippingMethods'] = $availableShippingMethods;
 
         $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
         if ($shippingConfig) {
-            $createRequest->setShippingConfiguration($shippingConfig);
+            $createRequest['ShippingConfiguration'] = $shippingConfig;
         }
 
         $customerInfo = $this->customerBuilder
@@ -266,16 +155,16 @@ class CreateRequestBuilder
             ->setCustomer($this->session->isLoggedIn() ? $this->quote->getCustomer() : null)
             ->create();
 
-        if ($customerInfo->getEmail()) {
-            $createRequest->setCustomerInformation($customerInfo);
+        if (!empty($customerInfo['Email'] ?? null)) {
+            $createRequest['CustomerInformation'] = $customerInfo;
 
-            if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
-                $createRequest->setEnforcedJuridicalType($customerInfo->getJuridicalType());
+            if (($customerInfo['JuridicalType'] ?? null) === 'Company' && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
+                $createRequest['EnforcedJuridicalType'] = $customerInfo['JuridicalType'];
             }
         }
 
-        $this->quote->getBillingAddress()->setCountryId($createRequest->getCountry());
-        $this->quote->getShippingAddress()->setCountryId($createRequest->getCountry());
+        $this->quote->getBillingAddress()->setCountryId($createRequest['Country'] ?? null);
+        $this->quote->getShippingAddress()->setCountryId($createRequest['Country'] ?? null);
         $this->quote->save();
 
         $this->eventManager->dispatch(
@@ -292,62 +181,54 @@ class CreateRequestBuilder
     }
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface
+     * @return array
      */
     private function prepareCreateRequest()
     {
         /** @var \Magento\Quote\Api\Data\CurrencyInterface $currencies */
         $currencies = $this->quote->getCurrency();
 
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface $createRequest */
-        $createRequest = $this->createRequestFactory->create();
+        $createRequest = [];
 
-        $createRequest->setCurrency($currencies->getQuoteCurrencyCode());
-        $createRequest->setLanguage($this->languageMapper->getLanguage());
-        $createRequest->setCountry($this->getCountry());
+        $createRequest['Currency'] = $currencies->getQuoteCurrencyCode();
+        $createRequest['Language'] = $this->languageMapper->getLanguage();
+        $createRequest['Country'] = $this->getCountry();
 
         $termsUrl = $this->qliroConfig->getTermsUrl();
-        $createRequest->setMerchantTermsUrl($termsUrl ? $termsUrl : $this->getUrl('/'));
-        $createRequest->setMerchantIntegrityPolicyUrl($this->qliroConfig->getIntegrityPolicyUrl());
+        $createRequest['MerchantTermsUrl'] = $termsUrl ? $termsUrl : $this->getUrl('/');
+        $createRequest['MerchantIntegrityPolicyUrl'] = $this->qliroConfig->getIntegrityPolicyUrl();
 
-        $createRequest->setMerchantConfirmationUrl($this->getUrl('checkout/qliro/pending'));
+        $createRequest['MerchantConfirmationUrl'] = $this->getUrl('checkout/qliro/success');
 
-        $createRequest->setMerchantCheckoutStatusPushUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/checkoutStatus')
-        );
+        $createRequest['MerchantCheckoutStatusPushUrl'] = $this->getCallbackUrl('checkout/qliro_callback/checkoutStatus');
 
         if ($this->qliroConfig->isUseRecurring($this->quote->getStoreId())) {
-            $createRequest->setMerchantSavedCreditCardPushUrl($this->getCallbackUrl('checkout/qliro_callback/savedCreditCard'));
+            $createRequest['MerchantSavedCreditCardPushUrl'] = $this->getCallbackUrl('checkout/qliro_callback/savedCreditCard');
         }
 
-        $createRequest->setMerchantOrderManagementStatusPushUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/transactionStatus')
-        );
+        $createRequest['MerchantOrderManagementStatusPushUrl'] = $this->getCallbackUrl('checkout/qliro_callback/transactionStatus');
 
-        $createRequest->setMerchantNotificationUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/merchantNotification')
-        );
+        $createRequest['MerchantNotificationUrl'] = $this->getCallbackUrl('checkout/qliro_callback/merchantNotification');
 
-        $createRequest->setMerchantOrderValidationUrl($this->getCallbackUrl('checkout/qliro_callback/validate'));
+        $createRequest['MerchantOrderValidationUrl'] = $this->getCallbackUrl('checkout/qliro_callback/validate');
 
         if (!($this->qliroConfig->isIngridEnabled($this->quote->getStoreId()) || $this->qliroConfig->isUnifaunEnabled($this->quote->getStoreId()))) {
-            $createRequest->setMerchantOrderAvailableShippingMethodsUrl(
-                $this->getCallbackUrl('checkout/qliro_callback/shippingMethods')
-            );
+            $createRequest['MerchantOrderAvailableShippingMethodsUrl'] = $this->getCallbackUrl('checkout/qliro_callback/shippingMethods');
         }
 
-        $createRequest->setBackgroundColor($this->qliroConfig->getStylingBackgroundColor());
-        $createRequest->setPrimaryColor($this->qliroConfig->getStylingPrimaryColor());
-        $createRequest->setCallToActionColor($this->qliroConfig->getStylingCallToActionColor());
-        $createRequest->setCallToActionHoverColor($this->qliroConfig->getStylingHoverColor());
-        $createRequest->setCornerRadius($this->qliroConfig->getStylingRadius());
-        $createRequest->setButtonCornerRadius($this->qliroConfig->getStylingButtonCurnerRadius());
-        $createRequest->setMinimumCustomerAge(
-            $this->qliroConfig->getMinimumCustomerAge() > 0 ? $this->qliroConfig->getMinimumCustomerAge() : null
-        );
-        $createRequest->setAskForNewsletterSignup($this->qliroConfig->shouldAskForNewsletterSignup());
-        $createRequest->setAskForNewsletterSignupChecked($this->qliroConfig->askForNewsletterSignupChecked());
-        $createRequest->setRequireIdentityVerification($this->qliroConfig->requireIdentityVerification());
+        $createRequest['BackgroundColor'] = $this->qliroConfig->getStylingBackgroundColor();
+        $createRequest['PrimaryColor'] = $this->qliroConfig->getStylingPrimaryColor();
+        $createRequest['CallToActionColor'] = $this->qliroConfig->getStylingCallToActionColor();
+        $createRequest['CallToActionHoverColor'] = $this->qliroConfig->getStylingHoverColor();
+        $createRequest['CornerRadius'] = $this->qliroConfig->getStylingRadius();
+        $createRequest['ButtonCornerRadius'] = $this->qliroConfig->getStylingButtonCurnerRadius();
+        $minAge = (int)$this->qliroConfig->getMinimumCustomerAge();
+        if ($minAge > 0) {
+            $createRequest['MinimumCustomerAge'] = $minAge;
+        }
+        $createRequest['AskForNewsletterSignup'] = (bool)$this->qliroConfig->shouldAskForNewsletterSignup();
+        $createRequest['AskForNewsletterSignupChecked'] = (bool)$this->qliroConfig->askForNewsletterSignupChecked();
+        $createRequest['RequireIdentityVerification'] = (bool)$this->qliroConfig->requireIdentityVerification();
 
         return $createRequest;
     }

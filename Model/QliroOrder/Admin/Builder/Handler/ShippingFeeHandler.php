@@ -19,28 +19,15 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
     const MERCHANT_REFERENCE_CODE_FIELD = 'qliro_shipping_merchant_ref';
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    private $qliroOrderItemFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $qliroHelper;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param \Qliro\QliroOne\Helper\Data $qliroHelper
+     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
+     * @param QliroHelper $qliroHelper
      */
     public function __construct(
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        QliroHelper $qliroHelper
+        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
+        private readonly QliroHelper $qliroHelper
     ) {
-
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->qliroHelper = $qliroHelper;
     }
 
     /**

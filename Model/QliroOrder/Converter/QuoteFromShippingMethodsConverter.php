@@ -7,7 +7,6 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
 use Magento\Quote\Model\Quote;
-use Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface;
 use Qliro\QliroOne\Helper\Data as Helper;
 
 /**
@@ -16,27 +15,15 @@ use Qliro\QliroOne\Helper\Data as Helper;
 class QuoteFromShippingMethodsConverter
 {
     /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter
-     */
-    private $addressConverter;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $helper;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter $addressConverter
-     * @param \Qliro\QliroOne\Helper\Data $helper
+     * @param AddressConverter $addressConverter
+     * @param Helper $helper
      */
     public function __construct(
-        AddressConverter $addressConverter,
-        Helper $helper
+        private readonly AddressConverter $addressConverter,
+        private readonly Helper $helper
     ) {
-        $this->addressConverter = $addressConverter;
-        $this->helper = $helper;
     }
 
     /**
@@ -45,26 +32,18 @@ class QuoteFromShippingMethodsConverter
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface $container
      * @param \Magento\Quote\Model\Quote $quote
      */
-    public function convert(UpdateShippingMethodsNotificationInterface $container, Quote $quote)
+    public function convert(array $container, Quote $quote): void
     {
-        $billingAddress = $quote->getBillingAddress();
+        $qliroAddress  = $container['ShippingAddress'] ?? [];
+        $qliroCustomer = $container['Customer'] ?? [];
+        $countryCode   = $container['CountryCode'] ?? null;
 
-        $this->addressConverter->convert(
-            $container->getShippingAddress(),
-            $container->getCustomer(),
-            $billingAddress,
-            $container->getCountryCode()
-        );
+        $billingAddress = $quote->getBillingAddress();
+        $this->addressConverter->convert($qliroAddress, $qliroCustomer, $billingAddress, $countryCode);
 
         if (!$quote->isVirtual()) {
             $shippingAddress = $quote->getShippingAddress();
-
-            $this->addressConverter->convert(
-                $container->getShippingAddress(),
-                $container->getCustomer(),
-                $shippingAddress,
-                $container->getCountryCode()
-            );
+            $this->addressConverter->convert($qliroAddress, $qliroCustomer, $shippingAddress, $countryCode);
             $shippingAddress->setSameAsBilling($this->helper->doAddressesMatch($shippingAddress, $billingAddress));
         }
     }

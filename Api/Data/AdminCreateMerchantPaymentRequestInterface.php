@@ -2,12 +2,12 @@
 
 namespace Qliro\QliroOne\Api\Data;
 
-use Qliro\QliroOne\Api\Data\ContainerInterface;
+
 
 /**
  * Interface for Create Merchant Payment request data model
  */
-interface AdminCreateMerchantPaymentRequestInterface extends ContainerInterface
+interface AdminCreateMerchantPaymentRequestInterface
 {
     /**
      * @return string
@@ -55,14 +55,14 @@ interface AdminCreateMerchantPaymentRequestInterface extends ContainerInterface
     public function getCustomer(): ?MerchantPaymentCustomerInterface;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null
+     * @return array|null
      */
-    public function getBillingAddress(): ?QliroOrderCustomerAddressInterface;
+    public function getBillingAddress(): ?array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null
+     * @return array|null
      */
-    public function getShippingAddress(): ?QliroOrderCustomerAddressInterface;
+    public function getShippingAddress(): ?array;
 
     /**
      * @return \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface|null
@@ -124,16 +124,16 @@ interface AdminCreateMerchantPaymentRequestInterface extends ContainerInterface
     public function setCustomer(MerchantPaymentCustomerInterface $value): self;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
+     * @param array $value
      * @return self
      */
-    public function setBillingAddress(QliroOrderCustomerAddressInterface $value): self;
+    public function setBillingAddress(array $value): self;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
+     * @param array $value
      * @return self
      */
-    public function setShippingAddress(QliroOrderCustomerAddressInterface $value): self;
+    public function setShippingAddress(array $value): self;
 
     /**
      * @param \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface $value

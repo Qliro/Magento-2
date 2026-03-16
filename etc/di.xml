@@ -10,12 +10,17 @@
         <arguments>
             <argument name="commands" xsi:type="array">
                 <item name="qliroOnePing" xsi:type="object">Qliro\QliroOne\Console\PingCommand</item>
-                <item name="qliroOneTest" xsi:type="object">Qliro\QliroOne\Console\TestCommand</item>
-                <item name="qliroOneGetOrder" xsi:type="object">Qliro\QliroOne\Console\GetOrderCommand</item>
                 <item name="qliroOneUpdateOrder" xsi:type="object">Qliro\QliroOne\Console\UpdateOrderCommand</item>
                 <item name="qliroOneLock" xsi:type="object">Qliro\QliroOne\Console\LockCommand</item>
                 <item name="qliroOneUnlock" xsi:type="object">Qliro\QliroOne\Console\UnlockCommand</item>
                 <item name="qliroOneCreateMerchantPayment" xsi:type="object">Qliro\QliroOne\Console\CreateMerchantPaymentCommand</item>
+                <item name="qliroOneSimulateCallback" xsi:type="object">Qliro\QliroOne\Console\SimulateCallbackCommand</item>
+                <item name="qliroOneCallbackCheckoutStatus" xsi:type="object">Qliro\QliroOne\Console\Callback\CheckoutStatusCommand</item>
+                <item name="qliroOneCallbackTransactionStatus" xsi:type="object">Qliro\QliroOne\Console\Callback\TransactionStatusCommand</item>
+                <item name="qliroOneCallbackShippingMethods" xsi:type="object">Qliro\QliroOne\Console\Callback\ShippingMethodsCommand</item>
+                <item name="qliroOneCallbackMerchantNotification" xsi:type="object">Qliro\QliroOne\Console\Callback\MerchantNotificationCommand</item>
+                <item name="qliroOneHydrateOrder" xsi:type="object">Qliro\QliroOne\Console\HydrateOrderCommand</item>
+                <item name="qliroOnePushQuoteUpdate" xsi:type="object">Qliro\QliroOne\Console\PushQuoteUpdateCommand</item>
             </argument>
         </arguments>
     </type>
@@ -168,36 +173,20 @@
 
     <preference for="Qliro\QliroOne\Api\Client\MerchantInterface" type="Qliro\QliroOne\Model\Api\Client\Merchant" />
     <preference for="Qliro\QliroOne\Api\Client\OrderManagementInterface" type="Qliro\QliroOne\Model\Api\Client\OrderManagement" />
+    <preference for="Qliro\QliroOne\Api\Client\OrderManagement\OrderReaderInterface" type="Qliro\QliroOne\Model\Api\Client\OrderManagement" />
+    <preference for="Qliro\QliroOne\Api\Client\OrderManagement\OrderMutatorInterface" type="Qliro\QliroOne\Model\Api\Client\OrderManagement" />
+    <preference for="Qliro\QliroOne\Api\Client\OrderManagement\PaymentOperationsInterface" type="Qliro\QliroOne\Model\Api\Client\OrderManagement" />
+    <preference for="Qliro\QliroOne\Api\Client\OrderManagement\ReturnInterface" type="Qliro\QliroOne\Model\Api\Client\OrderManagement" />
 
-    <preference for="Qliro\QliroOne\Api\ManagementInterface" type="Qliro\QliroOne\Model\Management" />
+    <!--NEW FLOW-->
+    <preference for="Qliro\QliroOne\Api\Checkout\OrderServiceInterface" type="Qliro\QliroOne\Model\Checkout\OrderService" />
+    <preference for="Qliro\QliroOne\Api\Admin\OrderServiceInterface" type="Qliro\QliroOne\Model\Admin\OrderService" />
+    <!--END NEW FLOW-->
+
     <preference for="Qliro\QliroOne\Api\LanguageMapperInterface" type="Qliro\QliroOne\Model\LanguageMapper" />
     <preference for="Qliro\QliroOne\Api\GeoIpResolverInterface" type="Qliro\QliroOne\Model\GeoIp\DefaultResolver" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface" type="Qliro\QliroOne\Model\QliroOrder\CreateRequest" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface" type="Qliro\QliroOne\Model\QliroOrder\UpdateRequest" />
+    <!-- Array-only refactor: UpdateRequest DTO removed.  returns arrays. -->
     <preference for="Qliro\QliroOne\Api\Data\QliroOrderItemInterface" type="Qliro\QliroOne\Model\QliroOrder\Item" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroShipmentInterface" type="Qliro\QliroOne\Model\QliroOrder\Shipment" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface" type="Qliro\QliroOne\Model\QliroOrder\Customer" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface" type="Qliro\QliroOne\Model\QliroOrder\Address\Address" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderInterface" type="Qliro\QliroOne\Model\QliroOrder" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface" type="Qliro\QliroOne\Model\QliroOrder\PaymentMethod" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderIdentityVerificationInterface" type="Qliro\QliroOne\Model\QliroOrder\IdentityVerification" />
-    <preference for="Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface" type="Qliro\QliroOne\Model\Notification\UpdateShippingMethods" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface" type="Qliro\QliroOne\Model\QliroOrder\ShippingConfig" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderShippingConfigUnifaunInterface" type="Qliro\QliroOne\Model\QliroOrder\ShippingConfig\Unifaun" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface" type="Qliro\QliroOne\Model\QliroOrder\ShippingMethod" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderShippingMethodOptionInterface" type="Qliro\QliroOne\Model\QliroOrder\ShippingMethod\Option" />
-    <preference for="Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface" type="Qliro\QliroOne\Model\Notification\ShippingMethodsResponse" />
-    <preference for="Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface" type="Qliro\QliroOne\Model\Notification\ValidateOrder" />
-    <preference for="Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface" type="Qliro\QliroOne\Model\Notification\ValidateOrderResponse" />
-    <preference for="Qliro\QliroOne\Api\Data\CheckoutStatusInterface" type="Qliro\QliroOne\Model\Notification\CheckoutStatus" />
-    <preference for="Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface" type="Qliro\QliroOne\Model\Notification\CheckoutStatusResponse" />
-    <preference for="Qliro\QliroOne\Api\Data\MerchantNotificationInterface" type="Qliro\QliroOne\Model\Notification\MerchantNotification" />
-    <preference for="Qliro\QliroOne\Api\Data\MerchantNotificationResponseInterface" type="Qliro\QliroOne\Model\Notification\MerchantNotificationResponse" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface" type="Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus" />
-    <preference for="Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterface" type="Qliro\QliroOne\Model\Notification\QliroOrderManagementStatusResponse" />
-    <preference for="Qliro\QliroOne\Api\Data\MerchantSavedCreditCardNotificationInterface" type="Qliro\QliroOne\Model\Notification\MerchantSavedCreditCard" />
-    <preference for="Qliro\QliroOne\Api\Data\MerchantSavedCreditCardResponseInterface" type="Qliro\QliroOne\Model\Notification\MerchantSavedCreditCardResponse" />
-
     <preference for="Qliro\QliroOne\Api\Data\AdminOrderInterface" type="Qliro\QliroOne\Model\QliroOrder\Admin\AdminOrder" />
     <preference for="Qliro\QliroOne\Api\Data\AdminOrderItemActionInterface" type="Qliro\QliroOne\Model\QliroOrder\Admin\OrderItemAction" />
     <preference for="Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface" type="Qliro\QliroOne\Model\QliroOrder\Admin\MarkItemsAsShippedRequest" />
@@ -248,4 +237,26 @@
             </argument>
         </arguments>
     </type>
+
+    <type name="Qliro\QliroOne\Model\Api\Client\Merchant">
+        <arguments>
+            <argument name="payloadConverter" xsi:type="object">Qliro\QliroOne\Model\Payload\PayloadConverter</argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Model\Api\Client\OrderManagement">
+        <arguments>
+            <argument name="payloadConverter" xsi:type="object">Qliro\QliroOne\Model\Payload\PayloadConverter</argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Model\Management\CheckoutStatus">
+        <arguments>
+            <argument name="payloadConverter" xsi:type="object">Qliro\QliroOne\Model\Payload\PayloadConverter</argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Helper\Data">
+        <arguments>
+            <argument name="payloadConverter" xsi:type="object">Qliro\QliroOne\Model\Payload\PayloadConverter</argument>
+        </arguments>
+    </type>
+
 </config>

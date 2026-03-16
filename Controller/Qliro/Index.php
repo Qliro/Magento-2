@@ -32,40 +32,25 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 class Index extends \Magento\Checkout\Controller\Index\Index
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Magento\Framework\Controller\Result\ForwardFactory
-     */
-    private $resultForwardFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Magento\Customer\Model\Session $customerSession
-     * @param \Magento\Customer\Api\CustomerRepositoryInterface $customerRepository
-     * @param \Magento\Customer\Api\AccountManagementInterface $accountManagement
-     * @param \Magento\Framework\Registry $coreRegistry
-     * @param \Magento\Framework\Translate\InlineInterface $translateInline
-     * @param \Magento\Framework\Data\Form\FormKey\Validator $formKeyValidator
-     * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
-     * @param \Magento\Framework\View\LayoutFactory $layoutFactory
-     * @param \Magento\Quote\Api\CartRepositoryInterface $quoteRepository
-     * @param \Magento\Framework\View\Result\PageFactory $resultPageFactory
-     * @param \Magento\Framework\View\Result\LayoutFactory $resultLayoutFactory
-     * @param \Magento\Framework\Controller\Result\RawFactory $resultRawFactory
-     * @param \Magento\Framework\Controller\Result\JsonFactory $resultJsonFactory
-     * @param \Magento\Framework\Controller\Result\ForwardFactory $resultForwardFactory
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param Context $context
+     * @param Session $customerSession
+     * @param CustomerRepositoryInterface $customerRepository
+     * @param AccountManagementInterface $accountManagement
+     * @param Registry $coreRegistry
+     * @param InlineInterface $translateInline
+     * @param Validator $formKeyValidator
+     * @param ScopeConfigInterface $scopeConfig
+     * @param LayoutFactory $layoutFactory
+     * @param CartRepositoryInterface $quoteRepository
+     * @param PageFactory $resultPageFactory
+     * @param ResultLayoutFactory $resultLayoutFactory
+     * @param RawFactory $resultRawFactory
+     * @param JsonFactory $resultJsonFactory
+     * @param ForwardFactory $resultForwardFactory
+     * @param Config $qliroConfig
+     * @param LogManager $logManager
      */
     public function __construct(
         Context $context,
@@ -82,9 +67,9 @@ class Index extends \Magento\Checkout\Controller\Index\Index
         ResultLayoutFactory $resultLayoutFactory,
         RawFactory $resultRawFactory,
         JsonFactory $resultJsonFactory,
-        ForwardFactory $resultForwardFactory,
-        Config $qliroConfig,
-        LogManager $logManager
+        private readonly ForwardFactory $resultForwardFactory,
+        private readonly Config $qliroConfig,
+        private readonly LogManager $logManager
     ) {
         parent::__construct(
             $context,
@@ -102,10 +87,6 @@ class Index extends \Magento\Checkout\Controller\Index\Index
             $resultRawFactory,
             $resultJsonFactory
         );
-
-        $this->qliroConfig = $qliroConfig;
-        $this->resultForwardFactory = $resultForwardFactory;
-        $this->logManager = $logManager;
     }
 
     /**

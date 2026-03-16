@@ -107,32 +107,7 @@ class Config
     const CONFIG_XML_PATH_PAYMENT_FEE_INCLUDES_TAX = 'tax/calculation/qliroone_fee_includes_tax';
 
     /**
-     * @var Adapter
-     */
-    private $adapter;
-
-    /**
-     * @var \Magento\Framework\App\Config\ScopeConfigInterface
-     */
-    protected $config;
-
-    /**
-     * @var Json
-     */
-    private $json;
-
-    /**
-     * @var DirectoryHelper
-     */
-    private DirectoryHelper $directoryHelper;
-
-    /**
-     * @var CountryCollectionFactory
-     */
-    private CountryCollectionFactory $countryCollectionFactory;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Payment\Model\Method\Adapter $adapter
      * @param \Magento\Framework\App\Config\ScopeConfigInterface $config
@@ -141,17 +116,12 @@ class Config
      * @param CountryCollectionFactory $countryCollectionFactory
      */
     public function __construct(
-        Adapter $adapter,
-        ScopeConfigInterface $config,
-        Json $json,
-        DirectoryHelper $directoryHelper,
-        CountryCollectionFactory $countryCollectionFactory
+        private readonly Adapter $adapter,
+        protected readonly ScopeConfigInterface $config,
+        private readonly Json $json,
+        private readonly DirectoryHelper $directoryHelper,
+        private readonly CountryCollectionFactory $countryCollectionFactory
     ) {
-        $this->adapter = $adapter;
-        $this->config = $config;
-        $this->json = $json;
-        $this->directoryHelper = $directoryHelper;
-        $this->countryCollectionFactory = $countryCollectionFactory;
     }
 
     /**
@@ -733,7 +703,7 @@ class Config
      * - otherwise, returns general list of allowed countries
      *
      * @param string $storeId
-     * @return array – Option format: ['value' => 'SE', 'label' => 'Sweden']
+     * @return array – Option format: ['value' => 'SE', 'label' => 'Sweden']
      */
     public function getAvailableCountries($storeId = null): array
     {

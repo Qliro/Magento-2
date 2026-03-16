@@ -10,20 +10,18 @@ use Qliro\QliroOne\Model\ResourceModel\RecurringInfo\CollectionFactory;
 
 class RecurringInfoRepository implements RecurringInfoRepositoryInterface
 {
-    private ModelFactory $modelFactory;
-
-    private ResourceFactory $resourceFactory;
-
-    private CollectionFactory $collectionFactory;
-
+    /**
+     * Class constructor
+     *
+     * @param ModelFactory $modelFactory
+     * @param ResourceFactory $resourceFactory
+     * @param CollectionFactory $collectionFactory
+     */
     public function __construct(
-        ModelFactory $modelFactory,
-        ResourceFactory $resourceFactory,
-        CollectionFactory $collectionFactory
+        private readonly ModelFactory $modelFactory,
+        private readonly ResourceFactory $resourceFactory,
+        private readonly CollectionFactory $collectionFactory
     ) {
-        $this->modelFactory = $modelFactory;
-        $this->resourceFactory = $resourceFactory;
-        $this->collectionFactory = $collectionFactory;
     }
 
     /**

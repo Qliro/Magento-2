@@ -28,42 +28,24 @@ class ShipmentShipmentsBuilder
     private $shipment;
 
     /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypePoolHandler
-     */
-    private $typeResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory
-     */
-    private $qliroShipmentFactory;
-
-    /**
      * @var \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[]
      */
     private $handlers = [];
 
     /**
-     * @var OrderSourceProvider
-     */
-    private $orderSourceProvider;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
-     * @param \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory $qliroShipmentFactory
+     * @param TypePoolHandler $typeResolver
+     * @param QliroShipmentInterfaceFactory $qliroShipmentFactory
      * @param OrderSourceProvider $orderSourceProvider
      * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
      */
     public function __construct(
-        TypePoolHandler $typeResolver,
-        QliroShipmentInterfaceFactory $qliroShipmentFactory,
-        OrderSourceProvider $orderSourceProvider,
+        private readonly TypePoolHandler $typeResolver,
+        private readonly QliroShipmentInterfaceFactory $qliroShipmentFactory,
+        private readonly OrderSourceProvider $orderSourceProvider,
         $handlers = []
     ) {
-        $this->typeResolver = $typeResolver;
-        $this->qliroShipmentFactory = $qliroShipmentFactory;
-        $this->orderSourceProvider = $orderSourceProvider;
         $this->handlers = $handlers;
     }
 

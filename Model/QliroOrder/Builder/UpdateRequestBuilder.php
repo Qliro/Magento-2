@@ -6,85 +6,42 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
-use Magento\Catalog\Model\Product\Type;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Quote\Api\Data\CartInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterfaceFactory;
+use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Model\Config;
-use \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
+
 /**
  * QliroOne Order update request builder class
+ *
+ * Builds the payload for PATCH/PUT requests to Qliro when the quote changes
+ * (e.g. customer enters address, shipping method changes, items change).
  */
 class UpdateRequestBuilder
 {
     /**
-     * @var \Magento\Quote\Model\Quote
+     * @var Quote|null
      */
-    private $quote;
+    private ?Quote $quote = null;
 
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Magento\Framework\App\Config\ScopeConfigInterface
-     */
-    private $scopeConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterfaceFactory
-     */
-    private $updateRequestFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder
-     */
-    private $orderItemsBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder
-     */
-    private $shippingMethodsBuilder;
-
-    /**
-     * @var ShippingConfigBuilder
-     */
-    private $shippingConfigBuilder;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterfaceFactory $updateRequestFactory
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder $orderItemsBuilder
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder $shippingMethodsBuilder
+     * @param Config $qliroConfig
+     * @param OrderItemsBuilder $orderItemsBuilder
+     * @param ShippingMethodsBuilder $shippingMethodsBuilder
      * @param ShippingConfigBuilder $shippingConfigBuilder
      */
     public function __construct(
-        QliroOrderUpdateRequestInterfaceFactory $updateRequestFactory,
-        Config $qliroConfig,
-        ScopeConfigInterface $scopeConfig,
-        OrderItemsBuilder $orderItemsBuilder,
-        ShippingMethodsBuilder $shippingMethodsBuilder,
-        ShippingConfigBuilder $shippingConfigBuilder
+        private readonly Config $qliroConfig,
+        private readonly OrderItemsBuilder $orderItemsBuilder,
+        private readonly ShippingMethodsBuilder $shippingMethodsBuilder,
+        private readonly ShippingConfigBuilder $shippingConfigBuilder
     ) {
-        $this->qliroConfig = $qliroConfig;
-        $this->scopeConfig = $scopeConfig;
-        $this->updateRequestFactory = $updateRequestFactory;
-        $this->orderItemsBuilder = $orderItemsBuilder;
-        $this->shippingMethodsBuilder = $shippingMethodsBuilder;
-        $this->shippingConfigBuilder = $shippingConfigBuilder;
     }
 
     /**
-     * Set quote for data extraction
-     *
-     * @param \Magento\Quote\Api\Data\CartInterface $quote
-     * @return $this
+     * Set the quote to build the update request from.
      */
-    public function setQuote(CartInterface $quote)
+    public function setQuote(Quote $quote): self
     {
         $this->quote = $quote;
 
@@ -92,41 +49,34 @@ class UpdateRequestBuilder
     }
 
     /**
-     * Generate a QliroOne order update request object
+     * Build and return the update request payload array.
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface
+     * @throws \LogicException
      */
-    public function create()
+    public function create(): array
     {
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');
         }
 
-        $updateRequest = $this->prepareUpdateRequest();
+        $updateRequest = [
+            'RequireIdentityVerification' => (bool) $this->qliroConfig->requireIdentityVerification(),
+        ];
 
-        $orderItems = $this->orderItemsBuilder->setQuote($this->quote)->create();
+        $updateRequest['OrderItems'] = $this->orderItemsBuilder->setQuote($this->quote)->create();
 
-        $updateRequest->setOrderItems($orderItems);
         $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
-        $updateRequest->setAvailableShippingMethods($shippingMethods->getAvailableShippingMethods());
+        if (isset($shippingMethods['AvailableShippingMethods'])) {
+            $updateRequest['AvailableShippingMethods'] = $shippingMethods['AvailableShippingMethods'];
+        }
 
         $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
         if ($shippingConfig) {
-            $updateRequest->setShippingConfiguration($shippingConfig);
+            $updateRequest['ShippingConfiguration'] = $shippingConfig;
         }
 
+        $this->quote = null;
+
         return $updateRequest;
-    }
-
-    /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface
-     */
-    private function prepareUpdateRequest()
-    {
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest */
-        $qliroOrderUpdateRequest = $this->updateRequestFactory->create();
-        $qliroOrderUpdateRequest->setRequireIdentityVerification($this->qliroConfig->requireIdentityVerification());
-
-        return $qliroOrderUpdateRequest;
     }
 }

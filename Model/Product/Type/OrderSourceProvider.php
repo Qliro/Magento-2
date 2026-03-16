@@ -30,27 +30,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     private $order;
 
     /**
-     * @var ProductPool
-     */
-    private $productPool;
-
-    /**
-     * @var TypeSourceItemInterfaceFactory
-     */
-    private $typeSourceItemFactory;
-
-    /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
-     * @var TaxHelper
-     */
-    private $taxHelper;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
@@ -58,15 +38,11 @@ class OrderSourceProvider implements TypeSourceProviderInterface
      * @param TaxHelper $taxHelper
      */
     public function __construct(
-        ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
-        ProductNameResolverInterface $productNameResolver,
-        TaxHelper $taxHelper
+        private readonly ProductPool $productPool,
+        private readonly TypeSourceItemInterfaceFactory $typeSourceItemFactory,
+        private readonly ProductNameResolverInterface $productNameResolver,
+        private readonly TaxHelper $taxHelper
     ) {
-        $this->productPool = $productPool;
-        $this->typeSourceItemFactory = $typeSourceItemFactory;
-        $this->productNameResolver = $productNameResolver;
-        $this->taxHelper = $taxHelper;
     }
 
     /**

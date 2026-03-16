@@ -8,7 +8,6 @@ namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
-use Qliro\QliroOne\Api\Data\QliroOrderShippingConfigUnifaunInterfaceFactory;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 
@@ -32,43 +31,17 @@ class ShippingConfigUnifaunBuilder
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigUnifaunInterfaceFactory
-     */
-    private $shippingConfigUnifaunFactory;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * @var Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var Data
-     */
-    private $qliroHelper;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigUnifaunInterfaceFactory $shippingConfigUnifaunFactory
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param ManagerInterface $eventManager
      * @param Config $qliroConfig
      * @param Data $qliroHelper
      */
     public function __construct(
-        QliroOrderShippingConfigUnifaunInterfaceFactory $shippingConfigUnifaunFactory,
-        ManagerInterface $eventManager,
-        Config $qliroConfig,
-        Data $qliroHelper
+        private readonly ManagerInterface $eventManager,
+        private readonly Config $qliroConfig,
+        private readonly Data $qliroHelper
     ) {
-        $this->shippingConfigUnifaunFactory = $shippingConfigUnifaunFactory;
-        $this->eventManager = $eventManager;
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroHelper = $qliroHelper;
     }
 
     /**
@@ -95,16 +68,16 @@ class ShippingConfigUnifaunBuilder
             throw new \LogicException('Quote entity is not set.');
         }
 
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigUnifaunInterface $container */
-        $container = $this->shippingConfigUnifaunFactory->create();
-        $container->setCheckoutId($this->qliroConfig->getUnifaunCheckoutId());
-        $container->setTags($this->buildTags($this->qliroConfig->getUnifaunParameters()));
+        $container = [
+            'CheckoutId' => $this->qliroConfig->getUnifaunCheckoutId(),
+            'Tags' => $this->buildTags($this->qliroConfig->getUnifaunParameters()),
+        ];
 
         $this->eventManager->dispatch(
             'qliroone_shipping_config_unifaun_build_after',
             [
                 'quote' => $this->quote,
-                'container' => $container,
+                'container' => &$container,
             ]
         );
 

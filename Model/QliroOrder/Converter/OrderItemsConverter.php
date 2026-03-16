@@ -11,7 +11,7 @@ use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
-use Qliro\QliroOne\Model\ContainerMapper;
+use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\Fee;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler;
@@ -22,49 +22,25 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler;
 class OrderItemsConverter
 {
     /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypePoolHandler
-     */
-    private $typePoolHandler;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Fee
-     */
-    private $fee;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider
-     */
-    private $quoteSourceProvider;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typePoolHandler
-     * @param \Qliro\QliroOne\Model\Fee $fee
-     * @param \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider $quoteSourceProvider
-     * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
+     * @param TypePoolHandler $typePoolHandler
+     * @param Fee $fee
+     * @param QuoteSourceProvider $quoteSourceProvider
+     * @param PayloadConverter $payloadConverter
      */
     public function __construct(
-        TypePoolHandler $typePoolHandler,
-        Fee $fee,
-        QuoteSourceProvider $quoteSourceProvider,
-        ContainerMapper $containerMapper
+        private readonly TypePoolHandler $typePoolHandler,
+        private readonly Fee $fee,
+        private readonly QuoteSourceProvider $quoteSourceProvider,
+        private readonly PayloadConverter $payloadConverter
     ) {
-        $this->typePoolHandler = $typePoolHandler;
-        $this->fee = $fee;
-        $this->quoteSourceProvider = $quoteSourceProvider;
-        $this->containerMapper = $containerMapper;
     }
 
     /**
      * Convert QliroOne order items into relevant quote items
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $qliroOrderItems
+     * @param array $qliroOrderItems
      * @param \Magento\Quote\Model\Quote $quote
      * @throws \Magento\Framework\Exception\LocalizedException
      */
@@ -80,13 +56,13 @@ class OrderItemsConverter
 
         $shippingMerchantRef = '';
         foreach ($qliroOrderItems as $index => $orderItem) {
-            switch ($orderItem->getType()) {
+            switch (isset($orderItem['Type']) && $orderItem['Type']) {
                 case QliroOrderItemInterface::TYPE_PRODUCT:
                     $this->typePoolHandler->resolveQuoteItem($orderItem, $this->quoteSourceProvider);
                     break;
 
                 case QliroOrderItemInterface::TYPE_SHIPPING:
-                    $shippingMerchantRef = $orderItem->getMerchantReference();
+                    $shippingMerchantRef = $orderItem['MerchantReference'] ?? '';
                     break;
 
                 case QliroOrderItemInterface::TYPE_DISCOUNT:
@@ -94,10 +70,10 @@ class OrderItemsConverter
                     break;
 
                 case QliroOrderItemInterface::TYPE_FEE:
-                    $qliroFee = $this->containerMapper->toArray($orderItem);
+                    $qliroFee = $this->payloadConverter->toArray($orderItem);
                     $quote->getPayment()->setAdditionalInformation(
                         "qliroone_fees",
-                        [$index => $qliroFee]
+                        [$index => $orderItem]
                     );
                     break;
             }

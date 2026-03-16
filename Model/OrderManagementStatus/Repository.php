@@ -29,37 +29,7 @@ use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\CollectionFactory;
 class Repository implements OrderManagementStatusRepositoryInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus
-     */
-    private $OrderManagementStatusResourceModel;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory
-     */
-    private $OrderManagementStatusFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterfaceFactory
-     */
-    private $searchResultFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\CollectionFactory
-     */
-    private $collectionFactory;
-
-    /**
-     * @var \Magento\Framework\Api\SearchCriteriaBuilder
-     */
-    private $searchCriteriaBuilder;
-
-    /**
-     * @var \Magento\Framework\Api\SortOrderBuilder
-     */
-    private $sortOrderBuilder;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus $OrderManagementStatusResourceModel
      * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory
@@ -69,19 +39,13 @@ class Repository implements OrderManagementStatusRepositoryInterface
      * @param \Magento\Framework\Api\SortOrderBuilder $sortOrderBuilder
      */
     public function __construct(
-        OrderManagementStatusResourceModel $OrderManagementStatusResourceModel,
-        OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory,
-        OrderManagementStatusSearchResultInterfaceFactory $searchResultFactory,
-        CollectionFactory $collectionFactory,
-        SearchCriteriaBuilder $searchCriteriaBuilder,
-        SortOrderBuilder $sortOrderBuilder
+        private readonly OrderManagementStatusResourceModel $OrderManagementStatusResourceModel,
+        private readonly OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory,
+        private readonly OrderManagementStatusSearchResultInterfaceFactory $searchResultFactory,
+        private readonly CollectionFactory $collectionFactory,
+        private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
+        private readonly SortOrderBuilder $sortOrderBuilder
     ) {
-        $this->OrderManagementStatusResourceModel = $OrderManagementStatusResourceModel;
-        $this->OrderManagementStatusFactory = $OrderManagementStatusFactory;
-        $this->searchResultFactory = $searchResultFactory;
-        $this->collectionFactory = $collectionFactory;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-        $this->sortOrderBuilder = $sortOrderBuilder;
     }
 
     /**

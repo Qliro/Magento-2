@@ -33,32 +33,12 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     const QLIRO_PROD_API_URL = 'https://payments.qit.nu';
 
     /**
-     * @var Config
-     */
-    private $config;
-
-    /**
-     * @var Client
-     */
-    private $client;
-
-    /**
-     * @var \Magento\Framework\Serialize\Serializer\Json
-     */
-    private $json;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
      * @var float
      */
     private $duration;
 
     /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\Config $config
      * @param \GuzzleHttp\Client $client
@@ -66,15 +46,11 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        Config $config,
-        Client $client,
-        Json $json,
-        Manager $logManager
+        private readonly Config $config,
+        private readonly Client $client,
+        private readonly Json $json,
+        private readonly Manager $logManager
     ) {
-        $this->config = $config;
-        $this->client = $client;
-        $this->json = $json;
-        $this->logManager = $logManager;
     }
 
     /**

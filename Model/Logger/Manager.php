@@ -26,11 +26,6 @@ class Manager
     private $marks = [];
 
     /**
-     * @var \Psr\Log\LoggerInterface
-     */
-    private $psrLogger;
-
-    /**
      * @var string
      */
     private $merchantReference;
@@ -41,30 +36,17 @@ class Manager
     private $tags = [];
 
     /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\LogRecord
-     */
-    private $logResource;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param LoggerInterface $psrLogger
      * @param \Qliro\QliroOne\Model\ResourceModel\LogRecord $logResource
      * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
      */
     public function __construct(
-        LoggerInterface $psrLogger,
-        LogRecord $logResource,
-        LinkRepositoryInterface $linkRepository
+        private readonly LoggerInterface $psrLogger,
+        private readonly LogRecord $logResource,
+        private readonly LinkRepositoryInterface $linkRepository
     ) {
-        $this->psrLogger = $psrLogger;
-        $this->logResource = $logResource;
-        $this->linkRepository = $linkRepository;
     }
 
     /**
@@ -281,6 +263,7 @@ class Manager
 
         return substr($stack, 1);
     }
+
     /**
      * @param array $context
      * @return array

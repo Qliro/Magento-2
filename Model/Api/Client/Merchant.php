@@ -8,92 +8,44 @@ namespace Qliro\QliroOne\Model\Api\Client;
 
 use GuzzleHttp\Exception\RequestException;
 use Magento\Framework\Serialize\Serializer\Json;
-use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory;
-use Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface;
+use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\MerchantApiException;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Api\Service;
-use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 
 /**
- * Merchant API client class
+ * Class Merchant
  */
-class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
+class Merchant implements MerchantInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Api\Service
-     */
-    private $service;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $config;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Magento\Framework\Serialize\Serializer\Json
-     */
-    private $json;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory
-     */
-    private $qliroOrderFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Api\Service $service
-     * @param \Qliro\QliroOne\Model\Config $config
-     * @param \Magento\Framework\Serialize\Serializer\Json $json
-     * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory $qliroOrderFactory
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param Json                  $json
+     * @param Service               $service
+     * @param LogManager            $logManager
      */
     public function __construct(
-        Service $service,
-        Config $config,
-        Json $json,
-        ContainerMapper $containerMapper,
-        QliroOrderInterfaceFactory $qliroOrderFactory,
-        LogManager $logManager
+        private readonly Json       $json,
+        private readonly Service    $service,
+        private readonly LogManager $logManager
     ) {
-        $this->service = $service;
-        $this->config = $config;
-        $this->containerMapper = $containerMapper;
-        $this->json = $json;
-        $this->qliroOrderFactory = $qliroOrderFactory;
-        $this->logManager = $logManager;
     }
 
     /**
      * Perform QliroOne order creation
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface $qliroOrderCreateRequest
-     * @return int
-     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
+     * @param array $payload
+     * @return int|string|null
+     * @throws ClientException
      */
-    public function createOrder(QliroOrderCreateRequestInterface $qliroOrderCreateRequest)
+    public function createOrder(array $payload): int|string|null
     {
         $this->logManager->addTag('sensitive');
 
         $qliroOrderId = null;
-        $payload = $this->containerMapper->toArray($qliroOrderCreateRequest);
 
         try {
             $response = $this->service->post('checkout/merchantapi/orders', $payload);
@@ -109,22 +61,15 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
     }
 
     /**
-     * Get QliroOne order by its Qliro Order ID
-     *
-     * @param int $qliroOrderId
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
-     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
+     * @inheirtDoc
      */
-    public function getOrder($qliroOrderId)
+    public function getOrder(int $qliroOrderId): array
     {
+        $data = [];
         $this->logManager->addTag('sensitive');
 
-        /** @var QliroOrderInterface $qliroOrder */
-        $qliroOrder = $this->qliroOrderFactory->create();
-
         try {
-            $response = $this->service->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => $qliroOrderId]);
-            $this->containerMapper->fromArray($response, $qliroOrder);
+            $data = $this->service->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => $qliroOrderId]);
         } catch (\Exception $exception) {
             $this->logManager->removeTag('sensitive');
             $this->handleExceptions($exception);
@@ -132,26 +77,20 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
 
         $this->logManager->removeTag('sensitive');
 
-        return $qliroOrder;
+        return $data;
     }
 
     /**
-     * Update QliroOne order
-     *
-     * @param int $qliroOrderId
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest
-     * @return int
-     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
+     * @inheirtDoc
      */
-    public function updateOrder($qliroOrderId, QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest)
+    public function updateOrder(int|string $qliroOrderId, array $payload): int|string
     {
         $this->logManager->addTag('sensitive');
 
-        $payload = $this->containerMapper->toArray($qliroOrderUpdateRequest);
         $payload['OrderId'] = $qliroOrderId;
 
         try {
-            $response = $this->service->put('checkout/merchantapi/orders/{OrderId}', $payload);
+            $this->service->put('checkout/merchantapi/orders/{OrderId}', $payload);
         } catch (\Exception $exception) {
             $this->logManager->removeTag('sensitive');
             $this->handleExceptions($exception);
@@ -166,7 +105,7 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
      * Handle exceptions that come from the API response
      *
      * @param \Exception $exception
-     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
+     * @throws ClientException
      */
     private function handleExceptions(\Exception $exception)
     {

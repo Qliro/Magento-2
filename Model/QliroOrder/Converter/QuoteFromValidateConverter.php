@@ -7,7 +7,6 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
 use Magento\Quote\Model\Quote;
-use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 
 /**
  * Quote from validate order container converter class
@@ -15,19 +14,13 @@ use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 class QuoteFromValidateConverter
 {
     /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter
-     */
-    private $addressConverter;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter $addressConverter
+     * @param AddressConverter $addressConverter
      */
     public function __construct(
-        AddressConverter $addressConverter
+        private readonly AddressConverter $addressConverter
     ) {
-        $this->addressConverter = $addressConverter;
     }
 
     /**
@@ -36,12 +29,23 @@ class QuoteFromValidateConverter
      * @param \Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface $container
      * @param \Magento\Quote\Model\Quote $quote
      */
-    public function convert(ValidateOrderNotificationInterface $container, Quote $quote)
+    public function convert(array $container, Quote $quote)
     {
-        if ($quote->isVirtual()) {
+        $billingAddress = $quote->getBillingAddress();
+        $this->addressConverter->convert(
+            $container['BillingAddress'] ?? [],
+            $container['Customer'] ?? [],
+            $billingAddress
+        );
+
+        if (!$quote->isVirtual()) {
             $shippingAddress = $quote->getShippingAddress();
-            $shippingAddress->setShippingMethod($container->getSelectedShippingMethod());
-            $this->addressConverter->convert($container->getShippingAddress(), $container->getCustomer(), $shippingAddress);
+            $shippingAddress->setShippingMethod($container['SelectedShippingMethod'] ?? null);
+            $this->addressConverter->convert(
+                $container['ShippingAddress'] ?? [],
+                $container['Customer'] ?? [],
+                $shippingAddress
+            );
         }
     }
 }

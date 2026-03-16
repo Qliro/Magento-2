@@ -17,18 +17,13 @@ use Magento\SalesRule\Api\RuleRepositoryInterface;
 class ProductNameResolver implements ProductNameResolverInterface
 {
     /**
-     * @var RuleRepositoryInterface
-     */
-    private RuleRepositoryInterface $ruleRepository;
-
-    /**
+     * Class constructor
+     *
      * @param RuleRepositoryInterface $ruleRepository
      */
     public function __construct(
-        RuleRepositoryInterface $ruleRepository
-    )
-    {
-        $this->ruleRepository = $ruleRepository;
+        private readonly RuleRepositoryInterface $ruleRepository
+    ) {
     }
 
     /**

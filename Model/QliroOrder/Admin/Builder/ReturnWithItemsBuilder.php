@@ -31,63 +31,7 @@ class ReturnWithItemsBuilder
     private $payment;
 
     /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var AdminReturnWithItemsRequestInterfaceFactory
-     */
-    private $adminReturnWithItemsRequestFactory;
-
-    /**
-     * @var CartRepositoryInterface
-     */
-    private $cartRepository;
-
-    /**
-     * @var ShippingFeeHandler
-     */
-    private $shippingFeeHandler;
-
-    /**
-     * @var CreditMemoItemsBuilder
-     */
-    private $creditMemoItemsBuilder;
-
-    /**
-     * @var RefundFeeBuilder
-     */
-    private $refundFeeBuilder;
-
-    /**
-     * @var InvoiceFeeHandler
-     */
-    private $invoiceFeeHandler;
-
-    /**
-     * @var InvoiceFeeTotalValidatorInterface
-     */
-    private $invoiceFeeTotalValidator;
-
-    /**
-     * @var RefundDiscountBuilder
-     */
-    private $refundDiscountBuilder;
-
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param LinkRepositoryInterface $linkRepository
      * @param LogManager $logManager
@@ -102,30 +46,18 @@ class ReturnWithItemsBuilder
      * @param RefundDiscountBuilder $refundDiscountBuilder
      */
     public function __construct(
-        LinkRepositoryInterface                     $linkRepository,
-        LogManager                                  $logManager,
-        Config                                      $qliroConfig,
-        AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory,
-        CartRepositoryInterface                     $cartRepository,
-        ShippingFeeHandler                          $shippingFeeHandler,
-        CreditMemoItemsBuilder                      $creditMemoItemsBuilder,
-        RefundFeeBuilder                            $refundFeeBuilder,
-        InvoiceFeeHandler                           $invoiceFeeHandler,
-        InvoiceFeeTotalValidatorInterface           $invoiceFeeTotalValidator,
-        RefundDiscountBuilder                       $refundDiscountBuilder
-    )
-    {
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->qliroConfig = $qliroConfig;
-        $this->adminReturnWithItemsRequestFactory = $adminReturnWithItemsRequestFactory;
-        $this->cartRepository = $cartRepository;
-        $this->shippingFeeHandler = $shippingFeeHandler;
-        $this->creditMemoItemsBuilder = $creditMemoItemsBuilder;
-        $this->refundFeeBuilder = $refundFeeBuilder;
-        $this->invoiceFeeHandler = $invoiceFeeHandler;
-        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
-        $this->refundDiscountBuilder = $refundDiscountBuilder;
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly LogManager $logManager,
+        private readonly Config $qliroConfig,
+        private readonly AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory,
+        private readonly CartRepositoryInterface $cartRepository,
+        private readonly ShippingFeeHandler $shippingFeeHandler,
+        private readonly CreditMemoItemsBuilder $creditMemoItemsBuilder,
+        private readonly RefundFeeBuilder $refundFeeBuilder,
+        private readonly InvoiceFeeHandler $invoiceFeeHandler,
+        private readonly InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        private readonly RefundDiscountBuilder $refundDiscountBuilder
+    ) {
     }
 
 

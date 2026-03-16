@@ -11,7 +11,6 @@ use Magento\Tax\Helper\Data as TaxHelper;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Tax\Model\Calculation as TaxCalculation;
 use Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
 use Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
@@ -27,74 +26,30 @@ class OrderItemsBuilder
     protected $quote;
 
     /**
-     * @var \Magento\Tax\Helper\Data
-     */
-    protected $taxHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypePoolHandler
-     */
-    protected $typeResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    protected $qliroOrderItemFactory;
-
-    /**
-     * @var \Magento\Tax\Model\Calculation
-     */
-    protected $taxCalculation;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    protected $qliroHelper;
-
-    /**
      * @var \Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface[]
      */
     protected $handlers = [];
 
     /**
-     * @var \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider
-     */
-    protected $quoteSourceProvider;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    protected $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Tax\Helper\Data $taxHelper
-     * @param \Magento\Tax\Model\Calculation $taxCalculation
-     * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param \Qliro\QliroOne\Helper\Data $qliroHelper
-     * @param \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider $quoteSourceProvider
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param TaxHelper $taxHelper
+     * @param TaxCalculation $taxCalculation
+     * @param TypePoolHandler $typeResolver
+     * @param QliroHelper $qliroHelper
+     * @param QuoteSourceProvider $quoteSourceProvider
+     * @param ManagerInterface $eventManager
      * @param \Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface[] $handlers
      */
     public function __construct(
-        TaxHelper $taxHelper,
-        TaxCalculation $taxCalculation,
-        TypePoolHandler $typeResolver,
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        QliroHelper $qliroHelper,
-        QuoteSourceProvider $quoteSourceProvider,
-        ManagerInterface $eventManager,
+        protected readonly TaxHelper $taxHelper,
+        protected readonly TaxCalculation $taxCalculation,
+        protected readonly TypePoolHandler $typeResolver,
+        protected readonly QliroHelper $qliroHelper,
+        protected readonly QuoteSourceProvider $quoteSourceProvider,
+        protected readonly ManagerInterface $eventManager,
         $handlers = []
     ) {
-        $this->taxHelper = $taxHelper;
-        $this->typeResolver = $typeResolver;
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->taxCalculation = $taxCalculation;
-        $this->qliroHelper = $qliroHelper;
-        $this->quoteSourceProvider = $quoteSourceProvider;
-        $this->eventManager = $eventManager;
         $this->handlers = $handlers;
     }
 
@@ -115,7 +70,7 @@ class OrderItemsBuilder
     /**
      * Create an array of containers
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @return array[]
      */
     public function create()
     {
@@ -141,7 +96,7 @@ class OrderItemsBuilder
                     ]
                 );
 
-                if ($qliroOrderItem->getMerchantReference()) {
+                if (!empty($qliroOrderItem['MerchantReference'] ?? null)) {
                     $result[] = $qliroOrderItem;
                 }
             }

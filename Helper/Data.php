@@ -13,8 +13,7 @@ use Magento\Framework\Controller\Result\Json as JsonResult;
 use Magento\Framework\Controller\ResultFactory;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Framework\Stdlib\DateTime\DateTime;
-use Qliro\QliroOne\Api\Data\ContainerInterface;
-use Qliro\QliroOne\Model\ContainerMapper;
+use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
 
@@ -24,9 +23,9 @@ use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
 class Data extends AbstractHelper
 {
     /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
+     * @var \Qliro\QliroOne\Model\Payload\PayloadConverter
      */
-    private $containerMapper;
+    private $payloadConverter;
 
     /**
      * @var \Qliro\QliroOne\Model\Logger\Manager
@@ -57,7 +56,7 @@ class Data extends AbstractHelper
      * Inject dependencies
      *
      * @param \Magento\Framework\App\Helper\Context $context
-     * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
+     * @param \Qliro\QliroOne\Model\PayloadConverter $payloadConverter
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Magento\Framework\Serialize\Serializer\Json $json
      * @param DateTime $dateTime
@@ -66,7 +65,7 @@ class Data extends AbstractHelper
      */
     public function __construct(
         Context $context,
-        ContainerMapper $containerMapper,
+        PayloadConverter $payloadConverter,
         LogManager $logManager,
         Json $json,
         DateTime $dateTime,
@@ -74,7 +73,7 @@ class Data extends AbstractHelper
         RemoteAddress $remoteAddress
     ) {
         parent::__construct($context);
-        $this->containerMapper = $containerMapper;
+        $this->payloadConverter = $payloadConverter;
         $this->logManager = $logManager;
         $this->json = $json;
         $this->dateTime = $dateTime;
@@ -132,7 +131,7 @@ class Data extends AbstractHelper
     /**
      * Prepare data for payload, log it for debugging and return in a result object
      *
-     * @param string|array|\Qliro\QliroOne\Api\Data\ContainerInterface $payload
+     * @param string|array $payload
      * @param int $resultCode
      * @param \Magento\Framework\Controller\Result\Json $resultJson
      * @param string $loggerMark
@@ -151,10 +150,7 @@ class Data extends AbstractHelper
         $this->logManager->setMark($loggerMark);    // @todo: what if $loggerMark == null?
         $resultJson->setHttpResponseCode($resultCode);
 
-        if ($payload instanceof ContainerInterface) {
-            $payload = $this->containerMapper->toArray($payload);
-            $data['payload'] = $payload;
-        } elseif (is_string($payload)) {
+        if (is_string($payload)) {
             try {
                 $payload = $this->json->unserialize($payload);
                 $data['payload'] = $payload;

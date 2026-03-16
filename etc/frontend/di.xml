@@ -15,7 +15,11 @@
     </type>
 
     <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
-        <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Block\Checkout\LayoutProcessorPlugin" sortOrder="99999" />
+        <plugin name="qo_add_html_snippet" type="Qliro\QliroOne\Plugin\Checkout\Block\Checkout\LayoutProcessorPlugin" sortOrder="99999" />
+    </type>
+
+    <type name="Magento\Checkout\Block\Checkout\TotalsProcessor">
+        <plugin name="qo_totals_processor_guard" type="Qliro\QliroOne\Plugin\Checkout\Block\Checkout\TotalsProcessorPlugin" />
     </type>
 
     <type name="Magento\Checkout\Model\Type\Onepage">

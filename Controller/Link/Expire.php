@@ -14,7 +14,7 @@ use Magento\Framework\Controller\Result\JsonFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface as LinkRepository;
 use Qliro\QliroOne\Model\Logger\Manager as LoggerManager;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
-use Qliro\QliroOne\Service\Checkout\LinkManager;
+use Qliro\QliroOne\Service\General\LinkService;
 
 /**
  * Class Expire
@@ -28,15 +28,16 @@ class Expire extends Action
      * @param JsonFactory                $resultJsonFactory
      * @param CheckoutSession            $checkoutSession
      * @param LinkRepository             $linkRepository
-     * @param LinkManager                $linkManager
+     * @param LinkService                $linkService
      * @param LoggerManager              $loggerManager
+     * @param QuoteManagement            $quoteManagement
      */
     public function __construct(
                          Context         $context,
         private readonly JsonFactory     $resultJsonFactory,
         private readonly CheckoutSession $checkoutSession,
         private readonly LinkRepository  $linkRepository,
-        private readonly LinkManager     $linkManager,
+        private readonly LinkService     $linkService,
         private readonly LoggerManager   $loggerManager,
         private readonly QuoteManagement $quoteManagement
     ) {
@@ -57,8 +58,8 @@ class Expire extends Action
 
         try {
             $link = $this->linkRepository->getByQuoteId((int)$quote->getId());
-            $this->linkManager->deactivate($link);
-            $this->quoteManagement->setQuote($quote)->getLinkFromQuote();
+            $this->linkService->deactivate($link);
+            $this->quoteManagement->getLinkFromQuote($quote);
             return $result->setData(['ok' => true]);
         } catch (\Throwable $e) {
             $this->loggerManager->warning('Could not deactivate link on FE expiry', [

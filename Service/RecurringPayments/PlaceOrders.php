@@ -29,76 +29,48 @@ class PlaceOrders
 {
     const RECURRING_PAYMENT_INFO_KEY = 'qliro_recurring_info';
 
-    private Create $orderCreate;
-
-    private QuoteFactory $quoteFactory;
-
-    private QuoteManagement $quoteManagement;
-
-    private QuoteRepository $quoteRepo;
-
-    private ShippingInformationFactory $shipInfoFactory;
-
-    private ShippingInformationManagement $shipInfoManagement;
-
-    private OrderRepository $orderRepo;
-
-    private Copy $objectCopyService;
-
-    private DataService $dataService;
-
-    private Manager $logger;
-
-    private CreateMerchantPayment $createMerchantPaymentManagement;
-
-    private QliroManagement $qliroManagement;
-
-    private Session $checkoutSession;
-
-    private OrderRepositoryInterface $orderRepository;
-
-    private SearchCriteriaBuilder $searchCriteriaBuilder;
-
-    private Rate $shippingRate;
-
     private array $results = [];
 
     private string $personalNumber;
 
+    /**
+     * Class constructor
+     *
+     * @param \Magento\Sales\Model\AdminOrder\Create $orderCreate
+     * @param \Magento\Quote\Model\QuoteFactory $quoteFactory
+     * @param \Magento\Quote\Model\QuoteManagement $quoteManagement
+     * @param \Magento\Quote\Model\QuoteRepository $quoteRepo
+     * @param \Magento\Checkout\Model\ShippingInformationFactory $shipInfoFactory
+     * @param \Magento\Checkout\Model\ShippingInformationManagement $shipInfoManagement
+     * @param \Magento\Sales\Model\OrderRepository $orderRepo
+     * @param \Magento\Framework\DataObject\Copy $objectCopyService
+     * @param \Qliro\QliroOne\Service\RecurringPayments\Data $dataService
+     * @param \Qliro\QliroOne\Model\Management\Quote $qliroManagement
+     * @param \Magento\Checkout\Model\Session $checkoutSession
+     * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
+     * @param \Magento\Framework\Api\SearchCriteriaBuilder $searchCriteriaBuilder
+     * @param \Magento\Quote\Model\Quote\Address\Rate $shippingRate
+     * @param \Qliro\QliroOne\Model\Logger\Manager $logger
+     * @param \Qliro\QliroOne\Model\Management\CreateMerchantPayment $createMerchantPaymentManagement
+     */
     public function __construct(
-        Create $orderCreate,
-        QuoteFactory $quoteFactory,
-        QuoteManagement $quoteManagement,
-        QuoteRepository $quoteRepo,
-        ShippingInformationFactory $shipInfoFactory,
-        ShippingInformationManagement $shipInfoManagement,
-        OrderRepository $orderRepo,
-        Copy $objectCopyService,
-        DataService $dataService,
-        QliroManagement $qliroManagement,
-        Session $checkoutSession,
-        OrderRepositoryInterface $orderRepository,
-        SearchCriteriaBuilder $searchCriteriaBuilder,
-        Rate $shippingRate,
-        Manager $logger,
-        CreateMerchantPayment $createMerchantPaymentManagement
+        private readonly Create $orderCreate,
+        private readonly QuoteFactory $quoteFactory,
+        private readonly QuoteManagement $quoteManagement,
+        private readonly QuoteRepository $quoteRepo,
+        private readonly ShippingInformationFactory $shipInfoFactory,
+        private readonly ShippingInformationManagement $shipInfoManagement,
+        private readonly OrderRepository $orderRepo,
+        private readonly Copy $objectCopyService,
+        private readonly DataService $dataService,
+        private readonly QliroManagement $qliroManagement,
+        private readonly Session $checkoutSession,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
+        private readonly Rate $shippingRate,
+        private readonly Manager $logger,
+        private readonly CreateMerchantPayment $createMerchantPaymentManagement
     ) {
-        $this->orderCreate = $orderCreate;
-        $this->quoteFactory = $quoteFactory;
-        $this->quoteManagement = $quoteManagement;
-        $this->quoteRepo = $quoteRepo;
-        $this->shipInfoFactory = $shipInfoFactory;
-        $this->shipInfoManagement = $shipInfoManagement;
-        $this->orderRepo = $orderRepo;
-        $this->objectCopyService = $objectCopyService;
-        $this->dataService = $dataService;
-        $this->qliroManagement = $qliroManagement;
-        $this->checkoutSession = $checkoutSession;
-        $this->orderRepository = $orderRepository;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-        $this->shippingRate = $shippingRate;
-        $this->logger = $logger;
-        $this->createMerchantPaymentManagement = $createMerchantPaymentManagement;
     }
 
     /**
@@ -148,7 +120,7 @@ class PlaceOrders
         }
 
         $originalOrderId = (int)$order->getEntityId();
-        
+
         $this->orderCreate->setQuote($this->quoteFactory->create()->setStoreId($order->getStoreId()));
         $this->orderCreate->initFromOrder($order);
         $quote = $this->orderCreate->getQuote();
@@ -159,7 +131,7 @@ class PlaceOrders
 
         $quote->setStoreId($order->getStoreId());
         $quote->reserveOrderId();
-        
+
         $this->checkoutSession->replaceQuote($quote);
         //set shipping method from order to quote
         $this->shippingRate

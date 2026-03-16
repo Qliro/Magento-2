@@ -18,22 +18,16 @@ class LogRecord extends AbstractDb
     const RECENT_EVENT = 60;    // when patching merchant reference, look this many seconds back for recent logging
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\ConnectionProvider
-     */
-    private $connectionProvider;
-
-    /**
-     * LogRecord constructor.
+     * Class constructor
      *
      * @param Context $context
      * @param \Qliro\QliroOne\Model\Logger\ConnectionProvider $connectionProvider
      */
     public function __construct(
         Context $context,
-        ConnectionProvider $connectionProvider
+        private readonly ConnectionProvider $connectionProvider
     ) {
         parent::__construct($context);
-        $this->connectionProvider = $connectionProvider;
     }
 
     protected function _construct()

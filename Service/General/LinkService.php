@@ -2,8 +2,10 @@
 
 namespace Qliro\QliroOne\Service\General;
 
+use Magento\Framework\Exception\AlreadyExistsException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Model\Quote;
+use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\HashResolverInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 
@@ -15,21 +17,30 @@ class LinkService
     const REFERENCE_MIN_LENGTH = 6;
 
     /**
-     * @var Qliro\QliroOne\Api\HashResolverInterface
+     * Class constructor
+     *
+     * @param \Qliro\QliroOne\Api\HashResolverInterface $hashResolver
+     * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
      */
-    private HashResolverInterface $hashResolver;
+    public function __construct(
+        private readonly HashResolverInterface $hashResolver,
+        private readonly LinkRepositoryInterface $linkRepository
+    ) {
+    }
 
     /**
-     * @var Qliro\QliroOne\Api\LinkRepositoryInterface
+     * Deactivate a link by clearing its Qliro order ID and marking it inactive.
+     *
+     * Moved from Service\Checkout\LinkManager (dead-weight elimination).
+     *
+     * @param LinkInterface $link
+     * @throws AlreadyExistsException
      */
-    private LinkRepositoryInterface $linkRepository;
-
-    public function __construct(
-        HashResolverInterface $hashResolver,
-        LinkRepositoryInterface $linkRepository
-    ) {
-        $this->hashResolver = $hashResolver;
-        $this->linkRepository = $linkRepository;
+    public function deactivate(LinkInterface $link): void
+    {
+        $link->setIsActive(false);
+        $link->setQliroOrderId(null);
+        $this->linkRepository->save($link);
     }
 
     /**

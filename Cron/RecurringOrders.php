@@ -14,28 +14,22 @@ use Magento\Framework\App\Area;
  */
 class RecurringOrders
 {
-    private StoreManagerInterface $storeManager;
-
-    private Config $qliroConfig;
-
-    private PlaceOrders $placeOrder;
-
-    private RecurringInfoRepositoryInterface $recurringInfoRepo;
-
-    private EmulationFactory $emulationFactory;
-
+    /**
+     * Class constructor
+     *
+     * @param \Magento\Store\Model\StoreManagerInterface $storeManager
+     * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param \Qliro\QliroOne\Service\RecurringPayments\PlaceOrders $placeOrder
+     * @param \Qliro\QliroOne\Api\RecurringInfoRepositoryInterface $recurringInfoRepo
+     * @param \Magento\Store\Model\App\EmulationFactory $emulationFactory
+     */
     public function __construct(
-        StoreManagerInterface $storeManager,
-        Config $qliroConfig,
-        PlaceOrders $placeOrder,
-        RecurringInfoRepositoryInterface $recurringInfoRepo,
-        EmulationFactory $emulationFactory
+        private readonly StoreManagerInterface $storeManager,
+        private readonly Config $qliroConfig,
+        private readonly PlaceOrders $placeOrder,
+        private readonly RecurringInfoRepositoryInterface $recurringInfoRepo,
+        private readonly EmulationFactory $emulationFactory
     ) {
-        $this->storeManager = $storeManager;
-        $this->qliroConfig = $qliroConfig;
-        $this->placeOrder = $placeOrder;
-        $this->recurringInfoRepo = $recurringInfoRepo;
-        $this->emulationFactory = $emulationFactory;
     }
 
     /**

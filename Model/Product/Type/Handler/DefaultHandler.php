@@ -7,8 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory as QliroOrderItemFactory;
 use Qliro\QliroOne\Api\Product\TypeHandlerInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
@@ -30,7 +28,6 @@ class DefaultHandler implements TypeHandlerInterface
      * @param VatRate                          $vatRate
      */
     public function __construct(
-        private readonly QliroOrderItemFactory $qliroOrderItemFactory,
         private readonly Data                  $qliroHelper,
         private readonly Config                $config,
         private readonly VatRate               $vatRate
@@ -45,31 +42,30 @@ class DefaultHandler implements TypeHandlerInterface
         $pricePerItemIncVat = $this->preparePrice($item);
         $pricePerItemExVat = $this->preparePrice($item, false);
 
-        $qliroOrderItem = $this->qliroOrderItemFactory->create();
-        $qliroOrderItem->setMerchantReference($item->getSku());
-        $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_PRODUCT);
-        $qliroOrderItem->setQuantity($this->prepareQuantity($item));
-        $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
-        $qliroOrderItem->setPricePerItemExVat((float)$this->qliroHelper->formatPrice($pricePerItemExVat));
-        $qliroOrderItem->setVatRate($this->vatRate->getVatRateForProduct($item)); //@Todo make value dynamic
-        $qliroOrderItem->setDescription($this->prepareDescription($item));
-        $qliroOrderItem->setMetaData($this->prepareMetaData($item));
-
-        return $qliroOrderItem;
+        return [
+            'MerchantReference' => (string)$item->getSku(),
+            'Type' => 'Product',
+            'Quantity' => (float)$this->prepareQuantity($item),
+            'PricePerItemIncVat' => (float)$this->qliroHelper->formatPrice($pricePerItemIncVat),
+            'PricePerItemExVat' => (float)$this->qliroHelper->formatPrice($pricePerItemExVat),
+            'VatRate' => (float)$this->vatRate->getVatRateForProduct($item),
+            'Description' => (string)$this->prepareDescription($item),
+            'Metadata' => (array)$this->prepareMetaData($item),
+        ];
     }
 
     /**
      * @inheirtDoc
      */
     public function getItem(
-        QliroOrderItemInterface $qliroOrderItem,
+        array $qliroOrderItem,
         TypeSourceProviderInterface $typeSourceProvider
     ) {
-        if ($qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT) {
+        if (($qliroOrderItem['Type'] ?? null) !== 'Product') {
             return null;
         }
 
-        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
+        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem['Metadata'] ?? []);
     }
 
     /**

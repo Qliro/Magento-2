@@ -11,7 +11,7 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface AdminOrderInterface extends ContainerInterface
+interface AdminOrderInterface
 {
     /**
      * @return int

@@ -11,7 +11,7 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * Represents a contract for handling return requests with associated items in an administrative context.
  */
-interface AdminReturnWithItemsRequestInterface extends ContainerInterface
+interface AdminReturnWithItemsRequestInterface
 {
     /**
      * Retrieves the API key associated with the merchant.

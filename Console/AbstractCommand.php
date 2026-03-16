@@ -20,24 +20,18 @@ use Magento\Framework\App\Area;
 abstract class AbstractCommand extends Command
 {
     /**
-     * @var ObjectManagerFactory
-     */
-    protected $objectManagerFactory;
-
-    /**
      * @var ObjectManager
      */
     protected $objectManager;
 
     /**
-     * Inject ObjectManager
+     * Class constructor
      *
      * @param ObjectManagerFactory $objectManagerFactory
      */
     public function __construct(
-        ObjectManagerFactory $objectManagerFactory
+        protected readonly ObjectManagerFactory $objectManagerFactory
     ) {
-        $this->objectManagerFactory = $objectManagerFactory;
         parent::__construct();
     }
 

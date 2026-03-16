@@ -13,42 +13,19 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 class Payment implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var \Magento\Sales\Api\OrderPaymentRepositoryInterface
-     */
-    private $paymentRepository;
-
-    /**
-     * @var \Magento\Sales\Api\TransactionRepositoryInterface
-     */
-    private $paymentTransactionRepository;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private $orderRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Payment constructor.
+     * Class constructor
+     *
      * @param \Magento\Sales\Api\OrderPaymentRepositoryInterface $paymentRepository
      * @param \Magento\Sales\Api\TransactionRepositoryInterface $paymentTransactionRepository
      * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        \Magento\Sales\Api\OrderPaymentRepositoryInterface $paymentRepository,
-        \Magento\Sales\Api\TransactionRepositoryInterface $paymentTransactionRepository,
-        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
-        \Qliro\QliroOne\Model\Logger\Manager $logManager
+        private readonly \Magento\Sales\Api\OrderPaymentRepositoryInterface $paymentRepository,
+        private readonly \Magento\Sales\Api\TransactionRepositoryInterface $paymentTransactionRepository,
+        private readonly \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
+        private readonly \Qliro\QliroOne\Model\Logger\Manager $logManager
     ) {
-        $this->paymentRepository = $paymentRepository;
-        $this->paymentTransactionRepository = $paymentTransactionRepository;
-        $this->orderRepository = $orderRepository;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -70,7 +47,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
             }
 
             $formattedPrice = $order->getBaseCurrency()->formatTxt(
-                $qliroOrderManagementStatus->getAmount()
+                $qliroOrderManagementStatus['Amount'] ?? null
             );
 
             $order->addStatusHistoryComment(__('Capture of %1 confirmed successful', $formattedPrice));
@@ -81,7 +58,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                         'payment_id' => $payment->getId(),
                     ],
                 ]
@@ -95,26 +72,26 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
         try {
             /** @var \Magento\Sales\Model\Order\Payment\Transaction $paymentTransaction */
             $paymentTransaction = $this->getPaymentTransaction(
-                $qliroOrderManagementStatus->getPaymentTransactionId(),
+                $qliroOrderManagementStatus['PaymentTransactionId'] ?? null,
                 $payment->getId(),
                 $order->getId()
             );
 
             $paymentTransaction->setAdditionalInformation(
                 'provider_result_description',
-                $qliroOrderManagementStatus->getProviderResultDescription()
+                $qliroOrderManagementStatus['ProviderResultDescription'] ?? null
             );
             $paymentTransaction->setAdditionalInformation(
                 'provider_result_code',
-                $qliroOrderManagementStatus->getProviderResultCode()
+                $qliroOrderManagementStatus['ProviderResultCode'] ?? null
             );
             $paymentTransaction->setAdditionalInformation(
                 'provider_transaction_id',
-                $qliroOrderManagementStatus->getProviderTransactionId()
+                $qliroOrderManagementStatus['ProviderTransactionId'] ?? null
             );
             $paymentTransaction->setAdditionalInformation(
                 'payment_reference',
-                $qliroOrderManagementStatus->getPaymentReference()
+                $qliroOrderManagementStatus['PaymentReference'] ?? null
             );
 
             $this->paymentTransactionRepository->save($paymentTransaction);
@@ -123,7 +100,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                         'payment_id' => $payment->getId(),
                     ],
                 ]
@@ -242,7 +219,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                     ],
                 ]
             );
@@ -251,7 +228,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
         }
     }
 
-    
+
     /**
      * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
      * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
@@ -276,7 +253,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                     ],
                 ]
             );
@@ -309,7 +286,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                     ],
                 ]
             );

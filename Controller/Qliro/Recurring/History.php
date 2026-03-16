@@ -15,35 +15,19 @@ use Qliro\QliroOne\Model\Config;
 class History implements OrderInterface, AccountInterface, HttpGetActionInterface
 {
     /**
-     * @var PageFactory
+     * Class constructor
+     *
+     * @param PageFactory $resultPageFactory
+     * @param ForwardFactory $forwardFactory
+     * @param RedirectInterface $redirect
+     * @param Config $config
      */
-    private PageFactory $resultPageFactory;
-
-    /**
-     * @var ForwardFactory
-     */
-    private ForwardFactory $resultForwardFactory;
-
-    /**
-     * @var RedirectInterface
-     */
-    private RedirectInterface $redirect;
-
-    /**
-     * @var Config
-     */
-    private Config $config;
-
     public function __construct(
-        PageFactory $resultPageFactory,
-        ForwardFactory $forwardFactory,
-        RedirectInterface $redirect,
-        Config $config
+        private readonly PageFactory $resultPageFactory,
+        private readonly ForwardFactory $resultForwardFactory,
+        private readonly RedirectInterface $redirect,
+        private readonly Config $config
     ) {
-        $this->resultPageFactory = $resultPageFactory;
-        $this->resultForwardFactory = $forwardFactory;
-        $this->redirect = $redirect;
-        $this->config = $config;
     }
 
     /**

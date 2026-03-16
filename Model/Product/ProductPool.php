@@ -14,24 +14,18 @@ use Magento\Catalog\Api\ProductRepositoryInterface;
 class ProductPool
 {
     /**
-     * @var \Magento\Catalog\Api\ProductRepositoryInterface
-     */
-    private $productRepository;
-
-    /**
      * @var \Magento\Catalog\Model\Product[]
      */
     private $products = [];
 
     /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Catalog\Api\ProductRepositoryInterface $productRepository
      */
     public function __construct(
-        ProductRepositoryInterface $productRepository
+        private readonly ProductRepositoryInterface $productRepository
     ) {
-        $this->productRepository = $productRepository;
     }
 
     /**

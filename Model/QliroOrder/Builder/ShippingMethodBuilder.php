@@ -10,7 +10,6 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Tax\Helper\Data as TaxHelper;
-use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface;
 use Qliro\QliroOne\Helper\Data;
 
@@ -30,51 +29,19 @@ class ShippingMethodBuilder
     private $quote;
 
     /**
-     * @var \Magento\Tax\Helper\Data
-     */
-    private $taxHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory
-     */
-    private $shippingMethodFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface
-     */
-    private $shippingMethodBrandResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $qliroHelper;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory $shippingMethodFactory
-     * @param \Magento\Tax\Helper\Data $taxHelper
-     * @param \Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface $shippingMethodBrandResolver
-     * @param \Qliro\QliroOne\Helper\Data $qliroHelper
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param TaxHelper $taxHelper
+     * @param ShippingMethodBrandResolverInterface $shippingMethodBrandResolver
+     * @param Data $qliroHelper
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        QliroOrderShippingMethodInterfaceFactory $shippingMethodFactory,
-        TaxHelper $taxHelper,
-        ShippingMethodBrandResolverInterface $shippingMethodBrandResolver,
-        Data $qliroHelper,
-        ManagerInterface $eventManager
+        private readonly TaxHelper $taxHelper,
+        private readonly ShippingMethodBrandResolverInterface $shippingMethodBrandResolver,
+        private readonly Data $qliroHelper,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->taxHelper = $taxHelper;
-        $this->shippingMethodFactory = $shippingMethodFactory;
-        $this->shippingMethodBrandResolver = $shippingMethodBrandResolver;
-        $this->qliroHelper = $qliroHelper;
-        $this->eventManager = $eventManager;
     }
 
     /**
@@ -106,7 +73,7 @@ class ShippingMethodBuilder
     /**
      * Create a QliroOne order shipping method container
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface
+     * @return array
      */
 
     public function create()
@@ -120,8 +87,6 @@ class ShippingMethodBuilder
         }
 
         $shippingAddress = $this->quote->getShippingAddress();
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface $container */
-        $container = $this->shippingMethodFactory->create();
 
         $priceExVat = $this->taxHelper->getShippingPrice(
             $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
@@ -137,9 +102,11 @@ class ShippingMethodBuilder
             $this->quote->getCustomerTaxClassId()
         );
 
-        $container->setMerchantReference($this->rate->getCode());
-        $container->setDisplayName($this->rate->getMethodTitle()?? $this->rate->getCarrierTitle());
-        $container->setBrand($this->shippingMethodBrandResolver->resolve($this->rate));
+        $container = [
+            'MerchantReference' => (string)$this->rate->getCode(),
+            'DisplayName' => (string)($this->rate->getMethodTitle() ?? $this->rate->getCarrierTitle()),
+            'Brand' => (string)$this->shippingMethodBrandResolver->resolve($this->rate),
+        ];
 
         $descriptions = [];
 
@@ -152,12 +119,12 @@ class ShippingMethodBuilder
         }
 
         if (!empty($descriptions)) {
-            $container->setDescriptions($descriptions);
+            $container['Descriptions'] = $descriptions;
         }
 
-        $container->setPriceIncVat($this->qliroHelper->formatPrice($priceIncVat));
-        $container->setPriceExVat($this->qliroHelper->formatPrice($priceExVat));
-        $container->setSupportsDynamicSecondaryOptions(false);
+        $container['PriceIncVat'] = (float)$this->qliroHelper->formatPrice($priceIncVat);
+        $container['PriceExVat'] = (float)$this->qliroHelper->formatPrice($priceExVat);
+        $container['SupportsDynamicSecondaryOptions'] = false;
 
         $this->eventManager->dispatch(
             'qliroone_shipping_method_build_after',

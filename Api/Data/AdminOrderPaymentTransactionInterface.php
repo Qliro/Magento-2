@@ -9,7 +9,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * Admin Order Payment Transaction interface
  */
-interface AdminOrderPaymentTransactionInterface extends ContainerInterface
+interface AdminOrderPaymentTransactionInterface
 {
     /**
      * @return int

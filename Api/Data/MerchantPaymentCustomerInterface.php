@@ -2,12 +2,10 @@
 
 namespace Qliro\QliroOne\Api\Data;
 
-use Qliro\QliroOne\Api\Data\ContainerInterface;
-
 /**
  * Interface for Merchant Payment Customer Data Model
  */
-interface MerchantPaymentCustomerInterface extends ContainerInterface
+interface MerchantPaymentCustomerInterface
 {
     const JURIDICAL_TYPE_PHYSICAL = 'Physical';
 

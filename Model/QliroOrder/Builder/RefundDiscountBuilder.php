@@ -14,32 +14,20 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 class RefundDiscountBuilder
 {
     /**
-     * @var QliroOrderItemInterfaceFactory
-     */
-    private $qliroOrderItemFactory;
-
-    /**
-     * @var ManagerInterface
-     */
-    private $eventManager;
-
-    /**
      * @var CreditmemoInterface
      */
     private $creditMemo;
 
     /**
-     * Constructor method for the class.
+     * Class constructor
      *
-     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory Factory for creating Qliro order items
-     * @param ManagerInterface $eventManager Event manager for handling events
+     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        ManagerInterface $eventManager
+        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->eventManager = $eventManager;
     }
 
     /**

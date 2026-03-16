@@ -27,27 +27,7 @@ use Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory;
 class Repository implements LinkRepositoryInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Link
-     */
-    private $linkResourceModel;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\LinkInterfaceFactory
-     */
-    private $linkFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory
-     */
-    private $searchResultFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory
-     */
-    private $collectionFactory;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\ResourceModel\Link $linkResourceModel
      * @param \Qliro\QliroOne\Api\Data\LinkInterfaceFactory $linkFactory
@@ -55,15 +35,11 @@ class Repository implements LinkRepositoryInterface
      * @param \Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory $collectionFactory
      */
     public function __construct(
-        LinkResourceModel $linkResourceModel,
-        LinkInterfaceFactory $linkFactory,
-        LinkSearchResultInterfaceFactory $searchResultFactory,
-        CollectionFactory $collectionFactory
+        private readonly LinkResourceModel $linkResourceModel,
+        private readonly LinkInterfaceFactory $linkFactory,
+        private readonly LinkSearchResultInterfaceFactory $searchResultFactory,
+        private readonly CollectionFactory $collectionFactory
     ) {
-        $this->linkResourceModel = $linkResourceModel;
-        $this->linkFactory = $linkFactory;
-        $this->searchResultFactory = $searchResultFactory;
-        $this->collectionFactory = $collectionFactory;
     }
 
     /**

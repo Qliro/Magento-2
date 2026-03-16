@@ -14,14 +14,13 @@ use Magento\Checkout\Model\Session as SuccessSession;
 class Session
 {
     /**
-     * @var SuccessSession
+     * Class constructor
+     *
+     * @param SuccessSession $checkoutSession
      */
-    private $checkoutSession;
-
     public function __construct(
-        SuccessSession $checkoutSession
+        private readonly SuccessSession $checkoutSession
     ) {
-        $this->checkoutSession = $checkoutSession;
     }
 
     /**

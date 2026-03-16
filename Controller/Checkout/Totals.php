@@ -16,27 +16,7 @@ use Magento\Quote\Api\CartRepositoryInterface;
 class Totals extends Action
 {
     /**
-     * @var Session
-     */
-    protected $checkoutSession;
-
-    /**
-     * @var JsonFactory
-     */
-    protected $resultJson;
-
-    /**
-     * @var Data
-     */
-    protected $helper;
-
-    /**
-     * @var CartRepositoryInterface
-     */
-    protected $quoteRepository;
-
-    /**
-     * Checkout Totals Ajax Controller constructor.
+     * Class constructor
      *
      * @param Context $context
      * @param Session $checkoutSession
@@ -46,16 +26,12 @@ class Totals extends Action
      */
     public function __construct(
         Context $context,
-        Session $checkoutSession,
-        Data $helper,
-        JsonFactory $resultJson,
-        CartRepositoryInterface $quoteRepository
+        protected readonly Session $checkoutSession,
+        protected readonly Data $helper,
+        protected readonly JsonFactory $resultJson,
+        protected readonly CartRepositoryInterface $quoteRepository
     ) {
         parent::__construct($context);
-        $this->checkoutSession = $checkoutSession;
-        $this->helper = $helper;
-        $this->resultJson = $resultJson;
-        $this->quoteRepository = $quoteRepository;
     }
 
     /**

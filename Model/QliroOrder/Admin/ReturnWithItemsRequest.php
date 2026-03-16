@@ -8,7 +8,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Model\ContainerMapper;
+use Qliro\QliroOne\Model\Payload\PayloadConverter;
 
 /**
  * Return With Items Request class
@@ -66,18 +66,13 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
     private array $returns = [];
 
     /**
-     * @var ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @param ContainerMapper $containerMapper
+     * Class constructor
+     *
+     * @param PayloadConverter $payloadConverter
      */
     public function __construct(
-        ContainerMapper $containerMapper
-    )
-    {
-        $this->containerMapper = $containerMapper;
+        private readonly PayloadConverter $payloadConverter
+    ) {
     }
 
     /**
@@ -240,7 +235,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
         if (is_countable($this->orderItems)) {
             $orderItems = [];
             foreach ($this->orderItems as $orderItem) {
-                $innerItem = $this->containerMapper->toArray($orderItem);
+                $innerItem = $this->payloadConverter->toArray($orderItem);
                 if (!count($innerItem)){
                     continue;
                 }
@@ -256,7 +251,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
         if (is_countable($this->fees)) {
             $fees = [];
             foreach ($this->fees as $fee) {
-                $innerItem = $this->containerMapper->toArray($fee);
+                $innerItem = $this->payloadConverter->toArray($fee);
                 if (!count($innerItem)){
                     continue;
                 }
@@ -272,7 +267,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
         if (is_countable($this->discounts)) {
             $discounts = [];
             foreach ($this->discounts as $discount) {
-                $innerItem = $this->containerMapper->toArray($discount);
+                $innerItem = $this->payloadConverter->toArray($discount);
                 if (!count($innerItem)){
                     continue;
                 }

@@ -10,8 +10,6 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Store\Model\StoreManagerInterface;
-use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
-use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Model\Config;
 
@@ -26,50 +24,19 @@ class ShippingMethodsBuilder
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory
-     */
-    private $shippingMethodsResponseFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodBuilder
-     */
-    private $shippingMethodBuilder;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-    /**
-     * @var StoreManagerInterface
-     */
-    private $storeManager;
-
-    /**
-     * @var Config
-     */
-    private $qliroConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory
-     * @param \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodBuilder $shippingMethodBuilder
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param ShippingMethodBuilder $shippingMethodBuilder
+     * @param ManagerInterface $eventManager
      * @param StoreManagerInterface $storeManager
      * @param Config $qliroConfig
      */
     public function __construct(
-        UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory,
-        ShippingMethodBuilder $shippingMethodBuilder,
-        ManagerInterface $eventManager,
-        StoreManagerInterface $storeManager,
-        Config $qliroConfig,
+        private readonly ShippingMethodBuilder $shippingMethodBuilder,
+        private readonly ManagerInterface $eventManager,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly Config $qliroConfig,
     ) {
-        $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
-        $this->shippingMethodBuilder = $shippingMethodBuilder;
-        $this->eventManager = $eventManager;
-        $this->storeManager = $storeManager;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
@@ -86,7 +53,7 @@ class ShippingMethodsBuilder
     }
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface
+     * @return array
      */
     public function create()
     {
@@ -94,29 +61,34 @@ class ShippingMethodsBuilder
             throw new \LogicException('Quote entity is not set.');
         }
 
-        /** @var \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface $container */
-        $container = $this->shippingMethodsResponseFactory->create();
+        $container = [
+            'AvailableShippingMethods' => [],
+        ];
 
         if ($this->qliroConfig->isUnifaunEnabled($this->quote->getStoreId())) {
             return $container;
         }
 
-        $this->quote->setTotalsCollectedFlag(false);
-        $this->quote->collectTotals();
-        $this->quote->getShippingAddress()
-            ->setCollectShippingRates(true)
-            ->collectShippingRates();
+        $shippingAddress = $this->quote->getShippingAddress();
+
+        // Use rates already on the address (persisted from cart page).
+        // Only force a fresh collection when nothing is there yet.
+        if (empty($shippingAddress->getGroupedAllShippingRates())) {
+            $this->quote->setTotalsCollectedFlag(false);
+            $this->quote->collectTotals();
+            $shippingAddress->setCollectShippingRates(true)->collectShippingRates();
+        }
 
         $collectedShippingMethods = [];
 
         if ($this->quote->getIsVirtual()) {
-            $container->setAvailableShippingMethods($collectedShippingMethods);
+            $container['AvailableShippingMethods'] = $collectedShippingMethods;
         } else {
             $collectedShippingMethods = $this->collectShippingMethods();
             if (empty($collectedShippingMethods)) {
-                $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
+                $container['DeclineReason'] = 'PostalCodeIsNotSupported';
             } else {
-                $container->setAvailableShippingMethods($collectedShippingMethods);
+                $container['AvailableShippingMethods'] = $collectedShippingMethods;
             }
         }
 
@@ -158,7 +130,7 @@ class ShippingMethodsBuilder
 
                  // if ingrid delivery method is enabled - make sure only this shipping method is sent to qliro
                  if ($isIngridEnabled && $rate->getCode() !== Ingrid::QLIRO_INGRID_SHIPPING_CODE) {
-                     continue;
+                     //continue;
                  }
 
                  $this->shippingMethodBuilder->setQuote($this->quote);
@@ -172,7 +144,7 @@ class ShippingMethodsBuilder
                  $this->shippingMethodBuilder->setShippingRate($rate);
                  $shippingMethodContainer = $this->shippingMethodBuilder->create();
 
-                 if (!$shippingMethodContainer->getMerchantReference()) {
+                 if (empty($shippingMethodContainer['MerchantReference'] ?? null)) {
                      continue;
                  }
 
@@ -203,8 +175,7 @@ class ShippingMethodsBuilder
 
          $preselectedMethod = $this->quote->getShippingAddress()->getShippingMethod();
          foreach ($shippingMethods as $index => $method) {
-             if (method_exists($method, 'getMerchantReference') &&
-                 $method->getMerchantReference() === $preselectedMethod) {
+             if (($method['MerchantReference'] ?? null) === $preselectedMethod) {
 
                  $preferred = $shippingMethods[$index];
                  unset($shippingMethods[$index]);

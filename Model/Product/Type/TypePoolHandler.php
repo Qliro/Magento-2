@@ -8,7 +8,6 @@ namespace Qliro\QliroOne\Model\Product\Type;
 
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Item;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 
@@ -18,27 +17,15 @@ use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 class TypePoolHandler
 {
     /**
-     * @var array
-     */
-    private $pool;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypeResolver
-     */
-    private $typeResolver;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\Product\Type\TypeResolver $typeResolver
      * @param \Qliro\QliroOne\Api\Product\TypeHandlerInterface[] $pool
      */
     public function __construct(
-        TypeResolver $typeResolver,
-        array $pool = []
+        private readonly TypeResolver $typeResolver,
+        private readonly array $pool = []
     ) {
-        $this->pool = $pool;
-        $this->typeResolver = $typeResolver;
     }
 
     /**
@@ -46,7 +33,7 @@ class TypePoolHandler
      *
      * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $sourceItem
      * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface|null
+     * @return array|null
      */
     public function resolveQliroOrderItem(
         TypeSourceItemInterface $sourceItem,
@@ -70,12 +57,12 @@ class TypePoolHandler
     /**
      * Resolve a source item out of given QliroOne order item
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
+     * @param array $qliroOrderItem
      * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
      * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
      */
     public function resolveQuoteItem(
-        QliroOrderItemInterface $qliroOrderItem,
+        array $qliroOrderItem,
         TypeSourceProviderInterface $typeSourceProvider
     ) {
         $handler = $this->resolveHandler($this->typeResolver->resolve($qliroOrderItem, $typeSourceProvider));

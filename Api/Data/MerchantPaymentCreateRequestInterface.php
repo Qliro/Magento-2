@@ -11,7 +11,7 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface MerchantPaymentCreateRequestInterface extends ContainerInterface
+interface MerchantPaymentCreateRequestInterface
 {
     /**
      * @return string

@@ -11,19 +11,13 @@ use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
 class Cancel implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        \Qliro\QliroOne\Model\Logger\Manager $logManager
+        private readonly \Qliro\QliroOne\Model\Logger\Manager $logManager
     ) {
-        $this->logManager = $logManager;
     }
 
     /**
@@ -95,12 +89,12 @@ class Cancel implements OrderManagementStatusUpdateHandlerInterface
      */
     private function log($qliroOrderManagementStatus, $omStatus)
     {
-        $merchantReference = $qliroOrderManagementStatus->getMerchantReference();
+        $merchantReference = $qliroOrderManagementStatus['MerchantReference'] ?? null;
         $this->logManager->setMerchantReference($merchantReference);
 
         $logData = [
-            'status' => $qliroOrderManagementStatus->getStatus(),
-            'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+            'status' => $qliroOrderManagementStatus['Status'] ?? null,
+            'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
             'transaction_id' => $omStatus->getTransactionId(),
             'transaction_status' => $omStatus->getTransactionStatus(),
             'record_type' => $omStatus->getRecordType(),

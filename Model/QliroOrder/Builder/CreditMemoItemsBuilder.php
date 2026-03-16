@@ -11,13 +11,9 @@ use Magento\Sales\Api\Data\CreditmemoInterface;
 use Magento\Sales\Api\Data\CreditmemoItemInterface;
 use Magento\Tax\Helper\Data as TaxHelper;
 use Magento\Tax\Model\Calculation as TaxCalculation;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
 use Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
-use Qliro\QliroOne\Model\QliroOrder\Item;
-use Magento\Sales\Api\OrderItemRepositoryInterface;
 
 /**
  * QliroOne credit memo items builder class
@@ -30,30 +26,23 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
     private $creditMemo;
 
     /**
-     * @var OrderItemRepositoryInterface
-     */
-    private $orderItemRepository;
-
-    /**
+     * Class constructor
+     *
      * @param TaxHelper $taxHelper
      * @param TaxCalculation $taxCalculation
      * @param TypePoolHandler $typeResolver
-     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param QliroHelper $qliroHelper
      * @param QuoteSourceProvider $quoteSourceProvider
      * @param ManagerInterface $eventManager
-     * @param OrderItemRepositoryInterface $orderItemRepository
      * @param $handlers
      */
     public function __construct(
         TaxHelper $taxHelper,
         TaxCalculation $taxCalculation,
         TypePoolHandler $typeResolver,
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
         QliroHelper $qliroHelper,
         QuoteSourceProvider $quoteSourceProvider,
         ManagerInterface $eventManager,
-        OrderItemRepositoryInterface $orderItemRepository,
         $handlers = []
     )
     {
@@ -61,13 +50,11 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
             $taxHelper,
             $taxCalculation,
             $typeResolver,
-            $qliroOrderItemFactory,
             $qliroHelper,
             $quoteSourceProvider,
             $eventManager,
             $handlers
         );
-        $this->orderItemRepository = $orderItemRepository;
     }
 
     /**
@@ -84,9 +71,9 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
     }
 
     /**
-     * Create an array of containers
+     * Create an array of order item payloads for a Credit Memo.
      *
-     * @return QliroOrderItemInterface[]
+     * @return array[]
      */
     public function create()
     {
@@ -101,11 +88,17 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
 
         $creditMemoItems = [];
         foreach ($items as $key => $item) {
-            if ($item->getType() !== QliroOrderItemInterface::TYPE_PRODUCT) {
+            // Keep non-product items (shipping/discount/fee etc.) as-is
+            if (($item['Type'] ?? null) !== 'Product') {
                 $creditMemoItems[$key] = $item;
+                continue;
             }
 
-            $creditMemoItem = $this->getCreditMemoItemBySku($item->getMerchantReference());
+            $merchantRef = (string)($item['MerchantReference'] ?? '');
+            // Some implementations may include "id:sku"; prefer SKU for matching.
+            $sku = str_contains($merchantRef, ':') ? (string)substr($merchantRef, strrpos($merchantRef, ':') + 1) : $merchantRef;
+
+            $creditMemoItem = $this->getCreditMemoItemBySku($sku);
             if (is_null($creditMemoItem)) {
                 continue;
             }
@@ -113,7 +106,8 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
             if (!$creditMemoItem->getQty()) {
                 continue;
             }
-            $item->setQuantity((int)$creditMemoItem->getQty());
+            // Update quantity for this credit memo
+            $item['Quantity'] = (int)$creditMemoItem->getQty();
             $creditMemoItems[$key] = $item;
         }
 

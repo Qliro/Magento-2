@@ -3,100 +3,60 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Callback;
 
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\ResponseInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
+use Magento\Framework\Controller\ResultInterface;
+use Qliro\QliroOne\Api\Checkout\OrderServiceInterface as OrderService;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\ContainerMapper;
-use Qliro\QliroOne\Model\Security\CallbackToken;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Security\CallbackToken;
 
 /**
- * Checkout status push callback controller action
+ * Class CheckoutStatus
  */
-class CheckoutStatus extends \Magento\Framework\App\Action\Action
+class CheckoutStatus implements HttpPostActionInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $dataHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
-     */
-    private $callbackToken;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
-     * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
-     * @param \Qliro\QliroOne\Helper\Data $dataHelper
-     * @param \Qliro\QliroOne\Model\Security\CallbackToken $callbackToken
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param HttpRequest              $request
+     * @param OrderService             $orderService
+     * @param Config                   $qliroConfig
+     * @param Data                     $dataHelper
+     * @param LogManager               $logManager
+     * @param CallbackToken            $callbackToken
      */
     public function __construct(
-        Context $context,
-        Config $qliroConfig,
-        ManagementInterface $qliroManagement,
-        ContainerMapper $containerMapper,
-        Data $dataHelper,
-        CallbackToken $callbackToken,
-        LogManager $logManager
+        private readonly HttpRequest   $request,
+        private readonly OrderService  $orderService,
+        private readonly Config        $qliroConfig,
+        private readonly Data          $dataHelper,
+        private readonly LogManager    $logManager,
+        private readonly CallbackToken $callbackToken
     ) {
-        parent::__construct($context);
-
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroManagement = $qliroManagement;
-        $this->containerMapper = $containerMapper;
-        $this->dataHelper = $dataHelper;
-        $this->callbackToken = $callbackToken;
-        $this->logManager = $logManager;
     }
 
     /**
      * Dispatch request
      *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
+     * @return ResultInterface|ResponseInterface
      */
-    public function execute()
+    public function execute(): ResultInterface|ResponseInterface
     {
-        $start = \microtime(true);
+        $start = microtime(true);
         $this->logManager->info('Notification CheckoutStatus start');
 
         if (!$this->qliroConfig->isActive()) {
             return $this->dataHelper->sendPreparedPayload(
                 [
-                    CheckoutStatusResponseInterface::CALLBACK_RESPONSE =>
-                        CheckoutStatusResponseInterface::RESPONSE_NOTIFICATIONS_DISABLED
+                    'CallbackResponse' =>
+                        'NotificationsDisabled'
                 ],
                 400,
                 null,
@@ -104,14 +64,11 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
             );
         }
 
-        /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
-
-        if (!$this->callbackToken->verifyToken($request->getParam('token'))) {
+        if (!$this->callbackToken->verifyToken($this->request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
                 [
-                    CheckoutStatusResponseInterface::CALLBACK_RESPONSE =>
-                        CheckoutStatusResponseInterface::RESPONSE_AUTHENTICATE_ERROR
+                    'CallbackResponse' =>
+                        'AuthenticateError'
                 ],
                 400,
                 null,
@@ -119,24 +76,21 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
             );
         }
 
-        $payload = $this->dataHelper->readPreparedPayload($request, 'CALLBACK:CHECKOUT_STATUS');
+        $payload = $this->dataHelper->readPreparedPayload($this->request, 'CALLBACK:CHECKOUT_STATUS');
 
-        /** @var \Qliro\QliroOne\Api\Data\CheckoutStatusInterface $updateContainer */
-        $updateContainer = $this->containerMapper->fromArray(
-            $payload,
-            CheckoutStatusInterface::class
-        );
-
-        $responseContainer = $this->qliroManagement->checkoutStatus($updateContainer);
+        $responseContainer = $this->orderService->checkoutStatus($payload);
 
         $response = $this->dataHelper->sendPreparedPayload(
             $responseContainer,
-            $responseContainer->getCallbackResponseCode(),
+            $responseContainer['callbackResponseCode'] ?? 200,
             null,
             'CALLBACK:CHECKOUT_STATUS'
         );
 
-        $this->logManager->info('Notification CheckoutStatus done in {duration} seconds', ['duration' => \microtime(true) - $start]);
+        $this->logManager->info(
+            'Notification CheckoutStatus done in {duration} seconds',
+            ['duration' => \microtime(true) - $start]
+        );
 
         return $response;
     }

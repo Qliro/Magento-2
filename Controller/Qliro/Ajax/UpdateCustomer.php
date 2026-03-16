@@ -3,158 +3,38 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
-use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
-use Magento\Framework\App\ResponseInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
-use Qliro\QliroOne\Helper\Data;
-use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\Logger\Manager;
-use Qliro\QliroOne\Model\Quote\Agent;
-use Qliro\QliroOne\Model\Security\AjaxToken;
+use Magento\Framework\Controller\ResultInterface;
 
 /**
- * Update customer AJAX controller action class
+ * Called by the Qliro iframe when the customer fills in their personal data
+ * (email, SSN / personal number, name, address).
+ *
+ * Applies the customer data to the Magento quote and triggers a quote
+ * recalculation + Qliro order update so that shipping methods appear.
+ *
+ * URL: checkout/qliro_ajax/updateCustomer
  */
-class UpdateCustomer extends \Magento\Framework\App\Action\Action
+class UpdateCustomer extends AbstractAjaxAction
 {
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $dataHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\AjaxToken
-     */
-    private $ajaxToken;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $checkoutSession;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Quote\Agent
-     */
-    private $quoteAgent;
-
-    /**
-     * Inject dependnecies
-     *
-     * @param \Magento\Framework\App\Action\Context $context
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Helper\Data $dataHelper
-     * @param \Qliro\QliroOne\Model\Security\AjaxToken $ajaxToken
-     * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
-     * @param \Magento\Checkout\Model\Session $checkoutSession
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
-     * @param \Qliro\QliroOne\Model\Quote\Agent $quoteAgent
-     */
-    public function __construct(
-        Context $context,
-        Config $qliroConfig,
-        Data $dataHelper,
-        AjaxToken $ajaxToken,
-        ManagementInterface $qliroManagement,
-        Session $checkoutSession,
-        Manager $logManager,
-        Agent $quoteAgent
-    ) {
-        parent::__construct($context);
-        $this->dataHelper = $dataHelper;
-        $this->ajaxToken = $ajaxToken;
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroManagement = $qliroManagement;
-        $this->checkoutSession = $checkoutSession;
-        $this->logManager = $logManager;
-        $this->quoteAgent = $quoteAgent;
-    }
-
-    /**
-     * Dispatch the action
-     *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
-     */
-    public function execute()
+    public function execute(): ResultInterface
     {
-        if (!$this->qliroConfig->isActive()) {
-            $this->logManager->debug('Qliro One is not enabled for ' . $this->getRequest()->getRequestUri());
-            return $this->dataHelper->sendPreparedPayload(
-                [
-                    'status' => 'FAILED',
-                    'error' => (string)__('Qliro One is not active.')
-                ],
-                403,
-                null,
-                'AJAX:UPDATE_CUSTOMER:ERROR_INACTIVE'
-            );
+        if (!$this->verifyRequest()) {
+            return $this->errorResponse('Unauthorized', 401);
         }
 
-        /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
-
-        $quote = $this->checkoutSession->getQuote();
-        $this->logManager->setMerchantReferenceFromQuote($quote);
-        $this->ajaxToken->setQuote($quote);
-        $this->quoteAgent->store($quote);
-
-        if (!$this->ajaxToken->verifyToken($request->getParam('token'))) {
-            return $this->dataHelper->sendPreparedPayload(
-                [
-                    'status' => 'FAILED',
-                    'error' => (string)__('Security token is incorrect.')
-                ],
-                401,
-                null,
-                'AJAX:UPDATE_CUSTOMER:ERROR_TOKEN'
-            );
-        }
-
-        $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_CUSTOMER');
-        if (array_key_exists('address', $data) && is_null($data['address'])) {
-            $data['address'] = [];
-        }
+        $customerData = $this->getBody();
 
         try {
-            $this->logManager->debug('Starting to update customer in Qliro quote ' . $quote->getId());
-            $this->qliroManagement->setQuote($quote)->updateCustomer($data);
-            $this->logManager->debug('Finished to update customer in Qliro quote ' . $quote->getId());
-        } catch (\Exception $exception) {
-            $this->logManager->debug('Failed to update customer in Qliro quote ' . $quote->getId());
-            return $this->dataHelper->sendPreparedPayload(
-                [
-                    'status' => 'FAILED',
-                    'error' => (string)__('Cannot update quote with customer data.')
-                ],
-                400,
-                null,
-                'AJAX:UPDATE_CUSTOMER:ERROR'
-            );
+            $this->orderService->updateCustomer($customerData);
+        } catch (\Exception $e) {
+            $this->logManager->critical($e);
+            return $this->errorResponse($e->getMessage());
         }
 
-        return $this->dataHelper->sendPreparedPayload(
-            ['status' => 'OK'],
-            200,
-            null,
-            'AJAX:UPDATE_CUSTOMER'
-        );
+        return $this->jsonResponse(['success' => true]);
     }
 }

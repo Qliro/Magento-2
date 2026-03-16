@@ -9,7 +9,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * Admin Universalrsal Transaction Response interface
  */
-interface AdminTransactionResponseInterface extends ContainerInterface
+interface AdminTransactionResponseInterface
 {
     const TYPE_UPDATE = 'UpdateItemsResponse';
     const TYPE_UPDATE_WITH_REVERSAL = 'UpdateItemsWithReversalResponse';

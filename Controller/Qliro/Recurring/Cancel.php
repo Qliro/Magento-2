@@ -19,44 +19,30 @@ use Qliro\QliroOne\Api\RecurringInfoRepositoryInterface;
  */
 class Cancel implements HttpPostActionInterface
 {
-    private Http $request;
-
-    private OrderViewAuthorizationInterface $orderAuthorization;
-
-    private MessageManager $messageManager;
-
-    private RecurringDataService $recurringDataService;
-
-    private OrderRepositoryInterface $orderRepo;
-
-    private RecurringInfoRepositoryInterface $recurringInfoRepo;
-
-    private Config $config;
-
-    private ForwardFactory $resultForwardFactory;
-
-    private RedirectFactory $redirectFactory;
-
+    /**
+     * Class constructor
+     *
+     * @param Http $request
+     * @param OrderViewAuthorizationInterface $orderAuthorization
+     * @param MessageManager $messageManager
+     * @param RecurringDataService $recurringDataService
+     * @param OrderRepositoryInterface $orderRepo
+     * @param RecurringInfoRepositoryInterface $recurringInfoRepo
+     * @param Config $config
+     * @param ForwardFactory $forwardFactory
+     * @param RedirectFactory $redirectFactory
+     */
     public function __construct(
-        Http $request,
-        OrderViewAuthorizationInterface $orderAuthorization,
-        MessageManager $messageManager,
-        RecurringDataService $recurringDataService,
-        OrderRepositoryInterface $orderRepo,
-        RecurringInfoRepositoryInterface $recurringInfoRepo,
-        Config $config,
-        ForwardFactory $forwardFactory,
-        RedirectFactory $redirectFactory
+        private readonly Http $request,
+        private readonly OrderViewAuthorizationInterface $orderAuthorization,
+        private readonly MessageManager $messageManager,
+        private readonly RecurringDataService $recurringDataService,
+        private readonly OrderRepositoryInterface $orderRepo,
+        private readonly RecurringInfoRepositoryInterface $recurringInfoRepo,
+        private readonly Config $config,
+        private readonly ForwardFactory $resultForwardFactory,
+        private readonly RedirectFactory $redirectFactory
     ) {
-        $this->request = $request;
-        $this->orderAuthorization = $orderAuthorization;
-        $this->messageManager = $messageManager;
-        $this->recurringDataService = $recurringDataService;
-        $this->orderRepo = $orderRepo;
-        $this->recurringInfoRepo = $recurringInfoRepo;
-        $this->config = $config;
-        $this->resultForwardFactory = $forwardFactory;
-        $this->redirectFactory = $redirectFactory;
     }
 
     /**

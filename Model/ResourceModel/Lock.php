@@ -25,12 +25,7 @@ class Lock extends AbstractDb
     const LOCK_EXPIRATION = 10;  /* retire locks after x minutes */
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Framework\Model\ResourceModel\Db\Context $context
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
@@ -39,19 +34,12 @@ class Lock extends AbstractDb
      */
     public function __construct(
         Context $context,
-        LogManager $logManager,
-        Helper $helper,
+        private readonly LogManager $logManager,
+        private readonly Helper $helper,
         $connectionName = null
     ) {
         parent::__construct($context, $connectionName);
-        $this->logManager = $logManager;
-        $this->helper = $helper;
     }
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $helper;
 
     /**
      * Dummy init method

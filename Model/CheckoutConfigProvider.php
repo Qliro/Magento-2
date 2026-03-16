@@ -14,7 +14,7 @@ use Qliro\QliroOne\Model\Management\CountrySelect;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringPaymentsDataService;
 
 /**
- * QliroOne Cehckout config provider class
+ * QliroOne Checkout config provider class
  */
 class CheckoutConfigProvider implements ConfigProviderInterface
 {
@@ -24,37 +24,7 @@ class CheckoutConfigProvider implements ConfigProviderInterface
     private $quote;
 
     /**
-     * @var \Magento\Store\Model\StoreManagerInterface
-     */
-    private $storeManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\AjaxToken
-     */
-    private $ajaxToken;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var Fee
-     */
-    private $fee;
-
-    /**
-     * @var CountrySelect
-     */
-    private CountrySelect $countrySelect;
-
-    /**
-     * @var \Qliro\QliroOne\Service\RecurringPayments\Data
-     */
-    private RecurringPaymentsDataService $recurringPaymentsDataService;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
      * @param \Qliro\QliroOne\Model\Security\AjaxToken $ajaxToken
@@ -65,21 +35,15 @@ class CheckoutConfigProvider implements ConfigProviderInterface
      * @param \Qliro\QliroOne\Service\RecurringPayments\Data $recurringPaymentsDataService
      */
     public function __construct(
-        StoreManagerInterface $storeManager,
-        AjaxToken $ajaxToken,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly AjaxToken $ajaxToken,
         Session $checkoutSession,
-        Config $qliroConfig,
-        \Qliro\QliroOne\Model\Fee $fee,
-        CountrySelect $countrySelect,
-        RecurringPaymentsDataService $recurringPaymentsDataService
+        private readonly Config $qliroConfig,
+        private readonly \Qliro\QliroOne\Model\Fee $fee,
+        private readonly CountrySelect $countrySelect,
+        private readonly RecurringPaymentsDataService $recurringPaymentsDataService
     ) {
         $this->quote = $checkoutSession->getQuote();
-        $this->storeManager = $storeManager;
-        $this->ajaxToken = $ajaxToken;
-        $this->qliroConfig = $qliroConfig;
-        $this->fee = $fee;
-        $this->countrySelect = $countrySelect;
-        $this->recurringPaymentsDataService = $recurringPaymentsDataService;
     }
 
     /**
@@ -95,32 +59,25 @@ class CheckoutConfigProvider implements ConfigProviderInterface
                 'showAsPaymentMethod' => $this->qliroConfig->getShowAsPaymentMethod(),
                 'checkoutTitle' => $this->qliroConfig->getTitle(),
                 'securityToken' => $this->ajaxToken->setQuote($this->quote)->getToken(),
-                'updateQuoteUrl' => $this->getUrl('checkout/qliro_ajax/updateQuote'),
                 'checkoutUrl' => $this->getUrl('checkout/qliro'),
+                'updateQuoteUrl' => $this->getUrl('checkout/qliro_ajax/updateQuote'),
                 'updateCustomerUrl' => $this->getUrl('checkout/qliro_ajax/updateCustomer'),
                 'updateShippingMethodUrl' => $this->getUrl('checkout/qliro_ajax/updateShippingMethod'),
                 'updateShippingPriceUrl' => $this->getUrl('checkout/qliro_ajax/updateShippingPrice'),
                 'updatePaymentMethodUrl' => $this->getUrl('checkout/qliro_ajax/updatePaymentMethod'),
-                'pollPendingUrl' => $this->getUrl('checkout/qliro_ajax/pollPending'),
-                'lockQuoteUrl' => $this->getUrl('checkout/qliro_ajax/lockQuote'),
-                'unlockQuoteUrl' => $this->getUrl('checkout/qliro_ajax/unlockQuote'),
                 'qliroone_fee' => []
             ],
         ];
 
-        // If country selector is enabled, add available countries to config
         if ($this->qliroConfig->isUseCountrySelector()) {
             $config['qliro']['countrySelector'] = [
-               'updateCountryUrl' => $this->getUrl('checkout/qliro_ajax/updateCountry'),
                'availableCountries' => $this->qliroConfig->getAvailableCountries(),
                'selectedCountry' => $this->getSelectedCountry()
             ];
         }
 
-        // If recurring orders is enabled, add configuration
         if ($this->qliroConfig->isUseRecurring()) {
             $config['qliro']['recurringOrder'] = [
-                'setRecurringUrl' => $this->getUrl('checkout/qliro_ajax/setRecurring'),
                 'enabled' => true,
                 'isRecurring' => $this->getIsRecurring(),
                 'availableFrequencyOptions' => $this->recurringPaymentsDataService->formatRecurringFrequencyOptionsJson(
@@ -132,22 +89,11 @@ class CheckoutConfigProvider implements ConfigProviderInterface
         return $config;
     }
 
-    /**
-     * Get a store-specific URL with provided path
-     *
-     * @param string $path
-     * @return string
-     */
     private function getUrl($path)
     {
-        $store = $this->storeManager->getStore();
-
-        return $store->getUrl($path);
+        return $this->storeManager->getStore()->getUrl($path);
     }
 
-    /**
-     * @return string
-     */
     private function getSelectedCountry(): string
     {
         $selectedCountry = $this->countrySelect->getSelectedCountry();
@@ -168,9 +114,6 @@ class CheckoutConfigProvider implements ConfigProviderInterface
         return $addressCountry;
     }
 
-    /**
-     * @return bool
-     */
     private function getIsRecurring(): bool
     {
         $info = $this->recurringPaymentsDataService->quoteGetter($this->quote);

@@ -46,98 +46,37 @@ class CreateRequestBuilder
     private ?Order $order = null;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentRequestInterfaceFactory
+     * Class constructor
+     *
+     * @param AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory
+     * @param CustomerBuilder $customerBuilder
+     * @param CustomerAddressBuilder $customerAddressBuilder
+     * @param OrderItemsBuilder $orderItemsBuilder
+     * @param PaymentMethodBuilder $paymentMethodBuilder
+     * @param LanguageMapperInterface $languageMapper
+     * @param Config $qliroConfig
+     * @param StoreManagerInterface $storeManager
+     * @param CallbackToken $callbackToken
+     * @param QueryParamsResolverInterface $queryParamsResolver
+     * @param ShippingFeeHandler $shippingFeeHandler
+     * @param InvoiceFeeHandler $invoiceFeeHandler
+     * @param ManagerInterface $eventManager
      */
-    private AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LanguageMapperInterface
-     */
-    private LanguageMapperInterface $languageMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private Config $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Model\MerchantPayment\Builder\CustomerBuilder
-     */
-    private CustomerBuilder $customerBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerAddressBuilder
-     */
-    private CustomerAddressBuilder $customerAddressBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder
-     */
-    private OrderItemsBuilder $orderItemsBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\MerchantPayment\Builder\PaymentMethodBuilder
-     */
-    private PaymentMethodBuilder $paymentMethodBuilder;
-
-    /**
-     * @var \Magento\Store\Model\StoreManagerInterface
-     */
-    private StoreManagerInterface $storeManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
-     */
-    private CallbackToken $callbackToken;
-
-    /**
-     * @var \Magento\Framework\Url\QueryParamsResolverInterface
-     */
-    private QueryParamsResolverInterface $queryParamsResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler
-     */
-    private $shippingFeeHandler;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler
-     */
-    private $invoiceFeeHandler;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private ManagerInterface $eventManager;
-
     public function __construct(
-        AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory,
-        CustomerBuilder $customerBuilder,
-        CustomerAddressBuilder $customerAddressBuilder,
-        OrderItemsBuilder $orderItemsBuilder,
-        PaymentMethodBuilder $paymentMethodBuilder,
-        LanguageMapperInterface $languageMapper,
-        Config $qliroConfig,
-        StoreManagerInterface $storeManager,
-        CallbackToken $callbackToken,
-        QueryParamsResolverInterface $queryParamsResolver,
-        ShippingFeeHandler $shippingFeeHandler,
-        InvoiceFeeHandler $invoiceFeeHandler,
-        ManagerInterface $eventManager
+        private readonly AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory,
+        private readonly CustomerBuilder $customerBuilder,
+        private readonly CustomerAddressBuilder $customerAddressBuilder,
+        private readonly OrderItemsBuilder $orderItemsBuilder,
+        private readonly PaymentMethodBuilder $paymentMethodBuilder,
+        private readonly LanguageMapperInterface $languageMapper,
+        private readonly Config $qliroConfig,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly CallbackToken $callbackToken,
+        private readonly QueryParamsResolverInterface $queryParamsResolver,
+        private readonly ShippingFeeHandler $shippingFeeHandler,
+        private readonly InvoiceFeeHandler $invoiceFeeHandler,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->createRequestFactory = $createRequestFactory;
-        $this->customerBuilder = $customerBuilder;
-        $this->customerAddressBuilder = $customerAddressBuilder;
-        $this->orderItemsBuilder = $orderItemsBuilder;
-        $this->paymentMethodBuilder = $paymentMethodBuilder;
-        $this->languageMapper = $languageMapper;
-        $this->qliroConfig = $qliroConfig;
-        $this->storeManager = $storeManager;
-        $this->callbackToken = $callbackToken;
-        $this->queryParamsResolver = $queryParamsResolver;
-        $this->shippingFeeHandler = $shippingFeeHandler;
-        $this->invoiceFeeHandler = $invoiceFeeHandler;
-        $this->eventManager = $eventManager;
     }
 
     /**

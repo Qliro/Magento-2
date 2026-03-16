@@ -11,7 +11,7 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface MerchantPaymentPaymentMethodInterface extends ContainerInterface
+interface MerchantPaymentPaymentMethodInterface
 {
     const NAME_CREDITCARDS = 'CREDITCARDS';
 

@@ -11,14 +11,16 @@ use Qliro\QliroOne\Api\Data\MerchantPaymentCustomerInterfaceFactory;
  */
 class CustomerBuilder
 {
-    private MerchantPaymentCustomerInterfaceFactory $customerFactory;
-
     private ?Quote $quote = null;
 
+    /**
+     * Class constructor
+     *
+     * @param MerchantPaymentCustomerInterfaceFactory $customerFactory
+     */
     public function __construct(
-        MerchantPaymentCustomerInterfaceFactory $customerFactory
+        private readonly MerchantPaymentCustomerInterfaceFactory $customerFactory
     ) {
-        $this->customerFactory = $customerFactory;
     }
 
     /**

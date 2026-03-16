@@ -23,20 +23,13 @@ class Cancel extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassActio
      * @var string
      */
     protected $redirectUrl = 'sales/order/index';
-    
-    /**
-     * @var \Qliro\QliroOne\Api\RecurringInfoRepositoryInterface
-     */
-    private $recurringInfoRepo;
 
     /**
-     * @var \Qliro\QliroOne\Service\RecurringPayments\Data
-     */
-    private $recurringDataService;
-
-    /**
+     * Class constructor
+     *
      * @param Context $context
      * @param Filter $filter
+     * @param CollectionFactory $collectionFactory
      * @param RecurringInfoRepositoryInterface $recurringInfoRepo
      * @param RecurringDataService $recurringDataService
      */
@@ -44,13 +37,11 @@ class Cancel extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassActio
         Context $context,
         Filter $filter,
         CollectionFactory $collectionFactory,
-        RecurringInfoRepositoryInterface $recurringInfoRepo,
-        RecurringDataService $recurringDataService,
+        private readonly RecurringInfoRepositoryInterface $recurringInfoRepo,
+        private readonly RecurringDataService $recurringDataService,
     ) {
         parent::__construct($context, $filter);
         $this->collectionFactory = $collectionFactory;
-        $this->recurringInfoRepo = $recurringInfoRepo;
-        $this->recurringDataService = $recurringDataService;
     }
 
     /**
@@ -63,7 +54,7 @@ class Cancel extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassActio
     {
         foreach ($collection->getItems() as $order) {
             try {
-        
+
                 $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($order->getEntityId());
                 if (!$recurringInfo->getId()) {
                     $this->messageManager->addNoticeMessage(

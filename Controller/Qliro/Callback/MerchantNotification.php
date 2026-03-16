@@ -3,95 +3,58 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Callback;
 
 use Magento\Framework\App\Action\HttpPostActionInterface;
-use Magento\Framework\App\Request\Http;
+use Magento\Framework\App\Request\Http as HttpRequest;
 use Magento\Framework\App\ResponseInterface;
-use Qliro\QliroOne\Api\Data\MerchantNotificationInterface;
-use Qliro\QliroOne\Api\Data\MerchantNotificationResponseInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
+use Magento\Framework\Controller\ResultInterface;
+use Qliro\QliroOne\Api\Admin\OrderServiceInterface as OrderService;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\ContainerMapper;
-use Qliro\QliroOne\Model\Security\CallbackToken;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Security\CallbackToken;
 
 /**
- * Merchant push callback controller action
+ * Class constructor
  */
 class MerchantNotification implements HttpPostActionInterface
 {
     /**
-     * @var \Magento\Framework\App\Request\Http
+     * Class constructor
+     *
+     * @param HttpRequest              $request
+     * @param OrderService             $orderService
+     * @param Config                   $qliroConfig
+     * @param Data                     $dataHelper
+     * @param LogManager               $logManager
+     * @param CallbackToken            $callbackToken
      */
-    private Http $request;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private Data $dataHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
-     */
-    private CallbackToken $callbackToken;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
     public function __construct(
-        Http $request,
-        Config $qliroConfig,
-        ManagementInterface $qliroManagement,
-        ContainerMapper $containerMapper,
-        Data $dataHelper,
-        CallbackToken $callbackToken,
-        LogManager $logManager
+        private readonly HttpRequest   $request,
+        private readonly OrderService  $orderService,
+        private readonly Config        $qliroConfig,
+        private readonly Data          $dataHelper,
+        private readonly LogManager    $logManager,
+        private readonly CallbackToken $callbackToken
     ) {
-        $this->request = $request;
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroManagement = $qliroManagement;
-        $this->containerMapper = $containerMapper;
-        $this->dataHelper = $dataHelper;
-        $this->callbackToken = $callbackToken;
-        $this->logManager = $logManager;
     }
 
     /**
      * Dispatch request
      *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
+     * @return ResultInterface|ResponseInterface
      */
-    public function execute()
+    public function execute(): ResultInterface|ResponseInterface
     {
-        $start = \microtime(true);
+        $start = microtime(true);
         $this->logManager->info('MerchantNotification Callback start');
 
         if (!$this->qliroConfig->isActive()) {
             return $this->dataHelper->sendPreparedPayload(
-                [
-                    MerchantNotificationResponseInterface::CALLBACK_RESPONSE =>
-                        MerchantNotificationResponseInterface::RESPONSE_NOTIFICATIONS_DISABLED
-                ],
+                [ 'CallbackResponse' => 'NotificationsDisabled' ],
                 400,
                 null,
                 'CALLBACK:MERCHANT_NOTIFICATION:ERROR_INACTIVE'
@@ -100,10 +63,7 @@ class MerchantNotification implements HttpPostActionInterface
 
         if (!$this->callbackToken->verifyToken($this->request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
-                [
-                    MerchantNotificationResponseInterface::CALLBACK_RESPONSE =>
-                        MerchantNotificationResponseInterface::RESPONSE_AUTHENTICATE_ERROR
-                ],
+                [ 'CallbackResponse' => 'AuthenticateError'],
                 400,
                 null,
                 'CALLBACK:MERCHANT_NOTIFICATION:ERROR_TOKEN'
@@ -112,24 +72,18 @@ class MerchantNotification implements HttpPostActionInterface
 
         $payload = $this->dataHelper->readPreparedPayload($this->request, 'CALLBACK:MERCHANT_NOTIFICATION');
 
-        /** @var \Qliro\QliroOne\Api\Data\MerchantNotificationInterface $updateContainer */
-        $updateContainer = $this->containerMapper->fromArray(
-            $payload,
-            MerchantNotificationInterface::class
-        );
-
-        $responseContainer = $this->qliroManagement->merchantNotification($updateContainer);
+        $responseContainer = $this->orderService->merchantNotification($payload);
 
         $response = $this->dataHelper->sendPreparedPayload(
             $responseContainer,
-            $responseContainer->getCallbackResponseCode(),
+            $responseContainer['callbackResponseCode'] ?? 200,
             null,
             'CALLBACK:MERCHANT_NOTIFICATION'
         );
 
         $this->logManager->info(
             'MerchantNotification Callback done in {duration} seconds',
-            ['duration' => \microtime(true) - $start]
+            ['duration' => microtime(true) - $start]
         );
 
         return $response;

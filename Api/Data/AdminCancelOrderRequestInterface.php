@@ -9,7 +9,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * Admin Cancel Order Request interface
  */
-interface AdminCancelOrderRequestInterface extends ContainerInterface
+interface AdminCancelOrderRequestInterface
 {
     /**
      * @return string

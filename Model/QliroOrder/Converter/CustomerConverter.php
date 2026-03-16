@@ -15,60 +15,41 @@ use Qliro\QliroOne\Helper\Data as Helper;
 class CustomerConverter
 {
     /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter
-     */
-    private $addressConverter;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $helper;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter $addressConverter
-     * @param \Qliro\QliroOne\Helper\Data $helper
+     * @param AddressConverter $addressConverter
+     * @param Helper $helper
      */
     public function __construct(
-        AddressConverter $addressConverter,
-        Helper $helper
+        private readonly AddressConverter $addressConverter,
+        private readonly Helper $helper
     ) {
-        $this->addressConverter = $addressConverter;
-        $this->helper = $helper;
     }
 
     /**
-     * Convert QliroOne order customer info into quote customer
+     * Convert QliroOne order customer info (raw array) into quote customer
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
+     * @param array $qliroCustomer
      * @param \Magento\Quote\Model\Quote $quote
      */
-    public function convert($qliroCustomer, Quote $quote)
+    public function convert(array $qliroCustomer, Quote $quote): void
     {
-        if ($qliroCustomer && $qliroCustomer->getEmail() !== null) {
-            $customer = $quote->getCustomer();
-            $qliroAddress = $qliroCustomer->getAddress() ?? null;
+        if (empty($qliroCustomer) || !isset($qliroCustomer['Email'])) {
+            return;
+        }
 
-            $customerData = [
-                'email' => $qliroCustomer->getEmail(),
-            ];
+        $customer = $quote->getCustomer();
+        $customer->setData('email', $qliroCustomer['Email']);
 
-            foreach ($customerData as $key => $value) {
-                if ($value !== null) {
-                    $customer->setData($key, $value);
-                }
-            }
+        $qliroAddress = $qliroCustomer['Address'] ?? [];
+        if ($qliroAddress) {
+            $billingAddress = $quote->getBillingAddress();
+            $this->addressConverter->convert($qliroAddress, $qliroCustomer, $billingAddress);
 
-            if ($qliroAddress) {
-                $billingAddress = $quote->getBillingAddress();
-                $this->addressConverter->convert($qliroAddress, $qliroCustomer, $billingAddress);
-
-                if (!$quote->isVirtual()) {
-                    $shippingAddress = $quote->getShippingAddress();
-                    $this->addressConverter->convert($qliroAddress, $qliroCustomer, $shippingAddress);
-                    $shippingAddress->setSameAsBilling($this->helper->doAddressesMatch($shippingAddress, $billingAddress));
-                }
+            if (!$quote->isVirtual()) {
+                $shippingAddress = $quote->getShippingAddress();
+                $this->addressConverter->convert($qliroAddress, $qliroCustomer, $shippingAddress);
+                $shippingAddress->setSameAsBilling($this->helper->doAddressesMatch($shippingAddress, $billingAddress));
             }
         }
     }

@@ -5,7 +5,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * QliroOne Shipment Interface. Used in MarkItemsAsShipped requests.
  */
-interface QliroShipmentInterface extends ContainerInterface
+interface QliroShipmentInterface
 {
     /**
      * @return ?int

@@ -9,8 +9,6 @@ namespace Qliro\QliroOne\Model\MerchantPayment;
 use Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentRequestInterface;
 use Qliro\QliroOne\Api\Data\MerchantPaymentCustomerInterface;
 use Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 
 /**
  * QliroOne Merchant Payment Create Request concrete implementation
@@ -63,14 +61,14 @@ class CreateRequest implements AdminCreateMerchantPaymentRequestInterface
     private ?MerchantPaymentCustomerInterface $customer = null;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null
+     * @var array|null
      */
-    private ?QliroOrderCustomerAddressInterface $billingAddress = null;
+    private ?array $billingAddress = null;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null
+     * @var array|null
      */
-    private ?QliroOrderCustomerAddressInterface $shippingAddress = null;
+    private ?array $shippingAddress = null;
 
     /**
      * @var \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface|null
@@ -152,7 +150,7 @@ class CreateRequest implements AdminCreateMerchantPaymentRequestInterface
     /**
      * @inheritdoc
      */
-    public function getBillingAddress(): ?\Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+    public function getBillingAddress(): ?array
     {
         return $this->billingAddress;
     }
@@ -160,7 +158,7 @@ class CreateRequest implements AdminCreateMerchantPaymentRequestInterface
     /**
      * @inheritdoc
      */
-    public function getShippingAddress(): ?\Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+    public function getShippingAddress(): ?array
     {
         return $this->shippingAddress;
     }
@@ -270,10 +268,9 @@ class CreateRequest implements AdminCreateMerchantPaymentRequestInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return self
+     * @inheritDoc
      */
-    public function setBillingAddress(QliroOrderCustomerAddressInterface $value): self
+    public function setBillingAddress(array $value): self
     {
         $this->billingAddress = $value;
 
@@ -281,10 +278,9 @@ class CreateRequest implements AdminCreateMerchantPaymentRequestInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return self
+     * @inheritDoc
      */
-    public function setShippingAddress(QliroOrderCustomerAddressInterface $value): self
+    public function setShippingAddress(array $value): self
     {
         $this->shippingAddress = $value;
 
@@ -292,8 +288,7 @@ class CreateRequest implements AdminCreateMerchantPaymentRequestInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface $value
-     * @return self
+     * @inheritDoc
      */
     public function setPaymentMethod(MerchantPaymentPaymentMethodInterface $value): self
     {

@@ -13,22 +13,18 @@ use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 class Fee extends AbstractTotal
 {
     /**
-     * @var InvoiceFeeTotalValidatorInterface
-     */
-    private InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator;
-
-    /**
+     * Class constructor
+     *
      * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
      * @param array $data
      */
     public function __construct(
-        InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        private readonly InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
         array $data = []
-    )
-    {
+    ) {
         parent::__construct($data);
-        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
     }
+
     /**
      * Collect totals
      *

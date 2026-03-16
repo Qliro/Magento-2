@@ -1,8 +1,6 @@
 <?php
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Magento\Bundle\Model\Product\Type as BundleType;
@@ -20,14 +18,14 @@ class BundleHandler extends DefaultHandler
      * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
      * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
      */
-    public function getItem(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
+    public function getItem(array $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
     {
-        if ($qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT &&
-            $qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_BUNDLE) {
+        $type = $qliroOrderItem['Type'] ?? null;
+        if ($type !== 'Product' && $type !== 'Bundle') {
             return null;
         }
 
-        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
+        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem['Metadata'] ?? []);
     }
 
     /**

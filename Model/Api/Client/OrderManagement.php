@@ -8,6 +8,12 @@ namespace Qliro\QliroOne\Model\Api\Client;
 
 use GuzzleHttp\Exception\RequestException;
 use Magento\Framework\Serialize\Serializer\Json;
+use Qliro\QliroOne\Api\Client\OrderManagement\OrderMutatorInterface;
+use Qliro\QliroOne\Api\Client\OrderManagement\OrderReaderInterface;
+use Qliro\QliroOne\Api\Client\OrderManagement\PaymentOperationsInterface;
+use Qliro\QliroOne\Api\Client\OrderManagement\ReturnInterface;
+use Qliro\QliroOne\Api\Client\OrderManagementInterface;
+use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Api\Data\AdminCancelOrderRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentResponseInterface;
 use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface;
@@ -16,13 +22,10 @@ use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Api\Client\Exception\OrderManagementApiException;
 use Qliro\QliroOne\Model\Api\Service;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Framework\DataObject\IdentityGeneratorInterface;
@@ -30,70 +33,26 @@ use Magento\Framework\DataObject\IdentityGeneratorInterface;
 /**
  * Order Management API client class
  */
-class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInterface
+class OrderManagement implements OrderManagementInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Api\Service
-     */
-    private $service;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $config;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Magento\Framework\Serialize\Serializer\Json
-     */
-    private $json;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory
-     */
-    private $qliroOrderFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Magento\Framework\DataObject\IdentityGeneratorInterface
-     */
-    private IdentityGeneratorInterface $idGenerator;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\Api\Service $service
      * @param \Qliro\QliroOne\Model\Config $config
      * @param \Magento\Framework\Serialize\Serializer\Json $json
-     * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory $qliroOrderFactory
+     * @param \Qliro\QliroOne\Model\Payload\PayloadConverter $payloadConverter
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Magento\Framework\DataObject\IdentityGeneratorInterface $idGenerator
      */
     public function __construct(
-        Service $service,
-        Config $config,
-        Json $json,
-        ContainerMapper $containerMapper,
-        QliroOrderInterfaceFactory $qliroOrderFactory,
-        LogManager $logManager,
-        IdentityGeneratorInterface $idGenerator
+        private readonly Service $service,
+        private readonly Config $config,
+        private readonly Json $json,
+        private readonly PayloadConverter $payloadConverter,
+        private readonly LogManager $logManager,
+        private readonly IdentityGeneratorInterface $idGenerator
     ) {
-        $this->service = $service;
-        $this->config = $config;
-        $this->containerMapper = $containerMapper;
-        $this->json = $json;
-        $this->qliroOrderFactory = $qliroOrderFactory;
-        $this->logManager = $logManager;
-        $this->idGenerator = $idGenerator;
     }
 
     /**
@@ -111,7 +70,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $response = $this->service->get('checkout/adminapi/v2/orders/{OrderId}', ['OrderId' => $qliroOrderId]);
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderInterface $container */
-            $container = $this->containerMapper->fromArray($response, AdminOrderInterface::class);
+            $container = $this->payloadConverter->fromArray($response, AdminOrderInterface::class);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
@@ -133,12 +92,12 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
         $request->setRequestId($this->idGenerator->generateId());
 
         try {
-            $payload = $this->containerMapper->toArray($request);
+            $payload = $this->payloadConverter->toArray($request);
             $response = $this->service->post('checkout/adminapi/v2/MarkItemsAsShipped', $payload, $storeId);
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray($paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
+            $container = $this->payloadConverter->fromArray($paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
@@ -160,12 +119,12 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
         $request->setRequestId($this->idGenerator->generateId());
 
         try {
-            $payload = $this->containerMapper->toArray($request);
+            $payload = $this->payloadConverter->toArray($request);
             $response = $this->service->post('checkout/adminapi/v2/cancelOrder', $payload, $storeId);
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray($paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
+            $container = $this->payloadConverter->fromArray($paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
             // Workaround for having cancelOrder NOT throwing exception in case of success
             if ($exception instanceof RequestException) {
@@ -175,8 +134,8 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 
                 if ($errorCode === 'ORDER_HAS_BEEN_CANCELLED') {
                     /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-                    $container = $this->containerMapper->fromArray(
-                        ['Status' => CheckoutStatusInterface::STATUS_REFUSED],
+                    $container = $this->payloadConverter->fromArray(
+                        ['Status' => 'Refused'],
                         AdminTransactionResponseInterface::class
                     );
 
@@ -205,11 +164,11 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
         $request->setRequestId($this->idGenerator->generateId());
 
         try {
-            $payload = $this->containerMapper->toArray($request);
+            $payload = $this->payloadConverter->toArray($request);
             $response = $this->service->post('checkout/adminapi/v2/updatemerchantreference', $payload, $storeId);
 
             /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray($response, AdminTransactionResponseInterface::class);
+            $container = $this->payloadConverter->fromArray($response, AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
             /**
              * This function is called inside a notification from Qliro. That notification should just respond with ok
@@ -227,8 +186,8 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 //
 //                if ($errorCode === 'ORDER_HAS_BEEN_CANCELLED') {
 //                    /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-//                    $container = $this->containerMapper->fromArray(
-//                        ['Status' => CheckoutStatusInterface::STATUS_REFUSED],
+//                    $container = $this->payloadConverter->fromArray(
+//                        ['Status' => 'Refused'],
 //                        AdminTransactionResponseInterface::class
 //                    );
 //
@@ -268,7 +227,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray( $paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
+            $container = $this->payloadConverter->fromArray( $paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
@@ -297,7 +256,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface $container */
-            $container = $this->containerMapper->fromArray($response, AdminOrderPaymentTransactionInterface::class);
+            $container = $this->payloadConverter->fromArray($response, AdminOrderPaymentTransactionInterface::class);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
@@ -325,7 +284,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface $container */
-            $container = $this->containerMapper->fromArray($response, AdminOrderPaymentTransactionInterface::class);
+            $container = $this->payloadConverter->fromArray($response, AdminOrderPaymentTransactionInterface::class);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
@@ -349,7 +308,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 
         try {
             $request->setRequestId($this->idGenerator->generateId());
-            $payload = $this->containerMapper->toArray($request);
+            $payload = $this->payloadConverter->toArray($request);
             $response = $this->service->post(
                 'checkout/adminapi/v2/merchantpayment',
                 $payload,
@@ -357,7 +316,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentResponseInterface $container */
-            $container = $this->containerMapper->fromArray(
+            $container = $this->payloadConverter->fromArray(
                 $response,
                 AdminCreateMerchantPaymentResponseInterface::class
             );

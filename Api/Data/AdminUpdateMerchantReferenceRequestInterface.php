@@ -9,7 +9,7 @@ namespace Qliro\QliroOne\Api\Data;
 /**
  * Admin Update Merchant Reference Request interface
  */
-interface AdminUpdateMerchantReferenceRequestInterface extends ContainerInterface
+interface AdminUpdateMerchantReferenceRequestInterface
 {
     /**
      * @return string

@@ -2,12 +2,12 @@
 
 namespace Qliro\QliroOne\Api\Data;
 
-use Qliro\QliroOne\Api\Data\ContainerInterface;
+
 
 /**
  * Interface for Create Merchant Payment response data model
  */
-interface AdminCreateMerchantPaymentResponseInterface extends ContainerInterface
+interface AdminCreateMerchantPaymentResponseInterface
 {
     /**
      * @param int $orderId

@@ -18,24 +18,20 @@ class Data
 {
     const RECURRING_PAYMENT_INFO_KEY = 'qliro_recurring_info';
 
-    private PaymentRecurringInfoFactory $paymentRecurringInfoFactory;
-
-    private RecurringInfoFactory $recurringInfoModelFactory;
-
-    private RecurringInfoRepository $recurringInfoRepo;
-
-    private Json $serializer;
-
+    /**
+     * Class constructor
+     *
+     * @param \Qliro\QliroOne\Model\Data\PaymentRecurringInfoFactory $paymentRecurringInfoFactory
+     * @param \Qliro\QliroOne\Model\RecurringInfoFactory $recurringInfoModelFactory
+     * @param \Qliro\QliroOne\Model\RecurringInfoRepository $recurringInfoRepo
+     * @param \Magento\Framework\Serialize\Serializer\Json $serializer
+     */
     public function __construct(
-        PaymentRecurringInfoFactory $paymentRecurringInfoFactory,
-        RecurringInfoFactory $recurringInfoModelFactory,
-        RecurringInfoRepository $recurringInfoRepo,
-        Json $serializer
+        private readonly PaymentRecurringInfoFactory $paymentRecurringInfoFactory,
+        private readonly RecurringInfoFactory $recurringInfoModelFactory,
+        private readonly RecurringInfoRepository $recurringInfoRepo,
+        private readonly Json $serializer
     ) {
-        $this->paymentRecurringInfoFactory = $paymentRecurringInfoFactory;
-        $this->recurringInfoModelFactory = $recurringInfoModelFactory;
-        $this->recurringInfoRepo = $recurringInfoRepo;
-        $this->serializer = $serializer;
     }
 
     /**

@@ -34,42 +34,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $quote;
 
     /**
-     * @var ProductPool
-     */
-    private $productPool;
-
-    /**
-     * @var TypeSourceItemInterfaceFactory
-     */
-    private $typeSourceItemFactory;
-
-    /**
-     * @var Config
-     */
-    private $config;
-
-    /**
-     * @var RecurringDataService
-     */
-    private $recurringDataService;
-
-    /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
-     * @var TaxHelper
-     */
-    private $taxHelper;
-
-    /**
-     * @var VatRate
-     */
-    private $vatRate;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
@@ -77,23 +42,17 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      * @param RecurringDataService $recurringDataService
      * @param ProductNameResolverInterface $productNameResolver
      * @param TaxHelper $taxHelper
+     * @param VatRate $vatRate
      */
     public function __construct(
-        ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
-        Config $config,
-        RecurringDataService $recurringDataService,
-        ProductNameResolverInterface $productNameResolver,
-        TaxHelper $taxHelper,
-        VatRate $vatRate
+        private readonly ProductPool $productPool,
+        private readonly TypeSourceItemInterfaceFactory $typeSourceItemFactory,
+        private readonly Config $config,
+        private readonly RecurringDataService $recurringDataService,
+        private readonly ProductNameResolverInterface $productNameResolver,
+        private readonly TaxHelper $taxHelper,
+        private readonly VatRate $vatRate
     ) {
-        $this->productPool = $productPool;
-        $this->typeSourceItemFactory = $typeSourceItemFactory;
-        $this->config = $config;
-        $this->recurringDataService = $recurringDataService;
-        $this->productNameResolver = $productNameResolver;
-        $this->taxHelper = $taxHelper;
-        $this->vatRate = $vatRate;
     }
 
     /**

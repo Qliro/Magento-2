@@ -11,20 +11,17 @@ use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
-use Qliro\QliroOne\Api\Client\OrderManagementInterface;
+use Qliro\QliroOne\Api\Client\OrderManagement\OrderMutatorInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\ContainerMapper;
+use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
-use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
-use Qliro\QliroOne\Model\ResourceModel\Lock;
+use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\Exception\TerminalException;
-use Qliro\QliroOne\Model\Exception\FailToLockException;
 use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
@@ -32,148 +29,51 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 /**
  * QliroOne management class
  */
-class PlaceRecurringOrder extends AbstractManagement
+class PlaceRecurringOrder
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
+     * @var \Magento\Quote\Model\Quote|null
      */
-    private $qliroConfig;
+    private ?\Magento\Quote\Model\Quote $currentQuote = null;
 
     /**
-     * @var \Qliro\QliroOne\Api\Client\MerchantInterface
-     */
-    private $merchantApi;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Client\OrderManagementInterface
-     */
-    private $orderManagementApi;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartRepositoryInterface
-     */
-    private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter
-     */
-    private $quoteFromOrderConverter;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Order\OrderPlacer
-     */
-    private $orderPlacer;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Lock
-     */
-    private $lock;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private $orderRepository;
-
-    /**
-     * @var \Magento\Sales\Model\Order\Email\Sender\OrderSender
-     */
-    private $orderSender;
-    /**
-     * @var Quote
-     */
-    private $quoteManagement;
-    /**
-     * @var Payment
-     */
-    private $paymentManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Service\RecurringPayments\Data
-     */
-    private $recurringDataService;
-
-    /**
-     * @var \Magento\Quote\Api\CartManagementInterface
-     */
-    protected $cartManagementInterface;
-
-    /**
-     * @var \Magento\Sales\Model\Order
-     */
-    protected $order;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param Config $qliroConfig
      * @param MerchantInterface $merchantApi
-     * @param OrderManagementInterface $orderManagementApi
+     * @param OrderMutatorInterface $orderManagementApi
      * @param QuoteFromOrderConverter $quoteFromOrderConverter
      * @param LinkRepositoryInterface $linkRepository
      * @param CartRepositoryInterface $quoteRepository
      * @param OrderRepositoryInterface $orderRepository
-     * @param ContainerMapper $containerMapper
+     * @param PayloadConverter $payloadConverter
      * @param LogManager $logManager
      * @param OrderPlacer $orderPlacer
-     * @param Lock $lock
      * @param OrderSender $orderSender
      * @param Quote $quoteManagement
      * @param Payment $paymentManagement
      * @param RecurringDataService $recurringDataService
      * @param \Magento\Quote\Api\CartManagementInterface $cartManagementInterface
-     * @param \Magento\Sales\Model\Order $order
+     * @param OrderStateSetter $orderStateSetter
      */
     public function __construct(
-        Config $qliroConfig,
-        MerchantInterface $merchantApi,
-        OrderManagementInterface $orderManagementApi,
-        RecurringQuoteFromOrderConverter $quoteFromOrderConverter,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        OrderRepositoryInterface $orderRepository,
-        ContainerMapper $containerMapper,
-        LogManager $logManager,
-        OrderPlacer $orderPlacer,
-        Lock $lock,
-        OrderSender $orderSender,
-        Quote $quoteManagement,
-        Payment $paymentManagement,
-        RecurringDataService $recurringDataService,
-        \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
-        \Magento\Sales\Model\Order $order
+        private readonly Config $qliroConfig,
+        private readonly MerchantInterface $merchantApi,
+        private readonly OrderMutatorInterface $orderManagementApi,
+        private readonly QuoteFromOrderConverter $quoteFromOrderConverter,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly PayloadConverter $payloadConverter,
+        private readonly LogManager $logManager,
+        private readonly OrderPlacer $orderPlacer,
+        private readonly OrderSender $orderSender,
+        private readonly Quote $quoteManagement,
+        private readonly Payment $paymentManagement,
+        private readonly RecurringDataService $recurringDataService,
+        protected readonly \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
+        private readonly OrderStateSetter $orderStateSetter
     ) {
-        $this->qliroConfig = $qliroConfig;
-        $this->merchantApi = $merchantApi;
-        $this->orderManagementApi = $orderManagementApi;
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->containerMapper = $containerMapper;
-        $this->logManager = $logManager;
-        $this->quoteFromOrderConverter = $quoteFromOrderConverter;
-        $this->orderPlacer = $orderPlacer;
-        $this->lock = $lock;
-        $this->orderRepository = $orderRepository;
-        $this->orderSender = $orderSender;
-        $this->quoteManagement = $quoteManagement;
-        $this->paymentManagement = $paymentManagement;
-        $this->recurringDataService = $recurringDataService;
-        $this->cartManagementInterface = $cartManagementInterface;
-        $this->order = $order;
     }
 
     /**
@@ -182,101 +82,42 @@ class PlaceRecurringOrder extends AbstractManagement
      * @return \Magento\Sales\Model\Order
      * @throws TerminalException
      */
-    public function poll()
+    public function poll(\Magento\Quote\Model\Quote $quote)
     {
-        $quoteId = $this->getQuote()->getId();
+        $quoteId = $quote->getId();
 
         try {
             $link = $this->linkRepository->getByQuoteId($quoteId);
-            $orderId = $link->getOrderId();
-            $qliroOrderId = $link->getQliroOrderId();
             $this->logManager->setMerchantReference($link->getReference());
 
-            if (empty($orderId)) {
-                try {
-                    $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
-
-                    if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
-                        throw new OrderPlacementPendingException(
-                            __('QliroOne order status is "InProcess" and order cannot be placed.')
-                        );
-                    }
-                    if (!$this->lock->lock($qliroOrderId)) {
-                        throw new FailToLockException(__('Failed to aquire lock when placing order'));
-                    }
-
-                    $this->lock->unlock($qliroOrderId);
-
-                } catch (FailToLockException $exception) {
-                    $this->logManager->critical(
-                        $exception,
-                        [
-                            'extra' => [
-                                'quote_id' => $quoteId,
-                                'qliro_order_id' => $qliroOrderId,
-                            ],
-                        ]
-                    );
-
-                    throw $exception;
-                } catch (OrderPlacementPendingException $exception) {
-                    $this->logManager->critical(
-                        $exception,
-                        [
-                            'extra' => [
-                                'quote_id' => $quoteId,
-                                'qliro_order_id' => $qliroOrderId,
-                            ],
-                        ]
-                    );
-                    $this->lock->unlock($qliroOrderId);
-
-                    throw $exception;
-                } catch (\Exception $exception) {
-                    $this->logManager->critical(
-                        $exception,
-                        [
-                            'extra' => [
-                                'quote_id' => $quoteId,
-                                'qliro_order_id' => $qliroOrderId,
-                            ],
-                        ]
-                    );
-                    $this->lock->unlock($qliroOrderId);
-
-                    throw new TerminalException('Order placement failed', $exception->getCode(), $exception);
-                }
-            } else {
-                $order = $this->orderRepository->get($orderId);
+            if ($orderId = $link->getOrderId()) {
+                return $this->orderRepository->get($orderId);
             }
-        } catch (NoSuchEntityException $exception) {
-            $this->logManager->critical(
-                $exception,
-                [
-                    'extra' => [
-                        'quote_id' => $quoteId,
-                        'order_id' => $orderId ?? null,
-                        'qliro_order_id' => $qliroOrderId ?? null,
-                    ],
-                ]
-            );
-            throw new TerminalException('Failed to link current session with Qliro One order', $exception->getCode(), $exception);
+
+            // Order not yet placed by the CheckoutStatus callback — caller should retry
+            throw new OrderPlacementPendingException(__('Order has not been placed yet.'));
+
+        } catch (OrderPlacementPendingException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
-            $this->logManager->critical(
-                $exception,
-                [
-                    'extra' => [
-                        'quote_id' => $quoteId,
-                        'order_id' => $orderId ?? null,
-                        'qliro_order_id' => $qliroOrderId ?? null,
-                    ],
-                ]
-            );
-
-            throw new TerminalException('Something went wrong during order placement polling', $exception->getCode(), $exception);
+            $this->logManager->critical($exception, [
+                'extra' => ['quote_id' => $quoteId],
+            ]);
+            throw new TerminalException('Failed to retrieve recurring order', $exception->getCode(), $exception);
         }
+    }
 
-        return $order;
+
+    /**
+     * Set the quote for the next execute() call.
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @return self
+     */
+    public function setCurrentQuote(\Magento\Quote\Model\Quote $quote): self
+    {
+        $this->currentQuote = $quote;
+        return $this;
     }
 
     /**
@@ -308,7 +149,7 @@ class PlaceRecurringOrder extends AbstractManagement
                         [
                             'extra' => [
                                 'qliro_order' => $qliroOrderId,
-                                'quote_id' => $this->getQuote()->getId(),
+                                'quote_id' => $link->getQuoteId(),
                                 'order_id' => $orderId,
                             ],
                         ]
@@ -316,32 +157,32 @@ class PlaceRecurringOrder extends AbstractManagement
 
                     $order = $this->orderRepository->get($orderId);
                 } else {
-                    $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
+                    $quote = $this->quoteRepository->get($link->getQuoteId());
+                    $this->currentQuote = $quote;
 
                     $this->logManager->debug(
                         'Placing order',
                         [
                             'extra' => [
                                 'qliro_order' => $qliroOrderId,
-                                'quote_id' => $this->getQuote()->getId(),
+                                'quote_id' => $quote->getId(),
                             ],
                         ]
                     );
 
-                    $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
+                    $this->quoteFromOrderConverter->convert(
+                        $this->payloadConverter->toArray($qliroOrder),
+                        $quote
+                    );
                     $paymentTransactions = $qliroOrder->getPaymentTransactions();
                     foreach ($paymentTransactions as $paymentTransaction) {
                         $this->addAdditionalInfoToQuote($link, $paymentTransaction);
                     }
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
-                    $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+                    $this->quoteManagement->recalculateAndSaveQuote($quote);
 
-                    // $order = $this->orderPlacer->place($this->getQuote());
-                    $orderId = $this->cartManagementInterface->placeOrder($this->getQuote()->getId());
-                    $order = $this->order->load($orderId);
-
-
-                    // $orderId = $order->getId();
+                    $orderId = $this->cartManagementInterface->placeOrder($quote->getId());
+                    $order = $this->orderRepository->get($orderId);
 
                     $link->setOrderId($orderId);
                     $this->linkRepository->save($link);
@@ -353,7 +194,7 @@ class PlaceRecurringOrder extends AbstractManagement
                         [
                             'extra' => [
                                 'qliro_order' => $qliroOrderId,
-                                'quote_id' => $this->getQuote()->getId(),
+                                'quote_id' => $link->getQuoteId(),
                                 'order_id' => $orderId,
                             ],
                         ]
@@ -417,8 +258,8 @@ class PlaceRecurringOrder extends AbstractManagement
             $link = $this->linkRepository->getByOrderId($orderId);
 
             switch ($link->getQliroOrderStatus()) {
-                case CheckoutStatusInterface::STATUS_COMPLETED:
-                    $this->applyOrderState($order, Order::STATE_NEW);
+                case 'Completed':
+                    $this->orderStateSetter->apply($order, Order::STATE_NEW);
 
                     if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent()) {
                         try {
@@ -440,7 +281,7 @@ class PlaceRecurringOrder extends AbstractManagement
                      * the order merchant reference must be replaced with Magento order increment ID
                      */
                     /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                    $request = $this->containerMapper->fromArray(
+                    $request = $this->payloadConverter->fromArray(
                         [
                             'OrderId' => $link->getQliroOrderId(),
                             'NewMerchantReference' => $order->getIncrementId(),
@@ -462,16 +303,16 @@ class PlaceRecurringOrder extends AbstractManagement
 
                     break;
 
-                case CheckoutStatusInterface::STATUS_ONHOLD:
-                    $this->applyOrderState($order, Order::STATE_PAYMENT_REVIEW);
+                case 'OnHold':
+                    $this->orderStateSetter->apply($order, Order::STATE_PAYMENT_REVIEW);
                     break;
 
-                case CheckoutStatusInterface::STATUS_REFUSED:
+                case 'Refused':
                     // Deactivate link regardless of if the upcoming order cancellation successful or not
                     $link->setIsActive(false);
                     $link->setMessage(sprintf('Order #%s marked as canceled', $order->getIncrementId()));
                     $this->linkRepository->save($link);
-                    $this->applyOrderState($order, Order::STATE_NEW);
+                    $this->orderStateSetter->apply($order, Order::STATE_NEW);
 
                     if ($order->canCancel()) {
                         $order->cancel();
@@ -480,7 +321,7 @@ class PlaceRecurringOrder extends AbstractManagement
 
                     break;
 
-                case CheckoutStatusInterface::STATUS_IN_PROCESS:
+                case 'InProcess':
                 default:
                     return false;
             }
@@ -509,7 +350,8 @@ class PlaceRecurringOrder extends AbstractManagement
      */
     private function addAdditionalInfoToQuote($link, $paymentTransaction)
     {
-        $payment = $this->getQuote()->getPayment();
+        // Note: called only from execute() where $this->currentQuote is set
+        $payment = $this->currentQuote->getPayment();
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_QLIRO_ORDER_ID, $link->getQliroOrderId());
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_REFERENCE, $link->getReference());
 
@@ -532,7 +374,7 @@ class PlaceRecurringOrder extends AbstractManagement
      */
     private function addAdditionalShippingInfoToQuote(AdminOrderInterface $order)
     {
-        $payment = $this->getQuote()->getPayment();
+        $payment = $this->currentQuote->getPayment();
         foreach ($order->getOrderItemActions() as $orderItem) {
             $metadata = $orderItem->getMetadata();
             $additionalShippingProperties = $metadata['AdditionalShippingProperties'] ?? false;
@@ -546,22 +388,5 @@ class PlaceRecurringOrder extends AbstractManagement
             );
             return;
         }
-    }
-
-    /**
-     * Apply a proper state with its default status to the order
-     *
-     * @param \Magento\Sales\Model\Order $order
-     * @param string $state
-     */
-    private function applyOrderState(Order $order, $state)
-    {
-        $status = Order::STATE_NEW === $state
-            ? $this->qliroConfig->getOrderStatus()
-            : $order->getConfig()->getStateDefaultStatus($state);
-
-        $order->setState($state);
-        $order->setStatus($status);
-        $this->orderRepository->save($order);
     }
 }

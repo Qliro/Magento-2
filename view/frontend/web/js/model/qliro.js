@@ -67,7 +67,7 @@ define([
         getPaymentInformationAction();
     }
 
-    return {
+    var model = {
         updateCart: function() {
             if (!config.isEagerCheckoutRefresh) {
                 window.q1.lock();
@@ -125,6 +125,7 @@ define([
                     if(!quote.shippingAddress().postcode) {
                         checkoutDataResolver.resolveShippingAddress();
                     }
+                    model.updateCart();
                 },
                 function(response) {
                     var data = response.responseJSON || {};
@@ -157,28 +158,12 @@ define([
         onPaymentProcessStart: function() {
             $(".opc-block-summary").hide();
             $(".discount-code").hide();
-            sendAjaxAsJson(config.lockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
-                function(data) {
-                    qliroSuccessDebug('Quote is locked', data);
-                },
-                function(response) {
-                    qliroDebug('Failed to lock quote', response);
-                }
-            );
             qliroSuccessDebug('onPaymentProcessStart', q1);
         },
 
         onPaymentProcessEnd: function() {
             $(".opc-block-summary").show();
             $(".discount-code").show();
-            sendAjaxAsJson(config.unlockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
-                function(data) {
-                    qliroSuccessDebug('Quote is unlocked', data);
-                },
-                function(response) {
-                    qliroDebug('Failed to unlock quote', response);
-                }
-            );
             qliroSuccessDebug('onPaymentProcessEnd', q1);
         },
 
@@ -214,6 +199,7 @@ define([
                 }
             );
         }
-    }
-});
+    };
 
+    return model;
+});

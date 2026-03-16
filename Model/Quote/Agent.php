@@ -29,37 +29,7 @@ class Agent
     private $relevantQuote;
 
     /**
-     * @var \Magento\Framework\Stdlib\CookieManagerInterface
-     */
-    private $cookieManager;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartRepositoryInterface
-     */
-    private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $checkoutSession;
-
-    /**
-     * @var \Magento\Framework\Stdlib\Cookie\CookieMetadataFactory
-     */
-    private $cookieMetadataFactory;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Magento\Framework\Stdlib\CookieManagerInterface $cookieManager
@@ -69,19 +39,13 @@ class Agent
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        Session $checkoutSession,
-        CookieManagerInterface $cookieManager,
-        CookieMetadataFactory $cookieMetadataFactory,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        Manager $logManager
+        private readonly Session $checkoutSession,
+        private readonly CookieManagerInterface $cookieManager,
+        private readonly CookieMetadataFactory $cookieMetadataFactory,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly Manager $logManager
     ) {
-        $this->checkoutSession = $checkoutSession;
-        $this->cookieManager = $cookieManager;
-        $this->cookieMetadataFactory = $cookieMetadataFactory;
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -161,6 +125,16 @@ class Agent
         $this->logManager->debug('Relevant quote fetched' . $this->relevantQuote->getId());
 
         return $this->relevantQuote;
+    }
+
+    /**
+     * Return the merchant reference stored in the QOMR cookie, or null if not present.
+     *
+     * @return string|null
+     */
+    public function getMerchantReferenceFromCookie(): ?string
+    {
+        return $this->cookieManager->getCookie(self::COOKIE_NAME) ?: null;
     }
 
     /**

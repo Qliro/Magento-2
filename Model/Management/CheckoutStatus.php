@@ -7,271 +7,144 @@
 namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusInterface as CheckoutStatusInterfaceAlias;
-use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface;
-use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
-use Qliro\QliroOne\Model\Exception\FailToLockException;
+use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 
 /**
- * QliroOne management class
+ * Processes Qliro CheckoutStatus push callbacks.
+ *
+ * Order creation now happens earlier — in OrderService::getQliroOrder() when the checkout page loads.
+ * By the time this callback arrives the Magento order already exists (STATE_PENDING_PAYMENT).
+ *
+ * This handler's job is to:
+ *  1. Fetch the full confirmed Qliro order.
+ *  2. Hydrate the pending Magento order with the confirmed address + payment data.
+ *  3. Move the order to its terminal state (New / PaymentReview / Cancelled).
+ *
+ * Fallback: if the pending order was never created (e.g. browser crash during page load),
+ * the original late-placement behaviour is preserved so no payment is ever lost.
  */
-class CheckoutStatus extends AbstractManagement
+class CheckoutStatus
 {
     /**
-     * @var \Qliro\QliroOne\Api\Client\MerchantInterface
-     */
-    private $merchantApi;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Lock
-     */
-    private $lock;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private $orderRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterfaceFactory
-     */
-    private $checkoutStatusResponseFactory;
-
-    /**
-     * @var PlaceOrder
-     */
-    private $placeOrder;
-    /**
-     * @var QliroOrder
-     */
-    private $qliroOrder;
-
-    /**
-     * @var int|string|null
-     */
-    private $qliroOrderId = null;
-
-    /**
-     * @var bool
-     */
-    private $orderLocked = false;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param MerchantInterface $merchantApi
-     * @param CheckoutStatusResponseInterfaceFactory $checkoutStatusResponseFactory
      * @param LinkRepositoryInterface $linkRepository
      * @param OrderRepositoryInterface $orderRepository
+     * @param CartRepositoryInterface $quoteRepository
      * @param LogManager $logManager
-     * @param Lock $lock
      * @param PlaceOrder $placeOrder
      * @param QliroOrder $qliroOrder
+     * @param QuoteFromOrderConverter $quoteFromOrderConverter
+     * @param Quote $quoteManagement
      */
     public function __construct(
-        MerchantInterface $merchantApi,
-        CheckoutStatusResponseInterfaceFactory $checkoutStatusResponseFactory,
-        LinkRepositoryInterface $linkRepository,
-        OrderRepositoryInterface $orderRepository,
-        LogManager $logManager,
-        Lock $lock,
-        PlaceOrder $placeOrder,
-        QliroOrder $qliroOrder
+        private readonly MerchantInterface $merchantApi,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly LogManager $logManager,
+        private readonly PlaceOrder $placeOrder,
+        private readonly QliroOrder $qliroOrder,
+        private readonly QuoteFromOrderConverter $quoteFromOrderConverter,
+        private readonly Quote $quoteManagement
     ) {
-        $this->merchantApi = $merchantApi;
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->lock = $lock;
-        $this->orderRepository = $orderRepository;
-        $this->checkoutStatusResponseFactory = $checkoutStatusResponseFactory;
-        $this->placeOrder = $placeOrder;
-        $this->qliroOrder = $qliroOrder;
     }
 
     /**
-     * @param CheckoutStatusInterfaceAlias $checkoutStatus
-     * @return \Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface
+     * Handle a CheckoutStatus push from Qliro.
+     *
+     * @param array $checkoutStatus
+     * @return array
      */
-    public function update(CheckoutStatusInterface $checkoutStatus)
+    public function update(array $checkoutStatus): array
     {
-        $qliroOrderId = $checkoutStatus->getOrderId();
-        $logContext = [
-            'extra' => [
-                'qliro_order_id' => $qliroOrderId,
-            ],
-        ];
+        $qliroOrderId = $checkoutStatus['OrderId'] ?? null;
+        $logContext   = ['extra' => ['qliro_order_id' => $qliroOrderId]];
 
-        $this->orderLocked = false;
-        $this->qliroOrderId = $qliroOrderId;
         try {
             try {
                 $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
             } catch (NoSuchEntityException $exception) {
-                $this->handleOrderCancelationIfRequired($checkoutStatus);
-                throw $exception;
+                $this->handleOrderCancellationIfRequired($checkoutStatus);
+                return ['CallbackResponse' => 'Received', 'callbackResponseCode' => 200];
             }
 
             $this->logManager->setMerchantReference($link->getReference());
 
-            $link->setQliroOrderStatus($checkoutStatus->getStatus());
+            $link->setQliroOrderStatus($checkoutStatus['Status'] ?? null);
             $this->linkRepository->save($link);
+
+            $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
 
             $orderId = $link->getOrderId();
 
             if (empty($orderId)) {
-                /*
-                 * First major scenario:
-                 * There is not yet any Magento order. Attempt to create the order, placeOrder()
-                 * will process the created order based on the QliroOne order status as found in the link.
-                 */
+                $this->logManager->warning(
+                    'CheckoutStatus: no pending order found — falling back to late order creation.',
+                    ['extra' => ['qliro_order_id' => $qliroOrderId, 'link_id' => $link->getId()]]
+                );
 
-                try {
-                    // TODO: the quote is still active, so the shopper might be adding more items
-                    // TODO: without knowing that there is no order yet
+                $quote = $this->quoteRepository->get($link->getQuoteId());
 
-                    $curTimeStamp = time();
-                    $tooEarly = false;
-                    $placedTimeStamp = strtotime($link->getPlacedAt()??'');
-                    $updTimeStamp = strtotime($link->getUpdatedAt()??'');
-                    if ($placedTimeStamp && $curTimeStamp < $placedTimeStamp + self::QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT) {
-                        $tooEarly = true;
-                    }
-                    if ($curTimeStamp < $updTimeStamp + self::QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT_FINAL) {
-                        $tooEarly = true;
-                    }
+                $this->quoteFromOrderConverter->convert($qliroOrder, $quote);
+                $this->quoteManagement->recalculateAndSaveQuote($quote);
 
-                    if (!$tooEarly) {
-                        if (!$this->lock->lock($qliroOrderId)) {
-                            throw new FailToLockException(__('Failed to aquire lock when placing order'));
-                        }
+                $order = $this->placeOrder->placePending($quote, $link);
 
-                        $this->orderLocked = true;
-                        $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
-                        $this->placeOrder->execute($responseContainer);
-
-                        $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
-                    } else {
-                        $this->logManager->notice(
-                            'checkoutStatus received too early, responding with order pending',
-                            $logContext
-                        );
-
-                        $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_PENDING);
-                    }
-                } catch (\Exception $exception) {
-                    $this->logManager->critical($exception, $logContext);
-
-                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
-                }
             } else {
-                /*
-                 * Second major scenario:
-                 * The order already exists; just update the order with the new QliroOne order status
-                 */
-                if (!$this->lock->lock($qliroOrderId)) {
-                    throw new FailToLockException(__('Failed to aquire lock when updating order status'));
-                }
-
-                $this->orderLocked = true;
-                if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId))) {
-                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
-                } else {
-                    $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
-                }
+                $order = $this->orderRepository->get($orderId);
             }
 
-        } catch (NoSuchEntityException $exception) {
-            /* no more qliro pushes should be sent */
-            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
+            $this->placeOrder->hydrateAndFinalise($order, $qliroOrder);
 
-        } catch (FailToLockException $exception) {
-            /*
-             * Someone else is creating the order at the moment. Let Qliro try again in a few minutes.
-             */
-            $this->logManager->info('Order is being created or updated in another process', $logContext);
-            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_PENDING);
+            return ['CallbackResponse' => 'Received', 'callbackResponseCode' => 200];
+
+        } catch (NoSuchEntityException $exception) {
+            return ['CallbackResponse' => 'Received', 'callbackResponseCode' => 200];
 
         } catch (\Exception $exception) {
             $this->logManager->critical($exception, $logContext);
-            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
-
+            return ['CallbackResponse' => 'OrderNotFound', 'callbackResponseCode' => 500];
         }
-
-        // Unknown scenario, no response created. Should not happen, respond with Order Not Found
-        if (!isset($response)) {
-            $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND, 500);
-        }
-
-        return $response;
     }
 
     /**
-     * Special case is processed here:
-     * When the QliroOne order is not found, among active links, but push notification updates
-     * status to "Completed", we want to find an inactive link and cancel such QliroOne order,
-     * because Magento has previously failed creating corresponding order for it.
+     * When a Completed push arrives for an order whose active link is gone, cancel the Qliro
+     * order to avoid charging the customer for an order that was never created in Magento.
      *
-     * @param CheckoutStatusInterfaceAlias $checkoutStatus
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
-     * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @param array $checkoutStatus
      */
-    private function handleOrderCancelationIfRequired(CheckoutStatusInterface $checkoutStatus)
+    private function handleOrderCancellationIfRequired(array $checkoutStatus): void
     {
-        $qliroOrderId = $checkoutStatus->getOrderId();
+        if (($checkoutStatus['Status'] ?? null) !== 'Completed') {
+            return;
+        }
 
-        if ($checkoutStatus->getStatus() === CheckoutStatusInterface::STATUS_COMPLETED) {
-            $link = $this->linkRepository->getByQliroOrderId($qliroOrderId, false);
+        try {
+            $link = $this->linkRepository->getByQliroOrderId($checkoutStatus['OrderId'] ?? null, false);
+            $this->logManager->setMerchantReference($link->getReference());
+            $link->setQliroOrderStatus($checkoutStatus['Status'] ?? null);
 
             try {
-                $this->logManager->setMerchantReference($link->getReference());
-                $link->setQliroOrderStatus($checkoutStatus->getStatus());
                 $this->qliroOrder->cancel($link->getQliroOrderId());
                 $link->setMessage(sprintf('Requested to cancel QliroOne order #%s', $link->getQliroOrderId()));
             } catch (TerminalException $exception) {
                 $message = sprintf('Failed to cancel QliroOne order #%s', $link->getQliroOrderId());
-                $this->logManager->critical(
-                    $message,
-                    ['exception' => $exception, 'extra' => $exception->getTrace()]
-                );
+                $this->logManager->critical($message, ['exception' => $exception]);
                 $link->setMessage($message);
             }
 
             $this->linkRepository->save($link);
+        } catch (\Exception $exception) {
+            $this->logManager->critical($exception);
         }
     }
 
-    /**
-     * @param string $result
-     * @param int $code
-     * @return mixed
-     */
-    private function checkoutStatusRespond($result, $code = 200)
-    {
-        $response = $this->checkoutStatusResponseFactory->create();
-        $response->setCallbackResponse($result);
-        $response->setCallbackResponseCode($code);
-        if ($this->orderLocked) {
-            $this->lock->unlock($this->qliroOrderId);
-            $this->orderLocked = false;
-        }
-        $this->qliroOrderId = null;
-        return $response;
-    }
 }

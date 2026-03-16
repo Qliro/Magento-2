@@ -7,7 +7,6 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Customer\Model\Address\AbstractAddress;
-use Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterfaceFactory;
 
 /**
  * QliroOne Order Customer Address builder class
@@ -21,19 +20,8 @@ class CustomerAddressBuilder
      */
     private $address;
 
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory
-     */
-    private $orderCustomerAddressFactory;
-
-    /**
-     * Inject dependencies
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterfaceFactory $orderCustomerAddressFactory
-     */
-    public function __construct(QliroOrderCustomerAddressInterfaceFactory $orderCustomerAddressFactory)
+    public function __construct()
     {
-        $this->orderCustomerAddressFactory = $orderCustomerAddressFactory;
     }
 
     /**
@@ -52,7 +40,7 @@ class CustomerAddressBuilder
     /**
      * Create a container
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+     * @return array
      */
     public function create()
     {
@@ -60,17 +48,16 @@ class CustomerAddressBuilder
             throw new \LogicException('Address entity is not set.');
         }
 
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroOrderCustomerAddress */
-        $qliroOrderCustomerAddress = $this->orderCustomerAddressFactory->create();
-
         $streetAddress = trim(implode(self::STREET_ADDRESS_SEPARATOR, $this->address->getStreet()));
 
-        $qliroOrderCustomerAddress->setFirstName($this->address->getFirstname());
-        $qliroOrderCustomerAddress->setLastName($this->address->getLastname());
-        $qliroOrderCustomerAddress->setCompanyName($this->address->getCompany());
-        $qliroOrderCustomerAddress->setStreet($streetAddress);
-        $qliroOrderCustomerAddress->setPostalCode(str_replace(' ', '', (string)$this->address->getPostcode()));
-        $qliroOrderCustomerAddress->setCity($this->address->getCity());
+        $qliroOrderCustomerAddress = [
+            'FirstName' => (string)$this->address->getFirstname(),
+            'LastName' => (string)$this->address->getLastname(),
+            'CompanyName' => (string)$this->address->getCompany(),
+            'Street' => (string)$streetAddress,
+            'PostalCode' => str_replace(' ', '', (string)$this->address->getPostcode()),
+            'City' => (string)$this->address->getCity(),
+        ];
 
         $this->address = null;
 

@@ -6,7 +6,6 @@
 namespace Qliro\QliroOne\Block\Info;
 
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Api\ApiServiceInterface;
 
 abstract class AbstractInfo extends \Magento\Payment\Block\Info
 {

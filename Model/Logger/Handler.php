@@ -21,22 +21,16 @@ use Qliro\QliroOne\Model\ResourceModel\LogRecord as DbLogRecord;
 class Handler extends AbstractProcessingHandler
 {
     /**
-     * @var ConnectionProvider
-     */
-    private $connectionProvider;
-
-    /**
-     * Handler constructor.
+     * Class constructor
      *
      * @param FormatterInterface $formatter
      * @param ConnectionProvider $connectionProvider
      */
     public function __construct(
         FormatterInterface $formatter,
-        ConnectionProvider $connectionProvider
+        private readonly ConnectionProvider $connectionProvider
     ) {
         $this->formatter = $formatter;
-        $this->connectionProvider = $connectionProvider;
 
         parent::__construct();
     }

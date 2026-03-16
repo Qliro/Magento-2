@@ -2,6 +2,7 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Exception\AlreadyExistsException;
 use Qliro\QliroOne\Api\Data\LinkInterfaceFactory;
 use Magento\Quote\Api\CartManagementInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -11,82 +12,64 @@ use Qliro\QliroOne\Model\Api\Client\OrderManagement;
 use Qliro\QliroOne\Service\General\LinkService;
 use Qliro\QliroOne\Model\Management\PlaceRecurringOrder;
 
-class CreateMerchantPayment extends AbstractManagement
+class CreateMerchantPayment
 {
     const DEFAULT_QLIRO_STATUS = 'MerchantPaymentCreated';
 
-    /**
-     * @var \Qliro\QliroOne\Service\General\LinkService
-     */
-    private LinkService $linkService;
-
-    /**
-     * @var \Qliro\QliroOne\Model\MerchantPayment\Builder\CreateRequestBuilder
-     */
-    private CreateRequestBuilder $createRequestBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\LinkInterfaceFactory
-     */
-    private LinkInterfaceFactory $linkFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private LinkRepositoryInterface $linkRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartManagementInterface
-     */
-    private CartManagementInterface $quoteManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Api\Client\OrderManagement
-     */
-    private OrderManagement $qliroOrderManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private Manager $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Management\PlaceRecurringOrder
-     */
-    private $placeOrder;
-
     private $order;
 
+    /**
+     * @var \Magento\Quote\Model\Quote|null
+     */
+    private ?\Magento\Quote\Model\Quote $quote = null;
+
+    /**
+     * Class constructor
+     *
+     * @param LinkService $linkService
+     * @param CreateRequestBuilder $createRequestBuilder
+     * @param LinkInterfaceFactory $linkFactory
+     * @param LinkRepositoryInterface $linkRepository
+     * @param CartManagementInterface $quoteManagement
+     * @param OrderManagement $qliroOrderManagement
+     * @param Manager $logManager
+     * @param PlaceRecurringOrder $placeOrder
+     */
     public function __construct(
-        LinkService $linkService,
-        CreateRequestBuilder $createRequestBuilder,
-        LinkInterfaceFactory $linkFactory,
-        LinkRepositoryInterface $linkRepository,
-        CartManagementInterface $quoteManagement,
-        OrderManagement $qliroOrderManagement,
-        Manager $logManager,
-        PlaceRecurringOrder $placeOrder
+        private readonly LinkService $linkService,
+        private readonly CreateRequestBuilder $createRequestBuilder,
+        private readonly LinkInterfaceFactory $linkFactory,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartManagementInterface $quoteManagement,
+        private readonly OrderManagement $qliroOrderManagement,
+        private readonly Manager $logManager,
+        private readonly PlaceRecurringOrder $placeOrder
     ) {
-        $this->linkService = $linkService;
-        $this->createRequestBuilder = $createRequestBuilder;
-        $this->linkFactory = $linkFactory;
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->quoteManagement = $quoteManagement;
-        $this->qliroOrderManagement = $qliroOrderManagement;
-        $this->placeOrder = $placeOrder;
+    }
+
+
+    /**
+     * Set quote
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @return $this
+     */
+    public function setQuote(\Magento\Quote\Model\Quote $quote): self
+    {
+        $this->quote = $quote;
+        return $this;
     }
 
     /**
      * Creates Magento Order and Merchant Payment associated with each other
      *
      * @return void
-     * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @throws AlreadyExistsException|\Exception
      */
     public function execute(): void
     {
         $order = $this->getOrder();
-        $quote = $this->getQuote();
+        $quote = $this->quote;
         $quoteId = $quote->getEntityId();
 
         $orderReference = $this->linkService->generateOrderReference($quote);
@@ -107,9 +90,9 @@ class CreateMerchantPayment extends AbstractManagement
             $paymentTransactions = $merchantPaymentResponse->getPaymentTransactions();
             $state = $paymentTransactions[0]->getStatus();
             $qliroOrder = $this->qliroOrderManagement->getOrder($qliroOrderId);
-            
+
             $link = $this->linkFactory->create();
-            $link->setQuoteSnapshot('merchantPayment');// A real Quote Snapshot is not needed here but the value is required
+            $link->setQuoteSnapshot('merchantPayment');
             $link->setQuoteId($quoteId);
             $link->setReference($qliroOrder->getMerchantReference());
             $link->setQliroOrderId($qliroOrderId);
@@ -123,7 +106,8 @@ class CreateMerchantPayment extends AbstractManagement
             $this->linkRepository->save($link);
 
 
-            $this->placeOrder->setQuote($quote);
+
+            $this->placeOrder->setCurrentQuote($quote);
             $magentoOrder = $this->placeOrder->execute($qliroOrder, $state);
         } catch (\Exception $exception) {
             $this->logManager->critical($exception->getMessage());

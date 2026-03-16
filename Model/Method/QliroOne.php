@@ -3,13 +3,15 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Method;
 
-use Magento\Payment\Model\Method\Adapter;
 use Magento\Framework\DataObject;
-use Magento\Payment\Model\MethodInterface;
-use Magento\Quote\Api\Data\CartInterface;
 use Magento\Payment\Model\InfoInterface;
+use Magento\Payment\Model\MethodInterface;
+use Magento\Payment\Model\Method\Adapter;
+use Magento\Quote\Api\Data\CartInterface;
 
 /**
  * QliroOne payment method class
@@ -21,19 +23,13 @@ class QliroOne implements MethodInterface
     const PAYMENT_METHOD_INFO_BLOCK_TYPE = 'Qliro\QliroOne\Block\Info\QliroOne';
 
     /**
-     * @var Adapter
-     */
-    private $adapter;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param Adapter $adapter
      */
     public function __construct(
-        Adapter $adapter
+        private readonly Adapter $adapter
     ) {
-        $this->adapter = $adapter;
     }
 
     /**

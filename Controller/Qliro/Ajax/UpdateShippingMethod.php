@@ -3,143 +3,53 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
-use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
-use Magento\Framework\App\ProductMetadata;
-use Magento\Framework\App\ResponseInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
-use Qliro\QliroOne\Helper\Data;
-use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\Security\AjaxToken;
-use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Magento\Framework\App\ProductMetadataInterface;
-use Magento\Tax\Helper\Data as TaxHelper;
+use Magento\Framework\Controller\ResultInterface;
 
 /**
- * Update shipping method AJAX controller action class
+ * Called by the Qliro iframe when the customer selects a shipping method.
+ *
+ * Expected body (from Qliro's onShippingMethodChanged event):
+ * {
+ *   "MerchantReference": "flatrate_flatrate",
+ *   "SecondaryOption": null,
+ *   "PriceIncVat": 10.0
+ * }
+ *
+ * URL: checkout/qliro_ajax/updateShippingMethod
  */
-class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
+class UpdateShippingMethod extends AbstractAjaxAction
 {
-    /**
-     * Inject dependnecies
-     *
-     * @param Context $context
-     * @param Config $qliroConfig
-     * @param Data $dataHelper
-     * @param AjaxToken $ajaxToken
-     * @param ManagementInterface $qliroManagement
-     * @param Session $checkoutSession
-     * @param LogManager $logManager
-     * @param ProductMetadataInterface $productMetadata
-     * @param TaxHelper $taxHelper
-     */
-    public function __construct(
-        Context $context,
-        readonly private Config $qliroConfig,
-        readonly private Data $dataHelper,
-        readonly private AjaxToken $ajaxToken,
-        readonly private ManagementInterface $qliroManagement,
-        readonly private Session $checkoutSession,
-        readonly private LogManager $logManager,
-        readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper
-    ) {
-        parent::__construct($context);
-    }
-
-    /**
-     * Dispatch the action
-     *
-     * @return \Magento\Framework\Controller\ResultInterface|ResponseInterface
-     */
-    public function execute()
+    public function execute(): ResultInterface
     {
-        if (!$this->qliroConfig->isActive()) {
-            return $this->dataHelper->sendPreparedPayload(
-                [
-                    'status' => 'FAILED',
-                    'error' => (string)__('Qliro One is not active.')
-                ],
-                403,
-                null,
-                'AJAX:UPDATE_SHIPPING_METHOD:ERROR_INACTIVE'
-            );
+        if (!$this->verifyRequest()) {
+            return $this->errorResponse('Unauthorized', 401);
         }
 
-        /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $data = $this->getBody();
 
-        $quote = $this->checkoutSession->getQuote();
-        $this->logManager->debug('Starting to update shipping method for quote: ' . $quote->getId());
-        $this->logManager->setMerchantReferenceFromQuote($quote);
-        $this->ajaxToken->setQuote($quote);
+        // Qliro JS SDK field names differ from the REST API field names:
+        //   method          → shipping method code (= MerchantReference)
+        //   price           → price incl. VAT
+        //   secondaryOption → secondary option string (e.g. Ingrid access code)
+        $code            = (string) ($data['MerchantReference'] ?? $data['method'] ?? '');
+        $secondaryOption = isset($data['SecondaryOption']) ? (string) $data['SecondaryOption'] : (isset($data['secondaryOption']) ? (string) $data['secondaryOption'] : null);
+        $price           = isset($data['PriceIncVat']) ? (float) $data['PriceIncVat'] : (isset($data['price']) ? (float) $data['price'] : null);
 
-        if (!$this->ajaxToken->verifyToken($request->getParam('token'))) {
-            return $this->dataHelper->sendPreparedPayload(
-                [
-                    'status' => 'FAILED',
-                    'error' => (string)__('Security token is incorrect.')
-                ],
-                401,
-                null,
-                'AJAX:UPDATE_SHIPPING_METHOD:ERROR_TOKEN'
-            );
+        if (empty($code)) {
+            return $this->errorResponse('Shipping method code is required');
         }
-
-        $this->logManager->debug('Starting to read prepared payload');
-        $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
-        $this->logManager->debug('Finished to read prepared payload');
 
         try {
-            $secondaryOption = null;
-            if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
-                $this->logManager->debug('Unifaun enabled: ' . $quote->getId());
-                $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE;
-                $secondaryOption = $data['secondaryOption'] ?? null;
-                $shippingPrice = $data['price'] ?? null;
-                if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME
-                    || $this->taxHelper->shippingPriceIncludesTax($quote->getStoreId()) === false)
-                {
-                    $shippingPrice = $data['priceExVat'] ?? null;
-                }
-            } else if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
-                $this->logManager->debug('Ingrid enabled: ' . $quote->getId());
-                $shippingMethodCode = \Qliro\QliroOne\Model\Carrier\Ingrid::QLIRO_INGRID_SHIPPING_CODE;
-                $secondaryOption = $data['methodName'] ?? null;
-                $shippingPrice = $data['price'] ?? null;
-                if ($this->productMetadata->getEdition() !== ProductMetadata::EDITION_NAME
-                    || $this->taxHelper->shippingPriceIncludesTax($quote->getStoreId()) === false)
-                {
-                    $shippingPrice = $data['priceExVat'] ?? null;
-                }
-            } else {
-                $shippingMethodCode = $data['method'] ?? null;
-                $shippingPrice = $data['price'] ?? null;
-            }
-            $result = $this->qliroManagement->setQuote($quote)->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
-        } catch (\Exception $exception) {
-            $this->logManager->debug('Failed to update shipping method in quote: ' .
-                $quote->getId() . ' error: ' . $exception->getMessage()
-            );
-            return $this->dataHelper->sendPreparedPayload(
-                [
-                    'status' => 'FAILED',
-                    'error' => (string)__('Cannot update shipping method in quote.')
-                ],
-                400,
-                null,
-                'AJAX:UPDATE_SHIPPING_METHOD:ERROR'
-            );
+            $result = $this->orderService->updateShippingMethod($code, $secondaryOption, $price);
+        } catch (\Exception $e) {
+            $this->logManager->critical($e);
+            return $this->errorResponse($e->getMessage());
         }
 
-        return $this->dataHelper->sendPreparedPayload(
-            ['status' => $result ? 'OK' : 'SKIPPED'],
-            200,
-            null,
-            'AJAX:UPDATE_SHIPPING_METHOD'
-        );
+        return $this->jsonResponse(['success' => $result]);
     }
 }

@@ -22,35 +22,17 @@ class ShippingOrderItemBuilder
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    private $orderItemFactory;
-
-    /**
-     * @var \Magento\Tax\Helper\Data
-     */
-    private $taxHelper;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $orderItemFactory
-     * @param \Magento\Tax\Helper\Data $taxHelper
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param QliroOrderItemInterfaceFactory $orderItemFactory
+     * @param TaxHelper $taxHelper
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        QliroOrderItemInterfaceFactory $orderItemFactory,
-        TaxHelper $taxHelper,
-        ManagerInterface $eventManager
+        private readonly QliroOrderItemInterfaceFactory $orderItemFactory,
+        private readonly TaxHelper $taxHelper,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->orderItemFactory = $orderItemFactory;
-        $this->taxHelper = $taxHelper;
-        $this->eventManager = $eventManager;
     }
 
     /**

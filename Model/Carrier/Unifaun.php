@@ -31,28 +31,14 @@ class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
      * @var \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory
      */
     protected $_rateMethodFactory;
-    /**
-     * @var LinkRepositoryInterface
-     */
-    private $linkRepository;
-    /**
-     * @var Config
-     */
-    private $qliroConfig;
-    /**
-     * @var CartRepositoryInterface
-     */
-    private $quoteRepository;
 
     /**
      * @var
      */
     private $quoteId;
 
-
-
     /**
-     * Shipping constructor.
+     * Class constructor
      *
      * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
      * @param \Magento\Quote\Model\Quote\Address\RateResult\ErrorFactory $rateErrorFactory
@@ -60,8 +46,8 @@ class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
      * @param \Magento\Shipping\Model\Rate\ResultFactory $rateResultFactory
      * @param \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory $rateMethodFactory
      * @param LinkRepositoryInterface $linkRepository
-     * @param Cart $name
      * @param CartRepositoryInterface $quoteRepository
+     * @param Config $qliroConfig
      * @param array $data
      */
     public function __construct(
@@ -70,17 +56,14 @@ class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
         \Psr\Log\LoggerInterface $logger,
         \Magento\Shipping\Model\Rate\ResultFactory $rateResultFactory,
         \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory $rateMethodFactory,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        Config $qliroConfig,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly Config $qliroConfig,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateResultFactory;
         $this->_rateMethodFactory = $rateMethodFactory;
         parent::__construct($scopeConfig, $rateErrorFactory, $logger, $data);
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**

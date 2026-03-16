@@ -13,12 +13,7 @@ use Qliro\QliroOne\Model\Fee;
 class Totals extends Template
 {
     /**
-     * @var Fee
-     */
-    private $fee;
-
-    /**
-     * Totals constructor.
+     * Class constructor
      *
      * @param Context $context
      * @param Fee $fee
@@ -26,11 +21,10 @@ class Totals extends Template
      */
     public function __construct(
         Context $context,
-        Fee $fee,
+        private readonly Fee $fee,
         array $data = []
     ) {
         parent::__construct($context, $data);
-        $this->fee = $fee;
     }
 
     /**

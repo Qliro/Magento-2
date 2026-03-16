@@ -14,36 +14,23 @@ use Magento\Framework\App\ResourceConnection\ConnectionFactory;
 
 class ConnectionProvider
 {
-
     /**
      * @var \Magento\Framework\DB\Adapter\AdapterInterface|null
      */
     private $connection = null;
 
     /**
-     * @var \Magento\Framework\App\ResourceConnection\ConnectionFactory
-     */
-    private $connectionFactory;
-
-    /**
-     * @var \Magento\Framework\App\DeploymentConfig
-     */
-    private $deploymentConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param DeploymentConfig $deploymentConfig
      * @param ConnectionFactory $connectionFactory
      */
     public function __construct(
-        ConnectionFactory $connectionFactory,
-        DeploymentConfig $deploymentConfig
+        private readonly ConnectionFactory $connectionFactory,
+        private readonly DeploymentConfig $deploymentConfig
     ) {
-        $this->connectionFactory = $connectionFactory;
-        $this->deploymentConfig = $deploymentConfig;
     }
-    
+
     /**
      * Get a log DB connection that uses same config as default connection, but is separate
      *

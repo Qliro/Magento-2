@@ -23,42 +23,19 @@ class FeeBuilder
     private $quote;
 
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    private $qliroOrderItemFactory;
-    /**
-     * @var \Qliro\QliroOne\Model\Fee
-     */
-    private $fee;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
+     * @param Config $qliroConfig
+     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param \Qliro\QliroOne\Model\Fee $fee
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        Config $qliroConfig,
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        \Qliro\QliroOne\Model\Fee $fee,
-        ManagerInterface $eventManager
+        private readonly Config $qliroConfig,
+        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
+        private readonly \Qliro\QliroOne\Model\Fee $fee,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->fee = $fee;
-        $this->eventManager = $eventManager;
     }
 
     /**

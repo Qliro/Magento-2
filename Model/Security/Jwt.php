@@ -23,19 +23,13 @@ class Jwt
     ];
 
     /**
-     * @var \Magento\Framework\Serialize\Serializer\Json
-     */
-    private $json;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Framework\Serialize\Serializer\Json $json
      */
     public function __construct(
-        Json $json
+        private readonly Json $json
     ) {
-        $this->json = $json;
     }
 
     /**

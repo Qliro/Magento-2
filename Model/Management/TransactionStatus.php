@@ -7,8 +7,6 @@
 namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\Exception\NoSuchEntityException;
-use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\HandlerPool as  OrderManagementHandlerPool;
@@ -20,86 +18,42 @@ use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 /**
  * QliroOne management class
  */
-class TransactionStatus extends AbstractManagement
+class TransactionStatus
 {
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Lock
-     */
-    private $lock;
-
-    /**
-     * @var QliroOrderManagementStatusResponseInterfaceFactory
-     */
-    private $qliroOrderManagementStatusResponseFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory
-     */
-    private $orderManagementStatusInterfaceFactory;
-
-    /**
-     * @var OrderManagementStatusRepositoryInterface
-     */
-    private $orderManagementStatusRepository;
-
-    /**
-     * @var OrderManagementStatus\Update\HandlerPool
-     */
-    private $statusUpdateHandlerPool;
-
     /**
      * @var \Magento\Framework\Event\ManagerInterface
      */
     private $eventManager;
 
     /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param LinkRepositoryInterface $linkRepository
      * @param LogManager $logManager
      * @param Lock $lock
-     * @param QliroOrderManagementStatusResponseInterfaceFactory $qliroOrderManagementStatusResponseFactory
      * @param OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory
      * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
      * @param OrderManagementHandlerPool $statusUpdateHandlerPool
      */
     public function __construct(
-        LinkRepositoryInterface $linkRepository,
-        LogManager $logManager,
-        Lock $lock,
-        QliroOrderManagementStatusResponseInterfaceFactory $qliroOrderManagementStatusResponseFactory,
-        OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
-        OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
-        OrderManagementHandlerPool $statusUpdateHandlerPool
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly LogManager $logManager,
+        private readonly Lock $lock,
+        private readonly OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
+        private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
+        private readonly OrderManagementHandlerPool $statusUpdateHandlerPool
     ) {
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->lock = $lock;
-        $this->qliroOrderManagementStatusResponseFactory = $qliroOrderManagementStatusResponseFactory;
-        $this->orderManagementStatusInterfaceFactory = $orderManagementStatusInterfaceFactory;
-        $this->orderManagementStatusRepository = $orderManagementStatusRepository;
-        $this->statusUpdateHandlerPool = $statusUpdateHandlerPool;
     }
 
     /**
      * Handles Order Management Status Transaction notifications
      *
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @return \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatusResponse
+     * @param array $qliroOrderManagementStatus
+     * @return array
      */
-    public function handle($qliroOrderManagementStatus)
+    public function handle(array $qliroOrderManagementStatus): array
     {
-        $qliroOrderId = $qliroOrderManagementStatus->getOrderId();
+        $qliroOrderId = $qliroOrderManagementStatus['OrderId'] ?? null;
 
         try {
             $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
@@ -110,17 +64,17 @@ class TransactionStatus extends AbstractManagement
             if (empty($orderId)) {
                 /* Should not happen, but if it does, respond with this to stop new notifications */
                 return $this->qliroOrderManagementStatusRespond(
-                    QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                    'OrderNotFound'
                 );
             } elseif (!$this->updateTransactionStatus($qliroOrderManagementStatus)) {
                 return $this->qliroOrderManagementStatusRespond(
-                    QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                    'OrderNotFound'
                 );
             }
         } catch (NoSuchEntityException $exception) {
             /* No more qliro notifications should be sent */
             return $this->qliroOrderManagementStatusRespond(
-                QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                'OrderNotFound'
             );
         } catch (\Exception $exception) {
             $this->logManager->critical(
@@ -133,12 +87,12 @@ class TransactionStatus extends AbstractManagement
             );
 
             return $this->qliroOrderManagementStatusRespond(
-                QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                'OrderNotFound'
             );
         }
 
         return $this->qliroOrderManagementStatusRespond(
-            QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED
+            'Received'
         );
     }
 
@@ -157,12 +111,12 @@ class TransactionStatus extends AbstractManagement
         $result = true;
 
         try {
-            $qliroOrderId = $qliroOrderManagementStatus->getOrderId();
+            $qliroOrderId = $qliroOrderManagementStatus['OrderId'] ?? null;
 
             /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatus */
             $omStatus = $this->orderManagementStatusInterfaceFactory->create();
-            $omStatus->setTransactionId($qliroOrderManagementStatus->getPaymentTransactionId());
-            $omStatus->setTransactionStatus($qliroOrderManagementStatus->getStatus());
+            $omStatus->setTransactionId($qliroOrderManagementStatus['PaymentTransactionId'] ?? null);
+            $omStatus->setTransactionStatus($qliroOrderManagementStatus['Status'] ?? null);
             $omStatus->setQliroOrderId($qliroOrderId);
             $omStatus->setMessage('Notification update');
 
@@ -171,7 +125,7 @@ class TransactionStatus extends AbstractManagement
             try {
                 /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatusParent */
                 $omStatusParent = $this->orderManagementStatusRepository->getParent(
-                    $qliroOrderManagementStatus->getPaymentTransactionId()
+                    $qliroOrderManagementStatus['PaymentTransactionId'] ?? null
                 );
 
                 if ($omStatusParent) {
@@ -181,7 +135,7 @@ class TransactionStatus extends AbstractManagement
 
                 /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatusPrevious */
                 $omStatusPrevious = $this->orderManagementStatusRepository->getPrevious(
-                    $qliroOrderManagementStatus->getPaymentTransactionId()
+                    $qliroOrderManagementStatus['PaymentTransactionId'] ?? null
                 );
 
                 if ($omStatusPrevious) {
@@ -206,17 +160,12 @@ class TransactionStatus extends AbstractManagement
             }
 
             if ($handleTransaction) {
-                if ($this->lock->lock($qliroOrderId)) {
-                    $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_NEW);
-                    $this->orderManagementStatusRepository->save($omStatus);
-                    if ($this->statusUpdateHandlerPool->handle($qliroOrderManagementStatus, $omStatus)) {
-                        $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
-                    }
-                    $this->lock->unlock($qliroOrderId);
-                } else {
-                    $omStatus->setMessage('Skipped due to lock');
-                    $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_SKIPPED);
+                $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_NEW);
+                $this->orderManagementStatusRepository->save($omStatus);
+                if ($this->statusUpdateHandlerPool->handle($qliroOrderManagementStatus, $omStatus)) {
+                    $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
                 }
+                $this->lock->unlock($qliroOrderId);
             } else {
                 $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_SKIPPED);
             }
@@ -259,8 +208,8 @@ class TransactionStatus extends AbstractManagement
      * @param string $result
      * @return mixed
      */
-    private function qliroOrderManagementStatusRespond($result)
+    private function qliroOrderManagementStatusRespond(string $result): array
     {
-        return $this->qliroOrderManagementStatusResponseFactory->create()->setCallbackResponse($result);
+        return ['CallbackResponse' => $result];
     }
 }

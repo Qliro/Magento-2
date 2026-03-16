@@ -17,7 +17,7 @@ class OrderManagementStatus extends AbstractModel implements OrderManagementStat
     /**
      * Initialize resource model
      */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(ResourceModel\OrderManagementStatus::class);
     }

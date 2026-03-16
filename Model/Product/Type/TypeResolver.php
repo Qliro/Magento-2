@@ -6,7 +6,6 @@
 
 namespace Qliro\QliroOne\Model\Product\Type;
 
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
 
@@ -16,35 +15,29 @@ use Qliro\QliroOne\Model\Product\ProductPool;
 class TypeResolver
 {
     /**
-     * @var \Qliro\QliroOne\Model\Product\ProductPool
-     */
-    private $productPool;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\Product\ProductPool $productPool
      */
     public function __construct(
-        ProductPool $productPool
+        private readonly ProductPool $productPool
     ) {
-        $this->productPool = $productPool;
     }
 
     /**
      * Resolve product type from a QliroOne order item
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
+     * @param array $qliroOrderItem
      * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
      * @return string|null
      */
-    public function resolve(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
+    public function resolve(array $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
     {
-        if ($qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT) {
+        if (($qliroOrderItem['Type'] ?? null) !== 'Product') {
             return null;
         }
 
-        $sourceItem = $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
+        $sourceItem = $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem['Metadata'] ?? []);
 
         if ($sourceItem) {
             $typeHash = [$sourceItem->getProduct()->getTypeId()];

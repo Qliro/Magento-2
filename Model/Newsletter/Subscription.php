@@ -26,37 +26,7 @@ use Magento\Sales\Model\Order\Address;
 class Subscription implements SubscriptionInterface
 {
     /**
-     * @var \Magento\Newsletter\Model\SubscriberFactory
-     */
-    private $subscriberFactory;
-
-    /**
-     * @var \Magento\Customer\Model\Session
-     */
-    private $customerSession;
-
-    /**
-     * @var \Magento\Customer\Model\Url
-     */
-    private $customerUrl;
-
-    /**
-     * @var \Magento\Framework\App\Config\ScopeConfigInterface
-     */
-    private $scopeConfig;
-
-    /**
-     * @var \Magento\Framework\Message\ManagerInterface
-     */
-    private $messageManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Initialize dependencies.
+     * Class constructor
      *
      * @param SubscriberFactory $subscriberFactory
      * @param Session $customerSession
@@ -66,19 +36,13 @@ class Subscription implements SubscriptionInterface
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        SubscriberFactory $subscriberFactory,
-        Session $customerSession,
-        CustomerUrl $customerUrl,
-        ScopeConfigInterface $scopeConfig,
-        ManagerInterface $messageManager,
-        LogManager $logManager
+        private readonly SubscriberFactory $subscriberFactory,
+        private readonly Session $customerSession,
+        private readonly CustomerUrl $customerUrl,
+        private readonly ScopeConfigInterface $scopeConfig,
+        private readonly ManagerInterface $messageManager,
+        private readonly LogManager $logManager
     ) {
-        $this->subscriberFactory = $subscriberFactory;
-        $this->customerSession = $customerSession;
-        $this->customerUrl = $customerUrl;
-        $this->scopeConfig = $scopeConfig;
-        $this->messageManager = $messageManager;
-        $this->logManager = $logManager;
     }
 
     /**

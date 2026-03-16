@@ -11,7 +11,7 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface QliroOrderCreateRequestInterface extends ContainerInterface
+interface QliroOrderCreateRequestInterface
 {
     /**
      * @return string

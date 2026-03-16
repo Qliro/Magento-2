@@ -6,8 +6,6 @@
 
 namespace Qliro\QliroOne\Api\Product;
 
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-
 /**
  * Product Type Handler interface
  */
@@ -17,18 +15,18 @@ interface TypeHandlerInterface
      * Get QliroOne order item out of a source item, or null if not applicable
      *
      * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface|null
+     * @return array|null
      */
     public function getQliroOrderItem(TypeSourceItemInterface $item);
 
     /**
      * Get a reference to source item out of QliroOne order item, or null if not applicable
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
+     * @param array $qliroOrderItem
      * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
      * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
      */
-    public function getItem(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider);
+    public function getItem(array $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider);
 
     /**
      * Prepare QliroOne order item's merchant reference

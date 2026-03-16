@@ -19,32 +19,8 @@ use Qliro\QliroOne\Model\Logger\Manager;
 class Shipment implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var \Magento\Sales\Api\ShipmentRepositoryInterface
-     */
-    private $shipmentRepository;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private $orderRepository;
-
-    /**
-     * @var \Magento\Sales\Api\InvoiceRepositoryInterface
-     */
-    private $invoiceRepository;
-
-    /**
-     * @var Order\Payment\Transaction\BuilderInterface
-     */
-    private $transactionBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Shipment constructor.
+     * Class constructor
+     *
      * @param \Magento\Sales\Api\ShipmentRepositoryInterface $shipmentRepository
      * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
      * @param \Magento\Sales\Api\InvoiceRepositoryInterface $invoiceRepository
@@ -52,17 +28,12 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        ShipmentRepositoryInterface $shipmentRepository,
-        OrderRepositoryInterface $orderRepository,
-        InvoiceRepositoryInterface $invoiceRepository,
-        BuilderInterface $transactionBuilder,
-        Manager $logManager
+        private readonly ShipmentRepositoryInterface $shipmentRepository,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly InvoiceRepositoryInterface $invoiceRepository,
+        private readonly BuilderInterface $transactionBuilder,
+        private readonly Manager $logManager
     ) {
-        $this->shipmentRepository = $shipmentRepository;
-        $this->orderRepository = $orderRepository;
-        $this->invoiceRepository = $invoiceRepository;
-        $this->transactionBuilder = $transactionBuilder;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -121,8 +92,8 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             if ($order->canInvoice()) {
                 $invoice = $order->prepareInvoice($invoiceItems);
                 $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
-                $payment->setTransactionId($qliroOrderManagementStatus->getPaymentTransactionId());
-                $payment->setData(\Qliro\QliroOne\Model\Management::QLIRO_SKIP_ACTUAL_CAPTURE, 1);
+                $payment->setTransactionId($qliroOrderManagementStatus['PaymentTransactionId'] ?? null);
+                $payment->setData(\Qliro\QliroOne\Model\Management\Payment::QLIRO_SKIP_ACTUAL_CAPTURE, 1);
                 $invoice->register()->pay();
                 $this->invoiceRepository->save($invoice);
             } else {
@@ -132,7 +103,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             }
 
             $formattedPrice = $order->getBaseCurrency()->formatTxt(
-                $qliroOrderManagementStatus->getAmount()
+                $qliroOrderManagementStatus['Amount'] ?? null
             );
 
             $order->addStatusHistoryComment(__('Capture of %1 confirmed successful', $formattedPrice));
@@ -143,7 +114,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                         'shipment_id' => isset($shipment) ? $shipment->getId() : null,
                     ],
                 ]
@@ -244,7 +215,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                     ],
                 ]
             );
@@ -277,7 +248,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                     ],
                 ]
             );
@@ -310,7 +281,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+                        'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
                     ],
                 ]
             );

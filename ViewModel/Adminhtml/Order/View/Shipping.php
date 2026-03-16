@@ -1,7 +1,13 @@
 <?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\ViewModel\Adminhtml\Order\View;
 
+use Magento\Framework\View\Element\Block\ArgumentInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Address;
 use Magento\Framework\DataObjectFactory;
@@ -11,12 +17,11 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Model\Carrier\Unifaun;
 use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
-use Qliro\QliroOne\Model\Management;
 
 /**
  * View Model for extra Shipping Address info display in Admin Order view
  */
-class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterface
+class Shipping implements ArgumentInterface
 {
     /**
      * @var DataObjectFactory
@@ -32,11 +37,6 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
      * @var LinkRepositoryInterface
      */
     private LinkRepositoryInterface $linkRepo;
-
-    /**
-     * @var Management
-     */
-    private Management $orderManagement;
 
     /**
      * @var OrderRepositoryInterface
@@ -57,13 +57,11 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
         DataObjectFactory $dataObjectFactory,
         AddressFactory $addressFactory,
         LinkRepositoryInterface $linkRepo,
-        Management $orderManagement,
         OrderRepositoryInterface $orderRepo
     ) {
         $this->dataObjectFactory = $dataObjectFactory;
         $this->addressFactory = $addressFactory;
         $this->linkRepo = $linkRepo;
-        $this->orderManagement = $orderManagement;
         $this->orderRepo = $orderRepo;
     }
 
@@ -87,7 +85,7 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
     }
 
     /**
-     * Get postal address line as string
+     * Get a postal address line as a string
      *
      * @param Order $order
      * @return string
@@ -111,7 +109,7 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
     }
 
     /**
-     * Get street address lines as array
+     * Get street address lines as an array
      *
      * @param Order $order
      * @return array

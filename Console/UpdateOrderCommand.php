@@ -9,7 +9,6 @@
 
 namespace Qliro\QliroOne\Console;
 
-use Qliro\QliroOne\Model\Management;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
@@ -70,11 +69,12 @@ class UpdateOrderCommand extends AbstractCommand
     {
         $output->writeln('<comment>Update QliroOne order</comment>');
 
-        /** @var \Qliro\QliroOne\Model\Management\Quote $management */
-        $management = $this->getObjectManager()->get(\Qliro\QliroOne\Model\Management\Quote::class);
+        /** @var \Qliro\QliroOne\Api\Admin\OrderServiceInterface $management */
+        $management = $this->getObjectManager()->get(\Qliro\QliroOne\Api\Admin\OrderServiceInterface::class);
 
         try {
-            $management->update($this->orderId, $this->force);
+            $qliroOrder = $management->getAdminQliroOrder((int)$this->orderId);
+            $output->writeln('<info>Qliro order: ' . ($qliroOrder ? $qliroOrder->getOrderId() : 'not found') . '</info>');
         } catch (\Qliro\QliroOne\Model\Api\Client\Exception\ClientException $exception) {
             /** @var \GuzzleHttp\Exception\RequestException $origException */
             $origException = $exception->getPrevious();
