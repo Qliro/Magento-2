@@ -131,11 +131,12 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     /**
      * Set order
      *
-     * @param Order $order
+     * @param Order|null $order
      */
-    public function setOrder($order)
+    public function setOrder(?Order $order)
     {
         $this->order = $order;
+        $this->sourceItems = [];
     }
 
     /**
@@ -168,7 +169,8 @@ class OrderSourceProvider implements TypeSourceProviderInterface
             }
 
             $sourceItem->setQty($item->getQtyOrdered());
-            $sourceItem->setSku($item->getSku());
+            $sku = $item->getSku() ?? $item->getProduct()?->getSku() ?? '';
+            $sourceItem->setSku((string)$sku);
             $sourceItem->setType($item->getProductType());
             $sourceItem->setProduct($item->getProduct());
             $sourceItem->setItem($item);
