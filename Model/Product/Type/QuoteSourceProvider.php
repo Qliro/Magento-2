@@ -212,7 +212,8 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
 
             $sourceItem->setVatRate($this->vatRate->getVatRateForProduct($item));
             $sourceItem->setQty($item->getQty());
-            $sourceItem->setSku($item->getSku());
+            $sku = $item->getSku() ?? $item->getProduct()?->getSku() ?? '';
+            $sourceItem->setSku((string)$sku);
             $sourceItem->setType($item->getProductType());
             $sourceItem->setProduct($item->getProduct());
             $sourceItem->setItem($item);
