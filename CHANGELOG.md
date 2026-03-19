@@ -1,6 +1,11 @@
 
 # Change Log
 
+## [1.7.2] - 2026-03-18
+
+### Fixed
+- Fixed the issue with the missing SKU values in order items
+
 ## [1.7.1] - 2026-03-03
 
 ### Fixed
