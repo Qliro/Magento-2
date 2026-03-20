@@ -17,7 +17,8 @@ interface LanguageMapperInterface
     /**
      * Get a prepared string that contains a QliroOne compatible language
      *
+     * @param int|null $storeId
      * @return string
      */
-    public function getLanguage();
+    public function getLanguage($storeId = null);
 }
