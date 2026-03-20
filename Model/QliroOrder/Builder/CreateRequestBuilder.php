@@ -302,7 +302,7 @@ class CreateRequestBuilder
         $createRequest = $this->createRequestFactory->create();
 
         $createRequest->setCurrency($currencies->getQuoteCurrencyCode());
-        $createRequest->setLanguage($this->languageMapper->getLanguage());
+        $createRequest->setLanguage($this->languageMapper->getLanguage($this->quote->getStoreId()));
         $createRequest->setCountry($this->getCountry());
 
         $termsUrl = $this->qliroConfig->getTermsUrl();
