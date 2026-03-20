@@ -6,7 +6,8 @@
 
 namespace Qliro\QliroOne\Model;
 
-use Magento\Framework\Locale\Resolver;
+use Magento\Framework\App\Config\ScopeConfigInterface;
+use Magento\Store\Model\ScopeInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 
@@ -18,11 +19,14 @@ class LanguageMapper implements LanguageMapperInterface
     private $languageMap = [
         'sv_SE' => 'sv-se',
         'en_US' => 'en-us',
+        'en_GB' => 'en-us',
         'fi_FI' => 'fi-fi',
         'da_DK' => 'da-dk',
+        'fr_FR' => 'fr-fr',
         'de_DE' => 'de-de',
         'nb_NO' => 'nb-no',
         'nn_NO' => 'nb-no',
+        'nl_NL' => 'nl-nl',
     ];
 
     private $countryLanguageMap = [
@@ -30,12 +34,15 @@ class LanguageMapper implements LanguageMapperInterface
         'DK' => 'da-dk',
         'NO' => 'nb-no',
         'FI' => 'fi-fi',
+        'FR' => 'fr-fr',
+        'DE' => 'de-de',
+        'NL' => 'nl-nl',
     ];
 
     /**
-     * @var \Magento\Framework\Locale\Resolver
+     * @var ScopeConfigInterface
      */
-    private $localeResolver;
+    private $scopeConfig;
 
     /**
      * @var CountrySelect
@@ -45,30 +52,35 @@ class LanguageMapper implements LanguageMapperInterface
     /**
      * Inject dependencies
      *
-     * @param \Magento\Framework\Locale\Resolver $localeResolver
+     * @param ScopeConfigInterface $scopeConfig
      * @param CountrySelect $countrySelect
      */
     public function __construct(
-        Resolver $localeResolver,
+        ScopeConfigInterface $scopeConfig,
         CountrySelect $countrySelect
     ) {
-        $this->localeResolver = $localeResolver;
+        $this->scopeConfig = $scopeConfig;
         $this->countrySelect = $countrySelect;
     }
 
     /**
      * Get a prepared string that contains a QliroOne compatible language
      *
+     * @param int|null $storeId
      * @return string
      */
-    public function getLanguage()
+    public function getLanguage($storeId = null)
     {
         if ($this->countrySelect->isEnabled() && !!$this->countrySelect->getSelectedCountry()) {
             $country = strtoupper($this->countrySelect->getSelectedCountry());
             return $this->countryLanguageMap[$country] ?? 'en-us';
         }
 
-        $locale = $this->localeResolver->getLocale();
+        $locale = $this->scopeConfig->getValue(
+            'general/locale/code',
+            ScopeInterface::SCOPE_STORE,
+            $storeId
+        );
 
         return $this->languageMap[$locale] ?? 'en-us';
     }
