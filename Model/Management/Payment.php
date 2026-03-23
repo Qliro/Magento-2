@@ -209,7 +209,16 @@ class Payment extends AbstractManagement
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
 
         $request = $this->invoiceMarkItemsAsShippedRequestBuilder->create();
-        $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+
+        try {
+            $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        } catch (ClientException $exception) {
+            $order->addCommentToStatusHistory(
+                __('Qliro One capture failed: %1', $exception->getMessage())
+            );
+            $this->orderRepository->save($order);
+            throw $exception;
+        }
 
         try {
             /** @var OrderManagementStatus $omStatus */
@@ -240,7 +249,8 @@ class Payment extends AbstractManagement
             }
         } elseif ($result->getStatus() == CheckoutStatusInterface::STATUS_REFUSED) {
             $order->setState(Order::STATE_CANCELED);
-            $order->addCommentToStatusHistory('Capture failed');
+            $order->addCommentToStatusHistory(__('Qliro One refused the capture request.'));
+            $this->orderRepository->save($order);
         } else {
             throw new LocalizedException(
                 __('Unable to capture payment for this order.')

@@ -376,8 +376,12 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      */
     private function handleExceptions(\Exception $exception)
     {
-        if ($exception instanceof RequestException) {
-            $data = $this->json->unserialize($exception->getResponse()->getBody());
+        $requestException = $exception instanceof RequestException ?
+            $exception :
+            ($exception->getPrevious() instanceof RequestException ? $exception->getPrevious() : null);
+
+        if ($requestException !== null) {
+            $data = $this->json->unserialize($requestException->getResponse()->getBody());
 
             if (isset($data['ErrorCode']) && isset($data['ErrorMessage'])) {
                 if (!($exception instanceof TerminalException)) {
