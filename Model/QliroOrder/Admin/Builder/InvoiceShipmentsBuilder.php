@@ -150,10 +150,11 @@ class InvoiceShipmentsBuilder
         $shipment = $this->qliroShipmentFactory->create();
         $shipment->setOrderItems($shipmentOrderItems);
 
+        $this->orderSourceProvider->setOrder(null);
         $this->payment = null;
         $this->order = null;
         $this->invoice = null;
-        $this->orderSourceProvider->setOrder($this->order);
+
         return [$shipment];
     }
 

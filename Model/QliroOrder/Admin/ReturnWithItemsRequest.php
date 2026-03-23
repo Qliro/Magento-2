@@ -237,8 +237,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
         if ($this->paymentTransactionId) {
             $this->returns['PaymentTransactionId'] = $this->paymentTransactionId;
         }
-
-        if (count($this->orderItems)) {
+        if (is_countable($this->orderItems)) {
             $orderItems = [];
             foreach ($this->orderItems as $orderItem) {
                 $innerItem = $this->containerMapper->toArray($orderItem);
@@ -254,7 +253,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
             }
         }
 
-        if (count($this->fees)) {
+        if (is_countable($this->fees)) {
             $fees = [];
             foreach ($this->fees as $fee) {
                 $innerItem = $this->containerMapper->toArray($fee);
@@ -270,7 +269,7 @@ class ReturnWithItemsRequest implements AdminReturnWithItemsRequestInterface
             }
         }
 
-        if (count($this->discounts)) {
+        if (is_countable($this->discounts)) {
             $discounts = [];
             foreach ($this->discounts as $discount) {
                 $innerItem = $this->containerMapper->toArray($discount);

@@ -95,7 +95,6 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
         }
         $items = parent::create();
 
-
         if (!count($items)) {
             return $items;
         }
@@ -106,7 +105,7 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
                 $creditMemoItems[$key] = $item;
             }
 
-            $creditMemoItem = $this->getCreditMemoItemByQuoteId($this->extractQuoteItemId($item));
+            $creditMemoItem = $this->getCreditMemoItemBySku($item->getMerchantReference());
             if (is_null($creditMemoItem)) {
                 continue;
             }
@@ -122,33 +121,21 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
     }
 
     /**
-     * Extract quote item id
+     * Get credit memo item by provided product sku
      *
-     * @param Item $item
-     * @return int
-     */
-    private function extractQuoteItemId(Item $item)
-    {
-        $explodeData = explode(':', $item->getMerchantReference());
-        return intval(current($explodeData));
-    }
-
-    /**
-     * Get credit memo item by provided quote id
-     *
-     * @param int $quoteItemId
+     * @param string $sku
      * @return CreditmemoItemInterface|null
      */
-    private function getCreditMemoItemByQuoteId(int $quoteItemId)
+    private function getCreditMemoItemBySku(string $sku)
     {
         $toReturn = null;
         foreach ($this->creditMemo->getItems() as $item) {
-            $orderItem = $this->orderItemRepository->get($item->getOrderItemId());
-            if ($orderItem->getQuoteItemId() != $quoteItemId) {
+            if ($item->getSku() !== $sku) {
                 continue;
             }
 
             $toReturn = $item;
+            break;
         }
 
         return $toReturn;

@@ -138,7 +138,7 @@ class Data extends AbstractHelper
      * @param string $loggerMark
      * @return \Magento\Framework\Controller\Result\Json
      */
-    public function sendPreparedPayload($payload, $resultCode = 200, JsonResult $resultJson = null, $loggerMark = null)
+    public function sendPreparedPayload($payload, $resultCode = 200, ?JsonResult $resultJson = null, $loggerMark = null)
     {
         if (!($resultJson instanceof JsonResult)) {
             $resultJson = $this->resultFactory->create(ResultFactory::TYPE_JSON);

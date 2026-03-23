@@ -1,6 +1,30 @@
 
 # Change Log
 
+## [1.7.2] - 2026-03-18
+
+### Fixed
+- Fixed the issue with the missing SKU values in order items
+
+## [1.7.1] - 2026-03-03
+
+### Fixed
+
+- TypeError in validate callback when item metadata is null (`Item::setMetadata` expects array)
+
+## [1.7.0] - 2026-02-06
+
+### Fixed
+
+- Fixed the issue with combining virtual products with non-virtual products in the same order
+- Changed MerchantReference format sent to Qliro
+- Capture full or partial shipments and/or invoices where order items are provided in the wrong sequence
+
+### Added
+
+- Support for PHP 8.4
+- Limitation of items in the order to be not more than 200
+
 ## [1.6.9] - 2026-01-26
 
 ### Fixed

@@ -158,7 +158,7 @@ class Agent
             $this->relevantQuote = $quote;
         }
 
-        $this->logManager->debug('Relevant quote fetched' . $quote->getId());
+        $this->logManager->debug('Relevant quote fetched' . $this->relevantQuote->getId());
 
         return $this->relevantQuote;
     }
