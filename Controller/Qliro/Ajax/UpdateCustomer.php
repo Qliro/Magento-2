@@ -114,7 +114,6 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         $quote = $this->checkoutSession->getQuote();
         $this->logManager->setMerchantReferenceFromQuote($quote);
         $this->ajaxToken->setQuote($quote);
-        $this->quoteAgent->store($quote);
 
         if (!$this->ajaxToken->verifyToken($request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
@@ -127,6 +126,8 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
                 'AJAX:UPDATE_CUSTOMER:ERROR_TOKEN'
             );
         }
+
+        $this->quoteAgent->store($quote);
 
         $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_CUSTOMER');
         if (array_key_exists('address', $data) && is_null($data['address'])) {

@@ -91,6 +91,10 @@ class Agent
      */
     public function store(Quote $quote)
     {
+        if (!$quote->getId()) {
+            return;
+        }
+
         $this->logManager->addTag('cookies');
 
         try {
