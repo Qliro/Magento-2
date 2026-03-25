@@ -243,12 +243,14 @@ class Payment extends AbstractManagement
             );
         }
 
-        if ($result->getStatus() == 'Created') {
+        if ($result->getStatus() === 'Created') {
             if ($result->getPaymentTransactionId()) {
                 $payment->setTransactionId($result->getPaymentTransactionId());
             }
-        } elseif ($result->getStatus() == CheckoutStatusInterface::STATUS_REFUSED) {
-            $order->setState(Order::STATE_CANCELED);
+        } elseif ($result->getStatus() === CheckoutStatusInterface::STATUS_REFUSED) {
+            if ($order->canCancel()) {
+                $order->cancel();
+            }
             $order->addCommentToStatusHistory(__('Qliro One refused the capture request.'));
             $this->orderRepository->save($order);
         } else {
