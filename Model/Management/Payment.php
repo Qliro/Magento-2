@@ -12,6 +12,7 @@ use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
+use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -208,7 +209,16 @@ class Payment extends AbstractManagement
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
 
         $request = $this->invoiceMarkItemsAsShippedRequestBuilder->create();
-        $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+
+        try {
+            $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        } catch (ClientException $exception) {
+            $order->addCommentToStatusHistory(
+                __('Qliro One capture failed: %1', $exception->getMessage())
+            );
+            $this->orderRepository->save($order);
+            throw $exception;
+        }
 
         try {
             /** @var OrderManagementStatus $omStatus */
@@ -233,10 +243,16 @@ class Payment extends AbstractManagement
             );
         }
 
-        if ($result->getStatus() == 'Created') {
+        if ($result->getStatus() === 'Created') {
             if ($result->getPaymentTransactionId()) {
                 $payment->setTransactionId($result->getPaymentTransactionId());
             }
+        } elseif ($result->getStatus() === CheckoutStatusInterface::STATUS_REFUSED) {
+            if ($order->canCancel()) {
+                $order->cancel();
+            }
+            $order->addCommentToStatusHistory(__('Qliro One refused the capture request.'));
+            $this->orderRepository->save($order);
         } else {
             throw new LocalizedException(
                 __('Unable to capture payment for this order.')
