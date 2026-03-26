@@ -255,6 +255,12 @@ class Payment extends AbstractManagement
             return;
         }
 
+        if ($this->qliroConfig->shouldCaptureOnInvoice($shipment->getStoreId())) {
+            // captureOnInvoice already sent MarkItemsAsShipped when the invoice was created.
+            // Sending it again here would cause NO_ITEMS_LEFT_IN_RESERVATION from Qliro.
+            return;
+        }
+
         /** @var Order $order */
         $order = $shipment->getOrder();
         $link = $this->linkRepository->getByOrderId($order->getId());
