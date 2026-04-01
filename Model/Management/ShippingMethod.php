@@ -8,7 +8,9 @@ namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface as ScopeConfig;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Store\Model\ScopeInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
@@ -56,6 +58,12 @@ class ShippingMethod extends AbstractManagement
      * @var \Magento\Framework\Event\ManagerInterface
      */
     private $eventManager;
+
+    /**
+     * @var ScopeConfig
+     */
+    private ScopeConfig $scopeConfig;
+
     /**
      * @var Quote
      */
@@ -71,6 +79,7 @@ class ShippingMethod extends AbstractManagement
      * @param ContainerMapper $containerMapper
      * @param LogManager $logManager
      * @param ManagerInterface $eventManager
+     * @param ScopeConfig $scopeConfig
      * @param Quote $quoteManagement
      */
     public function __construct(
@@ -81,6 +90,7 @@ class ShippingMethod extends AbstractManagement
         ContainerMapper $containerMapper,
         LogManager $logManager,
         ManagerInterface $eventManager,
+        ScopeConfig $scopeConfig,
         Quote $quoteManagement
     ) {
         $this->linkRepository = $linkRepository;
@@ -90,6 +100,7 @@ class ShippingMethod extends AbstractManagement
         $this->logManager = $logManager;
         $this->quoteFromShippingMethodsConverter = $quoteFromShippingConverter;
         $this->eventManager = $eventManager;
+        $this->scopeConfig = $scopeConfig;
         $this->quoteManagement = $quoteManagement;
     }
 
@@ -220,6 +231,21 @@ class ShippingMethod extends AbstractManagement
             }
 
             $shippingAddress->setShippingMethod($container->getShippingMethod());
+
+            $defaultCountry = $this->scopeConfig->getValue('general/country/default', ScopeInterface::SCOPE_STORE) ??
+                $this->scopeConfig->getValue('general/country/default', ScopeInterface::SCOPE_WEBSITE);
+            if (!$defaultCountry) {
+                $defaultCountry = $this->scopeConfig->getValue('general/country/default');
+            }
+
+            if (!$shippingAddress->getCountryId()) {
+                $shippingAddress->setCountryId($defaultCountry);
+            }
+
+            if (!$quote->getBillingAddress()->getCountryId()) {
+                $quote->getBillingAddress()->setCountryId($defaultCountry);
+            }
+
             $this->quoteManagement->recalculateAndSaveQuote();
 
             // For some reason shipping code that was previously set, is not applied
