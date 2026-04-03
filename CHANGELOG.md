@@ -1,6 +1,24 @@
 
 # Change Log
 
+## [1.7.4] - 2026-04-01
+
+### Fixed
+- Fixed incorrect version in `composer.json` from previous release
+- Ensured proper versioning for Composer distribution
+
+## [1.7.3] - 2026-03-31
+
+### Fixed
+- Missing shipping address/country id
+- Credit memo error during order cancellation
+- Missing SKU values in order items
+- Module admin configs error during download
+
+### Added
+- Language support according to official documentation
+- X-platform header in all qliro requests
+
 ## [1.7.2] - 2026-03-18
 
 ### Fixed

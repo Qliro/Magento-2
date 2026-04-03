@@ -26,6 +26,10 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
             return false;
         }
 
+        if (!$this->getCreditMemo()->getInvoice()) {
+            return false;
+        }
+
         if ($this->getOrderFeesTotal() == 0) {
             return false;
         }

@@ -147,13 +147,17 @@ class InvoiceShipmentsBuilder
             }
         }
 
-        $shipment = $this->qliroShipmentFactory->create();
-        $shipment->setOrderItems($shipmentOrderItems);
-
         $this->orderSourceProvider->setOrder(null);
         $this->payment = null;
         $this->order = null;
         $this->invoice = null;
+
+        if (empty($shipmentOrderItems)) {
+            return [];
+        }
+
+        $shipment = $this->qliroShipmentFactory->create();
+        $shipment->setOrderItems($shipmentOrderItems);
 
         return [$shipment];
     }

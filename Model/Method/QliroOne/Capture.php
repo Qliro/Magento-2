@@ -59,6 +59,8 @@ class Capture implements CommandInterface
             if ($this->qliroConfig->shouldCaptureOnInvoice($order ? $order->getStoreId() : null)) {
                 $this->qliroManagement->captureByInvoice($payment, $amount);
             }
+        } catch (\Magento\Framework\Exception\LocalizedException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
             throw new \Magento\Framework\Exception\LocalizedException(
                 __('Unable to capture payment for this order.')
