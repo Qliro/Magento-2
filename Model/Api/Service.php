@@ -29,6 +29,8 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     const HEADER_CONTENT_TYPE_JSON = 'application/json';
     const AUTHENTICATION_PREFIX = 'Qliro';
     const HEADER_AUTHENTICATION = 'Authorization';
+    const HEADER_PLATFORM = 'x-platform';
+    const HEADER_PLATFORM_VALUE = 'Magento';
     const QLIRO_SANDBOX_API_URL = 'https://pago.qit.nu';
     const QLIRO_PROD_API_URL = 'https://payments.qit.nu';
 
@@ -177,7 +179,8 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
 
         $headers = [
             self::HEADER_CONTENT_TYPE => self::HEADER_CONTENT_TYPE_JSON,
-            self::HEADER_AUTHENTICATION => $this->getAuthenticationToken($payload, $method, $storeId)
+            self::HEADER_AUTHENTICATION => $this->getAuthenticationToken($payload, $method, $storeId),
+            self::HEADER_PLATFORM => self::HEADER_PLATFORM_VALUE,
         ];
 
         $options[RequestOptions::HEADERS] = $headers;

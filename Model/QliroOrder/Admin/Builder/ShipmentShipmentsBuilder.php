@@ -148,12 +148,16 @@ class ShipmentShipmentsBuilder
             }
         }
 
-        $shipment = $this->qliroShipmentFactory->create();
-        $shipment->setOrderItems($shipmentOrderItems);
-
         $this->orderSourceProvider->setOrder(null);
         $this->order = null;
         $this->shipment = null;
+
+        if (empty($shipmentOrderItems)) {
+            return [];
+        }
+
+        $shipment = $this->qliroShipmentFactory->create();
+        $shipment->setOrderItems($shipmentOrderItems);
 
         return [$shipment];
     }
