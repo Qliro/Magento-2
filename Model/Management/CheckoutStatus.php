@@ -130,9 +130,6 @@ class CheckoutStatus extends AbstractManagement
 
             $this->logManager->setMerchantReference($link->getReference());
 
-            $link->setQliroOrderStatus($checkoutStatus->getStatus());
-            $this->linkRepository->save($link);
-
             $orderId = $link->getOrderId();
 
             if (empty($orderId)) {
@@ -158,12 +155,14 @@ class CheckoutStatus extends AbstractManagement
                     }
 
                     if (!$tooEarly) {
-                        if (!$this->lock->lock($qliroOrderId)) {
+                        if (!$this->acquireLockWithRetry($qliroOrderId)) {
                             throw new FailToLockException(__('Failed to aquire lock when placing order'));
                         }
 
                         $this->orderLocked = true;
                         $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
+                        $link->setQliroOrderStatus($responseContainer->getCustomerCheckoutStatus());
+                        $this->linkRepository->save($link);
                         $this->placeOrder->execute($responseContainer);
 
                         $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
@@ -175,6 +174,8 @@ class CheckoutStatus extends AbstractManagement
 
                         $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_ORDER_PENDING);
                     }
+                } catch (FailToLockException $exception) {
+                    throw $exception;
                 } catch (\Exception $exception) {
                     $this->logManager->critical($exception, $logContext);
 
@@ -185,11 +186,13 @@ class CheckoutStatus extends AbstractManagement
                  * Second major scenario:
                  * The order already exists; just update the order with the new QliroOne order status
                  */
-                if (!$this->lock->lock($qliroOrderId)) {
+                if (!$this->acquireLockWithRetry($qliroOrderId)) {
                     throw new FailToLockException(__('Failed to aquire lock when updating order status'));
                 }
 
                 $this->orderLocked = true;
+                $link->setQliroOrderStatus($checkoutStatus->getStatus());
+                $this->linkRepository->save($link);
                 if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId))) {
                     $response = $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
                 } else {
@@ -255,6 +258,40 @@ class CheckoutStatus extends AbstractManagement
 
             $this->linkRepository->save($link);
         }
+    }
+
+    /**
+     * Attempt to acquire lock, retrying after a short delay if the initial attempt fails.
+     * This handles race conditions where two callbacks arrive simultaneously — the losing
+     * process waits for the winner to finish and then processes with the latest Qliro status.
+     *
+     * @param int $qliroOrderId
+     * @param int $maxAttempts
+     * @param int $waitSeconds
+     * @return bool
+     */
+    private function acquireLockWithRetry(int $qliroOrderId, int $maxAttempts = 3, int $waitSeconds = 1): bool
+    {
+        for ($attempt = 1; $attempt <= $maxAttempts; $attempt++) {
+            if ($this->lock->lock($qliroOrderId)) {
+                return true;
+            }
+
+            if ($attempt < $maxAttempts) {
+                $this->logManager->info(
+                    'Lock attempt {attempt}/{max} failed for Qliro order {qliroOrderId}, retrying in {wait}s',
+                    [
+                        'attempt' => $attempt,
+                        'max' => $maxAttempts,
+                        'qliroOrderId' => $qliroOrderId,
+                        'wait' => $waitSeconds,
+                    ]
+                );
+                sleep($waitSeconds);
+            }
+        }
+
+        return false;
     }
 
     /**
