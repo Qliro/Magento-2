@@ -56,4 +56,15 @@ interface QliroOrderUpdateRequestInterface extends ContainerInterface
      * @return $this
      */
     public function setRequireIdentityVerification($value);
+
+    /**
+     * @return bool|null
+     */
+    public function getDigital();
+
+    /**
+     * @param bool $value
+     * @return $this
+     */
+    public function setDigital($value);
 }

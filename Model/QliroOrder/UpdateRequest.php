@@ -34,6 +34,11 @@ class UpdateRequest implements QliroOrderUpdateRequestInterface
     private $requireIdentityVerification;
 
     /**
+     * @var bool|null
+     */
+    private $digital;
+
+    /**
      * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
      */
     public function getOrderItems()
@@ -107,6 +112,25 @@ class UpdateRequest implements QliroOrderUpdateRequestInterface
     public function setShippingConfiguration($shippingConfiguration)
     {
         $this->shippingConfiguration = $shippingConfiguration;
+
+        return $this;
+    }
+
+    /**
+     * @return bool|null
+     */
+    public function getDigital()
+    {
+        return $this->digital;
+    }
+
+    /**
+     * @param bool $value
+     * @return $this
+     */
+    public function setDigital($value)
+    {
+        $this->digital = $value;
 
         return $this;
     }
