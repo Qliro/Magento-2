@@ -101,23 +101,22 @@ class ShippingMethodsBuilder
             return $container;
         }
 
+        if ($this->quote->isVirtual()) {
+            $this->quote = null;
+            return $container;
+        }
+
         $this->quote->setTotalsCollectedFlag(false);
         $this->quote->collectTotals();
         $this->quote->getShippingAddress()
             ->setCollectShippingRates(true)
             ->collectShippingRates();
 
-        $collectedShippingMethods = [];
-
-        if ($this->quote->getIsVirtual()) {
-            $container->setAvailableShippingMethods($collectedShippingMethods);
+        $collectedShippingMethods = $this->collectShippingMethods();
+        if (empty($collectedShippingMethods)) {
+            $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
         } else {
-            $collectedShippingMethods = $this->collectShippingMethods();
-            if (empty($collectedShippingMethods)) {
-                $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
-            } else {
-                $container->setAvailableShippingMethods($collectedShippingMethods);
-            }
+            $container->setAvailableShippingMethods($collectedShippingMethods);
         }
 
         $this->eventManager->dispatch(

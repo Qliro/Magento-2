@@ -105,14 +105,18 @@ class UpdateRequestBuilder
         $updateRequest = $this->prepareUpdateRequest();
 
         $orderItems = $this->orderItemsBuilder->setQuote($this->quote)->create();
-
         $updateRequest->setOrderItems($orderItems);
-        $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
-        $updateRequest->setAvailableShippingMethods($shippingMethods->getAvailableShippingMethods());
 
-        $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
-        if ($shippingConfig) {
-            $updateRequest->setShippingConfiguration($shippingConfig);
+        if ($this->quote->isVirtual()) {
+            $updateRequest->setDigital(true);
+        } else {
+            $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
+            $updateRequest->setAvailableShippingMethods($shippingMethods->getAvailableShippingMethods());
+
+            $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
+            if ($shippingConfig) {
+                $updateRequest->setShippingConfiguration($shippingConfig);
+            }
         }
 
         return $updateRequest;

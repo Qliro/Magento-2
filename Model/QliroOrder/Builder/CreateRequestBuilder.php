@@ -224,40 +224,46 @@ class CreateRequestBuilder
 
         $this->logManager->debug('Starting to set order items to request object');
         $createRequest->setOrderItems($orderItems);
-        $presetAddress = $this->qliroConfig->presetAddress();
-        $shippingAddress = $this->quote->getShippingAddress();
-        if ($presetAddress && empty($shippingAddress->getPostcode())) {
-            $this->logManager->debug('Starting to set fake address as don\'t have real one yet');
-            /* set a fake address since we don't have the real one yet */
-            $storeInfo = $this->information->getStoreInformationObject($this->quote->getStore());
-            if (!empty($storeInfo)) {
-                $shippingAddress->addData([
-                    'company' => $storeInfo->getData('name'),
-                    'telephone' => $storeInfo->getData('phone'),
-                    'street' => sprintf(
-                        "%s\n%s",
-                        $storeInfo->getData('street_line1'),
-                        $storeInfo->getData('street_line2')
-                    ),
-                    'city' => $storeInfo->getData('city'),
-                    'postcode' => str_replace(' ', '', (string)$storeInfo->getData('postcode')),
-                    'region_id' => $storeInfo->getData('region_id'),
-                    'country_id' => $storeInfo->getData('country_id'),
-                    'region' => $storeInfo->getData('region'),
-                ]);
-            }
-        }
-        $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
-        $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
-        $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();
-        if (!empty($storeInfo)) {
-            $shippingAddress->clearInstance()->save();
-        }
-        $createRequest->setAvailableShippingMethods($availableShippingMethods);
 
-        $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
-        if ($shippingConfig) {
-            $createRequest->setShippingConfiguration($shippingConfig);
+        if ($this->quote->isVirtual()) {
+            $createRequest->setDigital(true);
+        } else {
+            $presetAddress = $this->qliroConfig->presetAddress();
+            $shippingAddress = $this->quote->getShippingAddress();
+            if ($presetAddress && empty($shippingAddress->getPostcode())) {
+                $this->logManager->debug('Starting to set fake address as don\'t have real one yet');
+                /* set a fake address since we don't have the real one yet */
+                $storeInfo = $this->information->getStoreInformationObject($this->quote->getStore());
+                if (!empty($storeInfo)) {
+                    $shippingAddress->addData([
+                        'company' => $storeInfo->getData('name'),
+                        'telephone' => $storeInfo->getData('phone'),
+                        'street' => sprintf(
+                            "%s\n%s",
+                            $storeInfo->getData('street_line1'),
+                            $storeInfo->getData('street_line2')
+                        ),
+                        'city' => $storeInfo->getData('city'),
+                        'postcode' => str_replace(' ', '', (string)$storeInfo->getData('postcode')),
+                        'region_id' => $storeInfo->getData('region_id'),
+                        'country_id' => $storeInfo->getData('country_id'),
+                        'region' => $storeInfo->getData('region'),
+                    ]);
+                }
+            }
+            $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
+            $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
+            $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
+            $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();
+            if (!empty($storeInfo)) {
+                $shippingAddress->clearInstance()->save();
+            }
+            $createRequest->setAvailableShippingMethods($availableShippingMethods);
+
+            $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
+            if ($shippingConfig) {
+                $createRequest->setShippingConfiguration($shippingConfig);
+            }
         }
 
         $customerInfo = $this->customerBuilder
@@ -329,7 +335,7 @@ class CreateRequestBuilder
 
         $createRequest->setMerchantOrderValidationUrl($this->getCallbackUrl('checkout/qliro_callback/validate'));
 
-        if (!($this->qliroConfig->isIngridEnabled($this->quote->getStoreId()) || $this->qliroConfig->isUnifaunEnabled($this->quote->getStoreId()))) {
+        if (!$this->quote->isVirtual() && !($this->qliroConfig->isIngridEnabled($this->quote->getStoreId()) || $this->qliroConfig->isUnifaunEnabled($this->quote->getStoreId()))) {
             $createRequest->setMerchantOrderAvailableShippingMethodsUrl(
                 $this->getCallbackUrl('checkout/qliro_callback/shippingMethods')
             );
