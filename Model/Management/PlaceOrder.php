@@ -426,30 +426,28 @@ class PlaceOrder extends AbstractManagement
                     $alreadyUpdatedMerchantRef = $paymentAdditionalInfo['qliroone_updated_merchant_reference'] ?? false;
 
                     if (!$alreadyUpdatedMerchantRef) {
-                        /*
-                        * If Magento order has already been placed and QliroOne order status is completed,
-                        * the order merchant reference must be replaced with Magento order increment ID
-                        */
-                        /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                        $request = $this->containerMapper->fromArray(
-                            [
-                                'OrderId' => $link->getQliroOrderId(),
-                                'NewMerchantReference' => $order->getIncrementId(),
-                            ],
-                            AdminUpdateMerchantReferenceRequestInterface::class
-                        );
+                        if (!$this->qliroConfig->isUseIncrementIdAsReference((int) $order->getStoreId())) {
+                            /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
+                            $request = $this->containerMapper->fromArray(
+                                [
+                                    'OrderId' => $link->getQliroOrderId(),
+                                    'NewMerchantReference' => $order->getIncrementId(),
+                                ],
+                                AdminUpdateMerchantReferenceRequestInterface::class
+                            );
 
-                        $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-                        $transactionId = 'unknown';
-                        if ($response && $response->getPaymentTransactionId()) {
-                            $transactionId = $response->getPaymentTransactionId();
+                            $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
+                            $transactionId = 'unknown';
+                            if ($response && $response->getPaymentTransactionId()) {
+                                $transactionId = $response->getPaymentTransactionId();
+                            }
+                            $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
+                                'payment_transaction_id' => $transactionId,
+                                'qliro_order_id' => $link->getQliroOrderId(),
+                                'order_id' => $order->getId(),
+                                'new_merchant_reference' => $order->getIncrementId(),
+                            ]);
                         }
-                        $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                            'payment_transaction_id' => $transactionId,
-                            'qliro_order_id' => $link->getQliroOrderId(),
-                            'order_id' => $order->getId(),
-                            'new_merchant_reference' => $order->getIncrementId(),
-                        ]);
 
                         $paymentAdditionalInfo['qliroone_updated_merchant_reference'] = true;
                         $order->getPayment()->setAdditionalInformation($paymentAdditionalInfo);
