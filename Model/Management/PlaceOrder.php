@@ -211,7 +211,34 @@ class PlaceOrder extends AbstractManagement
                         ]
                     );
 
-                    throw $exception;
+                    // Lock failed because a parallel process (webhook vs browser poll)
+                    // is already placing this order. Reload the link to check if that
+                    // process has already saved a valid order_id successfully.
+                    try {
+                        $freshLink = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+                        if ($freshLink->getOrderId()) {
+                            $this->logManager->debug(
+                                'Lock failed but order was already placed by parallel process',
+                                [
+                                    'extra' => [
+                                        'quote_id' => $quoteId,
+                                        'qliro_order_id' => $qliroOrderId,
+                                        'order_id' => $freshLink->getOrderId(),
+                                    ],
+                                ]
+                            );
+                            $order = $this->orderRepository->get($freshLink->getOrderId());
+                            // Order exists — fall through normally without throwing
+                        } else {
+                            // Neither process placed the order — truly failed
+                            throw $exception;
+                        }
+                    } catch (FailToLockException $e) {
+                        throw $e;
+                    } catch (\Exception $reloadException) {
+                        $this->logManager->critical($reloadException);
+                        throw $exception;
+                    }
                 } catch (OrderPlacementPendingException $exception) {
                     $this->logManager->critical(
                         $exception,

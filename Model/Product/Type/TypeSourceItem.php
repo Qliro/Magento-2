@@ -19,22 +19,22 @@ class TypeSourceItem implements TypeSourceItemInterface
     /**
      * @var int
      */
-    private int $id;
+    private int $id = 0;
 
     /**
      * @var string
      */
-    private string $sku;
+    private string $sku = '';
 
     /**
      * @var string
      */
-    private string $type;
+    private string $type = '';
 
     /**
      * @var string
      */
-    private string $name;
+    private string $name = '';
 
     /**
      * @var Product
@@ -44,22 +44,22 @@ class TypeSourceItem implements TypeSourceItemInterface
     /**
      * @var float
      */
-    private float $qty;
+    private float $qty = 0.0;
 
     /**
      * @var float
      */
-    private float $priceInclTax;
+    private float $priceInclTax = 0.0;
 
     /**
      * @var float
      */
-    private float $priceExclTax;
+    private float $priceExclTax = 0.0;
 
     /**
      * @var float
      */
-    private float $vatRate;
+    private float $vatRate = 0.0;
 
     /**
      * @var mixed
