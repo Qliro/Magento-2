@@ -43,6 +43,9 @@
                 </styling>
                 <merchant>
                     <fee_merchant_reference>InvoiceFee</fee_merchant_reference>
+                    <use_increment_id_as_reference>0</use_increment_id_as_reference>
+                    <terms_url/>
+                    <integrity_policy_url/>
                 </merchant>
                 <callback>
                     <redirect_callbacks>0</redirect_callbacks>

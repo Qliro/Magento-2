@@ -6,6 +6,7 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\HashResolverInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Model\Config;
 
 /**
  * Service class for generating necessary data for Link entities
@@ -14,26 +15,20 @@ class LinkService
 {
     const REFERENCE_MIN_LENGTH = 6;
 
-    /**
-     * @var Qliro\QliroOne\Api\HashResolverInterface
-     */
-    private HashResolverInterface $hashResolver;
-
-    /**
-     * @var Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private LinkRepositoryInterface $linkRepository;
-
     public function __construct(
-        HashResolverInterface $hashResolver,
-        LinkRepositoryInterface $linkRepository
+        private HashResolverInterface $hashResolver,
+        private LinkRepositoryInterface $linkRepository,
+        private Config $qliroConfig
     ) {
-        $this->hashResolver = $hashResolver;
-        $this->linkRepository = $linkRepository;
     }
 
     /**
      * Generate a QliroOne unique order reference
+     *
+     * When the admin setting "Use Magento Increment ID as a reference" is on,
+     * the resolver returns the quote's reserved Magento increment ID and we use
+     * it verbatim — increment IDs are already globally unique, so neither the
+     * substring truncation nor the uniqueness loop below are appropriate.
      *
      * @param Quote $quote
      * @return string
@@ -42,6 +37,11 @@ class LinkService
     {
         $hash = $this->hashResolver->resolveHash($quote);
         $this->validateHash($hash);
+
+        if ($this->qliroConfig->isUseIncrementIdAsReference((int) $quote->getStoreId())) {
+            return $hash;
+        }
+
         $hashLength = self::REFERENCE_MIN_LENGTH;
 
         do {
