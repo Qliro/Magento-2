@@ -140,6 +140,26 @@ class ShipmentShipmentsBuilder
 
         if ($this->isFirstShipment()) {
             $this->order->setFirstCaptureFlag(true);
+
+            // Virtual items cannot be physically shipped. Include any that have been
+            // invoiced on the first shipment, so Qliro captures them here.
+            foreach ($this->order->getAllItems() as $orderItem) {
+                if (!$orderItem->getIsVirtual() || $orderItem->getParentItemId()) {
+                    continue;
+                }
+                $qty = (int) $orderItem->getQtyInvoiced();
+                if ($qty <= 0) {
+                    continue;
+                }
+                $qliroOrderItem = $this->typeResolver->resolveQliroOrderItem(
+                    $this->orderSourceProvider->generateSourceItem($orderItem, $qty),
+                    $this->orderSourceProvider
+                );
+                if ($qliroOrderItem) {
+                    $qliroOrderItem->setQuantity($qty);
+                    $shipmentOrderItems[] = $qliroOrderItem;
+                }
+            }
         }
 
         foreach ($this->handlers as $handler) {
@@ -165,14 +185,9 @@ class ShipmentShipmentsBuilder
     /**
      * @return bool
      */
-    private function isFirstShipment()
+    private function isFirstShipment(): bool
     {
-        $invoiceCollection = $this->order->getInvoiceCollection();
-        foreach ($invoiceCollection as $invoice) {
-            return false;
-        }
-        $shipmentCollection = $this->order->getShipmentsCollection();
-        foreach ($shipmentCollection as $shipment) {
+        foreach ($this->order->getShipmentsCollection() as $shipment) {
             if ($shipment->getId() == $this->shipment->getId()) {
                 continue;
             }
