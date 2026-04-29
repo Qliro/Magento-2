@@ -162,6 +162,11 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     private $requireIdentityVerification;
 
     /**
+     * @var bool|null
+     */
+    private $digital;
+
+    /**
      * Getter.
      *
      * @return string
@@ -775,6 +780,25 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     public function setRequireIdentityVerification($requireIdentityVerification)
     {
         $this->requireIdentityVerification = $requireIdentityVerification;
+
+        return $this;
+    }
+
+    /**
+     * @return bool|null
+     */
+    public function getDigital()
+    {
+        return $this->digital;
+    }
+
+    /**
+     * @param bool $value
+     * @return $this
+     */
+    public function setDigital($value)
+    {
+        $this->digital = $value;
 
         return $this;
     }
