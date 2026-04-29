@@ -1,4 +1,7 @@
 <?php
+
+use Magento\Quote\Model\Quote\Address;
+
 /**
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
@@ -8,8 +11,10 @@ namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Address as QuoteAddress;
 use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Tax\Helper\Data as TaxHelper;
+use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface;
 use Qliro\QliroOne\Helper\Data;
@@ -106,7 +111,7 @@ class ShippingMethodBuilder
     /**
      * Create a QliroOne order shipping method container
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface
+     * @return QliroOrderShippingMethodInterface
      */
 
     public function create()
@@ -120,18 +125,20 @@ class ShippingMethodBuilder
         }
 
         $shippingAddress = $this->quote->getShippingAddress();
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface $container */
+        /** @var QliroOrderShippingMethodInterface $container */
         $container = $this->shippingMethodFactory->create();
 
+        $discountedRatePrice = $this->applyShippingDiscount($shippingAddress, (float) $this->rate->getPrice());
+
         $priceExVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
+            $discountedRatePrice,
             false,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
         );
 
         $priceIncVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() - $shippingAddress->getShippingDiscountAmount(),
+            $discountedRatePrice,
             true,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
@@ -172,5 +179,29 @@ class ShippingMethodBuilder
         $this->rate = null;
 
         return $container;
+    }
+
+    /**
+     * Apply shipping discount to the rate price
+     *
+     * @param QuoteAddress $address
+     * @param float $ratePrice
+     * @return float
+     */
+    private function applyShippingDiscount(QuoteAddress $address, float $ratePrice): float
+    {
+        if ($address->getFreeShipping()) {
+            return 0.0;
+        }
+
+        $discountAmount  = (float) $address->getShippingDiscountAmount();
+        $originalSelected = (float) $address->getShippingAmount() + $discountAmount;
+
+        if ($originalSelected <= 0.0 || $discountAmount <= 0.0) {
+            return $ratePrice;
+        }
+
+        $ratio = $discountAmount / $originalSelected;
+        return max(0.0, $ratePrice * (1.0 - $ratio));
     }
 }
