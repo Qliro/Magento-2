@@ -275,6 +275,7 @@ class Quote extends AbstractManagement
      *
      * @return \Qliro\QliroOne\Api\Data\LinkInterface
      * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @throws \Magento\Framework\Exception\LocalizedException
      */
     public function getLinkFromQuote()
     {
@@ -285,13 +286,7 @@ class Quote extends AbstractManagement
             $link = $this->linkRepository->getByQuoteId($quoteId);
             $this->logManager->debug('Link found for quote ' . $quoteId);
         } catch (NoSuchEntityException $exception) {
-            $this->logManager->debug('No Link found for quote ' . $quoteId . ', creating new one');
-            /** @var \Qliro\QliroOne\Api\Data\LinkInterface $link */
-            $link = $this->linkFactory->create();
-            $link->setRemoteIp($this->helper->getRemoteIp());
-            $link->setIsActive(true);
-            $link->setQuoteId($quoteId);
-            $this->logManager->debug('Link created, quote_id: ' . $quoteId);
+            $link = $this->createBlankLink($quoteId);
         }
 
         $this->handleCountrySelect($link);
@@ -300,7 +295,25 @@ class Quote extends AbstractManagement
             $this->logManager->debug('Starting to update qliro order from quote ' . $quoteId);
             $this->update($link->getQliroOrderId());
             $this->logManager->debug('Updated qliro order from quote ' . $quoteId);
-        } else {
+
+            // update() may deactivate the link if Qliro rejects the stored
+            // qliro_order_id. Reload from DB and start fresh if it's gone.
+            $link = $this->reloadLinkState($link);
+
+            if (!$link->getIsActive()) {
+                $this->logManager->debug(
+                    sprintf(
+                        'Link %d was deactivated during update (likely stale Qliro order); '
+                        . 'creating new link for quote %d',
+                        (int) $link->getId(),
+                        $quoteId
+                    )
+                );
+                $link = $this->createBlankLink($quoteId);
+            }
+        }
+
+        if (!$link->getQliroOrderId()) {
             $this->logManager->debug('Generating new qliro order reference' . $quoteId);
             $orderReference = $this->linkService->generateOrderReference($quote);
             $this->logManager->debug('Qliro order reference created: ' . $orderReference);
@@ -322,7 +335,6 @@ class Quote extends AbstractManagement
 
             $hash = $this->generateUpdateHash($quote);
             $link->setQuoteSnapshot($hash);
-
             $link->setIsActive(true);
             $link->setReference($orderReference);
             $link->setQliroOrderId($orderId);
@@ -331,6 +343,43 @@ class Quote extends AbstractManagement
         }
 
         return $link;
+    }
+
+    /**
+     * Creates a new blank link for a given quote
+     * Initializes the link with the remote IP, active status, and the provided quote ID
+     *
+     * @param int $quoteId The ID of the quote for which the link is created
+     * @return LinkInterface The newly created blank link
+     */
+    private function createBlankLink(int $quoteId): LinkInterface
+    {
+        $this->logManager->debug('Creating new blank link for quote ' . $quoteId);
+        /** @var LinkInterface $link */
+        $link = $this->linkFactory->create();
+        $link->setRemoteIp($this->helper->getRemoteIp());
+        $link->setIsActive(true);
+        $link->setQuoteId($quoteId);
+        return $link;
+    }
+
+    /**
+     * Reloads the state of the given link from the repository.
+     * If the link does not have an ID or cannot be found, the original link is returned.
+     *
+     * @param LinkInterface $link The link to reload.
+     * @return LinkInterface The reloaded link or the original link if it cannot be reloaded.
+     */
+    private function reloadLinkState(LinkInterface $link): LinkInterface
+    {
+        if (!$link->getId()) {
+            return $link;
+        }
+        try {
+            return $this->linkRepository->get($link->getId(), false);
+        } catch (NoSuchEntityException $e) {
+            return $link;
+        }
     }
 
     /**

@@ -195,7 +195,35 @@ class QliroOrder extends AbstractManagement
 
         try {
             $qliroOrderId = $link->getQliroOrderId();
-            $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+            try {
+                $qliroOrder = $this->merchantApi->getOrder($link->getQliroOrderId());
+            } catch (\Throwable $e) {
+                if (!$this->isOrderNotFound($e)) {
+                    throw $e;
+                }
+
+                // The local link points to a Qliro order that no longer exists.
+                // Deactivate it, get a fresh link (which will create a new Qliro order), and retry
+                $this->logManager->debug(
+                    'Qliro returned 404 for the stored qliro_order_id; deactivating link and recreating',
+                    [
+                        'extra' => [
+                            'link_id' => $link->getId(),
+                            'quote_id' => $link->getQuoteId(),
+                            'qliro_order_id' => $qliroOrderId,
+                        ],
+                    ]
+                );
+
+                $link->setIsActive(false);
+                $link->setMessage('Qliro order not found, recreating');
+                $this->linkRepository->save($link);
+
+                // Re-enter the flow with a fresh link
+                $link = $this->quoteManagement->setQuote($this->getQuote())->getLinkFromQuote();
+                $qliroOrderId = $link->getQliroOrderId();
+                $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+            }
 
             if ($this->lock->lock($qliroOrderId)) {
                 if (empty($link->getOrderId())) {
@@ -433,5 +461,23 @@ class QliroOrder extends AbstractManagement
         }
 
         return $responseContainer;
+    }
+
+    /**
+     * Determines if the given exception indicates that an order was not found.
+     *
+     * @param \Throwable $e The exception to check for a 404 status indicating a missing order.
+     * @return bool True if the exception or one of its causes indicates a 404 status; otherwise, false.
+     */
+    private function isOrderNotFound(\Throwable $e): bool
+    {
+        $current = $e;
+        while ($current !== null) {
+            if ($current instanceof \GuzzleHttp\Exception\ClientException) {
+                return $current->getResponse()?->getStatusCode() === 404;
+            }
+            $current = $current->getPrevious();
+        }
+        return false;
     }
 }
