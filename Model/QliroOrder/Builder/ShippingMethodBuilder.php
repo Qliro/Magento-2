@@ -1,7 +1,5 @@
 <?php
 
-use Magento\Quote\Model\Quote\Address;
-
 /**
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
