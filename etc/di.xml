@@ -130,6 +130,7 @@
                 <item name="shipment" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler\Shipment</item>
                 <item name="payment" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler\Payment</item>
                 <item name="cancel" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler\Cancel</item>
+                <item name="refund" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler\Refund</item>
             </argument>
         </arguments>
     </type>
