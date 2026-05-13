@@ -1,6 +1,31 @@
 
 # Change Log
 
+## [1.7.5] - 2026-05-13
+
+### Fixed
+
+- Fixed race conditions in Qliro callback handling for simultaneous `OnHold` and `Completed` statuses
+- Prevented stale callbacks from overriding the final Magento order state
+- Improved concurrent order creation handling by returning `Order creation pending` instead of failing requests
+- Fixed deadlocks in `qliroone_log` table during concurrent callback processing
+- Prevented HTTP 500 errors caused by logging failures during callback execution
+- Improved recovery flow for outdated or invalid Qliro order links
+- Enhanced Qliro order state synchronization and hash resolution logic
+- Improved uniqueness handling for generated merchant reference hashes
+
+### Added
+
+- Added support for using Magento Increment ID as Qliro merchant reference
+- Added refund handler for Qliro order management status updates
+- Added modular hash resolvers for merchant reference generation
+
+### Changed
+
+- Refactored Qliro order management and hash resolution architecture
+- Simplified link creation and state reload handling
+- Improved code quality and reduced internal redundancy
+
 ## [1.7.4] - 2026-04-01
 
 ### Fixed
