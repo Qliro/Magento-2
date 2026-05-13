@@ -16,6 +16,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\Quote;
+use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
@@ -56,7 +57,8 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         readonly private Session $checkoutSession,
         readonly private Manager $logManager,
         readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper
+        readonly private TaxHelper $taxHelper,
+        readonly private LinkRepositoryInterface $linkRepository
     ) {
         parent::__construct($context);
     }
@@ -110,6 +112,23 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
                 null,
                 'AJAX:UPDATE_SHIPPING_PRICE:ERROR_TOKEN'
             );
+        }
+
+        try {
+            $link = $this->linkRepository->getByQuoteId($quote->getId());
+            if ($link->getIsLocked()) {
+                return $this->dataHelper->sendPreparedPayload(
+                    [
+                        'status' => 'LOCKED',
+                        'error' => (string)__('Shipping price cannot be updated after validation. The quote is locked.')
+                    ],
+                    423,
+                    null,
+                    'AJAX:UPDATE_SHIPPING_PRICE:LOCKED'
+                );
+            }
+        } catch (NoSuchEntityException $e) {
+            // No link found — allow the update to proceed
         }
 
         try {

@@ -10,6 +10,8 @@ use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
@@ -45,7 +47,8 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         readonly private Session $checkoutSession,
         readonly private LogManager $logManager,
         readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper
+        readonly private TaxHelper $taxHelper,
+        readonly private LinkRepositoryInterface $linkRepository
     ) {
         parent::__construct($context);
     }
@@ -87,6 +90,23 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                 null,
                 'AJAX:UPDATE_SHIPPING_METHOD:ERROR_TOKEN'
             );
+        }
+
+        try {
+            $link = $this->linkRepository->getByQuoteId($quote->getId());
+            if ($link->getIsLocked()) {
+                return $this->dataHelper->sendPreparedPayload(
+                    [
+                        'status' => 'LOCKED',
+                        'error' => (string)__('Shipping method cannot be updated after validation. The quote is locked.')
+                    ],
+                    423,
+                    null,
+                    'AJAX:UPDATE_SHIPPING_METHOD:LOCKED'
+                );
+            }
+        } catch (NoSuchEntityException $e) {
+            // No link found — allow the update to proceed
         }
 
         $this->logManager->debug('Starting to read prepared payload');
