@@ -2,77 +2,59 @@
 
 namespace Qliro\QliroOne\Service\General;
 
-use Magento\Framework\Exception\NoSuchEntityException;
+use DomainException;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\HashResolverInterface;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 
 /**
- * Service class for generating necessary data for Link entities
+ * Service class for generating necessary data for Link entities.
+ *
+ * The actual hash strategy (random vs. Magento increment ID) is selected
+ * by the injected HashResolverInterface implementation. Each resolver is
+ * responsible for producing a final, unique, validation-ready reference.
  */
 class LinkService
 {
-    const REFERENCE_MIN_LENGTH = 6;
-
     /**
-     * @var Qliro\QliroOne\Api\HashResolverInterface
+     * @param HashResolverInterface $hashResolver
      */
-    private HashResolverInterface $hashResolver;
-
-    /**
-     * @var Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private LinkRepositoryInterface $linkRepository;
-
     public function __construct(
-        HashResolverInterface $hashResolver,
-        LinkRepositoryInterface $linkRepository
+        private readonly HashResolverInterface $hashResolver
     ) {
-        $this->hashResolver = $hashResolver;
-        $this->linkRepository = $linkRepository;
     }
 
     /**
-     * Generate a QliroOne unique order reference
+     * Generates an order reference by resolving a hash value from the provided quote.
      *
-     * @param Quote $quote
-     * @return string
+     * @param Quote $quote The quote object used to generate the order reference.
+     * @return string The generated order reference.
+     *
+     * @throws LocalizedException If the resolver cannot produce a reference (e.g. failed to obtain a unique increment ID).
+     * @throws DomainException If the resulting reference does not match Qliro's accepted format.
      */
     public function generateOrderReference(Quote $quote): string
     {
         $hash = $this->hashResolver->resolveHash($quote);
         $this->validateHash($hash);
-        $hashLength = self::REFERENCE_MIN_LENGTH;
 
-        do {
-            $isUnique = false;
-            $shortenedHash = substr($hash, 0, $hashLength);
-
-            try {
-                $this->linkRepository->getByReference($shortenedHash);
-
-                if ((++$hashLength) > HashResolverInterface::HASH_MAX_LENGTH) {
-                    $hash = $this->hashResolver->resolveHash($quote);
-                    $this->validateHash($hash);
-                    $hashLength = self::REFERENCE_MIN_LENGTH;
-                }
-            } catch (NoSuchEntityException $exception) {
-                $isUnique = true;
-            }
-        } while (!$isUnique);
-
-        return $shortenedHash;
+        return $hash;
     }
 
     /**
-     * Validate hash against QliroOne order merchant reference requirements
+     * Validates the given hash against a predefined pattern.
      *
-     * @param string $hash
+     * @param string $hash The hash string to be validated.
+     * @return void
+     *
+     * @throws DomainException If the hash does not match the required pattern.
      */
-    private function validateHash($hash)
+    private function validateHash(string $hash): void
     {
         if (!preg_match(HashResolverInterface::VALIDATE_MERCHANT_REFERENCE, $hash)) {
-            throw new \DomainException(sprintf('Merchant reference \'%s\' will not be accepted by Qliro', $hash));
+            throw new DomainException(
+                sprintf('Merchant reference \'%s\' will not be accepted by Qliro', $hash)
+            );
         }
     }
 }
