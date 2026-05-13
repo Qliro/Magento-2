@@ -46,26 +46,41 @@ class Handler extends AbstractProcessingHandler
      */
     protected function write(array|LogRecord $record): void
     {
-        $context = $record['context'];
-        $record = $record['formatted'];
+        $maxAttempts = 3;
+        $attempt = 0;
 
-        $mark = $context['mark'] ?? null;
-        $message = ($mark ? sprintf('%s: ', strtoupper($mark)) : null) . $record['message'];
+        while ($attempt < $maxAttempts) {
+            try {
+                $context = $record['context'];
+                $record = $record['formatted'];
 
-        $connection = $this->connectionProvider->getConnection();
-        $connection->insert(
-            $connection->getTableName(DbLogRecord::TABLE_LOG),
-            [
-                LogRecordInterface::FIELD_DATE => $record['datetime'],
-                LogRecordInterface::FIELD_LEVEL => $record['level_name'],
-                LogRecordInterface::FIELD_MESSAGE => $message,
-                LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
-                LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
-                LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
-                LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
-                LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s')
-            ]
-        );
+                $mark = $context['mark'] ?? null;
+                $message = ($mark ? sprintf('%s: ', strtoupper($mark)) : null) . $record['message'];
+
+                $connection = $this->connectionProvider->getConnection();
+                $connection->insert(
+                    $connection->getTableName(DbLogRecord::TABLE_LOG),
+                    [
+                        LogRecordInterface::FIELD_DATE => $record['datetime'],
+                        LogRecordInterface::FIELD_LEVEL => $record['level_name'],
+                        LogRecordInterface::FIELD_MESSAGE => $message,
+                        LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
+                        LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
+                        LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
+                        LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
+                        LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s')
+                    ]
+                );
+                return;
+            } catch (\Magento\Framework\DB\Adapter\DeadlockException $e) {
+                $attempt++;
+                usleep(50000); // 50 ms
+            } catch (\Throwable $e) {
+                // Never let logging break business flow
+                return;
+            }
+        }
+
     }
 
     /**

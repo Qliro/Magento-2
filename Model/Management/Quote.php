@@ -376,9 +376,35 @@ class Quote extends AbstractManagement
                         $this->logManager->debug(sprintf('updated order %s', $orderId));     // @todo: remove
                     }
                 } catch (\Exception $exception) {
+                    $message = $exception->getMessage();
+                    $isOrderCompletedError =
+                        strpos($message, 'ORDER_COMPLETED') !== false
+                        || strpos($message, 'already completed') !== false;
+
+                    if ($isOrderCompletedError) {
+                        $this->logManager->notice(
+                            'Skipping QliroOne order update because the order is already completed',
+                            [
+                                'extra' => [
+                                    'qliro_order_id' => $orderId,
+                                    'quote_id' => $quoteId,
+                                    'link_id' => $link ? $link->getId() : null,
+                                ],
+                            ]
+                        );
+
+                        if ($link && $link->getId()) {
+                            $link->setQliroOrderStatus(CheckoutStatusInterface::STATUS_COMPLETED);
+                            $link->setMessage('Qliro order already completed; merchant update skipped');
+                            $this->linkRepository->save($link);
+                        }
+
+                        return;
+                    }
+
                     if ($link && $link->getId()) {
                         $link->setIsActive(false);
-                        $link->setMessage($exception->getMessage());
+                        $link->setMessage($message);
                         $this->linkRepository->save($link);
                     }
                     $this->logManager->critical(
@@ -387,7 +413,7 @@ class Quote extends AbstractManagement
                             'extra' => [
                                 'qliro_order_id' => $orderId,
                                 'quote_id' => $quoteId,
-                                'link_id' => $link->getId()
+                                'link_id' => $link ? $link->getId() : null
                             ],
                         ]
                     );

@@ -294,6 +294,19 @@ class PlaceOrder extends AbstractManagement
         try {
             $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
 
+            /**
+             * Persist the latest Qliro checkout status as early as possible.
+             *
+             * applyQliroOrderStatus() reads qliro_order_status from the saved link,
+             * not from the live $qliroOrder object. Without persisting it here,
+             * Magento may still act on a stale status (for example InProcess)
+             * even though the fetched Qliro order is already Completed.
+             */
+            if ($link->getQliroOrderStatus() !== $qliroOrder->getCustomerCheckoutStatus()) {
+                $link->setQliroOrderStatus($qliroOrder->getCustomerCheckoutStatus());
+                $this->linkRepository->save($link);
+            }
+
             try {
                 if ($orderId = $link->getOrderId()) {
                     $this->logManager->debug(
@@ -331,6 +344,12 @@ class PlaceOrder extends AbstractManagement
                     $this->logManager->debug('Finished to place order from quote: ' . $this->getQuote()->getId() . ' Order ID: ' . $order->getId());
                     $orderId = $order->getId();
 
+                    /**
+                     * Save the latest Qliro status together with the order id.
+                     * This removes the race where the order is placed based on a fetched
+                     * Completed Qliro order, but the link still contains an older status.
+                     */
+                    $link->setQliroOrderStatus($qliroOrder->getCustomerCheckoutStatus());
                     $link->setOrderId($orderId);
                     $this->linkRepository->save($link);
 
