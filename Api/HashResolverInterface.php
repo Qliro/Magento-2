@@ -6,6 +6,7 @@
 
 namespace Qliro\QliroOne\Api;
 
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Api\Data\CartInterface;
 
 /**
@@ -13,19 +14,19 @@ use Magento\Quote\Api\Data\CartInterface;
  */
 interface HashResolverInterface
 {
-    const HASH_MAX_LENGTH = 25;
-
     /**
-     * A merchant reference must match this pattern to be accepted by Qliro.
+     * Regular expression pattern to validate a merchant reference.
+     * The reference can include alphanumeric characters, underscores,
+     * and hyphens, with a length of 1 to 25 characters.
      */
-    const VALIDATE_MERCHANT_REFERENCE = '/^[A-Za-z0-9_-]{1,25}$/';
+    public const VALIDATE_MERCHANT_REFERENCE = '/^[A-Za-z0-9_-]{1,25}$/';
 
     /**
-     * Resolve a supposedly unique hash for QliroOne order reference.
-     * It must be a string of any length, but important to remember that it will be truncated to up to 25 characters max
+     * Resolves and retrieves a hash string for the given cart instance.
      *
-     * @param \Magento\Quote\Api\Data\CartInterface $quote
-     * @return string
+     * @param CartInterface $quote The cart instance for which the hash is to be resolved.
+     * @throws LocalizedException
+     * @return string The resolved hash string associated with the provided cart.
      */
-    public function resolveHash(CartInterface $quote);
+    public function resolveHash(CartInterface $quote): string;
 }

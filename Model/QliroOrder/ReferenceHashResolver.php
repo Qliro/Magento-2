@@ -1,39 +1,44 @@
-<?php
+<?php declare(strict_types=1);
 /**
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
 
-// @codingStandardsIgnoreFile
-// phpcs:ignoreFile
-
 namespace Qliro\QliroOne\Model\QliroOrder;
 
 use Magento\Quote\Api\Data\CartInterface;
 use Qliro\QliroOne\Api\HashResolverInterface;
+use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\QliroOrder\HashResolver\IncrementIdHashResolver;
+use Qliro\QliroOne\Model\QliroOrder\HashResolver\RandomHashResolver;
 
 /**
- * QliroOne order reference hash resolver class
+ * Resolves a reference hash for a given cart instance.
+ * Determines the strategy for generating the hash based on the configuration.
  */
 class ReferenceHashResolver implements HashResolverInterface
 {
-    const CHARSET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    /**
+     * @param Config $qliroConfig
+     * @param RandomHashResolver $randomResolver
+     * @param IncrementIdHashResolver $incrementIdResolver
+     */
+    public function __construct(
+        private readonly Config $qliroConfig,
+        private readonly RandomHashResolver $randomResolver,
+        private readonly IncrementIdHashResolver $incrementIdResolver
+    ) {
+    }
 
     /**
-     * Resolve a supposedly unique hash for QliroOne order reference.
-     * It must be a string of any length, but important to remember that it will be truncated to up to 25 characters max
-     *
-     * @param \Magento\Quote\Api\Data\CartInterface $quote
-     * @return string
+     * @inheritDoc
      */
-    public function resolveHash(CartInterface $quote)
+    public function resolveHash(CartInterface $quote): string
     {
-        srand();
-        $result = '';
-        for ($index = 0; $index < self::HASH_MAX_LENGTH; ++$index) {
-            $result .= self::CHARSET[rand(0, strlen(self::CHARSET) - 1)];
-        }
+        $storeId = $quote->getStoreId() !== null ? (int) $quote->getStoreId() : null;
 
-        return $result;
+        return $this->qliroConfig->isUseIncrementIdAsReference($storeId)
+            ? $this->incrementIdResolver->resolveHash($quote)
+            : $this->randomResolver->resolveHash($quote);
     }
 }

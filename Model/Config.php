@@ -47,6 +47,7 @@ class Config
     const QLIROONE_STYLING_BUTTON_CORNER = 'styling/button_corner_radius';
 
     const QLIROONE_FEE_MERCHANT_REFERENCE = 'merchant/fee_merchant_reference';
+    const QLIROONE_USE_INCREMENT_ID_AS_REFERENCE = 'merchant/use_increment_id_as_reference';
     const QLIROONE_TERMS_URL = 'merchant/terms_url';
     const QLIROONE_INTEGRITY_POLICY_URL = 'merchant/integrity_policy_url';
 
@@ -396,6 +397,18 @@ class Config
     public function getFeeMerchantReference()
     {
         return (string)$this->adapter->getConfigData(self::QLIROONE_FEE_MERCHANT_REFERENCE);
+    }
+
+    /**
+     * Whether to use the reserved Magento order increment ID as the Qliro One
+     * merchant reference instead of a randomly generated hash.
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isUseIncrementIdAsReference($storeId = null)
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_USE_INCREMENT_ID_AS_REFERENCE, $storeId);
     }
 
     /**

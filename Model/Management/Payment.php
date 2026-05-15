@@ -320,7 +320,7 @@ class Payment extends AbstractManagement
 
         try {
             $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
-
+            $this->logManager->setMerchantReference($link->getReference());
             $request = $this->returnWithItemsBuilder
                 ->setPayment($payment)
                 ->create();

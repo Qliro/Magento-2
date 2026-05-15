@@ -197,6 +197,12 @@
                         <label>Fee Merchant Reference</label>
                     </field>
 
+                    <field id="use_increment_id_as_reference" translate="label comment" type="select" sortOrder="15" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                        <label>Use Magento Increment ID as a reference</label>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                        <comment><![CDATA[If enabled, the reserved Magento order increment ID from the quote will be used as the Qliro One merchant reference instead of a randomly generated string.]]></comment>
+                    </field>
+
                     <field id="terms_url" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Terms URL</label>
                         <comment><![CDATA[A URL where the customer can find the merchant's terms and conditions. If not specified, will be defaulted to the website base URL. <b>If it is not a proper URL, Qliro One won't be able to create orders.</b>]]></comment>
