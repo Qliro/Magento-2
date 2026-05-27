@@ -4,6 +4,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked;
 
@@ -42,7 +43,7 @@ class Coupon extends AbstractAction
      * @param Subject $subject The subject instance being intercepted.
      * @param callable $proceed The callable function to proceed with the original execution.
      */
-    public function aroundExecute(Subject $subject, callable $proceed)
+    public function aroundExecute(Subject $subject, callable $proceed): mixed
     {
         try {
             $quote = $this->checkoutSession->getQuote();

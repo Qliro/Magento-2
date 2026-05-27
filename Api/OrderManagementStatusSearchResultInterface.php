@@ -3,27 +3,31 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api;
 
+use Magento\Framework\Api\SearchResultsInterface;
+use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
+
 /**
- * OrderManagementStatus specific search results interface
+ * OrderManagementStatus search results interface
  *
  * @api
  */
-interface OrderManagementStatusSearchResultInterface extends \Magento\Framework\Api\SearchResultsInterface
+interface OrderManagementStatusSearchResultInterface extends SearchResultsInterface
 {
     /**
-     * Get clients list
+     * Get OrderManagementStatus items
      *
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface[]
+     * @return OrderManagementStatusInterface[]
      */
     public function getItems();
 
     /**
-     * Set clients list
+     * Set OrderManagementStatus items
      *
-     * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface[] $items
+     * @param OrderManagementStatusInterface[] $items
      * @return $this
      */
     public function setItems(array $items);

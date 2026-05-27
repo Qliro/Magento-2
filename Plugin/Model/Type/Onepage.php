@@ -1,33 +1,24 @@
 <?php
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Plugin\Model\Type;
 
 use \Magento\Checkout\Model\Type\Onepage as Subject;
 use \Qliro\QliroOne\Model\Config;
 use \Magento\Framework\App\RequestInterface;
+
 class Onepage
 {
     /**
-     * @var Config
-     */
-    private Config $config;
-
-    /**
-     * @var RequestInterface
-     */
-    private RequestInterface $request;
-
-    /**
+     * Class constructor
+     *
      * @param Config $config
      * @param RequestInterface $request
      */
     public function __construct(
-        Config $config,
-        RequestInterface $request
-    )
-    {
-        $this->config = $config;
-        $this->request = $request;
+        private readonly Config $config,
+        private readonly RequestInterface $request
+    ) {
     }
 
     /**
@@ -38,7 +29,7 @@ class Onepage
      * @param \Closure $proceed The closure representing the original method being called.
      * @return Subject
      */
-    public function aroundInitCheckout(Subject $subject, \Closure $proceed)
+    public function aroundInitCheckout(Subject $subject, \Closure $proceed): Subject
     {
         if ($this->config->isActive()
             && $this->request->getFullActionName() === 'checkout_qliro_index'

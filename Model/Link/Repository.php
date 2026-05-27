@@ -3,16 +3,17 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Link;
 
 use Magento\Framework\Api\SearchCriteriaInterface;
 use Magento\Framework\Api\SortOrder;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Framework\Exception\NotFoundException;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\Data\LinkInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Api\LinkSearchResultInterface;
 use Qliro\QliroOne\Model\ResourceModel\Link as LinkResourceModel;
 use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\ResourceModel\Link\Collection;
@@ -27,27 +28,7 @@ use Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory;
 class Repository implements LinkRepositoryInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Link
-     */
-    private $linkResourceModel;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\LinkInterfaceFactory
-     */
-    private $linkFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory
-     */
-    private $searchResultFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory
-     */
-    private $collectionFactory;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\ResourceModel\Link $linkResourceModel
      * @param \Qliro\QliroOne\Api\Data\LinkInterfaceFactory $linkFactory
@@ -55,25 +36,21 @@ class Repository implements LinkRepositoryInterface
      * @param \Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory $collectionFactory
      */
     public function __construct(
-        LinkResourceModel $linkResourceModel,
-        LinkInterfaceFactory $linkFactory,
-        LinkSearchResultInterfaceFactory $searchResultFactory,
-        CollectionFactory $collectionFactory
+        private readonly LinkResourceModel $linkResourceModel,
+        private readonly LinkInterfaceFactory $linkFactory,
+        private readonly LinkSearchResultInterfaceFactory $searchResultFactory,
+        private readonly CollectionFactory $collectionFactory
     ) {
-        $this->linkResourceModel = $linkResourceModel;
-        $this->linkFactory = $linkFactory;
-        $this->searchResultFactory = $searchResultFactory;
-        $this->collectionFactory = $collectionFactory;
     }
 
     /**
      * Save a link
      *
-     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
-     * @return \Qliro\QliroOne\Api\Data\LinkInterface
+     * @param LinkInterface $link
+     * @return LinkInterface
      * @throws \Magento\Framework\Exception\AlreadyExistsException
      */
-    public function save(LinkInterface $link)
+    public function save(LinkInterface $link): LinkInterface
     {
         $this->linkResourceModel->save($link);
 
@@ -81,74 +58,57 @@ class Repository implements LinkRepositoryInterface
     }
 
     /**
-     * Get a link by its ID
-     *
      * @inheritdoc
      */
-    public function get($id, $onlyActive = true)
+    public function get(int $id, bool $onlyActive = true): LinkInterface
     {
         return $this->getByField($id, null, $onlyActive);
     }
 
     /**
-     * Get a link by Magento quote ID
-     *
      * @inheritdoc
      */
-    public function getByQuoteId($quoteId, $onlyActive = true)
+    public function getByQuoteId(int|string $quoteId, bool $onlyActive = true): LinkInterface
     {
         return $this->getByField($quoteId, Link::FIELD_QUOTE_ID, $onlyActive);
     }
 
     /**
-     * Get a link by Magento order ID
-     *
      * @inheritdoc
      */
-    public function getByOrderId($orderId, $onlyActive = true)
+    public function getByOrderId(int|string $orderId, bool $onlyActive = true): LinkInterface
     {
         return $this->getByField($orderId, Link::FIELD_ORDER_ID, $onlyActive);
     }
 
     /**
-     * Get a link by Qliro order ID
-     *
      * @inheritdoc
      */
-    public function getByQliroOrderId($qliroOrderId, $onlyActive = true)
+    public function getByQliroOrderId(mixed $qliroOrderId, bool $onlyActive = true): LinkInterface
     {
         return $this->getByField($qliroOrderId, Link::FIELD_QLIRO_ORDER_ID, $onlyActive);
     }
 
     /**
-     * Get a link by Magento order ID
-     *
      * @inheritdoc
      */
-    public function getByReference($value, $onlyActive = true)
+    public function getByReference(string $reference, bool $onlyActive = true): LinkInterface
     {
-        return $this->getByField($value, Link::FIELD_REFERENCE, $onlyActive);
+        return $this->getByField($reference, Link::FIELD_REFERENCE, $onlyActive);
     }
 
     /**
-     * Delete a link
-     *
-     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
-     * @return \Qliro\QliroOne\Model\ResourceModel\Link
-     * @throws \Exception
+     * @inheirtDoc
      */
-    public function delete(LinkInterface $link)
+    public function delete(LinkInterface $link): void
     {
-        return $this->linkResourceModel->delete($link);
+        $this->linkResourceModel->delete($link);
     }
 
     /**
-     * Get a result of search among links by given search criteria
-     *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @return \Qliro\QliroOne\Api\LinkSearchResultInterface
+     * @inheirtDoc
      */
-    public function getList(SearchCriteriaInterface $searchCriteria)
+    public function getList(SearchCriteriaInterface $searchCriteria): LinkSearchResultInterface
     {
         /** @var \Qliro\QliroOne\Model\ResourceModel\Link\Collection $collection */
         $collection = $this->collectionFactory->create();
@@ -163,12 +123,11 @@ class Repository implements LinkRepositoryInterface
     }
 
     /**
-     * Add filters to collection
-     *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\Link\Collection $collection
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
+     * @return void
      */
-    private function addFiltersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function addFiltersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection): void
     {
         foreach ($searchCriteria->getFilterGroups() as $filterGroup) {
             $fields = $conditions = [];
@@ -181,12 +140,11 @@ class Repository implements LinkRepositoryInterface
     }
 
     /**
-     * Add sort order to collection
-     *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\Link\Collection $collection
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
+     * @return void
      */
-    private function addSortOrdersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function addSortOrdersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection): void
     {
         foreach ((array) $searchCriteria->getSortOrders() as $sortOrder) {
             $direction = $sortOrder->getDirection() == SortOrder::SORT_ASC ? 'asc' : 'desc';
@@ -195,27 +153,24 @@ class Repository implements LinkRepositoryInterface
     }
 
     /**
-     * Add pagination to collection
-     *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\Link\Collection $collection
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
+     * @return void
      */
-    private function addPaginationToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function addPaginationToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection): void
     {
         $collection->setPageSize($searchCriteria->getPageSize());
         $collection->setCurPage($searchCriteria->getCurrentPage());
     }
 
     /**
-     * Build search result
-     *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\Link\Collection $collection
-     * @return \Qliro\QliroOne\Api\LinkSearchResultInterface
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
+     * @return LinkSearchResultInterface
      */
-    private function buildSearchResult(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function buildSearchResult(SearchCriteriaInterface $searchCriteria, Collection $collection): LinkSearchResultInterface
     {
-        /** @var \Qliro\QliroOne\Api\LinkSearchResultInterface $searchResults */
+        /** @var LinkSearchResultInterface $searchResults */
         $searchResults = $this->searchResultFactory->create();
 
         $searchResults->setSearchCriteria($searchCriteria);
@@ -229,14 +184,14 @@ class Repository implements LinkRepositoryInterface
      * Get a link by a specified field
      *
      * @param string|int $value
-     * @param string $field
+     * @param string|null $field
      * @param bool $onlyActive
-     * @return \Qliro\QliroOne\Model\Link
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @return LinkInterface
+     * @throws NoSuchEntityException
      */
-    private function getByField($value, $field, $onlyActive = true)
+    private function getByField(mixed $value, ?string $field, bool $onlyActive = true): LinkInterface
     {
-        /** @var \Qliro\QliroOne\Model\Link $link */
+        /** @var Link $link */
         if ($onlyActive) {
             $collection = $this->collectionFactory->create()
                 ->addFieldToFilter($field, $value)

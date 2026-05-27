@@ -3,6 +3,8 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Newsletter;
 
 /*
@@ -11,90 +13,56 @@ namespace Qliro\QliroOne\Model\Newsletter;
 
 use Magento\Customer\Model\Session;
 use Magento\Customer\Model\Url as CustomerUrl;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Newsletter\Model\Subscriber;
 use Magento\Newsletter\Model\SubscriberFactory;
-use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\Message\ManagerInterface;
+use Magento\Framework\App\Config\ScopeConfigInterface as ScopeConfig;
+use Magento\Framework\Message\ManagerInterface as MessageManager;
+use Magento\Store\Model\ScopeInterface;
 use Qliro\QliroOne\Api\SubscriptionInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Magento\Store\Model\ScopeInterface;
-use Magento\Sales\Model\Order\Address;
 
 /**
  * Class Subscription
  */
-class Subscription implements SubscriptionInterface
+readonly class Subscription implements SubscriptionInterface
 {
     /**
-     * @var \Magento\Newsletter\Model\SubscriberFactory
-     */
-    private $subscriberFactory;
-
-    /**
-     * @var \Magento\Customer\Model\Session
-     */
-    private $customerSession;
-
-    /**
-     * @var \Magento\Customer\Model\Url
-     */
-    private $customerUrl;
-
-    /**
-     * @var \Magento\Framework\App\Config\ScopeConfigInterface
-     */
-    private $scopeConfig;
-
-    /**
-     * @var \Magento\Framework\Message\ManagerInterface
-     */
-    private $messageManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Initialize dependencies.
+     * Class constructor
      *
-     * @param SubscriberFactory $subscriberFactory
-     * @param Session $customerSession
-     * @param CustomerUrl $customerUrl
-     * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
-     * @param \Magento\Framework\Message\ManagerInterface $messageManager
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param SubscriberFactory   $subscriberFactory
+     * @param Session             $customerSession
+     * @param CustomerUrl         $customerUrl
+     * @param ScopeConfig         $scopeConfig
+     * @param MessageManager      $messageManager
+     * @param LogManager          $logManager
      */
     public function __construct(
-        SubscriberFactory $subscriberFactory,
-        Session $customerSession,
-        CustomerUrl $customerUrl,
-        ScopeConfigInterface $scopeConfig,
-        ManagerInterface $messageManager,
-        LogManager $logManager
+        private SubscriberFactory $subscriberFactory,
+        private Session           $customerSession,
+        private CustomerUrl       $customerUrl,
+        private ScopeConfig       $scopeConfig,
+        private MessageManager    $messageManager,
+        private LogManager        $logManager
     ) {
-        $this->subscriberFactory = $subscriberFactory;
-        $this->customerSession = $customerSession;
-        $this->customerUrl = $customerUrl;
-        $this->scopeConfig = $scopeConfig;
-        $this->messageManager = $messageManager;
-        $this->logManager = $logManager;
     }
 
     /**
      * Validates that if the current user is a guest, that they can subscribe to a newsletter.
      *
      * @param int $storeId
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws LocalizedException
      * @return void
      */
-    private function validateGuestSubscription($storeId)
+    private function validateGuestSubscription(int $storeId): void
     {
-        if (
-            $this->scopeConfig->getValue(Subscriber::XML_PATH_ALLOW_GUEST_SUBSCRIBE_FLAG, ScopeInterface::SCOPE_STORE, $storeId) != 1
+        if ($this->scopeConfig->getValue(
+                Subscriber::XML_PATH_ALLOW_GUEST_SUBSCRIBE_FLAG,
+                ScopeInterface::SCOPE_STORE, $storeId
+            ) != 1
             && !$this->customerSession->isLoggedIn()
         ) {
-            throw new \Magento\Framework\Exception\LocalizedException(
+            throw new LocalizedException(
                 __(
                     'Sorry, but the administrator denied subscription for guests. Please <a href="%1">register</a>.',
                     $this->customerUrl->getRegisterUrl()
@@ -107,20 +75,20 @@ class Subscription implements SubscriptionInterface
      * Validates the format of the email address
      *
      * @param string $email
-     * @throws \Magento\Framework\Exception\LocalizedException
+     * @throws LocalizedException
      * @return void
      */
-    private function validateEmailFormat($email)
+    private function validateEmailFormat(string $email): void
     {
         if (!\filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            throw new \Magento\Framework\Exception\LocalizedException(__('Please enter a valid email address.'));
+            throw new LocalizedException(__('Please enter a valid email address.'));
         }
     }
 
     /**
      * @inheritdoc
      */
-    public function addSubscription($email, $storeId)
+    public function addSubscription(string $email, int $storeId): void
     {
         try {
             $this->validateEmailFormat($email);
@@ -136,7 +104,7 @@ class Subscription implements SubscriptionInterface
                     $this->messageManager->addSuccessMessage(__('Thank you for your subscription.'));
                 }
             }
-        } catch (\Magento\Framework\Exception\LocalizedException $exception) {
+        } catch (LocalizedException $exception) {
             $this->logManager->critical(
                 $exception,
                 [

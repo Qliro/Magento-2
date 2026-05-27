@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Success;
 
@@ -14,21 +15,21 @@ use Magento\Checkout\Model\Session as SuccessSession;
 class Session
 {
     /**
-     * @var SuccessSession
+     * Class constructor
+     *
+     * @param SuccessSession $checkoutSession
      */
-    private $checkoutSession;
-
     public function __construct(
-        SuccessSession $checkoutSession
+        private readonly SuccessSession $checkoutSession
     ) {
-        $this->checkoutSession = $checkoutSession;
     }
 
     /**
-     * @param string $snippet
+     * @param string|null $snippet
      * @param \Magento\Sales\Model\Order $order
+     * @return void
      */
-    public function save($snippet, $order)
+    public function save(?string $snippet, \Magento\Sales\Model\Order $order): void
     {
         $this->checkoutSession->setSuccessHtmlSnippet($snippet);
         $this->checkoutSession->setSuccessIncrementId($order->getIncrementId());
@@ -38,8 +39,10 @@ class Session
 
     /**
      * Clears saves success
+     *
+     * @return void
      */
-    public function clear()
+    public function clear(): void
     {
         $this->checkoutSession->unsSuccessHtmlSnippet();
         $this->checkoutSession->unsSuccessIncrementId();
@@ -50,7 +53,7 @@ class Session
     /**
      * @return string|null
      */
-    public function getSuccessHtmlSnippet()
+    public function getSuccessHtmlSnippet(): ?string
     {
         return $this->checkoutSession->getSuccessHtmlSnippet();
     }
@@ -58,15 +61,15 @@ class Session
     /**
      * @return string|null
      */
-    public function getSuccessIncrementId()
+    public function getSuccessIncrementId(): ?string
     {
         return $this->checkoutSession->getSuccessIncrementId();
     }
 
     /**
-     * @return int|null
+     * @return int|string|null
      */
-    public function getSuccessOrderId()
+    public function getSuccessOrderId(): int|string|null
     {
         return $this->checkoutSession->getSuccessOrderId();
     }
@@ -74,15 +77,17 @@ class Session
     /**
      * @return bool
      */
-    public function hasSuccessDisplayed()
+    public function hasSuccessDisplayed(): bool
     {
         return (bool)$this->checkoutSession->getSuccessHasDisplayed();
     }
 
     /**
      * Mark success as being displayed, thus not triggering GTM etc if success page is reloaded
+     *
+     * @return void
      */
-    public function setSuccessDisplayed()
+    public function setSuccessDisplayed(): void
     {
         $this->checkoutSession->setSuccessHasDisplayed(true);
     }

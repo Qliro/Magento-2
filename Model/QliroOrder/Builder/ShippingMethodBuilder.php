@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
@@ -10,71 +11,31 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address\Rate;
 use Magento\Tax\Helper\Data as TaxHelper;
-use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface;
-use Qliro\QliroOne\Helper\Data;
+use Qliro\QliroOne\Model\Formatter\PriceFormatter;
 
 /**
  * QliroOne Order Item of type "Shipping" builder class
  */
 class ShippingMethodBuilder
 {
-    /**
-     * @var \Magento\Quote\Model\Quote\Address\Rate
-     */
-    private $rate;
+    private ?Rate $rate = null;
+    private ?Quote $quote = null;
 
     /**
-     * @var \Magento\Quote\Model\Quote
-     */
-    private $quote;
-
-    /**
-     * @var \Magento\Tax\Helper\Data
-     */
-    private $taxHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory
-     */
-    private $shippingMethodFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface
-     */
-    private $shippingMethodBrandResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $qliroHelper;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory $shippingMethodFactory
-     * @param \Magento\Tax\Helper\Data $taxHelper
-     * @param \Qliro\QliroOne\Api\ShippingMethodBrandResolverInterface $shippingMethodBrandResolver
-     * @param \Qliro\QliroOne\Helper\Data $qliroHelper
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param TaxHelper $taxHelper
+     * @param ShippingMethodBrandResolverInterface $shippingMethodBrandResolver
+     * @param PriceFormatter $priceFormatter
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        QliroOrderShippingMethodInterfaceFactory $shippingMethodFactory,
-        TaxHelper $taxHelper,
-        ShippingMethodBrandResolverInterface $shippingMethodBrandResolver,
-        Data $qliroHelper,
-        ManagerInterface $eventManager
+        private readonly TaxHelper                            $taxHelper,
+        private readonly ShippingMethodBrandResolverInterface $shippingMethodBrandResolver,
+        private readonly PriceFormatter                       $priceFormatter,
+        private readonly ManagerInterface                     $eventManager
     ) {
-        $this->taxHelper = $taxHelper;
-        $this->shippingMethodFactory = $shippingMethodFactory;
-        $this->shippingMethodBrandResolver = $shippingMethodBrandResolver;
-        $this->qliroHelper = $qliroHelper;
-        $this->eventManager = $eventManager;
     }
 
     /**
@@ -83,7 +44,7 @@ class ShippingMethodBuilder
      * @param \Magento\Quote\Model\Quote $quote
      * @return $this
      */
-    public function setQuote(Quote $quote)
+    public function setQuote(Quote $quote): static
     {
         $this->quote = $quote;
 
@@ -94,9 +55,9 @@ class ShippingMethodBuilder
      * Set shipping rate for data extraction
      *
      * @param \Magento\Quote\Model\Quote\Address\Rate $rate
-     * @return $this
+     * @return static
      */
-    public function setShippingRate(Rate $rate)
+    public function setShippingRate(Rate $rate): static
     {
         $this->rate = $rate;
 
@@ -106,10 +67,9 @@ class ShippingMethodBuilder
     /**
      * Create a QliroOne order shipping method container
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface
+     * @return array
      */
-
-    public function create()
+    public function create(): array
     {
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');
@@ -120,8 +80,6 @@ class ShippingMethodBuilder
         }
 
         $shippingAddress = $this->quote->getShippingAddress();
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface $container */
-        $container = $this->shippingMethodFactory->create();
 
         $priceExVat = $this->taxHelper->getShippingPrice(
             $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
@@ -137,9 +95,11 @@ class ShippingMethodBuilder
             $this->quote->getCustomerTaxClassId()
         );
 
-        $container->setMerchantReference($this->rate->getCode());
-        $container->setDisplayName($this->rate->getMethodTitle()?? $this->rate->getCarrierTitle());
-        $container->setBrand($this->shippingMethodBrandResolver->resolve($this->rate));
+        $container = [
+            'MerchantReference' => (string)$this->rate->getCode(),
+            'DisplayName' => (string)($this->rate->getMethodTitle() ?? $this->rate->getCarrierTitle()),
+            'Brand' => (string)$this->shippingMethodBrandResolver->resolve($this->rate),
+        ];
 
         $descriptions = [];
 
@@ -152,12 +112,12 @@ class ShippingMethodBuilder
         }
 
         if (!empty($descriptions)) {
-            $container->setDescriptions($descriptions);
+            $container['Descriptions'] = $descriptions;
         }
 
-        $container->setPriceIncVat($this->qliroHelper->formatPrice($priceIncVat));
-        $container->setPriceExVat($this->qliroHelper->formatPrice($priceExVat));
-        $container->setSupportsDynamicSecondaryOptions(false);
+        $container['PriceIncVat'] = (float)$this->priceFormatter->format($priceIncVat);
+        $container['PriceExVat'] = (float)$this->priceFormatter->format($priceExVat);
+        $container['SupportsDynamicSecondaryOptions'] = false;
 
         $this->eventManager->dispatch(
             'qliroone_shipping_method_build_after',

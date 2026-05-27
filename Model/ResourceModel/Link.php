@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\ResourceModel;
 
@@ -24,7 +25,7 @@ class Link extends AbstractDb
         parent::__construct($context);
     }
 
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(self::TABLE_LINK, LinkModel::FIELD_ID);
     }
@@ -34,10 +35,10 @@ class Link extends AbstractDb
      *
      * @param \Magento\Framework\DataObject $object
      */
-    public function beforeSave(DataObject $object)
+    public function beforeSave(DataObject $object): static
     {
         $object->setData('updated_at', new \Zend_Db_Expr('NOW()'));
 
-        parent::beforeSave($object);
+        return parent::beforeSave($object);
     }
 }

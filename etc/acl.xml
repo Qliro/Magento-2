@@ -3,6 +3,11 @@
     <acl>
         <resources>
             <resource id="Magento_Backend::admin">
+                <resource id="Qliro_QliroOne::qliroone" title="QliroOne" sortOrder="100">
+                    <resource id="Qliro_QliroOne::log_view" title="QliroOne Logs" sortOrder="10">
+                        <resource id="Qliro_QliroOne::log_delete" title="QliroOne Delete Logs" sortOrder="10" />
+                    </resource>
+                </resource>
                 <resource id="Magento_Backend::stores">
                     <resource id="Magento_Backend::stores_settings">
                         <resource id="Magento_Config::config">

@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -12,8 +13,6 @@ use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
-use Qliro\QliroOne\Api\Data\QliroOrderInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Config;
@@ -27,68 +26,21 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedReque
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ReturnWithItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 
+
 /**
  * QliroOne management class
  */
-class Payment extends AbstractManagement
+class Payment
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
+     * Payment additional data key used to skip the actual capture when invoicing.
+     * Set by Shipment handler on the payment object to signal that capture was already
+     * triggered via shipment and should not be triggered again via invoice.
      */
-    private $qliroConfig;
+    public const QLIRO_SKIP_ACTUAL_CAPTURE = 'qliro_skip_actual_capture';
 
     /**
-     * @var \Qliro\QliroOne\Api\Client\OrderManagementInterface
-     */
-    private $orderManagementApi;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
-     */
-    private $transactionBuilder;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private $orderRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory
-     */
-    private $orderManagementStatusInterfaceFactory;
-
-    /**
-     * @var OrderManagementStatusRepositoryInterface
-     */
-    private $orderManagementStatusRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder
-     */
-    private $invoiceMarkItemsAsShippedRequestBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder
-     */
-    private $shipmentMarkItemsAsShippedRequestBuilder;
-
-    /**
-     * @var ReturnWithItemsBuilder
-     */
-    private $returnWithItemsBuilder;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param Config $qliroConfig
      * @param OrderManagementInterface $orderManagementApi
@@ -103,29 +55,18 @@ class Payment extends AbstractManagement
      * @param ReturnWithItemsBuilder $returnWithItemsBuilder
      */
     public function __construct(
-        Config $qliroConfig,
-        OrderManagementInterface $orderManagementApi,
-        LinkRepositoryInterface $linkRepository,
-        OrderRepositoryInterface $orderRepository,
-        LogManager $logManager,
-        BuilderInterface $transactionBuilder,
-        OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
-        OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
-        InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
-        ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
-        ReturnWithItemsBuilder $returnWithItemsBuilder
+        private readonly Config $qliroConfig,
+        private readonly OrderManagementInterface $orderManagementApi,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly LogManager $logManager,
+        private readonly BuilderInterface $transactionBuilder,
+        private readonly OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
+        private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
+        private readonly InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
+        private readonly ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
+        private readonly ReturnWithItemsBuilder $returnWithItemsBuilder
     ) {
-        $this->qliroConfig = $qliroConfig;
-        $this->orderManagementApi = $orderManagementApi;
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->transactionBuilder = $transactionBuilder;
-        $this->orderRepository = $orderRepository;
-        $this->orderManagementStatusInterfaceFactory = $orderManagementStatusInterfaceFactory;
-        $this->orderManagementStatusRepository = $orderManagementStatusRepository;
-        $this->invoiceMarkItemsAsShippedRequestBuilder = $invoiceMarkItemsAsShippedRequestBuilder;
-        $this->shipmentMarkItemsAsShippedRequestBuilder = $shipmentMarkItemsAsShippedRequestBuilder;
-        $this->returnWithItemsBuilder = $returnWithItemsBuilder;
     }
 
     /**
@@ -135,11 +76,11 @@ class Payment extends AbstractManagement
      * This should have been done differently, with authorization keyword in method etc...
      *
      * @param Order $order
-     * @param QliroOrderInterface $qliroOrder
+     * @param array $qliroOrder  Raw Qliro order array
      * @param string $state
      * @throws \Exception
      */
-    public function createPaymentTransaction($order, $qliroOrder, $state = Order::STATE_PENDING_PAYMENT)
+    public function createPaymentTransaction(Order $order, array $qliroOrder, string $state = Order::STATE_PENDING_PAYMENT): void
     {
         $this->logManager->setMark('PAYMENT TRANSACTION');
 
@@ -147,8 +88,8 @@ class Payment extends AbstractManagement
             /** @var \Magento\Sales\Model\Order\Payment $payment */
             $payment = $order->getPayment();
 
-            $payment->setLastTransId($qliroOrder->getOrderId());
-            $transactionId = 'qliroone-' . $qliroOrder->getOrderId();
+            $payment->setLastTransId($qliroOrder['OrderId'] ?? null);
+            $transactionId = 'qliroone-' . ($qliroOrder['OrderId'] ?? 'unknown');
             $payment->setTransactionId($transactionId);
             $payment->setIsTransactionClosed(false);
 
@@ -193,9 +134,15 @@ class Payment extends AbstractManagement
      * @return void
      * @throws \Exception
      */
-    public function captureByInvoice($payment, $amount)
+    public function captureByInvoice(\Magento\Payment\Model\InfoInterface $payment, float $amount): void
     {
         if ($payment->getData(self::QLIRO_SKIP_ACTUAL_CAPTURE)) {
+            $this->logManager->debug('captureByInvoice — skipped (QLIRO_SKIP_ACTUAL_CAPTURE is set)', [
+                'extra' => [
+                    'order_id'    => $payment->getOrder()->getId(),
+                    'payment_id'  => $payment->getId(),
+                ],
+            ]);
             return;
         }
 
@@ -204,11 +151,29 @@ class Payment extends AbstractManagement
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
 
+        $this->logManager->debug('captureByInvoice — calling MarkItemsAsShipped', [
+            'extra' => [
+                'order_id'      => $order->getId(),
+                'qliro_order_id' => $link->getQliroOrderId(),
+                'amount'        => $amount,
+                'payment_txn_id' => $payment->getTransactionId(),
+            ],
+        ]);
+
         $this->invoiceMarkItemsAsShippedRequestBuilder->setPayment($payment);
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
 
         $request = $this->invoiceMarkItemsAsShippedRequestBuilder->create();
         $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+
+        $this->logManager->debug('captureByInvoice — MarkItemsAsShipped response', [
+            'extra' => [
+                'order_id'               => $order->getId(),
+                'qliro_order_id'         => $link->getQliroOrderId(),
+                'result_status'          => $result->getStatus(),
+                'payment_transaction_id' => $result->getPaymentTransactionId(),
+            ],
+        ]);
 
         try {
             /** @var OrderManagementStatus $omStatus */
@@ -216,7 +181,7 @@ class Payment extends AbstractManagement
             $omStatus->setRecordId($payment->getId());
             $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_PAYMENT);
             $omStatus->setTransactionId($result->getPaymentTransactionId());
-            $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+            $omStatus->setTransactionStatus('Created');
             $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
             $omStatus->setMessage('Capture Requested for Invoice');
             $omStatus->setQliroOrderId($link->getQliroOrderId());
@@ -236,8 +201,25 @@ class Payment extends AbstractManagement
         if ($result->getStatus() == 'Created') {
             if ($result->getPaymentTransactionId()) {
                 $payment->setTransactionId($result->getPaymentTransactionId());
+                $this->logManager->debug('captureByInvoice — transaction ID set on payment', [
+                    'extra' => [
+                        'order_id'               => $order->getId(),
+                        'payment_transaction_id' => $result->getPaymentTransactionId(),
+                        'is_transaction_pending'  => $payment->getIsTransactionPending(),
+                    ],
+                ]);
+            } else {
+                $this->logManager->debug('captureByInvoice — status Created but PaymentTransactionId is empty', [
+                    'extra' => ['order_id' => $order->getId()],
+                ]);
             }
         } else {
+            $this->logManager->debug('captureByInvoice — unexpected status, throwing exception', [
+                'extra' => [
+                    'order_id'      => $order->getId(),
+                    'result_status' => $result->getStatus(),
+                ],
+            ]);
             throw new LocalizedException(
                 __('Unable to capture payment for this order.')
             );
@@ -249,15 +231,9 @@ class Payment extends AbstractManagement
      * @return void
      * @throws \Exception
      */
-    public function captureByShipment($shipment)
+    public function captureByShipment(\Magento\Sales\Model\Order\Shipment $shipment): void
     {
         if (!$this->qliroConfig->shouldCaptureOnShipment($shipment->getStoreId())) {
-            return;
-        }
-
-        if ($this->qliroConfig->shouldCaptureOnInvoice($shipment->getStoreId())) {
-            // captureOnInvoice already sent MarkItemsAsShipped when the invoice was created.
-            // Sending it again here would cause NO_ITEMS_LEFT_IN_RESERVATION from Qliro.
             return;
         }
 
@@ -282,7 +258,7 @@ class Payment extends AbstractManagement
             $omStatus->setRecordId($shipment->getId());
             $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_SHIPMENT);
             $omStatus->setTransactionId($result->getPaymentTransactionId());
-            $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+            $omStatus->setTransactionStatus('Created');
             $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
             $omStatus->setMessage('Capture Requested for Shipment');
             $omStatus->setQliroOrderId($link->getQliroOrderId());
@@ -308,11 +284,11 @@ class Payment extends AbstractManagement
 
     /**
      * @param \Magento\Sales\Model\Order\Payment $payment
-     * @param $amount
+     * @param float $amount
      * @return void
      * @throws LocalizedException
      */
-    public function refundByInvoice($payment, $amount)
+    public function refundByInvoice(\Magento\Sales\Model\Order\Payment $payment, float $amount): void
     {
         if (!$amount) {
             throw new LocalizedException(__('Zero amount is not allowed.'));
@@ -320,7 +296,7 @@ class Payment extends AbstractManagement
 
         try {
             $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
-            $this->logManager->setMerchantReference($link->getReference());
+
             $request = $this->returnWithItemsBuilder
                 ->setPayment($payment)
                 ->create();
@@ -339,7 +315,7 @@ class Payment extends AbstractManagement
                 $omStatus->setRecordId($payment->getId());
                 $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_REFUND);
                 $omStatus->setTransactionId($result->getPaymentTransactionId());
-                $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+                $omStatus->setTransactionStatus('Created');
                 $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
                 $omStatus->setMessage('Refund Requested');
                 $omStatus->setQliroOrderId($link->getQliroOrderId());
@@ -385,9 +361,8 @@ class Payment extends AbstractManagement
      * @param $amount
      * @return bool
      */
-    private function isValidRequestAmount(AdminReturnWithItemsRequestInterface $request, $amount)
+    private function isValidRequestAmount(AdminReturnWithItemsRequestInterface $request, float $amount): bool
     {
-        $amount = floatval($amount);
 
         $returns = $request->getReturns();
         if (!count($returns)) {

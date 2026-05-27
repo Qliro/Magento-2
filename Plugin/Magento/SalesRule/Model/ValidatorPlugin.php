@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Plugin\Magento\SalesRule\Model;
 
@@ -9,32 +10,29 @@ use Qliro\QliroOne\Model\Config;
  */
 class ValidatorPlugin
 {
-
     /**
-     * @var Config
-     */
-    private $qliroConfig;
-
-    /**
-     * Constructor
+     * Class constructor
+     *
      * @param Config $qliroConfig
      */
     public function __construct(
-        Config $qliroConfig,
+        private readonly Config $qliroConfig
     ) {
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
      * After plugin for getRules in SalesRule Validator
      *
      * @param \Magento\SalesRule\Model\Validator $subject
-     * @param array $result The list of rules returned by the getRules() method
+     * @param mixed $result The list of rules returned by the getRules() method
      * @param \Magento\Quote\Model\Quote\Address|null $address
-     * @return array
+     * @return mixed
      */
-    public function afterGetRules(\Magento\SalesRule\Model\Validator $subject, $result, $address = null)
-    {
+    public function afterGetRules(
+        \Magento\SalesRule\Model\Validator $subject,
+        mixed $result,
+        ?\Magento\Quote\Model\Quote\Address $address = null
+    ): mixed {
         if ($address !== null) {
             $quote = $address->getQuote();
             if ($this->qliroConfig->isIngridEnabled($quote->getStoreId()) || $this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {

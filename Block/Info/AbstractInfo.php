@@ -3,29 +3,30 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Block\Info;
 
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Api\ApiServiceInterface;
 
 abstract class AbstractInfo extends \Magento\Payment\Block\Info
 {
     /**
-     * @var boolean
+     * @var bool|null
      */
-    private $warning;
+    private ?bool $warning = null;
 
     /**
-     * @var string
+     * @var string|null
      */
-    private $warningText;
+    private ?string $warningText = null;
 
     /**
      * Fetch received WarningText
      *
-     * @return string
+     * @return string|null
      */
-    public function getWarningText()
+    public function getWarningText(): ?string
     {
         if ($this->warningText === null) {
             $this->convertAdditionalInformation();
@@ -36,9 +37,9 @@ abstract class AbstractInfo extends \Magento\Payment\Block\Info
     /**
      * If a warning is due
      *
-     * @return string
+     * @return bool|null
      */
-    public function showWarning()
+    public function showWarning(): ?bool
     {
         if ($this->warning === null) {
             $this->convertAdditionalInformation();
@@ -48,9 +49,10 @@ abstract class AbstractInfo extends \Magento\Payment\Block\Info
 
     /**
      * Takes specific data from AdditionalInformation field and make it available for FE
-     * @return $this
+     *
+     * @return static
      */
-    private function convertAdditionalInformation()
+    private function convertAdditionalInformation(): static
     {
         return $this;
     }

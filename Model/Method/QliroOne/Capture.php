@@ -3,39 +3,40 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Method\QliroOne;
+
+use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Payment\Model\InfoInterface;
+use Magento\Sales\Model\Order;
+use Qliro\QliroOne\Api\Admin\OrderServiceInterface;
 
 use Magento\Payment\Gateway\Command;
 use Magento\Payment\Gateway\CommandInterface;
 use Magento\Payment\Gateway\Command\ResultInterface;
+use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Management\Payment as PaymentManagement;
 
 /**
  * Class Capture for QliroOne payment method
  */
-class Capture implements CommandInterface
+readonly class Capture implements CommandInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Management
-     */
-    private $qliroManagement;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Management $qliroManagement
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param OrderServiceInterface $qliroManagement
+     * @param Config $qliroConfig
+     * @param LogManager $logManager
      */
     public function __construct(
-        \Qliro\QliroOne\Model\Management $qliroManagement,
-        \Qliro\QliroOne\Model\Config $qliroConfig
+        private OrderServiceInterface $qliroManagement,
+        private Config                $qliroConfig,
+        private LogManager            $logManager
     ) {
-        $this->qliroManagement = $qliroManagement;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
@@ -44,29 +45,52 @@ class Capture implements CommandInterface
      * @param array $commandSubject
      *
      * @return ResultInterface|null
-     * @throws \Magento\Framework\Exception\LocalizedException
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @throws LocalizedException
+     * @throws NoSuchEntityException
      */
-    public function execute(array $commandSubject)
+    public function execute(array $commandSubject): ?ResultInterface
     {
-        /** @var \Magento\Payment\Model\InfoInterface $payment */
+        /** @var InfoInterface $payment */
         $payment = $commandSubject['payment']->getPayment();
         $amount = $commandSubject['amount'];
 
         try {
-            /** @var \Magento\Sales\Model\Order $order */
+            /** @var Order $order */
             $order = $payment->getOrder();
-            if ($this->qliroConfig->shouldCaptureOnInvoice($order ? $order->getStoreId() : null)) {
+            $captureOnInvoice = $this->qliroConfig->shouldCaptureOnInvoice($order ? $order->getStoreId() : null);
+            $skipCapture = (bool) $payment->getData(PaymentManagement::QLIRO_SKIP_ACTUAL_CAPTURE);
+
+            $this->logManager->debug('Capture::execute called', [
+                'extra' => [
+                    'order_id'          => $order ? $order->getId() : null,
+                    'increment_id'      => $order ? $order->getIncrementId() : null,
+                    'amount'            => $amount,
+                    'capture_on_invoice' => $captureOnInvoice,
+                    'skip_actual_capture' => $skipCapture,
+                    'payment_txn_id'    => $payment->getTransactionId(),
+                ],
+            ]);
+
+            if ($captureOnInvoice) {
                 $this->qliroManagement->captureByInvoice($payment, $amount);
+                $payment->setIsTransactionPending(false);
+            } else {
+                $this->logManager->debug('Capture::execute — capture_on_invoice disabled, marking transaction pending');
+                $payment->setIsTransactionPending(true);
+                $payment->setIsTransactionClosed(false);
             }
-        } catch (\Magento\Framework\Exception\LocalizedException $exception) {
-            throw $exception;
         } catch (\Exception $exception) {
-            throw new \Magento\Framework\Exception\LocalizedException(
-                __('Unable to capture payment for this order.')
+            $this->logManager->debug('Capture::execute — exception: ' . $exception->getMessage(), [
+                'extra' => [
+                    'order_id' => isset($order) ? $order->getId() : null,
+                ],
+            ]);
+            throw new LocalizedException(
+                __('Unable to capture payment for this order.'),
+                $exception
             );
         }
 
-        return $this;
+        return null;
     }
 }

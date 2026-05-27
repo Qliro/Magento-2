@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
@@ -13,132 +14,132 @@ namespace Qliro\QliroOne\Api\Data;
  */
 interface OrderManagementStatusInterface
 {
-    const FIELD_ID = 'id';
-    const FIELD_DATE = 'date';
-    const FIELD_TRANSACTION_ID = 'transaction_id';
-    const FIELD_RECORD_TYPE = 'record_type';
-    const FIELD_RECORD_ID = 'record_id';
-    const FIELD_TRANSACTION_STATUS = 'transaction_status';
-    const FIELD_MESSAGE = 'message';
-    const FIELD_NOTIFICATION_STATUS = 'notification_status';
-    const FIELD_QLIRO_ORDER_ID = 'qliro_order_id';
+    const string FIELD_ID = 'id';
+    const string FIELD_DATE = 'date';
+    const string FIELD_TRANSACTION_ID = 'transaction_id';
+    const string FIELD_RECORD_TYPE = 'record_type';
+    const string FIELD_RECORD_ID = 'record_id';
+    const string FIELD_TRANSACTION_STATUS = 'transaction_status';
+    const string FIELD_MESSAGE = 'message';
+    const string FIELD_NOTIFICATION_STATUS = 'notification_status';
+    const string FIELD_QLIRO_ORDER_ID = 'qliro_order_id';
 
     /**
      * Magento record types initiating the notification
      */
-    const RECORD_TYPE_SHIPMENT = 'shipment';
-    const RECORD_TYPE_PAYMENT = 'payment';
-    const RECORD_TYPE_REFUND = 'refund';
-    const RECORD_TYPE_CANCEL = 'cancel';
+    const string RECORD_TYPE_SHIPMENT = 'shipment';
+    const string RECORD_TYPE_PAYMENT = 'payment';
+    const string RECORD_TYPE_REFUND = 'refund';
+    const string RECORD_TYPE_CANCEL = 'cancel';
 
     /**
      * Internal status of order management status transaction update
      */
-    const NOTIFICATION_STATUS_DONE = 'handled';
-    const NOTIFICATION_STATUS_NEW = 'new';
-    const NOTIFICATION_STATUS_ERROR = 'exception';
-    const NOTIFICATION_STATUS_SKIPPED = 'skipped';
+    const string NOTIFICATION_STATUS_DONE = 'handled';
+    const string NOTIFICATION_STATUS_NEW = 'new';
+    const string NOTIFICATION_STATUS_ERROR = 'exception';
+    const string NOTIFICATION_STATUS_SKIPPED = 'skipped';
 
     /**
      * Get ID
      *
-     * @return int
+     * @return mixed
      */
-    public function getId();
+    public function getId(): mixed;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getDate();
-
-    /**
-     * @return int
-     */
-    public function getTransactionId();
-
-    /**
-     * One of the defined record types declared above
-     *
-     * @return string
-     */
-    public function getRecordType();
+    public function getDate(): ?string;
 
     /**
      * @return int|null
      */
-    public function getRecordId();
+    public function getTransactionId(): ?int;
 
     /**
-     * @return string
+     * One of the defined record types declared above
+     *
+     * @return string|null
      */
-    public function getTransactionStatus();
+    public function getRecordType(): ?string;
 
     /**
-     * @return string
+     * @return int|null
      */
-    public function getNotificationStatus();
+    public function getRecordId(): ?int;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMessage();
+    public function getTransactionStatus(): ?string;
 
     /**
-     * @return int
+     * @return string|null
      */
-    public function getQliroOrderId();
+    public function getNotificationStatus(): ?string;
 
     /**
-     * @var int $value
-     * @return $this
+     * @return string|null
      */
-    public function setId($value);
+    public function getMessage(): ?string;
 
     /**
-     * @var string $value
-     * @return $this
+     * @return int|null
      */
-    public function setDate($value);
+    public function getQliroOrderId(): ?int;
 
     /**
-     * @var int $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setTransactionId($value);
+    public function setId(mixed $value): static;
 
     /**
-     * @var string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setRecordType($value);
+    public function setDate(mixed $value): static;
 
     /**
-     * @var int $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setRecordId($value);
+    public function setTransactionId(mixed $value): static;
 
     /**
-     * @var string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setTransactionStatus($value);
+    public function setRecordType(mixed $value): static;
 
     /**
-     * @var string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setNotificationStatus($value);
+    public function setRecordId(mixed $value): static;
 
     /**
-     * @var string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMessage($value);
+    public function setTransactionStatus(mixed $value): static;
 
     /**
-     * @param int $id
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setQliroOrderId($id);
+    public function setNotificationStatus(mixed $value): static;
+
+    /**
+     * @param mixed $value
+     * @return static
+     */
+    public function setMessage(mixed $value): static;
+
+    /**
+     * @param mixed $id
+     * @return static
+     */
+    public function setQliroOrderId(mixed $id): static;
 }

@@ -3,19 +3,22 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
+use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Sales\Model\Order\Payment;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
+use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler;
-use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreditMemoItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\RefundFeeBuilder;
@@ -25,114 +28,30 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\RefundDiscountBuilder;
 
 class ReturnWithItemsBuilder
 {
-    /**
-     * @var Payment
-     */
-    private $payment;
+    private ?Payment $payment = null;
 
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var AdminReturnWithItemsRequestInterfaceFactory
-     */
-    private $adminReturnWithItemsRequestFactory;
-
-    /**
-     * @var CartRepositoryInterface
-     */
-    private $cartRepository;
-
-    /**
-     * @var ShippingFeeHandler
-     */
-    private $shippingFeeHandler;
-
-    /**
-     * @var CreditMemoItemsBuilder
-     */
-    private $creditMemoItemsBuilder;
-
-    /**
-     * @var RefundFeeBuilder
-     */
-    private $refundFeeBuilder;
-
-    /**
-     * @var InvoiceFeeHandler
-     */
-    private $invoiceFeeHandler;
-
-    /**
-     * @var InvoiceFeeTotalValidatorInterface
-     */
-    private $invoiceFeeTotalValidator;
-
-    /**
-     * @var RefundDiscountBuilder
-     */
-    private $refundDiscountBuilder;
-
-
-    /**
-     * Inject dependencies
-     *
-     * @param LinkRepositoryInterface $linkRepository
-     * @param LogManager $logManager
-     * @param Config $qliroConfig
-     * @param AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory
-     * @param CartRepositoryInterface $cartRepository
-     * @param ShippingFeeHandler $shippingFeeHandler
-     * @param CreditMemoItemsBuilder $creditMemoItemsBuilder
-     * @param RefundFeeBuilder $refundFeeBuilder
-     * @param InvoiceFeeHandler $invoiceFeeHandler
-     * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
-     * @param RefundDiscountBuilder $refundDiscountBuilder
-     */
     public function __construct(
-        LinkRepositoryInterface                     $linkRepository,
-        LogManager                                  $logManager,
-        Config                                      $qliroConfig,
-        AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory,
-        CartRepositoryInterface                     $cartRepository,
-        ShippingFeeHandler                          $shippingFeeHandler,
-        CreditMemoItemsBuilder                      $creditMemoItemsBuilder,
-        RefundFeeBuilder                            $refundFeeBuilder,
-        InvoiceFeeHandler                           $invoiceFeeHandler,
-        InvoiceFeeTotalValidatorInterface           $invoiceFeeTotalValidator,
-        RefundDiscountBuilder                       $refundDiscountBuilder
-    )
-    {
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->qliroConfig = $qliroConfig;
-        $this->adminReturnWithItemsRequestFactory = $adminReturnWithItemsRequestFactory;
-        $this->cartRepository = $cartRepository;
-        $this->shippingFeeHandler = $shippingFeeHandler;
-        $this->creditMemoItemsBuilder = $creditMemoItemsBuilder;
-        $this->refundFeeBuilder = $refundFeeBuilder;
-        $this->invoiceFeeHandler = $invoiceFeeHandler;
-        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
-        $this->refundDiscountBuilder = $refundDiscountBuilder;
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly LogManager $logManager,
+        private readonly Config $qliroConfig,
+        private readonly AdminReturnWithItemsRequestInterfaceFactory $adminReturnWithItemsRequestFactory,
+        private readonly CartRepositoryInterface $cartRepository,
+        private readonly ShippingFeeHandler $shippingFeeHandler,
+        private readonly CreditMemoItemsBuilder $creditMemoItemsBuilder,
+        private readonly RefundFeeBuilder $refundFeeBuilder,
+        private readonly InvoiceFeeHandler $invoiceFeeHandler,
+        private readonly InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        private readonly RefundDiscountBuilder $refundDiscountBuilder,
+        private readonly OrderManagementStatusRepositoryInterface $omStatusRepository,
+        private readonly SearchCriteriaBuilder $searchCriteriaBuilder
+    ) {
     }
 
 
     /**
      * @return AdminReturnWithItemsRequestInterface
      */
-    public function create()
+    public function create(): AdminReturnWithItemsRequestInterface
     {
         if (empty($this->payment)) {
             throw new \LogicException('Payment entity is not set.');
@@ -147,9 +66,9 @@ class ReturnWithItemsBuilder
 
     /**
      * @param Payment $payment
-     * @return $this
+     * @return static
      */
-    public function setPayment(Payment $payment)
+    public function setPayment(Payment $payment): static
     {
         $this->payment = $payment;
 
@@ -159,7 +78,7 @@ class ReturnWithItemsBuilder
     /**
      * @return AdminReturnWithItemsRequestInterface
      */
-    private function prepareRequest()
+    private function prepareRequest(): AdminReturnWithItemsRequestInterface
     {
         /** @var AdminReturnWithItemsRequestInterface $request */
         $request = $this->adminReturnWithItemsRequestFactory->create();
@@ -193,7 +112,7 @@ class ReturnWithItemsBuilder
             )->setCurrency(
                 $order->getOrderCurrencyCode()
             )->setPaymentTransactionId(
-                $this->payment->getParentTransactionId()
+                $this->resolvePaymentTransactionId($this->payment, $link->getQliroOrderId())
             )->setOrderItems(
                 $orderItems
             )->setFees(
@@ -219,5 +138,50 @@ class ReturnWithItemsBuilder
         }
 
         return $request;
+    }
+
+    /**
+     * Resolve the Qliro PaymentTransactionId needed for ReturnWithItems.
+     *
+     * The happy-path capture stores a numeric Qliro ID as the Magento capture
+     * transaction ID. When it is a plain integer string, we use it directly.
+     *
+     * When the capture resulted in a Magento-generated string ID (e.g.
+     * "qliroone-xxxxxx-capture") the Qliro ID is either stored in the
+     * qliroone_order_management_status table by captureByInvoice() /
+     * captureByShipment(), or was delivered later via an async Qliro webhook.
+     * We search that table by qliro_order_id, skipping only refund records.
+     */
+    private function resolvePaymentTransactionId(Payment $payment, int $qliroOrderId): int
+    {
+        // Happy path: the capture transaction ID is already the numeric Qliro ID.
+        $parentTxnId = $payment->getParentTransactionId();
+        if ($parentTxnId !== null && ctype_digit((string) $parentTxnId)) {
+            return (int) $parentTxnId;
+        }
+
+        // Fallback: look up the Qliro PaymentTransactionId from the OM status table.
+        try {
+            $criteria = $this->searchCriteriaBuilder
+                ->addFilter(OrderManagementStatusInterface::FIELD_QLIRO_ORDER_ID, $qliroOrderId, 'eq')
+                ->create();
+
+            foreach ($this->omStatusRepository->getList($criteria)->getItems() as $omStatus) {
+                if (!$omStatus->getTransactionId()) {
+                    continue;
+                }
+                // Skip refund records — we want the capture PaymentTransactionId.
+                if ($omStatus->getRecordType() === OrderManagementStatusInterface::RECORD_TYPE_REFUND) {
+                    continue;
+                }
+                return (int) $omStatus->getTransactionId();
+            }
+        } catch (\Exception $e) {
+            $this->logManager->debug($e, [
+                'extra' => ['qliro_order_id' => $qliroOrderId],
+            ]);
+        }
+
+        return 0;
     }
 }

@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\MerchantPayment\Builder;
 
@@ -46,98 +47,37 @@ class CreateRequestBuilder
     private ?Order $order = null;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentRequestInterfaceFactory
+     * Class constructor
+     *
+     * @param AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory
+     * @param CustomerBuilder $customerBuilder
+     * @param CustomerAddressBuilder $customerAddressBuilder
+     * @param OrderItemsBuilder $orderItemsBuilder
+     * @param PaymentMethodBuilder $paymentMethodBuilder
+     * @param LanguageMapperInterface $languageMapper
+     * @param Config $qliroConfig
+     * @param StoreManagerInterface $storeManager
+     * @param CallbackToken $callbackToken
+     * @param QueryParamsResolverInterface $queryParamsResolver
+     * @param ShippingFeeHandler $shippingFeeHandler
+     * @param InvoiceFeeHandler $invoiceFeeHandler
+     * @param ManagerInterface $eventManager
      */
-    private AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LanguageMapperInterface
-     */
-    private LanguageMapperInterface $languageMapper;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private Config $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Model\MerchantPayment\Builder\CustomerBuilder
-     */
-    private CustomerBuilder $customerBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerAddressBuilder
-     */
-    private CustomerAddressBuilder $customerAddressBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder
-     */
-    private OrderItemsBuilder $orderItemsBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\MerchantPayment\Builder\PaymentMethodBuilder
-     */
-    private PaymentMethodBuilder $paymentMethodBuilder;
-
-    /**
-     * @var \Magento\Store\Model\StoreManagerInterface
-     */
-    private StoreManagerInterface $storeManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
-     */
-    private CallbackToken $callbackToken;
-
-    /**
-     * @var \Magento\Framework\Url\QueryParamsResolverInterface
-     */
-    private QueryParamsResolverInterface $queryParamsResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler
-     */
-    private $shippingFeeHandler;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler
-     */
-    private $invoiceFeeHandler;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private ManagerInterface $eventManager;
-
     public function __construct(
-        AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory,
-        CustomerBuilder $customerBuilder,
-        CustomerAddressBuilder $customerAddressBuilder,
-        OrderItemsBuilder $orderItemsBuilder,
-        PaymentMethodBuilder $paymentMethodBuilder,
-        LanguageMapperInterface $languageMapper,
-        Config $qliroConfig,
-        StoreManagerInterface $storeManager,
-        CallbackToken $callbackToken,
-        QueryParamsResolverInterface $queryParamsResolver,
-        ShippingFeeHandler $shippingFeeHandler,
-        InvoiceFeeHandler $invoiceFeeHandler,
-        ManagerInterface $eventManager
+        private readonly AdminCreateMerchantPaymentRequestInterfaceFactory $createRequestFactory,
+        private readonly CustomerBuilder $customerBuilder,
+        private readonly CustomerAddressBuilder $customerAddressBuilder,
+        private readonly OrderItemsBuilder $orderItemsBuilder,
+        private readonly PaymentMethodBuilder $paymentMethodBuilder,
+        private readonly LanguageMapperInterface $languageMapper,
+        private readonly Config $qliroConfig,
+        private readonly StoreManagerInterface $storeManager,
+        private readonly CallbackToken $callbackToken,
+        private readonly QueryParamsResolverInterface $queryParamsResolver,
+        private readonly ShippingFeeHandler $shippingFeeHandler,
+        private readonly InvoiceFeeHandler $invoiceFeeHandler,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->createRequestFactory = $createRequestFactory;
-        $this->customerBuilder = $customerBuilder;
-        $this->customerAddressBuilder = $customerAddressBuilder;
-        $this->orderItemsBuilder = $orderItemsBuilder;
-        $this->paymentMethodBuilder = $paymentMethodBuilder;
-        $this->languageMapper = $languageMapper;
-        $this->qliroConfig = $qliroConfig;
-        $this->storeManager = $storeManager;
-        $this->callbackToken = $callbackToken;
-        $this->queryParamsResolver = $queryParamsResolver;
-        $this->shippingFeeHandler = $shippingFeeHandler;
-        $this->invoiceFeeHandler = $invoiceFeeHandler;
-        $this->eventManager = $eventManager;
     }
 
     /**
@@ -146,7 +86,7 @@ class CreateRequestBuilder
      * @param \Magento\Quote\Api\Data\CartInterface $quote
      * @return $this
      */
-    public function setQuote(CartInterface $quote)
+    public function setQuote(CartInterface $quote): static
     {
         $this->quote = $quote;
 
@@ -157,9 +97,9 @@ class CreateRequestBuilder
      * Set order for data extraction
      *
      * @param \Magento\Sales\Model\Order $order
-     * @return $this
+     * @return static
      */
-    public function setOrder(Order $order)
+    public function setOrder(Order $order): static
     {
         $this->order = $order;
 
@@ -172,7 +112,7 @@ class CreateRequestBuilder
      * @return \Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentRequestInterface
      * @throws \Exception
      */
-    public function create()
+    public function create(): AdminCreateMerchantPaymentRequestInterface
     {
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');
@@ -225,7 +165,7 @@ class CreateRequestBuilder
         $createRequest = $this->createRequestFactory->create();
 
         $createRequest->setCurrency($currencies->getQuoteCurrencyCode());
-        $createRequest->setLanguage($this->languageMapper->getLanguage($this->quote->getStoreId()));
+        $createRequest->setLanguage($this->languageMapper->getLanguage());
         $createRequest->setCountry($this->getCountry());
 
         $createRequest->setMerchantOrderManagementStatusPushUrl(
@@ -252,7 +192,7 @@ class CreateRequestBuilder
      * @param string $path
      * @return string
      */
-    private function getCallbackUrl($path)
+    private function getCallbackUrl(string $path): string
     {
         $params['_query']['token'] = $this->generateCallbackToken();
 
@@ -279,7 +219,7 @@ class CreateRequestBuilder
      * @param string $url
      * @return string
      */
-    private function applyHttpAuth($url)
+    private function applyHttpAuth(string $url): string
     {
         if ($this->qliroConfig->isHttpAuthEnabled() && preg_match('#^(https?://)(.+)$#', $url, $match)) {
             $authUsername = $this->qliroConfig->getCallbackHttpAuthUsername();
@@ -298,7 +238,7 @@ class CreateRequestBuilder
      * @param array $params
      * @return string
      */
-    private function getUrl($path, $params = [])
+    private function getUrl(string $path, array $params = []): string
     {
         /** @var \Magento\Store\Model\Store $store */
         $store = $this->storeManager->getStore();
@@ -309,7 +249,7 @@ class CreateRequestBuilder
     /**
      * @return string
      */
-    private function generateCallbackToken()
+    private function generateCallbackToken(): string
     {
         if (!$this->generatedToken) {
             $this->generatedToken = $this->callbackToken->getToken();

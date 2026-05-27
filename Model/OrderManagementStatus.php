@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model;
 
@@ -14,158 +15,153 @@ use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
  */
 class OrderManagementStatus extends AbstractModel implements OrderManagementStatusInterface
 {
-    /**
-     * Initialize resource model
-     */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(ResourceModel\OrderManagementStatus::class);
     }
 
     /**
-     * @return string
+     * @inHeirtDoc
      */
-    /**
-     * @inheritdoc
-     */
-    public function getId()
+    public function getId(): mixed
     {
         return $this->getData(self::FIELD_ID);
     }
 
     /**
-     * @return string
+     * @inHeirtDoc
      */
-    public function getDate()
+    public function getDate(): string
     {
-        return $this->getData(self::FIELD_DATE);
+        return (string)$this->getData(self::FIELD_DATE);
     }
 
     /**
-     * @return int
+     * @inHeirtDoc
      */
-    public function getTransactionId()
+    public function getTransactionId(): int
     {
-        return $this->getData(self::FIELD_TRANSACTION_ID);
+        return (int)$this->getData(self::FIELD_TRANSACTION_ID);
     }
 
     /**
-     * One of the defined record types declared above
-     *
-     * @return string
+     * @inHeirtDoc
      */
-    public function getRecordType()
+    public function getRecordType(): string
     {
-        return $this->getData(self::FIELD_RECORD_TYPE);
+        return (string)$this->getData(self::FIELD_RECORD_TYPE);
     }
 
     /**
-     * @return int|null
+     * @inHeirtDoc
      */
-    public function getRecordId()
+    public function getRecordId(): ?int
     {
-        return $this->getData(self::FIELD_RECORD_ID);
+        $value = $this->getData(self::FIELD_RECORD_ID);
+        return $value !== null ? (int)$value : null;
     }
 
     /**
-     * @return string
+     * @inHeirtDoc
      */
-    public function getTransactionStatus()
+    public function getTransactionStatus(): string
     {
-        return $this->getData(self::FIELD_TRANSACTION_STATUS);
+        return (string)$this->getData(self::FIELD_TRANSACTION_STATUS);
     }
 
     /**
-     * @return string
+     * @inHeirtDoc
      */
-    public function getNotificationStatus()
+    public function getNotificationStatus(): string
     {
-        return $this->getData(self::FIELD_NOTIFICATION_STATUS);
+        return (string)$this->getData(self::FIELD_NOTIFICATION_STATUS);
     }
 
     /**
-     * @inheritdoc
+     * @inHeirtDoc
      */
-    public function getMessage()
+    public function getMessage(): string
     {
-        return $this->getData(self::FIELD_MESSAGE);
+        return (string)$this->getData(self::FIELD_MESSAGE);
     }
 
     /**
-     * @inheritdoc
+     * @inHeirtDoc
      */
-    public function getQliroOrderId()
+    public function getQliroOrderId(): int
     {
-        return $this->getData(self::FIELD_QLIRO_ORDER_ID);
+        return (int)$this->getData(self::FIELD_QLIRO_ORDER_ID);
     }
 
     /**
-     * @var string $value
-     * @return $this
+     * @inHeirtDoc
      */
-    public function setDate($value)
+    public function setId(mixed $value): static
+    {
+        return $this->setData(self::FIELD_ID, $value);
+    }
+
+    /**
+     * @inHeirtDoc
+     */
+    public function setDate(mixed $value): static
     {
         return $this->setData(self::FIELD_DATE, $value);
     }
 
     /**
-     * @var int $value
-     * @return $this
+     * @inHeirtDoc
      */
-    public function setTransactionId($value)
+    public function setTransactionId(mixed $value): static
     {
         return $this->setData(self::FIELD_TRANSACTION_ID, $value);
     }
 
     /**
-     * @var string $value
-     * @return $this
+     * @inHeirtDoc
      */
-    public function setRecordType($value)
+    public function setRecordType(mixed $value): static
     {
         return $this->setData(self::FIELD_RECORD_TYPE, $value);
     }
 
     /**
-     * @var int $value
-     * @return $this
+     * @inHeirtDoc
      */
-    public function setRecordId($value)
+    public function setRecordId(mixed $value): static
     {
         return $this->setData(self::FIELD_RECORD_ID, $value);
     }
 
     /**
-     * @var string $value
-     * @return $this
+     * @inHeirtDoc
      */
-    public function setTransactionStatus($value)
+    public function setTransactionStatus(mixed $value): static
     {
         return $this->setData(self::FIELD_TRANSACTION_STATUS, $value);
     }
 
     /**
-     * @var string $value
-     * @return $this
+     * @inHeirtDoc
      */
-    public function setNotificationStatus($value)
+    public function setNotificationStatus(mixed $value): static
     {
         return $this->setData(self::FIELD_NOTIFICATION_STATUS, $value);
     }
 
     /**
-     * @inheritdoc
+     * @inHeirtDoc
      */
-    public function setMessage($value)
+    public function setMessage(mixed $value): static
     {
         return $this->setData(self::FIELD_MESSAGE, $value);
     }
 
     /**
-     * @inheritdoc
+     * @inHeirtDoc
      */
-    public function setQliroOrderId($value)
+    public function setQliroOrderId(mixed $id): static
     {
-        return $this->setData(self::FIELD_QLIRO_ORDER_ID, $value);
+        return $this->setData(self::FIELD_QLIRO_ORDER_ID, $id);
     }
 }

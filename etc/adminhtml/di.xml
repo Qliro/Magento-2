@@ -3,4 +3,5 @@
     <type name="Magento\Sales\Model\ResourceModel\Order\Grid\Collection">
         <plugin name="recurring_orders_grid_collection_plugin" type="Qliro\QliroOne\Plugin\AddRecurringColumnToOrderGrid" />
     </type>
+
 </config>

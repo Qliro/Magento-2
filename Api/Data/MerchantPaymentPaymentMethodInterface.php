@@ -3,69 +3,78 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
- * Interface for Payment Method Data Model, for Merchant Payments
+ * Merchant Payment Method interface
  *
  * @api
  */
-interface MerchantPaymentPaymentMethodInterface extends ContainerInterface
+interface MerchantPaymentPaymentMethodInterface
 {
-    const NAME_CREDITCARDS = 'CREDITCARDS';
-
-    const NAME_INVOICE = 'QLIRO_INVOICE';
-
-    const SUBTYPE_INVOICE = 'INVOICE';
+    const string NAME_CREDITCARDS = 'CREDITCARDS';
+    const string NAME_INVOICE     = 'QLIRO_INVOICE';
+    const string SUBTYPE_INVOICE  = 'INVOICE';
 
     /**
-     * Can be 'CREDITCARDS' or 'QLIRO_INVOICE'
+     * Get a payment method name (CREDITCARDS or QLIRO_INVOICE)
      *
      * @return string
      */
     public function getName(): string;
 
     /**
-     * Can be 'INVOICE', required only of main method is 'QLIRO_INVOICE'
+     * Get payment subtype (INVOICE, required when the method is QLIRO_INVOICE)
      *
      * @return string|null
      */
     public function getSubType(): ?string;
 
     /**
+     * Get whether the letter invoice option is selected
+     *
      * @return bool
      */
     public function getSelectedLetterInvoiceOption(): bool;
 
     /**
-     * Required if CREDITCARDS will be used to identify customer
+     * Get merchant-saved credit card ID (required when using CREDITCARDS)
      *
      * @return string
      */
     public function getMerchantSavedCreditCardId(): string;
 
     /**
+     * Set a payment method name
+     *
      * @param string $name
-     * @return self
+     * @return static
      */
-    public function setName(string $name): self;
+    public function setName(string $name): static;
 
     /**
+     * Set payment subtype
+     *
      * @param string $subType
-     * @return self
+     * @return static
      */
-    public function setSubType(string $subType): self;
+    public function setSubType(string $subType): static;
 
     /**
+     * Set whether the letter invoice option is selected
+     *
      * @param bool $value
-     * @return self
+     * @return static
      */
-    public function setSelectedLetterInvoiceOption(bool $value): self;
+    public function setSelectedLetterInvoiceOption(bool $value): static;
 
     /**
+     * Set merchant-saved credit card ID
+     *
      * @param string $id
-     * @return self
+     * @return static
      */
-    public function setMerchantSavedCreditCardId(string $id): self;
+    public function setMerchantSavedCreditCardId(string $id): static;
 }

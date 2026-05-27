@@ -4,6 +4,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked;
 
@@ -52,7 +53,7 @@ class Cart extends AbstractAction
      * @return array An array containing the item ID, request information, and updating parameters.
      * @throws LocalizedException
      */
-    public function beforeUpdateItem(Subject $subject, $itemId, $requestInfo = null, $updatingParams = null)
+    public function beforeUpdateItem(Subject $subject, mixed $itemId, mixed $requestInfo = null, mixed $updatingParams = null): array
     {
         $this->isLocked($subject->getQuote());
 

@@ -8,28 +8,26 @@ use Qliro\QliroOne\Model\RecurringInfoFactory as ModelFactory;
 use Qliro\QliroOne\Model\ResourceModel\RecurringInfoFactory as ResourceFactory;
 use Qliro\QliroOne\Model\ResourceModel\RecurringInfo\CollectionFactory;
 
-class RecurringInfoRepository implements RecurringInfoRepositoryInterface
+readonly class RecurringInfoRepository implements RecurringInfoRepositoryInterface
 {
-    private ModelFactory $modelFactory;
-
-    private ResourceFactory $resourceFactory;
-
-    private CollectionFactory $collectionFactory;
-
+    /**
+     * Class constructor
+     *
+     * @param ModelFactory        $modelFactory
+     * @param ResourceFactory     $resourceFactory
+     * @param CollectionFactory   $collectionFactory
+     */
     public function __construct(
-        ModelFactory $modelFactory,
-        ResourceFactory $resourceFactory,
-        CollectionFactory $collectionFactory
+        private ModelFactory      $modelFactory,
+        private ResourceFactory   $resourceFactory,
+        private CollectionFactory $collectionFactory
     ) {
-        $this->modelFactory = $modelFactory;
-        $this->resourceFactory = $resourceFactory;
-        $this->collectionFactory = $collectionFactory;
     }
 
     /**
      * @inheritDoc
      */
-    public function save(RecurringInfoInterface $recurringInfo)
+    public function save(RecurringInfoInterface $recurringInfo): void
     {
         $resourceModel = $this->resourceFactory->create();
         $resourceModel->save($recurringInfo);
@@ -69,7 +67,7 @@ class RecurringInfoRepository implements RecurringInfoRepositoryInterface
     /**
      * @inheritDoc
      */
-    public function getByTodaysDate(?int $storeId = null): array
+    public function getByTodaysDate(int|string|null $storeId = null): array
     {
         $todaysDate = date('Y-m-d');
         $collection = $this->collectionFactory->create();

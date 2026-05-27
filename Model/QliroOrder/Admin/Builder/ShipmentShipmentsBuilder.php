@@ -3,87 +3,62 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
+use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Shipment;
+use Magento\Sales\Model\Order\Shipment\Item;
 use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
-use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory;
+use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory as QliroShipmentFactory;
 
 /**
  * QliroOne Admin Order shipments builder class
  */
 class ShipmentShipmentsBuilder
 {
-    /**
-     * @var \Magento\Sales\Model\Order
-     */
-    private $order;
+    private ?Order $order = null;
+    private ?Shipment $shipment = null;
+    private array $handlers = [];
 
     /**
-     * @var \Magento\Sales\Model\Order\Shipment
-     */
-    private $shipment;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypePoolHandler
-     */
-    private $typeResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory
-     */
-    private $qliroShipmentFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[]
-     */
-    private $handlers = [];
-
-    /**
-     * @var OrderSourceProvider
-     */
-    private $orderSourceProvider;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
-     * @param \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory $qliroShipmentFactory
-     * @param OrderSourceProvider $orderSourceProvider
-     * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
+     * @param TypePoolHandler                 $typeResolver
+     * @param QliroShipmentFactory            $qliroShipmentFactory
+     * @param OrderSourceProvider             $orderSourceProvider
+     * @param OrderItemHandlerInterface[]     $handlers
      */
     public function __construct(
-        TypePoolHandler $typeResolver,
-        QliroShipmentInterfaceFactory $qliroShipmentFactory,
-        OrderSourceProvider $orderSourceProvider,
-        $handlers = []
+        private readonly TypePoolHandler      $typeResolver,
+        private readonly QliroShipmentFactory $qliroShipmentFactory,
+        private readonly OrderSourceProvider  $orderSourceProvider,
+        array                                 $handlers = []
     ) {
-        $this->typeResolver = $typeResolver;
-        $this->qliroShipmentFactory = $qliroShipmentFactory;
-        $this->orderSourceProvider = $orderSourceProvider;
         $this->handlers = $handlers;
     }
 
     /**
-     * @param \Magento\Sales\Model\Order\Shipment $shipment
+     * @param Shipment $shipment
      */
-    public function setShipment($shipment)
+    public function setShipment(Shipment $shipment): void
     {
         $this->shipment = $shipment;
 
-        /** @var \Magento\Sales\Model\Order $order */
+        /** @var Order $order */
         $this->order = $this->shipment->getOrder();
     }
 
     /**
      * Create an array of containers
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroShipmentInterface[];
+     * @return QliroShipmentInterface[]
      */
-    public function create()
+    public function create(): array
     {
         if (empty($this->order)) {
             throw new \LogicException('Order entity is not set.');
@@ -97,9 +72,9 @@ class ShipmentShipmentsBuilder
          */
         $configurableProducts = [];
 
-        /** @var \Magento\Sales\Model\Order\Shipment\Item $shipmentItem */
+        /** @var Item $shipmentItem */
         foreach ($this->shipment->getItemsCollection() as $shipmentItem) {
-            /** @var \Magento\Sales\Model\Order\Item $orderItem */
+            /** @var Order\Item $orderItem */
             $orderItem = $this->order->getItemById($shipmentItem->getOrderItemId());
             $shipmentQty = (int)$shipmentItem->getQty();
 
@@ -133,7 +108,7 @@ class ShipmentShipmentsBuilder
             );
 
             if ($qliroOrderItem) {
-                $qliroOrderItem->setQuantity($shipmentQty);
+                $qliroOrderItem['Quantity'] = (float)$shipmentQty;
                 $shipmentOrderItems[] = $qliroOrderItem;
             }
         }
@@ -148,16 +123,12 @@ class ShipmentShipmentsBuilder
             }
         }
 
-        $this->orderSourceProvider->setOrder(null);
-        $this->order = null;
-        $this->shipment = null;
-
-        if (empty($shipmentOrderItems)) {
-            return [];
-        }
-
         $shipment = $this->qliroShipmentFactory->create();
         $shipment->setOrderItems($shipmentOrderItems);
+
+        $this->order = null;
+        $this->shipment = null;
+        $this->orderSourceProvider->setOrder($this->order);
 
         return [$shipment];
     }
@@ -165,7 +136,7 @@ class ShipmentShipmentsBuilder
     /**
      * @return bool
      */
-    private function isFirstShipment()
+    private function isFirstShipment(): bool
     {
         $invoiceCollection = $this->order->getInvoiceCollection();
         foreach ($invoiceCollection as $invoice) {

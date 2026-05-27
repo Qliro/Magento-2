@@ -3,13 +3,13 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
 
 namespace Qliro\QliroOne\Console;
 
-use Qliro\QliroOne\Model\Management;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Input\InputInterface;
@@ -36,7 +36,7 @@ class UpdateOrderCommand extends AbstractCommand
     /**
      * Configure the CLI command
      */
-    protected function configure()
+    protected function configure(): void
     {
         parent::configure();
 
@@ -52,7 +52,7 @@ class UpdateOrderCommand extends AbstractCommand
      * @param InputInterface $input
      * @param OutputInterface $output
      */
-    protected function initialize(InputInterface $input, OutputInterface $output)
+    protected function initialize(InputInterface $input, OutputInterface $output): void
     {
         parent::initialize($input, $output);
         $this->orderId = $input->getArgument('orderid');
@@ -66,15 +66,16 @@ class UpdateOrderCommand extends AbstractCommand
      * @param OutputInterface $output
      * @return int|null
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $output->writeln('<comment>Update QliroOne order</comment>');
 
-        /** @var \Qliro\QliroOne\Model\Management\Quote $management */
-        $management = $this->getObjectManager()->get(\Qliro\QliroOne\Model\Management\Quote::class);
+        /** @var \Qliro\QliroOne\Api\Admin\OrderServiceInterface $management */
+        $management = $this->getObjectManager()->get(\Qliro\QliroOne\Api\Admin\OrderServiceInterface::class);
 
         try {
-            $management->update($this->orderId, $this->force);
+            $qliroOrder = $management->getAdminQliroOrder((int)$this->orderId);
+            $output->writeln('<info>Qliro order: ' . ($qliroOrder ? $qliroOrder->getOrderId() : 'not found') . '</info>');
         } catch (\Qliro\QliroOne\Model\Api\Client\Exception\ClientException $exception) {
             /** @var \GuzzleHttp\Exception\RequestException $origException */
             $origException = $exception->getPrevious();

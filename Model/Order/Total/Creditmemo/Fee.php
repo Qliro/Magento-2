@@ -3,39 +3,36 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Order\Total\Creditmemo;
 
 use Magento\Sales\Model\Order\Creditmemo;
 use Magento\Sales\Model\Order\Creditmemo\Total\AbstractTotal;
-use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
+use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface as InvoiceFeeTotalValidator;
 
 class Fee extends AbstractTotal
 {
     /**
-     * @var InvoiceFeeTotalValidatorInterface
-     */
-    private InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator;
-
-    /**
-     * @param InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator
+     * Class constructor
+     *
+     * @param InvoiceFeeTotalValidator            $invoiceFeeTotalValidator
      * @param array $data
      */
     public function __construct(
-        InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        private readonly InvoiceFeeTotalValidator $invoiceFeeTotalValidator,
         array $data = []
-    )
-    {
+    ) {
         parent::__construct($data);
-        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
     }
+
     /**
      * Collect totals
      *
      * @param Creditmemo $creditmemo
      * @return $this
      */
-    public function collect(Creditmemo $creditmemo)
+    public function collect(Creditmemo $creditmemo): static
     {
         /** @var \Magento\Sales\Model\Order $order */
         $order = $creditmemo->getOrder();

@@ -27,7 +27,7 @@ class RecurringInfo extends AbstractModel implements RecurringInfoInterface
     /**
      * @inheritDoc
      */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(ResourceModel\RecurringInfo::class);
     }

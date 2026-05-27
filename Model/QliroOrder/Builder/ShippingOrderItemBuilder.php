@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
@@ -16,41 +17,20 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
  */
 class ShippingOrderItemBuilder
 {
-    /**
-     * @var \Magento\Quote\Model\Quote
-     */
-    private $quote;
+    private ?Quote $quote = null;
 
     /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    private $orderItemFactory;
-
-    /**
-     * @var \Magento\Tax\Helper\Data
-     */
-    private $taxHelper;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $orderItemFactory
-     * @param \Magento\Tax\Helper\Data $taxHelper
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param QliroOrderItemInterfaceFactory $orderItemFactory
+     * @param TaxHelper $taxHelper
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        QliroOrderItemInterfaceFactory $orderItemFactory,
-        TaxHelper $taxHelper,
-        ManagerInterface $eventManager
+        private readonly QliroOrderItemInterfaceFactory $orderItemFactory,
+        private readonly TaxHelper $taxHelper,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->orderItemFactory = $orderItemFactory;
-        $this->taxHelper = $taxHelper;
-        $this->eventManager = $eventManager;
     }
 
     /**
@@ -59,7 +39,7 @@ class ShippingOrderItemBuilder
      * @param \Magento\Quote\Model\Quote $quote
      * @return $this
      */
-    public function setQuote(Quote $quote)
+    public function setQuote(Quote $quote): static
     {
         $this->quote = $quote;
 
@@ -71,7 +51,7 @@ class ShippingOrderItemBuilder
      *
      * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface
      */
-    public function create()
+    public function create(): \Qliro\QliroOne\Api\Data\QliroOrderItemInterface
     {
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');

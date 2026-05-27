@@ -3,69 +3,92 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
- * Admin Universalrsal Transaction Response interface
+ * Admin Transaction Response interface
+ *
+ * @api
  */
-interface AdminTransactionResponseInterface extends ContainerInterface
+interface AdminTransactionResponseInterface
 {
-    const TYPE_UPDATE = 'UpdateItemsResponse';
-    const TYPE_UPDATE_WITH_REVERSAL = 'UpdateItemsWithReversalResponse';
+    const string TYPE_UPDATE = 'UpdateItemsResponse';
+    const string TYPE_UPDATE_WITH_REVERSAL = 'UpdateItemsWithReversalResponse';
 
     /**
-     * @return int
+     * Get payment transaction ID
+     *
+     * @return int|null
      */
-    public function getPaymentTransactionId();
+    public function getPaymentTransactionId(): ?int;
 
     /**
-     * @return string
+     * Get transaction status
+     *
+     * @return string|null
      */
-    public function getStatus();
+    public function getStatus(): ?string;
 
     /**
-     * @return string
+     * Get response type
+     *
+     * @return string|null
      */
-    public function getType();
+    public function getType(): ?string;
 
     /**
-     * @return int
+     * Get reversal payment transaction ID
+     *
+     * @return int|null
      */
-    public function getReversalPaymentTransactionId();
+    public function getReversalPaymentTransactionId(): ?int;
 
     /**
-     * @return string
+     * Get reversal payment transaction status
+     *
+     * @return string|null
      */
-    public function getReversalPaymentTransactionStatus();
+    public function getReversalPaymentTransactionStatus(): ?string;
 
     /**
-     * @param int $value
-     * @return $this
+     * Set payment transaction ID
+     *
+     * @param mixed $value
+     * @return static
      */
-    public function setPaymentTransactionId($value);
+    public function setPaymentTransactionId(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * Set transaction status
+     *
+     * @param mixed $value
+     * @return static
      */
-    public function setStatus($value);
+    public function setStatus(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * Set response type
+     *
+     * @param mixed $value
+     * @return static
      */
-    public function setType($value);
+    public function setType(mixed $value): static;
 
     /**
-     * @param int $value
-     * @return $this
+     * Set reversal payment transaction ID
+     *
+     * @param mixed $value
+     * @return static
      */
-    public function setReversalPaymentTransactionId($value);
+    public function setReversalPaymentTransactionId(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * Set reversal payment transaction status
+     *
+     * @param mixed $value
+     * @return static
      */
-    public function setReversalPaymentTransactionStatus($value);
+    public function setReversalPaymentTransactionStatus(mixed $value): static;
 }

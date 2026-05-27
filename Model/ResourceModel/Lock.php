@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
@@ -12,7 +13,7 @@ namespace Qliro\QliroOne\Model\ResourceModel;
 use Magento\Framework\Model\ResourceModel\Db\Context;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Framework\Model\ResourceModel\Db\AbstractDb;
-use Qliro\QliroOne\Helper\Data as Helper;
+use Qliro\QliroOne\Service\Lock\ProcessChecker;
 
 class Lock extends AbstractDb
 {
@@ -25,38 +26,26 @@ class Lock extends AbstractDb
     const LOCK_EXPIRATION = 10;  /* retire locks after x minutes */
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Framework\Model\ResourceModel\Db\Context $context
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
-     * @param \Qliro\QliroOne\Helper\Data $helper
+     * @param ProcessChecker $processChecker
      * @param string|null $connectionName
      */
     public function __construct(
         Context $context,
-        LogManager $logManager,
-        Helper $helper,
-        $connectionName = null
+        private readonly LogManager    $logManager,
+        private readonly ProcessChecker $processChecker,
+        ?string $connectionName = null
     ) {
         parent::__construct($context, $connectionName);
-        $this->logManager = $logManager;
-        $this->helper = $helper;
     }
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    private $helper;
 
     /**
      * Dummy init method
      */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(self::TABLE_LOCK, self::FIELD_ID);
     }
@@ -66,11 +55,11 @@ class Lock extends AbstractDb
      * - true, the lock was successful
      * - false, the lock has failed
      *
-     * @param string $qliroOrderId
+     * @param int|string $qliroOrderId
      * @param bool $checkProcess
      * @return bool
      */
-    public function lock($qliroOrderId, $checkProcess = true)
+    public function lock(int|string $qliroOrderId, bool $checkProcess = true): bool
     {
         /** @var \Magento\Framework\DB\Adapter\AdapterInterface $connection */
         $connection = $this->getConnection();
@@ -90,7 +79,7 @@ class Lock extends AbstractDb
             $this->logManager->debug('lock: create lock for qliro order id {qliroOrderId}', ['qliroOrderId' => $qliroOrderId]);
             $rows = $connection->insert($this->getTable(self::TABLE_LOCK), [
                 self::FIELD_ID => $qliroOrderId,
-                self::FIELD_PROCESS_ID => $this->helper->getPid(),
+                self::FIELD_PROCESS_ID => $this->processChecker->getCurrentPid(),
                 self::FIELD_CREATED_AT => new \Zend_Db_Expr('NOW()')
             ]);
         } catch (\Exception $e) {
@@ -105,8 +94,8 @@ class Lock extends AbstractDb
                 $row = $connection->fetchRow($select, [':id' => $qliroOrderId]);
                 if (!empty($row[self::FIELD_PROCESS_ID])) {
                     $pid = $row[self::FIELD_PROCESS_ID];
-                    if (!$this->helper->isProcessAlive($pid) &&
-                    $this->helper->isTimePassed($row[self::FIELD_CREATED_AT])) {
+                    if (!$this->processChecker->isAlive($pid) &&
+                        $this->processChecker->isLockExpired($row[self::FIELD_CREATED_AT])) {
                         $rows = $this->unlock($qliroOrderId, true);
                         if ($rows > 0) {
                             $this->logManager->notice('lock: retired lock for not existing process {pid}', ['pid' => $pid]);
@@ -131,18 +120,18 @@ class Lock extends AbstractDb
      * - true, the unlock was successful
      * - false, the unlock has failed
      *
-     * @param string $qliroOrderId
+     * @param int|string $qliroOrderId
      * @param bool $forced  Attempt to remove lock even if this is a different process.
      * @return bool
      */
-    public function unlock($qliroOrderId, $forced = false)
+    public function unlock(int|string $qliroOrderId, bool $forced = false): bool
     {
         /** @var \Magento\Framework\DB\Adapter\AdapterInterface $connection */
         $connection = $this->getConnection();
 
         $where = [sprintf('%s = ?', self::FIELD_ID) => $qliroOrderId];
         if (!$forced) {
-            $where[sprintf('%s = ?', self::FIELD_PROCESS_ID)] = $this->helper->getPid();
+            $where[sprintf('%s = ?', self::FIELD_PROCESS_ID)] = $this->processChecker->getCurrentPid();
         }
         try {
             $rows = $connection->delete($this->getTable(self::TABLE_LOCK), $where);

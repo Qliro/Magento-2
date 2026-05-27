@@ -3,10 +3,13 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api;
 
 use Magento\Framework\Api\SearchCriteriaInterface;
+use Magento\Framework\Exception\AlreadyExistsException;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 
 /**
@@ -20,51 +23,49 @@ interface OrderManagementStatusRepositoryInterface
      * Get a status by its ID
      *
      * @param int $id
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @return OrderManagementStatusInterface
+     * @throws NoSuchEntityException
      */
-    public function get($id);
+    public function get(int $id): OrderManagementStatusInterface;
 
     /**
-     * Get parent by its transaction id
+     * Get the parent status by transaction ID
      *
-     * @param int $id
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @param mixed $id
+     * @return OrderManagementStatusInterface|null
      */
-    public function getParent($id);
+    public function getParent(mixed $id): ?OrderManagementStatusInterface;
 
     /**
-     * Get last transaction received of this transaction id
+     * Get the most recently received status for a given transaction ID
      *
-     * @param int $id
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @param mixed $id
+     * @return OrderManagementStatusInterface|null
      */
-    public function getPrevious($id);
+    public function getPrevious(mixed $id): ?OrderManagementStatusInterface;
 
     /**
-     * Save a OM status
+     * Save an OrderManagementStatus record
      *
-     * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface $OrderManagementStatus
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface
-     * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @param OrderManagementStatusInterface $orderManagementStatus
+     * @return OrderManagementStatusInterface
+     * @throws AlreadyExistsException
      */
-    public function save(OrderManagementStatusInterface $OrderManagementStatus);
+    public function save(OrderManagementStatusInterface $orderManagementStatus): OrderManagementStatusInterface;
 
     /**
-     * Delete a OM status
+     * Delete an OrderManagementStatus record
      *
-     * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface $OrderManagementStatus
-     * @return $this
+     * @param OrderManagementStatusInterface $orderManagementStatus
+     * @return void
      */
-    public function delete(OrderManagementStatusInterface $OrderManagementStatus);
+    public function delete(OrderManagementStatusInterface $orderManagementStatus): void;
 
     /**
-     * Get a result of search among OrderManagementStatuss by given search criteria
+     * Search OrderManagementStatus records by search criteria
      *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @return \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface
+     * @param SearchCriteriaInterface $searchCriteria
+     * @return OrderManagementStatusSearchResultInterface
      */
-    public function getList(SearchCriteriaInterface $searchCriteria);
+    public function getList(SearchCriteriaInterface $searchCriteria): OrderManagementStatusSearchResultInterface;
 }

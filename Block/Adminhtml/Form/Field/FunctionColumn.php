@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Block\Adminhtml\Form\Field;
 
@@ -15,23 +16,23 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingConfigUnifaunBuilder;
 class FunctionColumn extends Select
 {
     /**
-     * Set "name" for <select> element
+     * Set "name" for a <select> element
      *
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setInputName($value)
+    public function setInputName(string $value): static
     {
         return $this->setName($value);
     }
 
     /**
-     * Set "id" for <select> element
+     * Set "id" for a <select> element
      *
-     * @param $value
-     * @return $this
+     * @param string $value
+     * @return static
      */
-    public function setInputId($value)
+    public function setInputId(string $value): static
     {
         return $this->setId($value);
     }
@@ -41,7 +42,7 @@ class FunctionColumn extends Select
      *
      * @return string
      */
-    public function _toHtml()
+    public function _toHtml(): string
     {
         if (!$this->getOptions()) {
             $this->setOptions($this->getSourceOptions());
@@ -52,7 +53,7 @@ class FunctionColumn extends Select
     /**
      * @return array[]
      */
-    private function getSourceOptions()
+    private function getSourceOptions(): array
     {
         return [
             ['label' => \__('Bulky'), 'value' => ShippingConfigUnifaunBuilder::UNIFAUN_TAGS_FUNC_BULKY],

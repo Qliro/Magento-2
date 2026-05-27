@@ -1,4 +1,9 @@
-<?php declare(strict_types=1);
+<?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\ViewModel;
 
@@ -18,18 +23,18 @@ class RecurringHistory implements ArgumentInterface
 
     const ORDER_VIEW_ROUTE = 'sales/order/view';
 
-    private CollectionFactory $recurringCollectionFactory;
-
-    private CustomerSession $customerSession;
-
     private ?Template $containerBlock = null;
 
+    /**
+     * Class constructor
+     *
+     * @param CollectionFactory $recurringCollectionFactory
+     * @param CustomerSession $customerSession
+     */
     public function __construct(
-        CollectionFactory $recurringCollectionFactory,
-        CustomerSession $customerSession
+        private readonly CollectionFactory $recurringCollectionFactory,
+        private readonly CustomerSession $customerSession
     ) {
-        $this->recurringCollectionFactory = $recurringCollectionFactory;
-        $this->customerSession = $customerSession;
     }
 
     /**

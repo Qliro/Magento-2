@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Block\Adminhtml\Form\Field;
 
@@ -17,18 +18,18 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingConfigUnifaunBuilder;
 class Parameters extends AbstractFieldArray
 {
     /**
-     * @var FunctionColumn
+     * @var ?FunctionColumn $functionRenderer
      */
-    private $functionRenderer;
+    private ?FunctionColumn $functionRenderer = null;
 
     /**
-     * Prepare rendering the new field by adding all the needed columns
+     * Prepare to render the new field by adding all the necessary columns
      * @SuppressWarnings(PHPMD.CamelCaseMethodName)
      */
     // phpcs:ignore VCQP.PHP.ProtectedClassMember.FoundProtected
     // phpcs:ignore VCQP.PHP.ProtectedClassMember.FoundProtected,VCQP.Methods.MethodDeclaration.Underscore
     // phpcs:disable CODOR.Classes.PropertyDeclaration.Missing
-    protected function _prepareToRender()
+    protected function _prepareToRender(): void
     {
         $this->addColumn(
             ShippingConfigUnifaunBuilder::UNIFAUN_TAGS_SETTING_TAG,
@@ -47,7 +48,7 @@ class Parameters extends AbstractFieldArray
     }
 
     /**
-     * Prepare existing row data object
+     * Prepare an existing row data object
      *
      * @param DataObject $row
      * @throws LocalizedException
@@ -68,7 +69,7 @@ class Parameters extends AbstractFieldArray
      * @return FunctionColumn
      * @throws LocalizedException
      */
-    private function getFunctionRenderer()
+    private function getFunctionRenderer(): FunctionColumn
     {
         if (!$this->functionRenderer) {
             $this->functionRenderer = $this->getLayout()->createBlock(

@@ -1,0 +1,205 @@
+<?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
+
+use Qliro\QliroOne\Block\Adminhtml\Log\View;
+use Qliro\QliroOne\Model\LogRecord;
+use Magento\Framework\Escaper;
+
+/**
+ * @var View $block
+ * @var Escaper $escaper
+ * @var LogRecord $log
+ */
+$log = $block->getLogRecord();
+?>
+<div class="admin__page-nav-title">
+    <a href="<?= $escaper->escapeUrl($block->getBackUrl()) ?>" class="action-back">
+        <span><?= $escaper->escapeHtml(__('Back')) ?></span>
+    </a>
+</div>
+
+<div class="admin__data-grid-wrap" style="padding: 2rem;">
+    <table class="data-grid" style="width: 100%; border-collapse: collapse;">
+        <colgroup>
+            <col style="width: 160px;">
+            <col>
+        </colgroup>
+        <tbody>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml(__('ID')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml((string)$log->getId()) ?>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml(__('Date')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml($log->getDate()) ?>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml(__('Level')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml($log->getLevel()) ?>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml(__('Process ID')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml($log->getProcessId()) ?>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml(__('Reference')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml((string) $log->getData('reference')) ?>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml(__('Tags')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?= $escaper->escapeHtml($log->getTag()) ?>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6; vertical-align: top;">
+                    <?= $escaper->escapeHtml(__('Message')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <textarea readonly rows="12" style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 12px; resize: vertical;"
+                    ><?= $escaper->escapeHtml($log->getMessage()) ?></textarea>
+                </td>
+            </tr>
+
+            <tr>
+                <th class="data-grid-th" style="text-align: left; padding: 8px 12px; background: #41362f; color: #f7f3eb; border: 1px solid #d6d6d6; vertical-align: top;">
+                    <?= $escaper->escapeHtml(__('Extra')) ?>
+                </th>
+                <td style="padding: 8px 12px; border: 1px solid #d6d6d6;">
+                    <?php
+                        $extra   = $log->getExtra();
+                        $decoded = json_decode($extra, true);
+
+                        if ($decoded !== null) {
+                            $extraFormatted = json_encode($decoded, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                            $extraType      = 'json';
+                        } elseif (preg_match('/^\s*Array\s*\(/m', $extra)) {
+                            $extraFormatted = $extra;
+                            $extraType      = 'phparray';
+                        } else {
+                            $extraFormatted = $extra;
+                            $extraType      = 'text';
+                        }
+                    ?>
+                    <?php if ($extraType === 'text'): ?>
+                        <textarea readonly rows="8" style="width: 100%; box-sizing: border-box; font-family: monospace; font-size: 12px; resize: vertical;"
+                        ><?= $block->escapeHtml($extraFormatted) ?></textarea>
+                    <?php else: ?>
+                        <pre id="qliroone-extra-pre" style="
+                            margin: 0;
+                            padding: 10px;
+                            background: #fff;
+                            border-radius: 4px;
+                            font-family: monospace;
+                            font-size: 12px;
+                            line-height: 1.5;
+                            overflow: auto;
+                            max-height: 500px;
+                            white-space: pre-wrap;
+                            word-break: break-all;
+                            border: 1px solid #d6d6d6;
+                        "></pre>
+                        <script>
+                        (function () {
+                            const raw  = <?= /* @noEscape */ json_encode($extraFormatted) ?>;
+                            const type = <?= /* @noEscape */ json_encode($extraType) ?>;
+
+                            function esc(s) {
+                                return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+                            }
+
+                            function span(color, text) {
+                                return '<span style="color:' + color + '">' + esc(text) + '</span>';
+                            }
+
+                            function highlightJson(str) {
+                                const re = /("(?:\\.|[^"\\])*"(?:\s*:)?|true|false|null|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g;
+                                let result = '', last = 0, m;
+                                while ((m = re.exec(str)) !== null) {
+                                    result += esc(str.slice(last, m.index));
+                                    const tok = m[0];
+                                    let color;
+                                    if (tok.startsWith('"')) {
+                                        color = tok.trimEnd().endsWith(':') ? '#0451a5' : '#b5501a';
+                                    } else if (tok === 'true' || tok === 'false') {
+                                        color = '#0000ff';
+                                    } else if (tok === 'null') {
+                                        color = '#808080';
+                                    } else {
+                                        color = '#098658';
+                                    }
+                                    result += span(color, tok);
+                                    last = m.index + tok.length;
+                                }
+                                return result + esc(str.slice(last));
+                            }
+
+                            function highlightPhpArray(str) {
+                                return str.replace(/\\n/g, '\n').split('\n').map(function (line) {
+                                    const arrowLine = line.match(/^(\s*)\[([^\]]*)\]\s*=>\s*(.*)$/);
+                                    if (arrowLine) {
+                                        const indent = esc(arrowLine[1]);
+                                        const key    = arrowLine[2];
+                                        const value  = arrowLine[3].trim();
+                                        const valHtml = (value === 'Array' || value === '')
+                                            ? span('#0000ff', 'Array')
+                                            : span('#b5501a', value);
+                                        return indent
+                                            + '[' + span('#0451a5', key) + ']'
+                                            + ' ' + span('#808080', '=>') + ' '
+                                            + valHtml;
+                                    }
+
+                                    if (/^\s*Array\s*$/.test(line)) {
+                                        return esc(line).replace('Array', span('#0000ff', 'Array'));
+                                    }
+
+                                    return esc(line);
+                                }).join('\n');
+                            }
+
+                            const normalized = raw.replace(/\\n/g, '\n').replace(/\\t/g, '    ');
+                            document.getElementById('qliroone-extra-pre').innerHTML =
+                                type === 'json' ? highlightJson(normalized) : highlightPhpArray(normalized);
+                        })();
+                        </script>
+                    <?php endif; ?>
+                </td>
+            </tr>
+
+        </tbody>
+    </table>
+</div>

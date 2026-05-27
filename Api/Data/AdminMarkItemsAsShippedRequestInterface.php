@@ -3,66 +3,89 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
- * AdminMarkItemsAsShippedRequestInterface interface
+ * Admin Mark Items As Shipped Request interface
+ *
+ * @api
  */
-interface AdminMarkItemsAsShippedRequestInterface extends ContainerInterface
+interface AdminMarkItemsAsShippedRequestInterface
 {
     /**
+     * Get merchant API key
+     *
      * @return string
      */
-    public function getMerchantApiKey();
+    public function getMerchantApiKey(): string;
 
     /**
+     * Get Qliro order ID
+     *
      * @return int
      */
-    public function getOrderId();
+    public function getOrderId(): int;
 
     /**
+     * Get currency code
+     *
      * @return string
      */
-    public function getCurrency();
+    public function getCurrency(): string;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroShipmentInterface[]
+     * Get shipments
+     *
+     * @return QliroShipmentInterface[]
      */
-    public function getShipments();
+    public function getShipments(): array;
 
     /**
+     * Get request ID
+     *
      * @return string
      */
-    public function getRequestId();
+    public function getRequestId(): string;
 
     /**
+     * Set the merchant API key
+     *
      * @param string $value
      * @return $this
      */
-    public function setMerchantApiKey($value);
+    public function setMerchantApiKey(string $value): static;
 
     /**
+     * Set Qliro order ID
+     *
      * @param int $value
      * @return $this
      */
-    public function setOrderId($value);
+    public function setOrderId(int $value): static;
 
     /**
+     * Set currency code
+     *
      * @param string $value
      * @return $this
      */
-    public function setCurrency($value);
+    public function setCurrency(string $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroShipmentInterface[] $value
-     * @return void
+     * Set shipments
+     *
+     * @param QliroShipmentInterface[] $value
+     * @return $this
      */
-    public function setShipments(array $value);
+    public function setShipments(array $value): static;
 
     /**
+     * Set request ID
+     *
      * @param string $value
      * @return $this
      */
-    public function setRequestId($value);
+    public function setRequestId(string $value): static;
 }

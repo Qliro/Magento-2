@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
@@ -13,129 +14,64 @@ use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface;
  */
 class MarkItemsAsShippedRequest implements AdminMarkItemsAsShippedRequestInterface
 {
-    /**
-     * @var string
-     */
-    private $merchantApiKey;
+    private string $merchantApiKey = '';
+    private int $orderId = 0;
+    private string $currency = '';
+    private array $shipments = [];
+    private string $requestId = '';
 
-    /**
-     * @var int
-     */
-    private $orderId;
-
-    /**
-     * @var string
-     */
-    private $currency;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroShipmentInterface[]
-     */
-    private $shipments;
-
-    /**
-     * @var string
-     */
-    private $requestId;
-
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getMerchantApiKey()
+    public function getMerchantApiKey(): string
     {
         return $this->merchantApiKey;
     }
 
-    /**
-     * @param string $merchantApiKey
-     * @return MarkItemsAsShippedRequest
-     */
-    public function setMerchantApiKey($merchantApiKey)
+    public function setMerchantApiKey($merchantApiKey): static
     {
-        $this->merchantApiKey = $merchantApiKey;
-
+        $this->merchantApiKey = (string)$merchantApiKey;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return int
-     */
-    public function getOrderId()
+    public function getOrderId(): int
     {
         return $this->orderId;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getShipments()
+    public function setOrderId($orderId): static
     {
-        return $this->shipments;
-    }
-
-    /**
-     * @param int $orderId
-     * @return MarkItemsAsShippedRequest
-     */
-    public function setOrderId($orderId)
-    {
-        $this->orderId = $orderId;
-
+        $this->orderId = (int)$orderId;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getCurrency()
+    public function getCurrency(): string
     {
         return $this->currency;
     }
 
-    /**
-     * @param string $currency
-     * @return MarkItemsAsShippedRequest
-     */
-    public function setCurrency($currency)
+    public function setCurrency($currency): static
     {
-        $this->currency = $currency;
-
+        $this->currency = (string)$currency;
         return $this;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function setShipments(array $value)
+    public function getShipments(): array
+    {
+        return $this->shipments;
+    }
+
+    public function setShipments(array $value): static
     {
         $this->shipments = $value;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getRequestId()
+    public function getRequestId(): string
     {
         return $this->requestId;
     }
 
-    /**
-     * @param string $requestId
-     * @return MarkItemsAsShippedRequest
-     */
-    public function setRequestId($requestId)
+    public function setRequestId($requestId): static
     {
-        $this->requestId = $requestId;
-
+        $this->requestId = (string)$requestId;
         return $this;
     }
 }

@@ -9,7 +9,7 @@ class RecurringInfo extends AbstractDb
     /**
      * @inheritDoc
      */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init('qliroone_recurring_info', 'entity_id');
     }

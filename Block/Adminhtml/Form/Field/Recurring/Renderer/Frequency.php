@@ -2,25 +2,27 @@
 
 namespace Qliro\QliroOne\Block\Adminhtml\Form\Field\Recurring\Renderer;
 
+use Magento\Framework\View\Element\Html\Select;
+
 /**
  * Frequency renderer
  */
-class Frequency extends \Magento\Framework\View\Element\Html\Select
+class Frequency extends Select
 {
-    const OPTION_EVERY = 1;
-    const OPTION_EVERY_OTHER = 2;
-    const OPTION_EVERY_THIRD = 3;
+    const string OPTION_EVERY = '1';
+    const string OPTION_EVERY_OTHER = '2';
+    const string OPTION_EVERY_THIRD = '3';
 
     /**
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setInputName($value)
+    public function setInputName(string $value): static
     {
         return $this->setName($value);
     }
 
-    protected function _toHtml()
+    protected function _toHtml(): string
     {
         $this->addOption(self::OPTION_EVERY, __('Every'));
         $this->addOption(self::OPTION_EVERY_OTHER, __('Every Other'));

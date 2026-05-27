@@ -3,71 +3,72 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Product;
 
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-
 /**
  * Product Type Handler interface
+ *
+ * @api
  */
 interface TypeHandlerInterface
 {
     /**
-     * Get QliroOne order item out of a source item, or null if not applicable
+     * Build a QliroOne order item array from a source item, or null if not applicable
      *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface|null
+     * @param TypeSourceItemInterface $item
+     * @return array|null
      */
-    public function getQliroOrderItem(TypeSourceItemInterface $item);
+    public function getQliroOrderItem(TypeSourceItemInterface $item): ?array;
 
     /**
-     * Get a reference to source item out of QliroOne order item, or null if not applicable
+     * Find the source item matching a QliroOne order item, or null if not applicable
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
+     * @param array $qliroOrderItem
+     * @param TypeSourceProviderInterface $typeSourceProvider
+     * @return TypeSourceItemInterface|null
      */
-    public function getItem(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider);
+    public function getItem(array $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider): ?TypeSourceItemInterface;
 
     /**
-     * Prepare QliroOne order item's merchant reference
+     * Build the merchant reference string for a source item
      *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
+     * @param TypeSourceItemInterface $item
      * @return string
      */
-    public function prepareMerchantReference(TypeSourceItemInterface $item);
+    public function prepareMerchantReference(TypeSourceItemInterface $item): string;
 
     /**
-     * Prepare QliroOne order item's price
+     * Build the unit price for a source item
      *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
+     * @param TypeSourceItemInterface $item
      * @param bool $taxIncluded
      * @return float
      */
-    public function preparePrice(TypeSourceItemInterface $item, $taxIncluded = true);
+    public function preparePrice(TypeSourceItemInterface $item, bool $taxIncluded = true): float;
 
     /**
-     * Prepare QliroOne order item's quantity
+     * Build the quantity for a source item
      *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
+     * @param TypeSourceItemInterface $item
      * @return int
      */
-    public function prepareQuantity(TypeSourceItemInterface $item);
+    public function prepareQuantity(TypeSourceItemInterface $item): int;
 
     /**
-     * Prepare QliroOne order item's description
+     * Build the display description for a source item
      *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
+     * @param TypeSourceItemInterface $item
      * @return string
      */
-    public function prepareDescription(TypeSourceItemInterface $item);
+    public function prepareDescription(TypeSourceItemInterface $item): string;
 
     /**
-     * Prepare QliroOne order item's metadata
+     * Build the metadata array for a source item, or null if none
      *
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceItemInterface $item
+     * @param TypeSourceItemInterface $item
      * @return array|null
      */
-    public function prepareMetaData(TypeSourceItemInterface $item);
+    public function prepareMetaData(TypeSourceItemInterface $item): ?array;
 }

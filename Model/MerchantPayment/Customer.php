@@ -22,7 +22,7 @@ class Customer implements MerchantPaymentCustomerInterface
     /**
      * @inheritDoc
      */
-    public function setPersonalNumber(string $personalNumber): self
+    public function setPersonalNumber(string $personalNumber): static
     {
         $this->personalNumber = $personalNumber;
         return $this;
@@ -31,7 +31,7 @@ class Customer implements MerchantPaymentCustomerInterface
     /**
      * @inheritDoc
      */
-    public function setVatNumber(string $vatNumber): self
+    public function setVatNumber(string $vatNumber): static
     {
         $this->vatNumber = $vatNumber;
         return $this;
@@ -40,7 +40,7 @@ class Customer implements MerchantPaymentCustomerInterface
     /**
      * @inheritDoc
      */
-    public function setEmail(string $email): self
+    public function setEmail(string $email): static
     {
         $this->email = $email;
         return $this;
@@ -49,7 +49,7 @@ class Customer implements MerchantPaymentCustomerInterface
     /**
      * @inheritDoc
      */
-    public function setJuridicalType(string $type): self
+    public function setJuridicalType(string $type): static
     {
         $this->juridicalType = $type;
         return $this;
@@ -58,7 +58,7 @@ class Customer implements MerchantPaymentCustomerInterface
     /**
      * @inheritDoc
      */
-    public function setMobileNumber(string $number): self
+    public function setMobileNumber(string $number): static
     {
         $this->mobileNumber = $number;
         return $this;

@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\CreditMemo;
 
@@ -8,25 +9,21 @@ use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
 {
     /**
-     * @var CreditmemoInterface $creditMemo
+     * @var CreditmemoInterface|null
      */
-    protected CreditmemoInterface $creditMemo;
+    protected ?CreditmemoInterface $creditMemo = null;
 
     /**
-     * @var float
+     * @var float|null
      */
-    private $totalFee;
+    private ?float $totalFee = null;
 
     /**
      * @inheritDoc
      */
-    public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false)
+    public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false): bool
     {
         if (!$this->getCreditMemo()) {
-            return false;
-        }
-
-        if (!$this->getCreditMemo()->getInvoice()) {
             return false;
         }
 
@@ -34,11 +31,18 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
             return false;
         }
 
+        // Credit memos created from the order (not tied to a specific invoice) have no
+        // invoice reference. Invoice-level fee validation cannot be performed in that case.
+        if ($this->getCreditMemo()->getInvoice() === null) {
+            return false;
+        }
+
         if ($useQtyRefundedOnly) {
             return bccomp(
-                $this->getCreditMemo()->getInvoice()->getBaseTotalRefunded(),
-                $this->getCreditMemo()->getInvoice()->getGrandTotal()
-            ) != -1;
+                (string) $this->getCreditMemo()->getInvoice()->getBaseTotalRefunded(),
+                (string) $this->getCreditMemo()->getInvoice()->getGrandTotal(),
+                2
+            ) !== -1;
         }
 
         $invoiceGrandTotal = $this->getCreditMemo()->getInvoice()->getGrandTotal() - $this->getOrderFeesTotal();
@@ -48,11 +52,7 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
         $fee = $this->getOrderFeesTotal();
         $orderTotalRefunded = $feeIsAddedAsTotal ? $totalRefunded + $totalCreditMemo - $fee : $totalRefunded + $totalCreditMemo;
 
-        if (bccomp($orderTotalRefunded, $invoiceGrandTotal) != -1) {
-            return true;
-        }
-
-        return false;
+        return bccomp((string) $orderTotalRefunded, (string) $invoiceGrandTotal, 2) !== -1;
     }
 
     /**
@@ -65,20 +65,18 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
      *
      * @return float The total fees for the order, including VAT.
      */
-    private function getOrderFeesTotal()
+    private function getOrderFeesTotal(): float
     {
-        if (!$this->totalFee) {
-            $feeTotal = floatval(0);
+        if ($this->totalFee === null) {
+            $this->totalFee = 0.0;
             $qlirooneFees = $this->getCreditMemo()->getOrder()->getPayment()->getAdditionalInformation('qliroone_fees');
-            if (!is_array($qlirooneFees) || !count($qlirooneFees)) {
-                $this->totalFee = $feeTotal;
-                return $this->totalFee;
+            if (is_array($qlirooneFees)) {
+                foreach ($qlirooneFees as $qlirooneFee) {
+                    if (is_array($qlirooneFee)) {
+                        $this->totalFee += floatval($qlirooneFee['PricePerItemIncVat'] ?? 0);
+                    }
+                }
             }
-
-            foreach ($qlirooneFees as $qlirooneFee) {
-                $this->totalFee = $this->totalFee + floatval($qlirooneFee['PricePerItemIncVat']);
-            }
-
         }
 
         return $this->totalFee;
@@ -87,9 +85,10 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
     /**
      * @inheritDoc
      */
-    public function setCreditMemo(CreditmemoInterface $creditMemo)
+    public function setCreditMemo(CreditmemoInterface $creditMemo): static
     {
         $this->creditMemo = $creditMemo;
+        $this->totalFee = null;
 
         return $this;
     }
@@ -97,7 +96,7 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
     /**
      * @inheritDoc
      */
-    public function getCreditMemo()
+    public function getCreditMemo(): ?CreditmemoInterface
     {
         return $this->creditMemo;
     }

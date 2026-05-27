@@ -3,19 +3,20 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type;
 
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Item;
 use Magento\Tax\Helper\Data as TaxHelper;
-use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
-use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
+use Qliro\QliroOne\Api\Product\TypeSourceItemInterface as TypeSourceItem;
+use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory as TypeSourceItemFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
-use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
+use Qliro\QliroOne\Api\Product\ProductNameResolverInterface as ProductNameResolver;
 use Qliro\QliroOne\Model\Product\VatRate;
 
 /**
@@ -23,92 +24,43 @@ use Qliro\QliroOne\Model\Product\VatRate;
  */
 class QuoteSourceProvider implements TypeSourceProviderInterface
 {
-    /**
-     * @var array
-     */
-    private $sourceItems = [];
+    private array $sourceItems = [];
+    private ?Quote $quote = null;
 
     /**
-     * @var Quote
-     */
-    private $quote;
-
-    /**
-     * @var ProductPool
-     */
-    private $productPool;
-
-    /**
-     * @var TypeSourceItemInterfaceFactory
-     */
-    private $typeSourceItemFactory;
-
-    /**
-     * @var Config
-     */
-    private $config;
-
-    /**
-     * @var RecurringDataService
-     */
-    private $recurringDataService;
-
-    /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
-     * @var TaxHelper
-     */
-    private $taxHelper;
-
-    /**
-     * @var VatRate
-     */
-    private $vatRate;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param ProductPool $productPool
-     * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
-     * @param Config $config
-     * @param RecurringDataService $recurringDataService
-     * @param ProductNameResolverInterface $productNameResolver
-     * @param TaxHelper $taxHelper
+     * @param ProductPool                      $productPool
+     * @param TypeSourceItemFactory            $typeSourceItemFactory
+     * @param Config                           $config
+     * @param RecurringDataService             $recurringDataService
+     * @param ProductNameResolver              $productNameResolver
+     * @param TaxHelper                        $taxHelper
+     * @param VatRate                          $vatRate
      */
     public function __construct(
-        ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
-        Config $config,
-        RecurringDataService $recurringDataService,
-        ProductNameResolverInterface $productNameResolver,
-        TaxHelper $taxHelper,
-        VatRate $vatRate
+        private readonly ProductPool           $productPool,
+        private readonly TypeSourceItemFactory $typeSourceItemFactory,
+        private readonly Config                $config,
+        private readonly RecurringDataService  $recurringDataService,
+        private readonly ProductNameResolver   $productNameResolver,
+        private readonly TaxHelper             $taxHelper,
+        private readonly VatRate               $vatRate
     ) {
-        $this->productPool = $productPool;
-        $this->typeSourceItemFactory = $typeSourceItemFactory;
-        $this->config = $config;
-        $this->recurringDataService = $recurringDataService;
-        $this->productNameResolver = $productNameResolver;
-        $this->taxHelper = $taxHelper;
-        $this->vatRate = $vatRate;
     }
 
     /**
-     * @return int
+     * @inHeirtDoc
      */
-    public function getStoreId()
+    public function getStoreId(): int
     {
-        return $this->quote->getStoreId();
+        return (int)$this->quote->getStoreId();
     }
 
     /**
-     * @param string|array $reference
-     * @return TypeSourceItemInterface|null
+     * @inHeirtDoc
      */
-    public function getSourceItemByMerchantReference($reference): ?TypeSourceItemInterface
+    public function getSourceItemByMerchantReference(mixed $reference): ?TypeSourceItem
     {
         if (is_array($reference)) {
             if (isset($reference['quoteItems'])) {
@@ -156,9 +108,9 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     }
 
     /**
-     * @return TypeSourceItemInterface[]
+     * @inHeirtDoc
      */
-    public function getSourceItems()
+    public function getSourceItems(): array
     {
         $result = [];
 
@@ -173,22 +125,20 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     /**
      * Set quote
      *
-     * @param Quote $quote
+     * @param Quote|null $quote
      */
-    public function setQuote($quote)
+    public function setQuote(?Quote $quote): void
     {
         $this->quote = $quote;
     }
 
     /**
-     * @param Item $item
-     * @param float $quantity
-     * @return TypeSourceItemInterface
+     * @inHeirtDoc
      */
-    public function generateSourceItem($item, $quantity)
+    public function generateSourceItem(mixed $item, float $quantity): TypeSourceItem
     {
         if (!isset($this->sourceItems[$item->getItemId()])) {
-            /** @var TypeSourceItemInterface $sourceItem */
+            /** @var TypeSourceItem $sourceItem */
             $sourceItem = $this->typeSourceItemFactory->create();
 
             $sourceItem->setId($item->getItemId());
@@ -212,8 +162,7 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
 
             $sourceItem->setVatRate($this->vatRate->getVatRateForProduct($item));
             $sourceItem->setQty($item->getQty());
-            $sku = $item->getSku() ?? $item->getProduct()?->getSku() ?? '';
-            $sourceItem->setSku((string)$sku);
+            $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());
             $sourceItem->setProduct($item->getProduct());
             $sourceItem->setItem($item);
@@ -230,12 +179,12 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     }
 
     /**
-     * Sets subscription flag in source item if it has been set as enabled in quote payment
+     * Sets a subscription flag in the source item if it has been set as enabled in quote payment
      *
-     * @param TypeSourceItemInterface $sourceItem
+     * @param TypeSourceItem $sourceItem
      * @return void
      */
-    private function setSubscriptionInSourceItem(TypeSourceItemInterface $sourceItem): void
+    private function setSubscriptionInSourceItem(TypeSourceItem $sourceItem): void
     {
         if (!$this->config->isUseRecurring()) {
             return;

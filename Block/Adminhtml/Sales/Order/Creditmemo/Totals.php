@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Block\Adminhtml\Sales\Order\Creditmemo;
 
@@ -15,17 +16,7 @@ use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 class Totals extends Template
 {
     /**
-     * @var Fee
-     */
-    private $fee;
-
-    /**
-     * @var InvoiceFeeTotalValidatorInterface
-     */
-    private InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator;
-
-    /**
-     * Totals constructor.
+     * Class constructor
      *
      * @param Context $context
      * @param Fee $fee
@@ -34,21 +25,19 @@ class Totals extends Template
      */
     public function __construct(
         Context $context,
-        Fee $fee,
-        InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
+        private readonly Fee $fee,
+        private readonly InvoiceFeeTotalValidatorInterface $invoiceFeeTotalValidator,
         array $data = []
     ) {
         parent::__construct($context, $data);
-        $this->fee = $fee;
-        $this->invoiceFeeTotalValidator = $invoiceFeeTotalValidator;
     }
 
     /**
      * Initialize payment fee totals
      *
-     * @return $this
+     * @return static
      */
-    public function initTotals()
+    public function initTotals(): static
     {
         /** @var \Magento\Sales\Block\Adminhtml\Order\Creditmemo\Totals $parent */
         $parent = $this->getParentBlock();

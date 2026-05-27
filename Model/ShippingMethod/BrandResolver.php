@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\ShippingMethod;
 
@@ -19,10 +20,10 @@ class BrandResolver implements ShippingMethodBrandResolverInterface
      * The following logotypes are currently supported in Qliro One: Aramex, Best, Bring, Budbee, DHL, Instabox,
      * MTD, Posti, PostNord, Schenker, UPS.
      *
-     * @param \Magento\Quote\Model\Quote\Address\Rate $shippingRate
+     * @param Rate $shippingRate
      * @return string
      */
-    public function resolve(Rate $shippingRate)
+    public function resolve(Rate $shippingRate): string
     {
         return $shippingRate->getCarrierTitle();
     }

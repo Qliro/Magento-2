@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
@@ -11,63 +12,38 @@ use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Fee;
 
 /**
  * QliroOne Order Item of type "Fee" builder class
  */
 class FeeBuilder
 {
-    /**
-     * @var \Magento\Quote\Model\Quote
-     */
-    private $quote;
+    private ?Quote $quote = null;
 
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    private $qliroOrderItemFactory;
-    /**
-     * @var \Qliro\QliroOne\Model\Fee
-     */
-    private $fee;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param \Qliro\QliroOne\Model\Fee $fee
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
+     * @param Config $qliroConfig
+     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
+     * @param Fee $fee
+     * @param ManagerInterface $eventManager
      */
     public function __construct(
-        Config $qliroConfig,
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        \Qliro\QliroOne\Model\Fee $fee,
-        ManagerInterface $eventManager
+        private readonly Config $qliroConfig,
+        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
+        private readonly Fee $fee,
+        private readonly ManagerInterface $eventManager
     ) {
-        $this->qliroConfig = $qliroConfig;
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->fee = $fee;
-        $this->eventManager = $eventManager;
     }
 
     /**
      * Set quote for data extraction
      *
-     * @param \Magento\Quote\Model\Quote $quote
+     * @param Quote $quote
      * @return $this
      */
-    public function setQuote(Quote $quote)
+    public function setQuote(Quote $quote): static
     {
         $this->quote = $quote;
 
@@ -79,15 +55,15 @@ class FeeBuilder
      *
      * Is this class used?
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface
+     * @return QliroOrderItemInterface
      */
-    public function create()
+    public function create(): QliroOrderItemInterface
     {
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');
         }
 
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $container */
+        /** @var QliroOrderItemInterface $container */
         $container = $this->qliroOrderItemFactory->create();
 
         $priceExVat = $this->fee->getQlirooneFeeInclTax($this->quote);

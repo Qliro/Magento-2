@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
@@ -13,159 +14,76 @@ use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
  */
 class OrderPaymentTransaction implements AdminOrderPaymentTransactionInterface
 {
-    /**
-     * @var int
-     */
-    private $paymentTransactionId;
+    private int $paymentTransactionId = 0;
+    private string $type = '';
+    private float $amount = 0.0;
+    private string $currency = '';
+    private string $status = '';
+    private string $paymentMethodName = '';
 
-    /**
-     * @var string
-     */
-    private $type;
-
-    /**
-     * @var float
-     */
-    private $amount;
-
-    /**
-     * @var string
-     */
-    private $currency;
-
-    /**
-     * @var string
-     */
-    private $status;
-
-    /**
-     * @var string
-     */
-    private $paymentMethodName;
-
-    /**
-     * Getter.
-     *
-     * @return int
-     */
-    public function getPaymentTransactionId()
+    public function getPaymentTransactionId(): int
     {
         return $this->paymentTransactionId;
     }
 
-    /**
-     * @param int $paymentTransactionId
-     * @return OrderPaymentTransaction
-     */
-    public function setPaymentTransactionId($paymentTransactionId)
+    public function setPaymentTransactionId($paymentTransactionId): static
     {
-        $this->paymentTransactionId = $paymentTransactionId;
-
+        $this->paymentTransactionId = (int)$paymentTransactionId;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getType()
+    public function getType(): string
     {
         return $this->type;
     }
 
-    /**
-     * @param string $type
-     * @return OrderPaymentTransaction
-     */
-    public function setType($type)
+    public function setType($type): static
     {
-        $this->type = $type;
-
+        $this->type = (string)$type;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return float
-     */
-    public function getAmount()
+    public function getAmount(): float
     {
         return $this->amount;
     }
 
-    /**
-     * @param float $amount
-     * @return OrderPaymentTransaction
-     */
-    public function setAmount($amount)
+    public function setAmount($amount): static
     {
-        $this->amount = $amount;
-
+        $this->amount = (float)$amount;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getCurrency()
+    public function getCurrency(): string
     {
         return $this->currency;
     }
 
-    /**
-     * @param string $currency
-     * @return OrderPaymentTransaction
-     */
-    public function setCurrency($currency)
+    public function setCurrency($currency): static
     {
-        $this->currency = $currency;
-
+        $this->currency = (string)$currency;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getStatus()
+    public function getStatus(): string
     {
         return $this->status;
     }
 
-    /**
-     * @param string $status
-     * @return OrderPaymentTransaction
-     */
-    public function setStatus($status)
+    public function setStatus($status): static
     {
-        $this->status = $status;
-
+        $this->status = (string)$status;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getPaymentMethodName()
+    public function getPaymentMethodName(): string
     {
         return $this->paymentMethodName;
     }
 
-    /**
-     * @param string $paymentMethodName
-     * @return OrderPaymentTransaction
-     */
-    public function setPaymentMethodName($paymentMethodName)
+    public function setPaymentMethodName($paymentMethodName): static
     {
-        $this->paymentMethodName = $paymentMethodName;
-
+        $this->paymentMethodName = (string)$paymentMethodName;
         return $this;
     }
 }

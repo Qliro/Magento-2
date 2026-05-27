@@ -51,6 +51,10 @@
     display: block;
 }
 
+.success-wrapper {
+    text-align: center;
+}
+
 .qliroone-checkout-success {
     text-align: center;
     font-size: 1.6rem;

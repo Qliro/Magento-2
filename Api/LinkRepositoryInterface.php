@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api;
 
@@ -26,47 +27,47 @@ interface LinkRepositoryInterface
      * @return LinkInterface
      * @throws NoSuchEntityException
      */
-    public function get($id, $onlyActive = true);
+    public function get(int $id, bool $onlyActive = true): LinkInterface;
 
     /**
      * Get a link by Magento quote ID
      *
-     * @param int $quoteId
+     * @param int|string $quoteId
      * @param bool $onlyActive
      * @return LinkInterface
      * @throws NoSuchEntityException
      */
-    public function getByQuoteId($quoteId, $onlyActive = true);
+    public function getByQuoteId(int|string $quoteId, bool $onlyActive = true): LinkInterface;
 
     /**
      * Get a link by Magento order ID
      *
-     * @param int $orderId
+     * @param int|string $orderId
      * @param bool $onlyActive
      * @return LinkInterface
      * @throws NoSuchEntityException
      */
-    public function getByOrderId($orderId, $onlyActive = true);
+    public function getByOrderId(int|string $orderId, bool $onlyActive = true): LinkInterface;
 
     /**
      * Get a link by Qliro order ID
      *
-     * @param int $qliroOrderId
+     * @param mixed $qliroOrderId
      * @param bool $onlyActive
      * @return LinkInterface
      * @throws NoSuchEntityException
      */
-    public function getByQliroOrderId($qliroOrderId, $onlyActive = true);
+    public function getByQliroOrderId(mixed $qliroOrderId, bool $onlyActive = true): LinkInterface;
 
     /**
      * Get a link by generated order reference
      *
-     * @param string $value
+     * @param string $reference
      * @param bool $onlyActive
      * @return LinkInterface
      * @throws NoSuchEntityException
      */
-    public function getByReference($value, $onlyActive = true);
+    public function getByReference(string $reference, bool $onlyActive = true): LinkInterface;
 
     /**
      * Save a link
@@ -75,41 +76,41 @@ interface LinkRepositoryInterface
      * @return LinkInterface
      * @throws AlreadyExistsException
      */
-    public function save(LinkInterface $link);
+    public function save(LinkInterface $link): LinkInterface;
 
     /**
      * Delete a link
      *
      * @param LinkInterface $link
-     * @return $this
+     * @return void
      */
-    public function delete(LinkInterface $link);
+    public function delete(LinkInterface $link): void;
 
     /**
-     * Get a result of search among links by given search criteria
+     * Search links by criteria
      *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @return \Qliro\QliroOne\Api\LinkSearchResultInterface
+     * @param SearchCriteriaInterface $searchCriteria
+     * @return LinkSearchResultInterface
      */
-    public function getList(SearchCriteriaInterface $searchCriteria);
+    public function getList(SearchCriteriaInterface $searchCriteria): LinkSearchResultInterface;
 
     /**
-     * Lock link from being modifier
-     *
-     * @param int $quoteId
-     * @return LinkInterface
-     * @throws AlreadyExistsException
-     * @throws NoSuchEntityException
-     */
-    public function lock(int $quoteId) : LinkInterface;
-
-    /**
-     * Unlock link from being modifier
+     * Lock a link to prevent cart modification during payment
      *
      * @param int $quoteId
      * @return LinkInterface
      * @throws AlreadyExistsException
      * @throws NoSuchEntityException
      */
-    public function unlock(int $quoteId) : LinkInterface;
+    public function lock(int $quoteId): LinkInterface;
+
+    /**
+     * Unlock a link to allow cart modification again
+     *
+     * @param int $quoteId
+     * @return LinkInterface
+     * @throws AlreadyExistsException
+     * @throws NoSuchEntityException
+     */
+    public function unlock(int $quoteId): LinkInterface;
 }

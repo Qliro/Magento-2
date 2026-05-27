@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Logger;
 
@@ -14,43 +15,30 @@ use Magento\Framework\App\ResourceConnection\ConnectionFactory;
 
 class ConnectionProvider
 {
-
     /**
-     * @var \Magento\Framework\DB\Adapter\AdapterInterface|null
+     * @var AdapterInterface|null
      */
-    private $connection = null;
+    private ?AdapterInterface $connection = null;
 
     /**
-     * @var \Magento\Framework\App\ResourceConnection\ConnectionFactory
-     */
-    private $connectionFactory;
-
-    /**
-     * @var \Magento\Framework\App\DeploymentConfig
-     */
-    private $deploymentConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param DeploymentConfig $deploymentConfig
      * @param ConnectionFactory $connectionFactory
      */
     public function __construct(
-        ConnectionFactory $connectionFactory,
-        DeploymentConfig $deploymentConfig
+        private readonly ConnectionFactory $connectionFactory,
+        private readonly DeploymentConfig $deploymentConfig
     ) {
-        $this->connectionFactory = $connectionFactory;
-        $this->deploymentConfig = $deploymentConfig;
     }
-    
+
     /**
-     * Get a log DB connection that uses same config as default connection, but is separate
+     * Get a log DB connection that uses the same config as the default connection but is separate
      *
      * @return AdapterInterface
      * @throws \DomainException
      */
-    public function getConnection()
+    public function getConnection(): AdapterInterface
     {
         if (!$this->connection) {
             $connectionName = ResourceConnection::DEFAULT_CONNECTION;

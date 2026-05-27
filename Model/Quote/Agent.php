@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Quote;
 
@@ -24,42 +25,12 @@ class Agent
     const COOKIE_LIFETIME = 10800; // 3 hours for now
 
     /**
-     * @var \Magento\Quote\Model\Quote
+     * @var Quote|null
      */
-    private $relevantQuote;
+    private ?Quote $relevantQuote = null;
 
     /**
-     * @var \Magento\Framework\Stdlib\CookieManagerInterface
-     */
-    private $cookieManager;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartRepositoryInterface
-     */
-    private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Magento\Checkout\Model\Session
-     */
-    private $checkoutSession;
-
-    /**
-     * @var \Magento\Framework\Stdlib\Cookie\CookieMetadataFactory
-     */
-    private $cookieMetadataFactory;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Magento\Framework\Stdlib\CookieManagerInterface $cookieManager
@@ -69,19 +40,13 @@ class Agent
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        Session $checkoutSession,
-        CookieManagerInterface $cookieManager,
-        CookieMetadataFactory $cookieMetadataFactory,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        Manager $logManager
+        private readonly Session $checkoutSession,
+        private readonly CookieManagerInterface $cookieManager,
+        private readonly CookieMetadataFactory $cookieMetadataFactory,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly Manager $logManager
     ) {
-        $this->checkoutSession = $checkoutSession;
-        $this->cookieManager = $cookieManager;
-        $this->cookieMetadataFactory = $cookieMetadataFactory;
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -89,7 +54,7 @@ class Agent
      *
      * @param \Magento\Quote\Model\Quote $quote
      */
-    public function store(Quote $quote)
+    public function store(Quote $quote): void
     {
         $this->logManager->addTag('cookies');
 
@@ -123,7 +88,7 @@ class Agent
      *
      * @return \Magento\Quote\Model\Quote|null
      */
-    public function fetchRelevantQuote()
+    public function fetchRelevantQuote(): ?Quote
     {
         if (!$this->relevantQuote) {
             $this->logManager->addTag('cookies');
@@ -164,9 +129,19 @@ class Agent
     }
 
     /**
+     * Return the merchant reference stored in the QOMR cookie, or null if not present.
+     *
+     * @return string|null
+     */
+    public function getMerchantReferenceFromCookie(): ?string
+    {
+        return $this->cookieManager->getCookie(self::COOKIE_NAME) ?: null;
+    }
+
+    /**
      * Clear the quote if it's stored
      */
-    public function clear()
+    public function clear(): void
     {
         $this->logManager->addTag('cookies');
         $merchantReference = $this->cookieManager->getCookie(self::COOKIE_NAME);
@@ -200,7 +175,7 @@ class Agent
      * @param \Magento\Quote\Model\Quote $quote
      * @return bool
      */
-    private function isQuoteRelevant(Quote $quote)
+    private function isQuoteRelevant(Quote $quote): bool
     {
         if (empty($quote->getAllVisibleItems())) {
             return false;

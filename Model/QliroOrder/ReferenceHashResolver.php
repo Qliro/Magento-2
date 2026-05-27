@@ -1,44 +1,40 @@
-<?php declare(strict_types=1);
+<?php
 /**
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
+// @codingStandardsIgnoreFile
+// phpcs:ignoreFile
 
 namespace Qliro\QliroOne\Model\QliroOrder;
 
 use Magento\Quote\Api\Data\CartInterface;
 use Qliro\QliroOne\Api\HashResolverInterface;
-use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\QliroOrder\HashResolver\IncrementIdHashResolver;
-use Qliro\QliroOne\Model\QliroOrder\HashResolver\RandomHashResolver;
 
 /**
- * Resolves a reference hash for a given cart instance.
- * Determines the strategy for generating the hash based on the configuration.
+ * QliroOne order reference hash resolver class
  */
 class ReferenceHashResolver implements HashResolverInterface
 {
-    /**
-     * @param Config $qliroConfig
-     * @param RandomHashResolver $randomResolver
-     * @param IncrementIdHashResolver $incrementIdResolver
-     */
-    public function __construct(
-        private readonly Config $qliroConfig,
-        private readonly RandomHashResolver $randomResolver,
-        private readonly IncrementIdHashResolver $incrementIdResolver
-    ) {
-    }
+    const string CHARSET = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
     /**
-     * @inheritDoc
+     * Resolve a supposedly unique hash for QliroOne order reference.
+     * It must be a string of any length, but important to remember that it will be truncated to up to 25 characters max
+     *
+     * @param CartInterface $quote
+     * @return string
      */
     public function resolveHash(CartInterface $quote): string
     {
-        $storeId = $quote->getStoreId() !== null ? (int) $quote->getStoreId() : null;
+        srand();
+        $result = '';
+        for ($index = 0; $index < self::HASH_MAX_LENGTH; ++$index) {
+            $result .= self::CHARSET[rand(0, strlen(self::CHARSET) - 1)];
+        }
 
-        return $this->qliroConfig->isUseIncrementIdAsReference($storeId)
-            ? $this->incrementIdResolver->resolveHash($quote)
-            : $this->randomResolver->resolveHash($quote);
+        return $result;
     }
 }

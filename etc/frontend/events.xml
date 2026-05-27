@@ -3,12 +3,15 @@
   * Copyright © Qliro AB. All rights reserved.
   * See LICENSE.txt for license details.
   -->
-<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
     <event name="controller_action_predispatch_checkout_index_index">
-        <observer name="qliroone_checkout_redirect" instance="Qliro\QliroOne\Observer\QliroCheckoutRedirect" />
+        <observer name="qliroone_checkout_redirect"
+                  instance="Qliro\QliroOne\Observer\QliroCheckoutRedirect" />
     </event>
 
     <event name="customer_login">
-        <observer name="qliroone_customer_login_observer" instance="Qliro\QliroOne\Observer\CustomerLogin" />
+        <observer name="qliroone_customer_login_observer"
+                  instance="Qliro\QliroOne\Observer\CustomerLogin" />
     </event>
 </config>

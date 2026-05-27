@@ -3,16 +3,16 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Quote\Model\Quote\Item;
 use Magento\Tax\Helper\Data as TaxHelper;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Tax\Model\Calculation as TaxCalculation;
 use Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
-use Qliro\QliroOne\Helper\Data as QliroHelper;
 use Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
 
@@ -21,90 +21,41 @@ use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
  */
 class OrderItemsBuilder
 {
-    /**
-     * @var \Magento\Quote\Model\Quote
-     */
-    protected $quote;
+    protected ?CartInterface $quote = null;
 
     /**
-     * @var \Magento\Tax\Helper\Data
+     * @var OrderItemHandlerInterface[]
      */
-    protected $taxHelper;
+    protected array $handlers = [];
 
     /**
-     * @var \Qliro\QliroOne\Model\Product\Type\TypePoolHandler
-     */
-    protected $typeResolver;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory
-     */
-    protected $qliroOrderItemFactory;
-
-    /**
-     * @var \Magento\Tax\Model\Calculation
-     */
-    protected $taxCalculation;
-
-    /**
-     * @var \Qliro\QliroOne\Helper\Data
-     */
-    protected $qliroHelper;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface[]
-     */
-    protected $handlers = [];
-
-    /**
-     * @var \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider
-     */
-    protected $quoteSourceProvider;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    protected $eventManager;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Tax\Helper\Data $taxHelper
-     * @param \Magento\Tax\Model\Calculation $taxCalculation
-     * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param \Qliro\QliroOne\Helper\Data $qliroHelper
-     * @param \Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider $quoteSourceProvider
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
-     * @param \Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface[] $handlers
+     * @param TaxHelper $taxHelper
+     * @param TaxCalculation $taxCalculation
+     * @param TypePoolHandler $typeResolver
+     * @param QuoteSourceProvider $quoteSourceProvider
+     * @param ManagerInterface $eventManager
+     * @param OrderItemHandlerInterface[] $handlers
      */
     public function __construct(
-        TaxHelper $taxHelper,
-        TaxCalculation $taxCalculation,
-        TypePoolHandler $typeResolver,
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        QliroHelper $qliroHelper,
-        QuoteSourceProvider $quoteSourceProvider,
-        ManagerInterface $eventManager,
+        protected readonly TaxHelper $taxHelper,
+        protected readonly TaxCalculation $taxCalculation,
+        protected readonly TypePoolHandler $typeResolver,
+        protected readonly QuoteSourceProvider $quoteSourceProvider,
+        protected readonly ManagerInterface $eventManager,
         $handlers = []
     ) {
-        $this->taxHelper = $taxHelper;
-        $this->typeResolver = $typeResolver;
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->taxCalculation = $taxCalculation;
-        $this->qliroHelper = $qliroHelper;
-        $this->quoteSourceProvider = $quoteSourceProvider;
-        $this->eventManager = $eventManager;
         $this->handlers = $handlers;
     }
 
     /**
      * Set quote for data extraction
      *
-     * @param \Magento\Quote\Api\Data\CartInterface $quote
+     * @param CartInterface $quote
      * @return $this
      */
-    public function setQuote(CartInterface $quote)
+    public function setQuote(CartInterface $quote): static
     {
         $this->quote = $quote;
         $this->quoteSourceProvider->setQuote($this->quote);
@@ -115,9 +66,9 @@ class OrderItemsBuilder
     /**
      * Create an array of containers
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @return array[]
      */
-    public function create()
+    public function create(): array
     {
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');
@@ -125,7 +76,7 @@ class OrderItemsBuilder
 
         $result = [];
 
-        /** @var \Magento\Quote\Model\Quote\Item $item */
+        /** @var Item $item */
         foreach ($this->quote->getAllItems() as $item) {
             $qliroOrderItem = $this->typeResolver->resolveQliroOrderItem(
                 $this->quoteSourceProvider->generateSourceItem($item, $item->getQty()),
@@ -141,7 +92,7 @@ class OrderItemsBuilder
                     ]
                 );
 
-                if ($qliroOrderItem->getMerchantReference()) {
+                if (!empty($qliroOrderItem['MerchantReference'] ?? null)) {
                     $result[] = $qliroOrderItem;
                 }
             }

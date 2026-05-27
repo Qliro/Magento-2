@@ -3,10 +3,10 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Observer;
 
-use Magento\Checkout\Model\Session;
 use Magento\Framework\Event\Observer as EventObserver;
 use Magento\Framework\Event\ObserverInterface;
 
@@ -16,11 +16,10 @@ class AddFeeToOrder implements ObserverInterface
      * Set payment fee to order
      *
      * @param EventObserver $observer
-     * @return $this
+     * @return void
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(\Magento\Framework\Event\Observer $observer): void
     {
-
         //Set fee data to order
         $order = $observer->getOrder();
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
@@ -30,8 +29,5 @@ class AddFeeToOrder implements ObserverInterface
                 $order->setGrandTotal($order->getGrandTotal() + $qlirooneFee["PricePerItemIncVat"]);
             }
         }
-
-
-        return $this;
     }
 }

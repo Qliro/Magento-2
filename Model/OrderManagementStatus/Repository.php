@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus;
 
@@ -11,10 +12,10 @@ use Magento\Framework\Api\SearchCriteriaBuilder;
 use Magento\Framework\Api\SortOrderBuilder;
 use Magento\Framework\Api\SortOrder;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Framework\Exception\NotFoundException;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
+use Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface;
 use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus as OrderManagementStatusResourceModel;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\Collection;
@@ -29,92 +30,47 @@ use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\CollectionFactory;
 class Repository implements OrderManagementStatusRepositoryInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus
-     */
-    private $OrderManagementStatusResourceModel;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory
-     */
-    private $OrderManagementStatusFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterfaceFactory
-     */
-    private $searchResultFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\CollectionFactory
-     */
-    private $collectionFactory;
-
-    /**
-     * @var \Magento\Framework\Api\SearchCriteriaBuilder
-     */
-    private $searchCriteriaBuilder;
-
-    /**
-     * @var \Magento\Framework\Api\SortOrderBuilder
-     */
-    private $sortOrderBuilder;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus $OrderManagementStatusResourceModel
-     * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory
-     * @param \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterfaceFactory $searchResultFactory
-     * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\CollectionFactory $collectionFactory
-     * @param \Magento\Framework\Api\SearchCriteriaBuilder $searchCriteriaBuilder
-     * @param \Magento\Framework\Api\SortOrderBuilder $sortOrderBuilder
+     * @param OrderManagementStatusResourceModel $OrderManagementStatusResourceModel
+     * @param OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory
+     * @param OrderManagementStatusSearchResultInterfaceFactory $searchResultFactory
+     * @param CollectionFactory $collectionFactory
+     * @param SearchCriteriaBuilder $searchCriteriaBuilder
+     * @param SortOrderBuilder $sortOrderBuilder
      */
     public function __construct(
-        OrderManagementStatusResourceModel $OrderManagementStatusResourceModel,
-        OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory,
-        OrderManagementStatusSearchResultInterfaceFactory $searchResultFactory,
-        CollectionFactory $collectionFactory,
-        SearchCriteriaBuilder $searchCriteriaBuilder,
-        SortOrderBuilder $sortOrderBuilder
+        private readonly OrderManagementStatusResourceModel $OrderManagementStatusResourceModel,
+        private readonly OrderManagementStatusInterfaceFactory $OrderManagementStatusFactory,
+        private readonly OrderManagementStatusSearchResultInterfaceFactory $searchResultFactory,
+        private readonly CollectionFactory $collectionFactory,
+        private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
+        private readonly SortOrderBuilder $sortOrderBuilder
     ) {
-        $this->OrderManagementStatusResourceModel = $OrderManagementStatusResourceModel;
-        $this->OrderManagementStatusFactory = $OrderManagementStatusFactory;
-        $this->searchResultFactory = $searchResultFactory;
-        $this->collectionFactory = $collectionFactory;
-        $this->searchCriteriaBuilder = $searchCriteriaBuilder;
-        $this->sortOrderBuilder = $sortOrderBuilder;
     }
 
     /**
-     * Save a OrderManagementStatus
-     *
-     * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface $OrderManagementStatus
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface
-     * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @inheirtDoc
      */
-    public function save(OrderManagementStatusInterface $OrderManagementStatus)
+    public function save(OrderManagementStatusInterface $orderManagementStatus): OrderManagementStatusInterface
     {
-        $this->OrderManagementStatusResourceModel->save($OrderManagementStatus);
+        $this->OrderManagementStatusResourceModel->save($orderManagementStatus);
 
-        return $OrderManagementStatus;
+        return $orderManagementStatus;
     }
 
     /**
-     * Get a OrderManagementStatus by its ID
-     *
      * @inheritdoc
      */
-    public function get($id)
+    public function get(int $id): OrderManagementStatusInterface
     {
-        return $this->getByField($id, null);
+        return $this->getByField($id);
     }
 
     /**
-     * Get parent by its transaction id. They might reuse their transaction ids, so I find the newest one
-     *
-     * @param int $id
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface|null
+     * @inHeirtDoc
      */
-    public function getParent($id)
+    public function getParent(mixed $id): ?OrderManagementStatusInterface
     {
         /** @var \Magento\Framework\Api\SortOrder $sortOrder */
         $sortOrder = $this->sortOrderBuilder->setField('date')->setDirection(SortOrder::SORT_DESC)->create();
@@ -135,12 +91,9 @@ class Repository implements OrderManagementStatusRepositoryInterface
     }
 
     /**
-     * Get last transaction received of this transaction id, that was successfully handled
-     *
-     * @param int $id
-     * @return \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface|null
+     * @inHeirtDoc
      */
-    public function getPrevious($id)
+    public function getPrevious(mixed $id): ?OrderManagementStatusInterface
     {
         /** @var \Magento\Framework\Api\SortOrder $sortOrder */
         $sortOrder = $this->sortOrderBuilder->setField('date')->setDirection(SortOrder::SORT_DESC)->create();
@@ -161,26 +114,19 @@ class Repository implements OrderManagementStatusRepositoryInterface
     }
 
     /**
-     * Delete a OrderManagementStatus
-     *
-     * @param \Qliro\QliroOne\Api\Data\OrderManagementStatusInterface $OrderManagementStatus
-     * @return \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus
-     * @throws \Exception
+     * @inheritdoc
      */
-    public function delete(OrderManagementStatusInterface $OrderManagementStatus)
+    public function delete(OrderManagementStatusInterface $OrderManagementStatus): void
     {
-        return $this->OrderManagementStatusResourceModel->delete($OrderManagementStatus);
+        $this->OrderManagementStatusResourceModel->delete($OrderManagementStatus);
     }
 
     /**
-     * Get a result of search among OrderManagementStatuss by given search criteria
-     *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @return \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface
+     * @inheritdoc
      */
-    public function getList(SearchCriteriaInterface $searchCriteria)
+    public function getList(SearchCriteriaInterface $searchCriteria): OrderManagementStatusSearchResultInterface
     {
-        /** @var \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\Collection $collection */
+        /** @var Collection $collection */
         $collection = $this->collectionFactory->create();
 
         $this->addFiltersToCollection($searchCriteria, $collection);
@@ -193,12 +139,12 @@ class Repository implements OrderManagementStatusRepositoryInterface
     }
 
     /**
-     * Add filters to collection
+     * Add filters to the collection
      *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\Collection $collection
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
      */
-    private function addFiltersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function addFiltersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection): void
     {
         foreach ($searchCriteria->getFilterGroups() as $filterGroup) {
             $fields = $conditions = [];
@@ -211,12 +157,12 @@ class Repository implements OrderManagementStatusRepositoryInterface
     }
 
     /**
-     * Add sort order to collection
+     * Add sort order to the collection
      *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\Collection $collection
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
      */
-    private function addSortOrdersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function addSortOrdersToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection): void
     {
         foreach ((array) $searchCriteria->getSortOrders() as $sortOrder) {
             $direction = $sortOrder->getDirection() == SortOrder::SORT_ASC ? 'asc' : 'desc';
@@ -225,12 +171,12 @@ class Repository implements OrderManagementStatusRepositoryInterface
     }
 
     /**
-     * Add pagination to collection
+     * Add pagination to a collection
      *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\Collection $collection
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
      */
-    private function addPaginationToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function addPaginationToCollection(SearchCriteriaInterface $searchCriteria, Collection $collection): void
     {
         $collection->setPageSize($searchCriteria->getPageSize());
         $collection->setCurPage($searchCriteria->getCurrentPage());
@@ -239,13 +185,13 @@ class Repository implements OrderManagementStatusRepositoryInterface
     /**
      * Build search result
      *
-     * @param \Magento\Framework\Api\SearchCriteriaInterface $searchCriteria
-     * @param \Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\Collection $collection
-     * @return \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface
+     * @param SearchCriteriaInterface $searchCriteria
+     * @param Collection $collection
+     * @return OrderManagementStatusSearchResultInterface
      */
-    private function buildSearchResult(SearchCriteriaInterface $searchCriteria, Collection $collection)
+    private function buildSearchResult(SearchCriteriaInterface $searchCriteria, Collection $collection): OrderManagementStatusSearchResultInterface
     {
-        /** @var \Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface $searchResults */
+        /** @var OrderManagementStatusSearchResultInterface $searchResults */
         $searchResults = $this->searchResultFactory->create();
 
         $searchResults->setSearchCriteria($searchCriteria);
@@ -256,21 +202,20 @@ class Repository implements OrderManagementStatusRepositoryInterface
     }
 
     /**
-     * Get a OrderManagementStatus by a specified field
+     * Get an OrderManagementStatus by a specified field
      *
      * @param string|int $value
-     * @param string $field
-     * @return \Qliro\QliroOne\Model\OrderManagementStatus
-     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     * @return OrderManagementStatus
+     * @throws NoSuchEntityException
      */
-    private function getByField($value, $field)
+    private function getByField(mixed $value): OrderManagementStatusInterface
     {
-        /** @var \Qliro\QliroOne\Model\OrderManagementStatus $OrderManagementStatus */
+        /** @var OrderManagementStatus $OrderManagementStatus */
         $OrderManagementStatus = $this->OrderManagementStatusFactory->create();
-        $this->OrderManagementStatusResourceModel->load($OrderManagementStatus, $value, $field);
+        $this->OrderManagementStatusResourceModel->load($OrderManagementStatus, $value, null);
 
         if (!$OrderManagementStatus->getId()) {
-            throw new NoSuchEntityException(__('Cannot find a OrderManagementStatus with %1 = "%2"', $field, $value));
+            throw new NoSuchEntityException(__('Cannot find a OrderManagementStatus with %1 = "%2"', null, $value));
         }
 
         return $OrderManagementStatus;

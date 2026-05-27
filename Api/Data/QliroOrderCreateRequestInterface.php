@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
@@ -11,324 +12,324 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface QliroOrderCreateRequestInterface extends ContainerInterface
+interface QliroOrderCreateRequestInterface
 {
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantReference();
+    public function getMerchantReference(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantApiKey();
+    public function getMerchantApiKey(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getCountry();
+    public function getCountry(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getCurrency();
+    public function getCurrency(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getLanguage();
+    public function getLanguage(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantConfirmationUrl();
+    public function getMerchantConfirmationUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantTermsUrl();
+    public function getMerchantTermsUrl(): ?string;
 
     /**
      * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
      */
-    public function getOrderItems();
+    public function getOrderItems(): array;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantCheckoutStatusPushUrl();
+    public function getMerchantCheckoutStatusPushUrl(): ?string;
 
     /**
-     * @return ?string
+     * @return string|null
      */
-    public function getMerchantSavedCreditCardPushUrl();
+    public function getMerchantSavedCreditCardPushUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantOrderManagementStatusPushUrl();
+    public function getMerchantOrderManagementStatusPushUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantNotificationUrl();
+    public function getMerchantNotificationUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantOrderValidationUrl();
+    public function getMerchantOrderValidationUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantOrderAvailableShippingMethodsUrl();
+    public function getMerchantOrderAvailableShippingMethodsUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getMerchantIntegrityPolicyUrl();
+    public function getMerchantIntegrityPolicyUrl(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getBackgroundColor();
+    public function getBackgroundColor(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getPrimaryColor();
+    public function getPrimaryColor(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getCallToActionColor();
+    public function getCallToActionColor(): ?string;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getCallToActionHoverColor();
+    public function getCallToActionHoverColor(): ?string;
 
     /**
-     * @return int
+     * @return int|null
      */
-    public function getCornerRadius();
+    public function getCornerRadius(): ?int;
 
     /**
-     * @return int
+     * @return int|null
      */
-    public function getButtonCornerRadius();
+    public function getButtonCornerRadius(): ?int;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface
+     * @return mixed
      */
-    public function getCustomerInformation();
+    public function getCustomerInformation(): mixed;
 
     /**
-     * @return string
+     * @return string|null
      */
-    public function getEnforcedJuridicalType();
+    public function getEnforcedJuridicalType(): ?string;
 
     /**
-     * @return string
+     * @return array|null
      */
-    public function getAvailableShippingMethods();
+    public function getAvailableShippingMethods(): ?array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface
+     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface|null
      */
-    public function getShippingConfiguration();
+    public function getShippingConfiguration(): ?QliroOrderShippingConfigInterface;
 
     /**
-     * @return int
+     * @return int|null
      */
-    public function getMinimumCustomerAge();
+    public function getMinimumCustomerAge(): ?int;
 
     /**
-     * @return bool
+     * @return bool|null
      */
-    public function getAskForNewsletterSignup();
+    public function getAskForNewsletterSignup(): ?bool;
 
     /**
-     * @return bool
+     * @return bool|null
      */
-    public function getAskForNewsletterSignupChecked();
+    public function getAskForNewsletterSignupChecked(): ?bool;
 
     /**
-     * @return bool
+     * @return bool|null
      */
-    public function getRequireIdentityVerification();
+    public function getRequireIdentityVerification(): ?bool;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantReference($value);
+    public function setMerchantReference(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantApiKey($value);
+    public function setMerchantApiKey(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCountry($value);
+    public function setCountry(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCurrency($value);
+    public function setCurrency(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setLanguage($value);
+    public function setLanguage(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantConfirmationUrl($value);
+    public function setMerchantConfirmationUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantTermsUrl($value);
+    public function setMerchantTermsUrl(mixed $value): static;
 
     /**
      * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
-     * @return $this
+     * @return static
      */
-    public function setOrderItems($value);
+    public function setOrderItems(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantCheckoutStatusPushUrl($value);
+    public function setMerchantCheckoutStatusPushUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return void
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantSavedCreditCardPushUrl($value);
+    public function setMerchantSavedCreditCardPushUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantOrderManagementStatusPushUrl($value);
+    public function setMerchantOrderManagementStatusPushUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantNotificationUrl($value);
+    public function setMerchantNotificationUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantOrderValidationUrl($value);
+    public function setMerchantOrderValidationUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantOrderAvailableShippingMethodsUrl($value);
+    public function setMerchantOrderAvailableShippingMethodsUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantIntegrityPolicyUrl($value);
+    public function setMerchantIntegrityPolicyUrl(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setBackgroundColor($value);
+    public function setBackgroundColor(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setPrimaryColor($value);
+    public function setPrimaryColor(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCallToActionColor($value);
+    public function setCallToActionColor(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCallToActionHoverColor($value);
+    public function setCallToActionHoverColor(mixed $value): static;
 
     /**
-     * @param int $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCornerRadius($value);
+    public function setCornerRadius(mixed $value): static;
 
     /**
-     * @param int $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setButtonCornerRadius($value);
+    public function setButtonCornerRadius(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCustomerInformation($value);
+    public function setCustomerInformation(mixed $value): static;
 
     /**
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setEnforcedJuridicalType($value);
+    public function setEnforcedJuridicalType(mixed $value): static;
 
     /**
-     * @param array $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setAvailableShippingMethods($value);
+    public function setAvailableShippingMethods(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setShippingConfiguration($value);
+    public function setShippingConfiguration(mixed $value): static;
 
     /**
-     * @param int $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMinimumCustomerAge($value);
+    public function setMinimumCustomerAge(mixed $value): static;
 
     /**
-     * @param bool $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setAskForNewsletterSignup($value);
+    public function setAskForNewsletterSignup(mixed $value): static;
 
     /**
-     * @param bool $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setAskForNewsletterSignupChecked($value);
+    public function setAskForNewsletterSignupChecked(mixed $value): static;
 
     /**
-     * @param bool $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setRequireIdentityVerification($value);
+    public function setRequireIdentityVerification(mixed $value): static;
 }

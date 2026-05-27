@@ -9,27 +9,15 @@ namespace Qliro\QliroOne\Api\Data;
 
 /**
  * QliroOne Order Item interface
- *
- * Depending on the data provided when sending an order item, Qliro One will interpret the type and price according to the table below.
- *
- * +----------------------+-----------------+-----------------+----------------------+-------------------------+------------------------+
- * | Type                 | PriceIncVat     | PriceExVat      | Interpreted Type     | Interpreted PriceIncVat | Interpreted PriceExVat |
- * +----------------------+-----------------+-----------------+----------------------+-------------------------+------------------------+
- * | null                 | Positive (X>=0) | Positive (Y>=0) | Product              | X                       | Y                      |
- * | null                 | Negative (X<0)  | Negative (Y<0)  | Discount             | X                       | Y                      |
- * | Product/Fee/Shipping | X               | Y               | Product/Fee/Shipping | Abs(X)                  | Abs(Y)                 |
- * | Discount             | X               | Y               | Discount             | -Abs(X)                 | -Abs(Y)                |
- * +----------------------+-----------------+-----------------+----------------------+-------------------------+------------------------+
- *
  * @api
  */
-interface QliroOrderItemInterface extends ContainerInterface
+interface QliroOrderItemInterface
 {
-    const TYPE_PRODUCT = 'Product';
-    const TYPE_DISCOUNT = 'Discount';
-    const TYPE_FEE = 'Fee';
-    const TYPE_SHIPPING = 'Shipping';
-    const TYPE_BUNDLE = 'Bundle';
+    const string TYPE_PRODUCT = 'Product';
+    const string TYPE_DISCOUNT = 'Discount';
+    const string TYPE_FEE = 'Fee';
+    const string TYPE_SHIPPING = 'Shipping';
+    const string TYPE_BUNDLE = 'Bundle';
 
     /**
      * @return string
@@ -120,16 +108,10 @@ interface QliroOrderItemInterface extends ContainerInterface
     public function setDescription(string $value): static;
 
     /**
-     * Additional metadata.
+     * Additional metadata
      *
-     * In OrderManagement API can be used to have two possible elements
-     * - HeaderLines (array) Array of strings that will be displayed above the item on the invoice.
-     *   Maximum number of strings is 5 and maximum length of each string is 115 characters.
-     * - FooterLines (array) Array of strings that will be displayed below the item on the invoice.
-     *   Maximum number of strings is 5 and maximum length of each string is 115 characters.
-     *
-     * @param array|null $value
+     * @param array $value
      * @return $this
      */
-    public function setMetadata(?array $value): static;
+    public function setMetadata(array $value): static;
 }

@@ -1,35 +1,42 @@
 <?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Admin\CreditMemo;
 
 use Magento\Sales\Api\Data\CreditmemoInterface;
 
+/**
+ * Invoice fee total validator interface for credit memos
+ *
+ * @api
+ */
 interface InvoiceFeeTotalValidatorInterface
 {
     /**
-     * Validates the provided data or configuration.
+     * Validate whether the invoice fee can be refunded given the current credit memo state
      *
-     * @param bool $feeIsAddedAsTotal Indicates whether the fee is added as a total.
-     * @param bool $useQtyRefundedOnly Flag to determine if validation should only consider refunded quantities.
+     * @param bool $feeIsAddedAsTotal
+     * @param bool $useQtyRefundedOnly
      * @return bool
-     *
      */
-    public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false);
+    public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false): bool;
 
     /**
-     * Sets the credit memo object.
+     * Set the credit memo to validate against
      *
-     * @param CreditmemoInterface $creditMemo The credit memo instance to be set.
-     * @return InvoiceFeeTotalValidatorInterface
-     *
+     * @param CreditmemoInterface $creditMemo
+     * @return static
      */
-    public function setCreditMemo(CreditmemoInterface $creditMemo);
+    public function setCreditMemo(CreditmemoInterface $creditMemo): static;
 
     /**
-     * Retrieves the credit memo object.
+     * Get the credit memo being validated
      *
-     * @return CreditmemoInterface The credit memo instance
-     *
+     * @return CreditmemoInterface|null
      */
-    public function getCreditMemo();
+    public function getCreditMemo(): ?CreditmemoInterface;
 }

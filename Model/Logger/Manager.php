@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Logger;
 
@@ -26,11 +27,6 @@ class Manager
     private $marks = [];
 
     /**
-     * @var \Psr\Log\LoggerInterface
-     */
-    private $psrLogger;
-
-    /**
      * @var string
      */
     private $merchantReference;
@@ -41,40 +37,27 @@ class Manager
     private $tags = [];
 
     /**
-     * @var \Qliro\QliroOne\Model\ResourceModel\LogRecord
-     */
-    private $logResource;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param LoggerInterface $psrLogger
      * @param \Qliro\QliroOne\Model\ResourceModel\LogRecord $logResource
      * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
      */
     public function __construct(
-        LoggerInterface $psrLogger,
-        LogRecord $logResource,
-        LinkRepositoryInterface $linkRepository
+        private readonly LoggerInterface $psrLogger,
+        private readonly LogRecord $logResource,
+        private readonly LinkRepositoryInterface $linkRepository
     ) {
-        $this->psrLogger = $psrLogger;
-        $this->logResource = $logResource;
-        $this->linkRepository = $linkRepository;
     }
 
     /**
      * System is unusable.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function emergency($message, array $context = [])
+    public function emergency(mixed $message, array $context = []): void
     {
         $this->psrLogger->emergency($message, $this->prepareContext($context));
     }
@@ -84,11 +67,11 @@ class Manager
      * Example: Entire website down, database unavailable, etc. This should
      * trigger the SMS alerts and wake you up.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function alert($message, array $context = [])
+    public function alert(mixed $message, array $context = []): void
     {
         $this->psrLogger->alert($message, $this->prepareContext($context));
     }
@@ -97,11 +80,11 @@ class Manager
      * Critical conditions.
      * Example: Application component unavailable, unexpected exception.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function critical($message, array $context = [])
+    public function critical(mixed $message, array $context = []): void
     {
         $this->psrLogger->critical($message, $this->prepareContext($context));
     }
@@ -110,11 +93,11 @@ class Manager
      * Runtime errors that do not require immediate action but should typically
      * be logged and monitored.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function error($message, array $context = [])
+    public function error(mixed $message, array $context = []): void
     {
         $this->psrLogger->error($message, $this->prepareContext($context));
     }
@@ -124,11 +107,11 @@ class Manager
      * Example: Use of deprecated APIs, poor use of an API, undesirable things
      * that are not necessarily wrong.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function warning($message, array $context = [])
+    public function warning(mixed $message, array $context = []): void
     {
         $this->psrLogger->warning($message, $this->prepareContext($context));
     }
@@ -136,11 +119,11 @@ class Manager
     /**
      * Normal but significant events.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function notice($message, array $context = [])
+    public function notice(mixed $message, array $context = []): void
     {
         $this->psrLogger->notice($message, $this->prepareContext($context));
     }
@@ -149,11 +132,11 @@ class Manager
      * Interesting events.
      * Example: User logs in, SQL logs.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function info($message, array $context = [])
+    public function info(mixed $message, array $context = []): void
     {
         $this->psrLogger->info($message, $this->prepareContext($context));
     }
@@ -161,11 +144,11 @@ class Manager
     /**
      * Detailed debug information.
      *
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function debug($message, array $context = [])
+    public function debug(mixed $message, array $context = []): void
     {
         $this->psrLogger->debug($message, $this->prepareContext($context));
     }
@@ -174,11 +157,11 @@ class Manager
      * Logs with an arbitrary level.
      *
      * @param mixed $level
-     * @param string $message
+     * @param mixed $message
      * @param array $context
      * @return void
      */
-    public function log($level, $message, array $context = [])
+    public function log(mixed $level, mixed $message, array $context = []): void
     {
         $this->psrLogger->log($level, $message, $this->prepareContext($context));
     }
@@ -188,10 +171,10 @@ class Manager
      * The tag should be the merchant reference.
      * We will back-patch the log with the new mercant reference
      *
-     * @param string $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setMerchantReference($value)
+    public function setMerchantReference(mixed $value): static
     {
         $this->merchantReference = $value;
         if (!empty($value)) {
@@ -202,10 +185,10 @@ class Manager
     }
 
     /**
-     * @param \Magento\Quote\Model\Quote $quote
-     * @return $this
+     * @param mixed $quote
+     * @return static
      */
-    public function setMerchantReferenceFromQuote($quote)
+    public function setMerchantReferenceFromQuote(mixed $quote): static
     {
         if ($quote) {
             try {
@@ -224,8 +207,9 @@ class Manager
      * Add a tag to any futher logging context
      *
      * @param string $tag
+     * @return void
      */
-    public function addTag($tag)
+    public function addTag(string $tag): void
     {
         $this->tags[] = $tag;
         $this->tags = array_unique($this->tags);
@@ -235,16 +219,19 @@ class Manager
      * remove a tag from any futher logging context
      *
      * @param string $tag
+     * @return void
      */
-    public function removeTag($tag)
+    public function removeTag(string $tag): void
     {
         $this->tags = array_diff($this->tags, [$tag]);
     }
 
     /**
      * Clear all tags from any further logging context
+     *
+     * @return void
      */
-    public function clearTags()
+    public function clearTags(): void
     {
         $this->tags = [];
     }
@@ -255,9 +242,10 @@ class Manager
      * When mark is then set to null, the previously set mark is restored from the stack.
      * It allows to set marks in the folded functions, allowing to restore logger context when exiting the function.
      *
-     * @param string $mark
+     * @param mixed $mark
+     * @return void
      */
-    public function setMark($mark)
+    public function setMark(mixed $mark): void
     {
         if ($mark) {
             array_unshift($this->marks, $mark);
@@ -270,7 +258,7 @@ class Manager
      * @param int $levels
      * @return string
      */
-    public function getStack($levels = 5)
+    public function getStack(int $levels = 5): string
     {
         $exception = new \Exception;
         $stack = '';
@@ -281,11 +269,12 @@ class Manager
 
         return substr($stack, 1);
     }
+
     /**
      * @param array $context
      * @return array
      */
-    private function prepareContext($context)
+    private function prepareContext(array $context): array
     {
         if (!empty($this->merchantReference)) {
             $context['reference'] = $this->merchantReference;
@@ -304,10 +293,10 @@ class Manager
     }
 
     /**
-     * @param array $tagsData
+     * @param array|string $tagsData
      * @return string
      */
-    private function packTags($tagsData)
+    private function packTags(array|string $tagsData): string
     {
         if (is_string($tagsData)) {
             $tagsData = $this->unpackTags($tagsData);
@@ -322,7 +311,7 @@ class Manager
      * @param string $tagsString
      * @return array
      */
-    private function unpackTags($tagsString)
+    private function unpackTags(string $tagsString): array
     {
         return $tagsString ? explode(',', $tagsString) : [];
     }

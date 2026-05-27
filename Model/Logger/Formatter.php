@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Logger;
 
@@ -11,8 +12,8 @@ use Monolog\LogRecord;
 
 class Formatter implements FormatterInterface
 {
-    private $exceptionTraceAsString;
-    private $maxNestingLevel;
+    private int $maxNestingLevel;
+    private bool $exceptionTraceAsString;
 
     /**
      * Initialize formatter
@@ -21,17 +22,17 @@ class Formatter implements FormatterInterface
      * @param bool $exceptionTraceAsString set to false to log exception traces as a sub documents instead of strings
      */
     public function __construct(
-        $maxNestingLevel = 3,
-        $exceptionTraceAsString = true
+        int $maxNestingLevel = 3,
+        bool $exceptionTraceAsString = true
     ) {
         $this->maxNestingLevel = max($maxNestingLevel, 0);
-        $this->exceptionTraceAsString = (bool)$exceptionTraceAsString;
+        $this->exceptionTraceAsString = $exceptionTraceAsString;
     }
 
     /**
      * {@inheritDoc}
      */
-    public function format(array|LogRecord $record)
+    public function format(array|LogRecord $record): mixed
     {
         return $this->formatArray(
             $record instanceof LogRecord ? $record->toArray() : $record,
@@ -41,7 +42,7 @@ class Formatter implements FormatterInterface
     /**
      * {@inheritDoc}
      */
-    public function formatBatch(array $records)
+    public function formatBatch(array $records): array
     {
         foreach ($records as $key => $record) {
             $records[$key] = $this->format($record);
@@ -55,7 +56,7 @@ class Formatter implements FormatterInterface
      * @param int $nestingLevel
      * @return array|string
      */
-    private function formatArray(array $record, $nestingLevel = 0)
+    private function formatArray(array $record, int $nestingLevel = 0): array|string
     {
         if ($this->maxNestingLevel == 0 || $nestingLevel <= $this->maxNestingLevel) {
             foreach ($record as $name => $value) {
@@ -81,7 +82,7 @@ class Formatter implements FormatterInterface
      * @param int $nestingLevel
      * @return array|string
      */
-    private function formatObject($value, $nestingLevel)
+    private function formatObject(object $value, int $nestingLevel): array|string
     {
         $objectVars = get_object_vars($value);
         $objectVars['class'] = get_class($value);
@@ -94,7 +95,7 @@ class Formatter implements FormatterInterface
      * @param int $nestingLevel
      * @return array|string
      */
-    private function formatException(\Exception $exception, $nestingLevel)
+    private function formatException(\Exception $exception, int $nestingLevel): array|string
     {
         $formattedException = [
             'class' => get_class($exception),
@@ -117,7 +118,7 @@ class Formatter implements FormatterInterface
      * @param int $nestingLevel
      * @return string
      */
-    private function formatDate(\DateTime $value, $nestingLevel)
+    private function formatDate(\DateTime $value, int $nestingLevel): string
     {
         return $value->format('Y-m-d H:i:s.u');
     }

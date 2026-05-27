@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Security;
 
@@ -14,17 +15,17 @@ use Magento\Quote\Model\Quote;
 class AjaxToken extends CallbackToken
 {
     /**
-     * @var Quote
+     * @var Quote|null
      */
-    private $quote;
+    private ?Quote $quote = null;
 
     /**
      * Set quote to properly calculate the token
      *
      * @param Quote $quote
-     * @return AjaxToken
+     * @return static
      */
-    public function setQuote($quote) : self
+    public function setQuote(Quote $quote): static
     {
         $this->quote = $quote;
         return $this;

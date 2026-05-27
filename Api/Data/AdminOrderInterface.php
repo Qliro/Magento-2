@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
@@ -11,148 +12,148 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface AdminOrderInterface extends ContainerInterface
+interface AdminOrderInterface
 {
     /**
      * @return int
      */
-    public function getOrderId();
+    public function getOrderId(): int;
 
     /**
      * @return string
      */
-    public function getMerchantReference();
+    public function getMerchantReference(): string;
 
     /**
      * @return float
      */
-    public function getTotalPrice();
+    public function getTotalPrice(): float;
 
     /**
      * @return string
      */
-    public function getCountry();
+    public function getCountry(): string;
 
     /**
      * @return string
      */
-    public function getCurrency();
+    public function getCurrency(): string;
 
     /**
      * @return string
      */
-    public function getLanguage();
+    public function getLanguage(): string;
 
     /**
      * @return bool
      */
-    public function getSignupForNewsletter();
+    public function getSignupForNewsletter(): bool;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderIdentityVerificationInterface
+     * @return mixed
      */
-    public function getIdentityVerification();
+    public function getIdentityVerification(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface
+     * @return mixed
      */
-    public function getCustomer();
+    public function getCustomer(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+     * @return mixed
      */
-    public function getBillingAddress();
+    public function getBillingAddress(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+     * @return mixed
      */
-    public function getShippingAddress();
+    public function getShippingAddress(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\AdminOrderItemActionInterface[]
+     * @return AdminOrderItemActionInterface[]
      */
-    public function getOrderItemActions();
+    public function getOrderItemActions(): array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface[]
+     * @return AdminOrderPaymentTransactionInterface[]
      */
-    public function getPaymentTransactions();
+    public function getPaymentTransactions(): array;
 
     /**
      * @param int $value
-     * @return $this
+     * @return static
      */
-    public function setOrderId($value);
+    public function setOrderId(int $value): static;
 
     /**
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setMerchantReference($value);
+    public function setMerchantReference(string $value): static;
 
     /**
      * @param float $value
-     * @return $this
+     * @return static
      */
-    public function setTotalPrice($value);
+    public function setTotalPrice(float $value): static;
 
     /**
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setCountry($value);
+    public function setCountry(string $value): static;
 
     /**
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setCurrency($value);
+    public function setCurrency(string $value): static;
 
     /**
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setLanguage($value);
+    public function setLanguage(string $value): static;
 
     /**
      * @param bool $value
-     * @return $this
+     * @return static
      */
-    public function setSignupForNewsletter($value);
+    public function setSignupForNewsletter(bool $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderIdentityVerificationInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setIdentityVerification($value);
+    public function setIdentityVerification(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setCustomer($value);
+    public function setCustomer(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setBillingAddress($value);
+    public function setBillingAddress(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setShippingAddress($value);
+    public function setShippingAddress(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\AdminOrderItemActionInterface[] $value
-     * @return $this
+     * @param AdminOrderItemActionInterface[] $value
+     * @return static
      */
-    public function setOrderItemActions($value);
+    public function setOrderItemActions(array $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface[] $value
-     * @return $this
+     * @param AdminOrderPaymentTransactionInterface[] $value
+     * @return static
      */
-    public function setPaymentTransactions($value);
+    public function setPaymentTransactions(array $value): static;
 }

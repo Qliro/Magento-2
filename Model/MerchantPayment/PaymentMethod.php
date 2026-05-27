@@ -13,7 +13,7 @@ class PaymentMethod implements MerchantPaymentPaymentMethodInterface
     /**
      * @var string
      */
-    private string $name;
+    private string $name = '';
 
     /**
      * @var string|null
@@ -65,7 +65,7 @@ class PaymentMethod implements MerchantPaymentPaymentMethodInterface
     /**
      * @inheritDoc
      */
-    public function setName(string $name): MerchantPaymentPaymentMethodInterface
+    public function setName(string $name): static
     {
         $this->name = $name;
         return $this;
@@ -74,7 +74,7 @@ class PaymentMethod implements MerchantPaymentPaymentMethodInterface
     /**
      * @inheritDoc
      */
-    public function setSubType(string $subType): MerchantPaymentPaymentMethodInterface
+    public function setSubType(string $subType): static
     {
         $this->subType = $subType;
         return $this;
@@ -83,7 +83,7 @@ class PaymentMethod implements MerchantPaymentPaymentMethodInterface
     /**
      * @inheritDoc
      */
-    public function setSelectedLetterInvoiceOption(bool $value): MerchantPaymentPaymentMethodInterface
+    public function setSelectedLetterInvoiceOption(bool $value): static
     {
         $this->selectedLetterInvoiceOption = $value;
         return $this;
@@ -92,7 +92,7 @@ class PaymentMethod implements MerchantPaymentPaymentMethodInterface
     /**
      * @inheritDoc
      */
-    public function setMerchantSavedCreditCardId(string $id): MerchantPaymentPaymentMethodInterface
+    public function setMerchantSavedCreditCardId(string $id): static
     {
         $this->merchantSavedCreditCardId = $id;
         return $this;

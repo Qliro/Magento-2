@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
@@ -21,7 +22,7 @@ class Collection extends AbstractCollection
     /**
      * Collection initialization
      */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(OrderManagementStatusModel::class, OrderManagementStatusResource::class);
     }

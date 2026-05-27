@@ -1,143 +1,196 @@
-<?php declare(strict_types=1);
+<?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
-use Qliro\QliroOne\Api\Data\ContainerInterface;
-
 /**
- * Interface for Create Merchant Payment request data model
+ * Admin Create Merchant Payment Request interface
+ *
+ * @api
  */
-interface AdminCreateMerchantPaymentRequestInterface extends ContainerInterface
+interface AdminCreateMerchantPaymentRequestInterface
 {
     /**
+     * Get request ID
+     *
      * @return string
      */
     public function getRequestId(): string;
 
     /**
+     * Get merchant API key
+     *
      * @return string
      */
     public function getMerchantApiKey(): string;
 
     /**
+     * Get merchant reference
+     *
      * @return string
      */
     public function getMerchantReference(): string;
 
     /**
+     * Get currency code
+     *
      * @return string
      */
     public function getCurrency(): string;
 
     /**
+     * Get country code
+     *
      * @return string
      */
     public function getCountry(): string;
 
     /**
+     * Get language code
+     *
      * @return string
      */
     public function getLanguage(): string;
 
     /**
+     * Get order management status push URL
+     *
      * @return string
      */
     public function getMerchantOrderManagementStatusPushUrl(): string;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * Get order items
+     *
+     * @return QliroOrderItemInterface[]
      */
-    public function getOrderItems();
+    public function getOrderItems(): array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\MerchantPaymentCreateRequestInterface|null
+     * Get customer data
+     *
+     * @return MerchantPaymentCustomerInterface|null
      */
     public function getCustomer(): ?MerchantPaymentCustomerInterface;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null
+     * Get billing address
+     *
+     * @return array|null
      */
-    public function getBillingAddress(): ?QliroOrderCustomerAddressInterface;
+    public function getBillingAddress(): ?array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null
+     * Get shipping address
+     *
+     * @return array|null
      */
-    public function getShippingAddress(): ?QliroOrderCustomerAddressInterface;
+    public function getShippingAddress(): ?array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface|null
+     * Get payment method
+     *
+     * @return MerchantPaymentPaymentMethodInterface|null
      */
     public function getPaymentMethod(): ?MerchantPaymentPaymentMethodInterface;
 
     /**
-     * @param string $value
-     * @return self
-     */
-    public function setRequestId(string $value): self;
-
-    /**
+     * Set request ID
+     *
      * @param string $value
      * @return $this
      */
-    public function setMerchantApiKey(string $value): self;
+    public function setRequestId(string $value): static;
 
     /**
+     * Set merchant API key
+     *
      * @param string $value
      * @return $this
      */
-    public function setMerchantReference(string $value): self;
+    public function setMerchantApiKey(string $value): static;
 
     /**
+     * Set merchant reference
+     *
      * @param string $value
      * @return $this
      */
-    public function setCurrency(string $value): self;
+    public function setMerchantReference(string $value): static;
 
     /**
+     * Set currency code
+     *
      * @param string $value
      * @return $this
      */
-    public function setCountry(string $value): self;
+    public function setCurrency(string $value): static;
 
     /**
+     * Set country code
+     *
      * @param string $value
      * @return $this
      */
-    public function setLanguage(string $value): self;
+    public function setCountry(string $value): static;
 
     /**
+     * Set language code
+     *
      * @param string $value
      * @return $this
      */
-    public function setMerchantOrderManagementStatusPushUrl(string $value): self;
+    public function setLanguage(string $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
+     * Set order management status push URL
+     *
+     * @param string $value
      * @return $this
      */
-    public function setOrderItems(array $value): self;
+    public function setMerchantOrderManagementStatusPushUrl(string $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\MerchantPaymentCustomerInterface $value
+     * Set order items
+     *
+     * @param QliroOrderItemInterface[] $value
      * @return $this
      */
-    public function setCustomer(MerchantPaymentCustomerInterface $value): self;
+    public function setOrderItems(array $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return self
+     * Set customer data
+     *
+     * @param MerchantPaymentCustomerInterface $value
+     * @return $this
      */
-    public function setBillingAddress(QliroOrderCustomerAddressInterface $value): self;
+    public function setCustomer(MerchantPaymentCustomerInterface $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return self
+     * Set billing address
+     *
+     * @param array $value
+     * @return $this
      */
-    public function setShippingAddress(QliroOrderCustomerAddressInterface $value): self;
+    public function setBillingAddress(array $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface $value
-     * @return self
+     * Set shipping address
+     *
+     * @param array $value
+     * @return $this
      */
-    public function setPaymentMethod(MerchantPaymentPaymentMethodInterface $value): self;
+    public function setShippingAddress(array $value): static;
+
+    /**
+     * Set payment method
+     *
+     * @param MerchantPaymentPaymentMethodInterface $value
+     * @return $this
+     */
+    public function setPaymentMethod(MerchantPaymentPaymentMethodInterface $value): static;
 }

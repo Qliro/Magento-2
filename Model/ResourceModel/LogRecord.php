@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\ResourceModel;
 
@@ -18,25 +19,19 @@ class LogRecord extends AbstractDb
     const RECENT_EVENT = 60;    // when patching merchant reference, look this many seconds back for recent logging
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\ConnectionProvider
-     */
-    private $connectionProvider;
-
-    /**
-     * LogRecord constructor.
+     * Class constructor
      *
      * @param Context $context
      * @param \Qliro\QliroOne\Model\Logger\ConnectionProvider $connectionProvider
      */
     public function __construct(
         Context $context,
-        ConnectionProvider $connectionProvider
+        private readonly ConnectionProvider $connectionProvider
     ) {
         parent::__construct($context);
-        $this->connectionProvider = $connectionProvider;
     }
 
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(self::TABLE_LOG, LogRecordModel::FIELD_ID);
     }
@@ -47,7 +42,7 @@ class LogRecord extends AbstractDb
      *
      * @param string $merchantReference
      */
-    public function patchMerchantReference($merchantReference)
+    public function patchMerchantReference(string $merchantReference): void
     {
         /** @var \Magento\Framework\DB\Adapter\AdapterInterface $connection */
         $connection = $this->connectionProvider->getConnection();

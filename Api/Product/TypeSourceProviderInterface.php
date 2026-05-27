@@ -9,31 +9,39 @@ namespace Qliro\QliroOne\Api\Product;
 
 /**
  * Product Type Source Provider interface
+ *
+ * @api
  */
 interface TypeSourceProviderInterface
 {
     /**
+     * Get the store ID for this provider context
+     *
      * @return int
      */
-    public function getStoreId();
+    public function getStoreId(): int;
 
     /**
-     * @param string $reference
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
-     */
-    public function getSourceItemByMerchantReference($reference);
-
-    /**
-     * Seems to not be used, in any provider...
+     * Find a source item by its Qliro merchant reference
      *
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface[]
+     * @param mixed $reference
+     * @return TypeSourceItemInterface|null
      */
-    public function getSourceItems();
+    public function getSourceItemByMerchantReference(mixed $reference): ?TypeSourceItemInterface;
 
     /**
+     * Get all source items provided by this context
+     *
+     * @return TypeSourceItemInterface[]
+     */
+    public function getSourceItems(): array;
+
+    /**
+     * Generate a TypeSourceItem from a raw quote or order item
+     *
      * @param mixed $item
      * @param float $quantity
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface
+     * @return TypeSourceItemInterface
      */
-    public function generateSourceItem($item, $quantity);
+    public function generateSourceItem(mixed $item, float $quantity): TypeSourceItemInterface;
 }

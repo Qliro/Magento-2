@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Checkout;
 
@@ -10,60 +11,42 @@ use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
+use Magento\Framework\Controller\Result\Raw;
+use Magento\Framework\Controller\ResultInterface;
 use Magento\Framework\Json\Helper\Data;
-use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Api\CartRepositoryInterface as CartRepository;
+use Magento\Quote\Model\Quote;
 
+/**
+ * Class Totals
+ */
 class Totals extends Action
 {
     /**
-     * @var Session
-     */
-    protected $checkoutSession;
-
-    /**
-     * @var JsonFactory
-     */
-    protected $resultJson;
-
-    /**
-     * @var Data
-     */
-    protected $helper;
-
-    /**
-     * @var CartRepositoryInterface
-     */
-    protected $quoteRepository;
-
-    /**
-     * Checkout Totals Ajax Controller constructor.
+     * Class constructor
      *
-     * @param Context $context
-     * @param Session $checkoutSession
-     * @param Data $helper
-     * @param JsonFactory $resultJson
-     * @param CartRepositoryInterface $quoteRepository
+     * @param Context                     $context
+     * @param Session                     $checkoutSession
+     * @param Data                        $helper
+     * @param JsonFactory                 $resultJson
+     * @param CartRepository              $quoteRepository
      */
     public function __construct(
         Context $context,
-        Session $checkoutSession,
-        Data $helper,
-        JsonFactory $resultJson,
-        CartRepositoryInterface $quoteRepository
+        protected readonly Session        $checkoutSession,
+        protected readonly Data           $helper,
+        protected readonly JsonFactory    $resultJson,
+        protected readonly CartRepository $quoteRepository
     ) {
         parent::__construct($context);
-        $this->checkoutSession = $checkoutSession;
-        $this->helper = $helper;
-        $this->resultJson = $resultJson;
-        $this->quoteRepository = $quoteRepository;
     }
 
     /**
      * Trigger to re-calculate the collect Totals
      *
-     * @return bool
+     * @return ResultInterface
      */
-    public function execute()
+    public function execute(): ResultInterface
     {
         $response = [
             'errors' => false,
@@ -71,7 +54,7 @@ class Totals extends Action
         ];
 
         try {
-            /** @var \Magento\Quote\Model\Quote $quote */
+            /** @var Quote $quote */
             $quote = $this->quoteRepository->get($this->checkoutSession->getQuoteId());
 
             /** @var array $payment */
@@ -86,7 +69,7 @@ class Totals extends Action
             ];
         }
 
-        /** @var \Magento\Framework\Controller\Result\Raw $resultJson */
+        /** @var Raw $resultJson */
         $resultJson = $this->resultJson->create();
 
         return $resultJson->setData($response);

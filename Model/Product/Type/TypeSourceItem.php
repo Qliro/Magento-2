@@ -12,14 +12,14 @@ use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 
 /**
  * Type Source Item class.
- * Used for mapping Quote, Invoice and other items.
+ * Used for mapping Quote, Invoice, and other items.
  */
 class TypeSourceItem implements TypeSourceItemInterface
 {
     /**
-     * @var int
+     * @var int|string
      */
-    private int $id;
+    private int|string $id;
 
     /**
      * @var string
@@ -79,7 +79,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     /**
      * @inheirtDoc
      */
-    public function getId(): int
+    public function getId(): int|string
     {
         return $this->id;
     }
@@ -87,7 +87,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     /**
      * @inheirtDoc
      */
-    public function setId(int $value): static
+    public function setId(int|string $value): static
     {
         $this->id = $value;
 

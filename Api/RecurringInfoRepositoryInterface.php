@@ -1,36 +1,52 @@
-<?php declare(strict_types=1);
+<?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api;
 
 use Magento\Framework\Model\AbstractModel;
+use Qliro\QliroOne\Api\Data\RecurringInfoInterface;
 
+/**
+ * Recurring Info repository interface
+ *
+ * @api
+ */
 interface RecurringInfoRepositoryInterface
 {
     /**
-     * @param Data\RecurringInfoInterface|AbstractModel $recurringInfo
+     * Save a recurring info record
+     *
+     * @param RecurringInfoInterface $recurringInfo
      * @return void
      * @throws \Exception
      */
-    public function save(Data\RecurringInfoInterface $recurringInfo);
+    public function save(Data\RecurringInfoInterface $recurringInfo): void;
 
     /**
-     * @param integer $orderId
+     * Get recurring info record by the original order ID
+     *
+     * @param int $orderId
      * @return Data\RecurringInfoInterface
      */
-    public function getByOriginalOrderId(int $orderId) : Data\RecurringInfoInterface;
+    public function getByOriginalOrderId(int $orderId): Data\RecurringInfoInterface;
 
     /**
+     * Get a recurring info record by recurring token
+     *
      * @param string $recurringToken
      * @return Data\RecurringInfoInterface
      */
-    public function getByRecurringToken(string $recurringToken) : Data\RecurringInfoInterface;
+    public function getByRecurringToken(string $recurringToken): Data\RecurringInfoInterface;
 
     /**
-     * Gets recurring orders scheduled for today.
-     * Optionally also filter by storeId.
+     * Get recurring orders scheduled for today, optionally filtered by store
      *
-     * @param int|null $storeId
-     * @return Data\RecurringInfoInterface[]
+     * @param int|string|null $storeId
+     * @return RecurringInfoInterface[]
      */
-    public function getByTodaysDate(?int $storeId = null): array;
+    public function getByTodaysDate(int|string|null $storeId = null): array;
 }

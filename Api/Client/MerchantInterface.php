@@ -3,11 +3,9 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Client;
-
-use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface;
 
 /**
  * Merchant API client interface
@@ -19,25 +17,25 @@ interface MerchantInterface
     /**
      * Perform QliroOne order creation
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface $qliroOrderCreateRequest
+     * @param array $payload
+     * @return int|null
+     */
+    public function createOrder(array $payload): ?int;
+
+    /**
+     * Get QliroOne order by its Qliro Order ID.
+     *
+     * @param int $qliroOrderId
+     * @return array
+     */
+    public function getOrder(int $qliroOrderId): array;
+
+    /**
+     * Update QliroOne order.
+     *
+     * @param int $qliroOrderId
+     * @param array $payload
      * @return int
      */
-    public function createOrder(QliroOrderCreateRequestInterface $qliroOrderCreateRequest);
-
-    /**
-     * Get QliroOne order by its Qliro Order ID
-     *
-     * @param int $qliroOrderId
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
-     */
-    public function getOrder($qliroOrderId);
-
-    /**
-     * Update QliroOne order
-     *
-     * @param int $qliroOrderId
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest
-     * @return void
-     */
-    public function updateOrder($qliroOrderId, QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest);
+    public function updateOrder(int $qliroOrderId, array $payload): int;
 }

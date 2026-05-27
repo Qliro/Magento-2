@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type;
 
@@ -19,38 +20,11 @@ use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
  */
 class OrderSourceProvider implements TypeSourceProviderInterface
 {
-    /**
-     * @var array
-     */
-    private $sourceItems = [];
+    private array $sourceItems = [];
+    private ?Order $order = null;
 
     /**
-     * @var Order
-     */
-    private $order;
-
-    /**
-     * @var ProductPool
-     */
-    private $productPool;
-
-    /**
-     * @var TypeSourceItemInterfaceFactory
-     */
-    private $typeSourceItemFactory;
-
-    /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
-     * @var TaxHelper
-     */
-    private $taxHelper;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
@@ -58,30 +32,26 @@ class OrderSourceProvider implements TypeSourceProviderInterface
      * @param TaxHelper $taxHelper
      */
     public function __construct(
-        ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
-        ProductNameResolverInterface $productNameResolver,
-        TaxHelper $taxHelper
+        private readonly ProductPool $productPool,
+        private readonly TypeSourceItemInterfaceFactory $typeSourceItemFactory,
+        private readonly ProductNameResolverInterface $productNameResolver,
+        private readonly TaxHelper $taxHelper
     ) {
-        $this->productPool = $productPool;
-        $this->typeSourceItemFactory = $typeSourceItemFactory;
-        $this->productNameResolver = $productNameResolver;
-        $this->taxHelper = $taxHelper;
     }
 
     /**
      * @return int
      */
-    public function getStoreId()
+    public function getStoreId(): int
     {
-        return $this->order->getStoreId();
+        return (int)$this->order->getStoreId();
     }
 
     /**
-     * @param string $reference
-     * @return TypeSourceItemInterface
+     * @param mixed $reference
+     * @return TypeSourceItemInterface|null
      */
-    public function getSourceItemByMerchantReference($reference)
+    public function getSourceItemByMerchantReference(mixed $reference): ?TypeSourceItemInterface
     {
         if (strpos($reference, ':') !== false) {
             list($quoteItemId, $sku) = explode(':', $reference);
@@ -116,7 +86,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     /**
      * @return TypeSourceItemInterface[]
      */
-    public function getSourceItems()
+    public function getSourceItems(): array
     {
         $result = [];
 
@@ -131,12 +101,11 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     /**
      * Set order
      *
-     * @param Order|null $order
+     * @param Order $order
      */
-    public function setOrder(?Order $order)
+    public function setOrder(?Order $order): void
     {
         $this->order = $order;
-        $this->sourceItems = [];
     }
 
     /**
@@ -144,7 +113,7 @@ class OrderSourceProvider implements TypeSourceProviderInterface
      * @param float $quantity
      * @return TypeSourceItemInterface
      */
-    public function generateSourceItem($item, $quantity)
+    public function generateSourceItem(mixed $item, float $quantity): TypeSourceItemInterface
     {
         if (!isset($this->sourceItems[$item->getQuoteItemId()])) {
             /** @var TypeSourceItemInterface $sourceItem */
@@ -168,9 +137,8 @@ class OrderSourceProvider implements TypeSourceProviderInterface
                 );
             }
 
-            $sourceItem->setQty($item->getQtyOrdered());
-            $sku = $item->getSku() ?? $item->getProduct()?->getSku() ?? '';
-            $sourceItem->setSku((string)$sku);
+            $sourceItem->setQty((float) $item->getQtyOrdered());
+            $sourceItem->setSku($item->getSku());
             $sourceItem->setType($item->getProductType());
             $sourceItem->setProduct($item->getProduct());
             $sourceItem->setItem($item);

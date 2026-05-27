@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
@@ -8,38 +9,27 @@ use Qliro\QliroOne\Model\QliroOrder\Item;
 class OrderItemAction extends Item implements AdminOrderItemActionInterface
 {
     private string $actionType = '';
-
     private ?int $paymentTransactionId = null;
 
-    /**
-     * @inheritDoc
-     */
-    public function getActionType()
+    public function getActionType(): string
     {
         return $this->actionType;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function setActionType($value)
+    public function setActionType(string $value): static
     {
         $this->actionType = $value;
+        return $this;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function getPaymentTransactionId()
+    public function getPaymentTransactionId(): ?int
     {
         return $this->paymentTransactionId;
     }
 
-    /**
-     * @inheritDoc
-     */
-    public function setPaymentTransactionId($value)
+    public function setPaymentTransactionId(?int $value): static
     {
         $this->paymentTransactionId = $value;
+        return $this;
     }
 }

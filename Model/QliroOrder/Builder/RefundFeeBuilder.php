@@ -3,52 +3,38 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
-use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Sales\Api\Data\CreditmemoInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 
+/**
+ * Class RefundFeeBuilder
+ */
 class RefundFeeBuilder
 {
-    /**
-     * @var QliroOrderItemInterfaceFactory
-     */
-    private $qliroOrderItemFactory;
+    private ?CreditmemoInterface $creditMemo = null;
 
     /**
-     * @var ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * @var CreditmemoInterface
-     */
-    private $creditMemo;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param ManagerInterface $eventManager
+     * @param EventManager            $eventManager
      */
     public function __construct(
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        ManagerInterface $eventManager
+        private readonly EventManager $eventManager
     ) {
-        $this->qliroOrderItemFactory = $qliroOrderItemFactory;
-        $this->eventManager = $eventManager;
     }
 
     /**
-     * Set credit memo for data extraction
+     * Set a credit memo for data extraction
      *
      * @param CreditmemoInterface $creditMemo
      * @return $this
      */
-    public function setCreditMemo(CreditmemoInterface $creditMemo)
+    public function setCreditMemo(CreditmemoInterface $creditMemo): static
     {
         $this->creditMemo = $creditMemo;
 
@@ -58,45 +44,48 @@ class RefundFeeBuilder
     /**
      * Create a QliroOne refund fee container
      *
-     * @return QliroOrderItemInterface[]
+     * @return array[]
      */
-    public function create()
+    public function create(): array
     {
         if (empty($this->creditMemo)) {
             throw new \LogicException('Credit memo entity is not set.');
         }
 
         $container = $this->getAdjustmentFeeContainer();
-        $result = $container->getMerchantReference() ? [$container] : [];
+        $result = isset($container['MerchantReference']) ? [$container] : [];
         $this->creditMemo = null;
 
         return $result;
     }
 
     /**
-     * Get credit memo adjustment fee container
+     * Get a credit memo adjustment fee container as a plain array.
      *
-     * @return QliroOrderItemInterface
+     * @return array
      */
-    protected function getAdjustmentFeeContainer()
+    protected function getAdjustmentFeeContainer(): array
     {
-        $container = $this->qliroOrderItemFactory->create();
+        $container = [];
+
         if ($this->creditMemo->getAdjustmentNegative() > 0) {
-            /** @var QliroOrderItemInterface $container */
-            $container->setMerchantReference(
-                sprintf("ReturnFee_%s", $this->creditMemo->getOrder()->getCreditmemosCollection()->getSize())
-            );
-            $container->setDescription('Adjustment Fee');
-            $container->setPricePerItemIncVat(abs($this->creditMemo->getAdjustmentNegative()));
-            $container->setPricePerItemExVat(abs($this->creditMemo->getAdjustmentNegative()));
-            $container->setQuantity(1);
-            $container->setType(QliroOrderItemInterface::TYPE_FEE);
+            $container = [
+                'MerchantReference'  => sprintf(
+                    'ReturnFee_%s',
+                    $this->creditMemo->getOrder()->getCreditmemosCollection()->getSize()
+                ),
+                'Description'        => 'Adjustment Fee',
+                'PricePerItemIncVat' => abs($this->creditMemo->getAdjustmentNegative()),
+                'PricePerItemExVat'  => abs($this->creditMemo->getAdjustmentNegative()),
+                'Quantity'           => 1,
+                'Type'               => QliroOrderItemInterface::TYPE_FEE,
+            ];
 
             $this->eventManager->dispatch(
                 'qliroone_refund_fee_build_after',
                 [
                     'credit_memo' => $this->creditMemo,
-                    'container' => $container,
+                    'container'   => &$container,
                 ]
             );
         }

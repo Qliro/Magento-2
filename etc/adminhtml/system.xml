@@ -11,6 +11,11 @@
             <group id="qliroone" translate="label" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1">
                 <label>QliroOne Checkout</label>
 
+                <field id="logo" sortOrder="1" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <label/>
+                    <frontend_model>Qliro\QliroOne\Block\Adminhtml\System\Config\Logo</frontend_model>
+                </field>
+
                 <field id="active" translate="label" type="select" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                     <label>Enabled</label>
                     <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
@@ -197,12 +202,6 @@
                         <label>Fee Merchant Reference</label>
                     </field>
 
-                    <field id="use_increment_id_as_reference" translate="label comment" type="select" sortOrder="15" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
-                        <label>Use Magento Increment ID as a reference</label>
-                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                        <comment><![CDATA[If enabled, the reserved Magento order increment ID from the quote will be used as the Qliro One merchant reference instead of a randomly generated string.]]></comment>
-                    </field>
-
                     <field id="terms_url" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Terms URL</label>
                         <comment><![CDATA[A URL where the customer can find the merchant's terms and conditions. If not specified, will be defaulted to the website base URL. <b>If it is not a proper URL, Qliro One won't be able to create orders.</b>]]></comment>
@@ -325,6 +324,11 @@
                 </group>
                 <group id="debugging" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
                     <label>Debugging</label>
+                    <field id="log_retention_days" translate="label comment" type="select" sortOrder="5" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Log Retention Period</label>
+                        <comment>Log records older than this period are removed by the nightly cleanup cron job (qliroone_clean_logs).</comment>
+                        <source_model>Qliro\QliroOne\Model\System\Config\Source\LogRetentionPeriod</source_model>
+                    </field>
                     <group id="download" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
                         <label>Download Logs</label>
                         <field id="download_logs" translate="label" type="button" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">
@@ -335,6 +339,11 @@
                             <label>Module Configs</label>
                             <frontend_model>Qliro\QliroOne\Block\Adminhtml\System\Config\Download\Configs</frontend_model>
                             <comment>Sensitive information as API Key and Secret will be hided</comment>
+                        </field>
+                        <field id="view_log_grid" translate="label" type="button" sortOrder="20" showInDefault="1" showInWebsite="0" showInStore="0">
+                            <label>DB Logs</label>
+                            <frontend_model>Qliro\QliroOne\Block\Adminhtml\System\Config\Log\ViewGrid</frontend_model>
+                            <comment>Opens the database log records grid.</comment>
                         </field>
                     </group>
                 </group>

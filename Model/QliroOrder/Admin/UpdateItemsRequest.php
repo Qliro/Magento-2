@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
@@ -13,133 +14,64 @@ use Qliro\QliroOne\Api\Data\AdminUpdateItemsRequestInterface;
  */
 class UpdateItemsRequest implements AdminUpdateItemsRequestInterface
 {
-    /**
-     * @var string
-     */
-    private $merchantApiKey;
+    private string $merchantApiKey = '';
+    private int $orderId = 0;
+    private string $currency = '';
+    private array $orderItems = [];
+    private string $requestId = '';
 
-    /**
-     * @var int
-     */
-    private $orderId;
-
-    /**
-     * @var string
-     */
-    private $currency;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
-     */
-    private $orderItems;
-
-    /**
-     * @var string
-     */
-    private $requestId;
-
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getMerchantApiKey()
+    public function getMerchantApiKey(): string
     {
         return $this->merchantApiKey;
     }
 
-    /**
-     * @param string $merchantApiKey
-     * @return UpdateItemsRequest
-     */
-    public function setMerchantApiKey($merchantApiKey)
+    public function setMerchantApiKey($merchantApiKey): static
     {
-        $this->merchantApiKey = $merchantApiKey;
-
+        $this->merchantApiKey = (string)$merchantApiKey;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return int
-     */
-    public function getOrderId()
+    public function getOrderId(): int
     {
         return $this->orderId;
     }
 
-    /**
-     * @param int $orderId
-     * @return UpdateItemsRequest
-     */
-    public function setOrderId($orderId)
+    public function setOrderId($orderId): static
     {
-        $this->orderId = $orderId;
-
+        $this->orderId = (int)$orderId;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getCurrency()
+    public function getCurrency(): string
     {
         return $this->currency;
     }
 
-    /**
-     * @param string $currency
-     * @return UpdateItemsRequest
-     */
-    public function setCurrency($currency)
+    public function setCurrency($currency): static
     {
-        $this->currency = $currency;
-
+        $this->currency = (string)$currency;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
-     */
-    public function getOrderItems()
+    public function getOrderItems(): array
     {
         return $this->orderItems;
     }
 
-    /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $orderItems
-     * @return UpdateItemsRequest
-     */
-    public function setOrderItems($orderItems)
+    public function setOrderItems($orderItems): static
     {
         $this->orderItems = $orderItems;
-
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getRequestId()
+    public function getRequestId(): string
     {
         return $this->requestId;
     }
 
-    /**
-     * @param string $requestId
-     * @return UpdateItemsRequest
-     */
-    public function setRequestId($requestId)
+    public function setRequestId($requestId): static
     {
-        $this->requestId = $requestId;
-
+        $this->requestId = (string)$requestId;
         return $this;
     }
 }

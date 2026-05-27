@@ -3,55 +3,74 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
  * Admin Update Merchant Reference Request interface
+ *
+ * @api
  */
-interface AdminUpdateMerchantReferenceRequestInterface extends ContainerInterface
+interface AdminUpdateMerchantReferenceRequestInterface
 {
     /**
+     * Get merchant API key
+     *
      * @return string
      */
-    public function getMerchantApiKey();
+    public function getMerchantApiKey(): string;
 
     /**
+     * Get Qliro order ID
+     *
      * @return int
      */
-    public function getOrderId();
+    public function getOrderId(): int;
 
     /**
+     * Get request ID
+     *
      * @return string
      */
-    public function getRequestId();
+    public function getRequestId(): string;
 
     /**
+     * Get new merchant reference value
+     *
      * @return string
      */
-    public function getNewMerchantReference();
+    public function getNewMerchantReference(): string;
 
     /**
+     * Set merchant API key
+     *
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setMerchantApiKey($value);
+    public function setMerchantApiKey(string $value): static;
 
     /**
+     * Set Qliro order ID
+     *
      * @param int $value
-     * @return $this
+     * @return static
      */
-    public function setOrderId($value);
+    public function setOrderId(int $value): static;
 
     /**
+     * Set request ID
+     *
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setRequestId($value);
+    public function setRequestId(string $value): static;
 
     /**
+     * Set a new merchant reference value
+     *
      * @param string $value
-     * @return $this
+     * @return static
      */
-    public function setNewMerchantReference($value);
+    public function setNewMerchantReference(string $value): static;
 }

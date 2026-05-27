@@ -3,11 +3,11 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Customer\Model\Address\AbstractAddress;
-use Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterfaceFactory;
 
 /**
  * QliroOne Order Customer Address builder class
@@ -16,24 +16,10 @@ class CustomerAddressBuilder
 {
     const STREET_ADDRESS_SEPARATOR = '; ';
 
-    /**
-     * @var \Magento\Customer\Model\Address\AbstractAddress
-     */
-    private $address;
+    private ?AbstractAddress $address = null;
 
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory
-     */
-    private $orderCustomerAddressFactory;
-
-    /**
-     * Inject dependencies
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterfaceFactory $orderCustomerAddressFactory
-     */
-    public function __construct(QliroOrderCustomerAddressInterfaceFactory $orderCustomerAddressFactory)
+    public function __construct()
     {
-        $this->orderCustomerAddressFactory = $orderCustomerAddressFactory;
     }
 
     /**
@@ -42,7 +28,7 @@ class CustomerAddressBuilder
      * @param \Magento\Customer\Model\Address\AbstractAddress $address
      * @return $this
      */
-    public function setAddress(AbstractAddress $address)
+    public function setAddress(AbstractAddress $address): static
     {
         $this->address = $address;
 
@@ -52,25 +38,24 @@ class CustomerAddressBuilder
     /**
      * Create a container
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+     * @return array
      */
-    public function create()
+    public function create(): array
     {
         if (empty($this->address)) {
             throw new \LogicException('Address entity is not set.');
         }
 
-        /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroOrderCustomerAddress */
-        $qliroOrderCustomerAddress = $this->orderCustomerAddressFactory->create();
-
         $streetAddress = trim(implode(self::STREET_ADDRESS_SEPARATOR, $this->address->getStreet()));
 
-        $qliroOrderCustomerAddress->setFirstName($this->address->getFirstname());
-        $qliroOrderCustomerAddress->setLastName($this->address->getLastname());
-        $qliroOrderCustomerAddress->setCompanyName($this->address->getCompany());
-        $qliroOrderCustomerAddress->setStreet($streetAddress);
-        $qliroOrderCustomerAddress->setPostalCode(str_replace(' ', '', (string)$this->address->getPostcode()));
-        $qliroOrderCustomerAddress->setCity($this->address->getCity());
+        $qliroOrderCustomerAddress = [
+            'FirstName' => (string)$this->address->getFirstname(),
+            'LastName' => (string)$this->address->getLastname(),
+            'CompanyName' => (string)$this->address->getCompany(),
+            'Street' => (string)$streetAddress,
+            'PostalCode' => str_replace(' ', '', (string)$this->address->getPostcode()),
+            'City' => (string)$this->address->getCity(),
+        ];
 
         $this->address = null;
 

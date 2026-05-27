@@ -3,104 +3,100 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
+use Qliro\QliroOne\Model\OrderManagementStatus;
 
 class Cancel implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        \Qliro\QliroOne\Model\Logger\Manager $logManager
+        private readonly \Qliro\QliroOne\Model\Logger\Manager $logManager
     ) {
-        $this->logManager = $logManager;
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleSuccess($qliroOrderManagementStatus, $omStatus)
+    public function handleSuccess(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleCancelled($qliroOrderManagementStatus, $omStatus)
+    public function handleCancelled(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleError($qliroOrderManagementStatus, $omStatus)
+    public function handleError(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleInProcess($qliroOrderManagementStatus, $omStatus)
+    public function handleInProcess(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleOnHold($qliroOrderManagementStatus, $omStatus)
+    public function handleOnHold(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleUserInteraction($qliroOrderManagementStatus, $omStatus)
+    public function handleUserInteraction(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    public function handleCreated($qliroOrderManagementStatus, $omStatus)
+    public function handleCreated(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param array $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
-    private function log($qliroOrderManagementStatus, $omStatus)
+    private function log(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
-        $merchantReference = $qliroOrderManagementStatus->getMerchantReference();
+        $merchantReference = $qliroOrderManagementStatus['MerchantReference'] ?? null;
         $this->logManager->setMerchantReference($merchantReference);
 
         $logData = [
-            'status' => $qliroOrderManagementStatus->getStatus(),
-            'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+            'status' => $qliroOrderManagementStatus['Status'] ?? null,
+            'qliro_order_id' => $qliroOrderManagementStatus['OrderId'] ?? null,
             'transaction_id' => $omStatus->getTransactionId(),
             'transaction_status' => $omStatus->getTransactionStatus(),
             'record_type' => $omStatus->getRecordType(),

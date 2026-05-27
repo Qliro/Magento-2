@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
@@ -11,7 +12,7 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface MerchantPaymentCreateRequestInterface extends ContainerInterface
+interface MerchantPaymentCreateRequestInterface
 {
     /**
      * @return string
@@ -44,95 +45,95 @@ interface MerchantPaymentCreateRequestInterface extends ContainerInterface
     public function getMerchantOrderManagementStatusPushUrl(): string;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @return QliroOrderItemInterface[]
      */
     public function getOrderItems(): array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface
+     * @return mixed
      */
-    public function getCustomer(): QliroOrderCustomerInterface;
+    public function getCustomer(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+     * @return mixed
      */
-    public function getBillingAddress(): \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface;
+    public function getBillingAddress(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface
+     * @return mixed
      */
-    public function getShippingAddress(): \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface;
+    public function getShippingAddress(): mixed;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface
+     * @return MerchantPaymentPaymentMethodInterface
      */
-    public function getPaymentMethod(): \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface; 
-
-    /**
-     * @param string $value
-     * @return self
-     */
-    public function setMerchantReference(string $value);
+    public function getPaymentMethod(): MerchantPaymentPaymentMethodInterface;
 
     /**
      * @param string $value
      * @return self
      */
-    public function setMerchantApiKey(string $value);
+    public function setMerchantReference(string $value): static;
 
     /**
      * @param string $value
      * @return self
      */
-    public function setCountry(string $value);
+    public function setMerchantApiKey(string $value): static;
 
     /**
      * @param string $value
      * @return self
      */
-    public function setCurrency(string $value);
+    public function setCountry(string $value): static;
 
     /**
      * @param string $value
      * @return self
      */
-    public function setLanguage(string $value);
-
-    /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
-     * @return self
-     */
-    public function setOrderItems(array $value): self;
+    public function setCurrency(string $value): static;
 
     /**
      * @param string $value
      * @return self
      */
-    public function setMerchantOrderManagementStatusPushUrl(string $value): self;
+    public function setLanguage(string $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $value
+     * @param QliroOrderItemInterface[] $value
      * @return self
      */
-    public function setCustomer(\Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $value): self;
+    public function setOrderItems(array $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
+     * @param string $value
      * @return self
      */
-    public function setBillingAddress(\Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value): self;
+    public function setMerchantOrderManagementStatusPushUrl(string $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value
-     * @return self
+     * @param mixed $value
+     * @return static
      */
-    public function setShippingAddress(\Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $value): self;
+    public function setCustomer(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface $paymentMethod
+     * @param mixed $value
+     * @return static
+     */
+    public function setBillingAddress(mixed $value): static;
+
+    /**
+     * @param mixed $value
+     * @return static
+     */
+    public function setShippingAddress(mixed $value): static;
+
+    /**
+     * @param MerchantPaymentPaymentMethodInterface $paymentMethod
      * @return self
      */
     public function setPaymentMethod(
-        \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterface $paymentMethod
-    ): self;
+        MerchantPaymentPaymentMethodInterface $paymentMethod
+    ): static;
 }

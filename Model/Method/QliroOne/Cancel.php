@@ -3,12 +3,15 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Method\QliroOne;
 
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Payment\Gateway\Command\ResultInterface;
 use Magento\Payment\Gateway\CommandInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
+use Qliro\QliroOne\Api\Admin\OrderServiceInterface;
 use Qliro\QliroOne\Model\Exception\LinkInactiveException;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -19,45 +22,27 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 class Cancel implements CommandInterface
 {
     /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Api\ManagementInterface
-     */
-    private $qliroManagement;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
-     * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
+     * @param LinkRepositoryInterface $linkRepository
+     * @param LogManager $logManager
+     * @param OrderServiceInterface $qliroManagement
      */
     public function __construct(
-        LinkRepositoryInterface $linkRepository,
-        LogManager $logManager,
-        ManagementInterface $qliroManagement
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly LogManager $logManager,
+        private readonly OrderServiceInterface $qliroManagement
     ) {
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->qliroManagement = $qliroManagement;
     }
 
     /**
      * Cancel command
      *
      * @param array $commandSubject
-     * @return null
+     * @return ResultInterface|null
      * @throws \Exception
      */
-    public function execute(array $commandSubject)
+    public function execute(array $commandSubject): ?ResultInterface
     {
         if (isset($commandSubject['payment'])) {
             /** @var \Magento\Sales\Model\Order $order */
@@ -94,9 +79,9 @@ class Cancel implements CommandInterface
             return null;
         } catch (\Exception $exception) {
             $logData = [
-                'order_id' => $orderId,
+                'order_id'       => $orderId,
                 'qliro_order_id' => isset($link) ? $link->getQliroOrderId() : null,
-                'exception' => $exception,
+                'exception'      => $exception,
             ];
 
             if (!($exception instanceof TerminalException)) {

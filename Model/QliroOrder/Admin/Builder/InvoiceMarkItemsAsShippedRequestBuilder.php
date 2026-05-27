@@ -3,109 +3,71 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
 use Magento\Framework\Exception\NoSuchEntityException;
-use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory;
+use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Payment;
+use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface;
+use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory as AdminMarkItemsAsShippedRequestFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder;
 
 /**
  * Mark Items As Shipped Request Builder class
  */
 class InvoiceMarkItemsAsShippedRequestBuilder
 {
-    /**
-     * @var \Magento\Sales\Model\Order\Payment
-     */
-    private $payment;
+    private ?Payment $payment = null;
+    private ?Order $order = null;
+    private ?float $amount = null;
 
     /**
-     * @var \Magento\Sales\Model\Order
-     */
-    private $order;
-
-    /**
-     * @var float
-     */
-    private $amount;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory
-     */
-    private $requestFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private $linkRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder
-     */
-    private $shipmentsBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory
-     * @param \Qliro\QliroOne\Api\LinkRepositoryInterface $linkRepository
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
-     * @param \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder $shipmentsBuilder
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param AdminMarkItemsAsShippedRequestFactory            $requestFactory
+     * @param LinkRepositoryInterface                          $linkRepository
+     * @param LogManager                                       $logManager
+     * @param InvoiceShipmentsBuilder                          $shipmentsBuilder
+     * @param Config                                           $qliroConfig
      */
     public function __construct(
-        AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory,
-        LinkRepositoryInterface $linkRepository,
-        LogManager $logManager,
-        InvoiceShipmentsBuilder $shipmentsBuilder,
-        Config $qliroConfig
+        private readonly AdminMarkItemsAsShippedRequestFactory $requestFactory,
+        private readonly LinkRepositoryInterface               $linkRepository,
+        private readonly LogManager                            $logManager,
+        private readonly InvoiceShipmentsBuilder               $shipmentsBuilder,
+        private readonly Config                                $qliroConfig
     ) {
-        $this->requestFactory = $requestFactory;
-        $this->linkRepository = $linkRepository;
-        $this->logManager = $logManager;
-        $this->shipmentsBuilder = $shipmentsBuilder;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
-     * @param \Magento\Sales\Model\Order\Payment $payment
+     * @param Payment $payment
      */
-    public function setPayment($payment)
+    public function setPayment(Payment $payment): void
     {
         $this->payment = $payment;
 
-        /** @var \Magento\Sales\Model\Order $order */
+        /** @var Order $order */
         $this->order = $this->payment->getOrder();
     }
 
     /**
-     * Amount from Magento Capture call, is not actually used, but could be used for double checking...
+     * Amount from Magento Capture call is not actually used, but could be used for double-checking...
      *
      * @param float $amount
      */
-    public function setAmount($amount)
+    public function setAmount(float $amount): void
     {
         $this->amount = $amount;
     }
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface
+     * @return AdminMarkItemsAsShippedRequestInterface
      */
-    public function create()
+    public function create(): AdminMarkItemsAsShippedRequestInterface
     {
         if (empty($this->order)) {
             throw new \LogicException('Order entity is not set.');
@@ -115,6 +77,7 @@ class InvoiceMarkItemsAsShippedRequestBuilder
 
         $this->payment = null;
         $this->order = null;
+        $this->amount = null;
 
         return $request;
     }
@@ -122,11 +85,11 @@ class InvoiceMarkItemsAsShippedRequestBuilder
     /**
      * Prepare a new request
      *
-     * @return \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface
+     * @return AdminMarkItemsAsShippedRequestInterface
      */
-    private function prepareRequest()
+    private function prepareRequest(): AdminMarkItemsAsShippedRequestInterface
     {
-        /** @var \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface $request */
+        /** @var AdminMarkItemsAsShippedRequestInterface $request */
         $request = $this->requestFactory->create();
 
         try {
@@ -146,13 +109,11 @@ class InvoiceMarkItemsAsShippedRequestBuilder
                 $exception,
                 [
                     'extra' => [
-                        'link_id' => $link->getId(),
-                        'quote_id' => $link->getQuoteId(),
-                        'qliro_order_id' => $link->getQliroOrderId(),
+                        'order_id' => $this->order->getId(),
+                        'increment_id' => $this->order->getIncrementId(),
                     ],
                 ]
             );
-
         }
 
         return $request;

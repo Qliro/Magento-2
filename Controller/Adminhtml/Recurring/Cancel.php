@@ -1,42 +1,39 @@
 <?php
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Controller\Adminhtml\Recurring;
 
+use Magento\Backend\Model\View\Result\Redirect;
 use Magento\Framework\App\Action\HttpPostActionInterface as HttpPostActionInterface;
 use Magento\Framework\Model\ResourceModel\Db\Collection\AbstractCollection;
 use Magento\Backend\App\Action\Context;
+use Magento\Sales\Controller\Adminhtml\Order\AbstractMassAction;
 use Magento\Ui\Component\MassAction\Filter;
 use Magento\Sales\Model\ResourceModel\Order\CollectionFactory;
 use Magento\Setup\Module\Di\Definition\Collection;
 use Qliro\QliroOne\Api\RecurringInfoRepositoryInterface;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
-class Cancel extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassAction implements HttpPostActionInterface
+class Cancel extends AbstractMassAction implements HttpPostActionInterface
 {
     /**
      * Authorization level of a basic admin session
      *
      * @see _isAllowed()
      */
-    const ADMIN_RESOURCE = 'Magento_Sales::sales_order';
+    const string ADMIN_RESOURCE = 'Magento_Sales::sales_order';
 
     /**
      * @var string
      */
     protected $redirectUrl = 'sales/order/index';
-    
-    /**
-     * @var \Qliro\QliroOne\Api\RecurringInfoRepositoryInterface
-     */
-    private $recurringInfoRepo;
 
     /**
-     * @var \Qliro\QliroOne\Service\RecurringPayments\Data
-     */
-    private $recurringDataService;
-
-    /**
+     * Class constructor
+     *
      * @param Context $context
      * @param Filter $filter
+     * @param CollectionFactory $collectionFactory
      * @param RecurringInfoRepositoryInterface $recurringInfoRepo
      * @param RecurringDataService $recurringDataService
      */
@@ -44,26 +41,24 @@ class Cancel extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassActio
         Context $context,
         Filter $filter,
         CollectionFactory $collectionFactory,
-        RecurringInfoRepositoryInterface $recurringInfoRepo,
-        RecurringDataService $recurringDataService,
+        private readonly RecurringInfoRepositoryInterface $recurringInfoRepo,
+        private readonly RecurringDataService $recurringDataService,
     ) {
         parent::__construct($context, $filter);
         $this->collectionFactory = $collectionFactory;
-        $this->recurringInfoRepo = $recurringInfoRepo;
-        $this->recurringDataService = $recurringDataService;
     }
 
     /**
      * Cancel recurring for selected orders
      *
      * @param AbstractCollection $collection
-     * @return \Magento\Backend\Model\View\Result\Redirect
+     * @return \Magento\Framework\Controller\Result\Redirect
      */
-    protected function massAction(AbstractCollection $collection)
+    protected function massAction(AbstractCollection $collection): \Magento\Framework\Controller\Result\Redirect
     {
         foreach ($collection->getItems() as $order) {
             try {
-        
+
                 $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($order->getEntityId());
                 if (!$recurringInfo->getId()) {
                     $this->messageManager->addNoticeMessage(

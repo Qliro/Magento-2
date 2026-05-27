@@ -3,66 +3,89 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
  * Admin Update Items Request interface
+ *
+ * @api
  */
-interface AdminUpdateItemsRequestInterface extends ContainerInterface
+interface AdminUpdateItemsRequestInterface
 {
     /**
+     * Get merchant API key
+     *
      * @return string
      */
-    public function getMerchantApiKey();
+    public function getMerchantApiKey(): string;
 
     /**
+     * Get Qliro order ID
+     *
      * @return int
      */
-    public function getOrderId();
+    public function getOrderId(): int;
 
     /**
+     * Get currency code
+     *
      * @return string
      */
-    public function getCurrency();
+    public function getCurrency(): string;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * Get order items
+     *
+     * @return QliroOrderItemInterface[]
      */
-    public function getOrderItems();
+    public function getOrderItems(): array;
 
     /**
+     * Get request ID
+     *
      * @return string
      */
-    public function getRequestId();
+    public function getRequestId(): string;
 
     /**
+     * Set the merchant API key
+     *
      * @param string $value
      * @return $this
      */
-    public function setMerchantApiKey($value);
+    public function setMerchantApiKey(string $value): static;
 
     /**
+     * Set Qliro order ID
+     *
      * @param int $value
      * @return $this
      */
-    public function setOrderId($value);
+    public function setOrderId(int $value): static;
 
     /**
+     * Set currency code
+     *
      * @param string $value
      * @return $this
      */
-    public function setCurrency($value);
+    public function setCurrency(string $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
+     * Set order items
+     *
+     * @param QliroOrderItemInterface[] $value
      * @return $this
      */
-    public function setOrderItems($value);
+    public function setOrderItems(array $value): static;
 
     /**
+     * Set request ID
+     *
      * @param string $value
      * @return $this
      */
-    public function setRequestId($value);
+    public function setRequestId(string $value): static;
 }

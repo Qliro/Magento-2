@@ -1,7 +1,13 @@
-<?php declare(strict_types=1);
+<?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Block\Adminhtml\Form\Field\Recurring;
 
+use Magento\Framework\Exception\LocalizedException;
 use Qliro\QliroOne\Block\Adminhtml\Form\Field\Recurring\Renderer\Frequency;
 use Qliro\QliroOne\Block\Adminhtml\Form\Field\Recurring\Renderer\TimeUnit;
 use Magento\Config\Block\System\Config\Form\Field\FieldArray\AbstractFieldArray;
@@ -19,7 +25,7 @@ class FrequencyOptions extends AbstractFieldArray
     /**
      * @inheritDoc
      */
-    protected function _prepareToRender()
+    protected function _prepareToRender(): void
     {
         $this->addColumn(
             'label',
@@ -55,6 +61,7 @@ class FrequencyOptions extends AbstractFieldArray
 
     /**
      * @return Frequency
+     * @throws LocalizedException
      */
     private function getFrequencyRenderer(): Frequency
     {
@@ -72,7 +79,7 @@ class FrequencyOptions extends AbstractFieldArray
     /**
      * @inheritDoc
      */
-    protected function _prepareArrayRow(DataObject $row)
+    protected function _prepareArrayRow(DataObject $row): void
     {
         $frequencyKey = 'option_' . $this->getFrequencyRenderer()->calcOptionHash($row->getData('frequency'));
         $optionExtraAttr[$frequencyKey] = 'selected="selected"';

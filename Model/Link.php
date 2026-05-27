@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model;
 
@@ -15,20 +16,17 @@ use Qliro\QliroOne\Api\Data\LinkInterface;
 class Link extends AbstractModel implements LinkInterface
 {
     /**
-     * Initialize resource model
+     * Initialize a resource model
      */
-    protected function _construct()
+    protected function _construct(): void
     {
         $this->_init(ResourceModel\Link::class);
     }
 
     /**
-     * @return string
-     */
-    /**
      * @inheritdoc
      */
-    public function getLinkId()
+    public function getId(): mixed
     {
         return $this->getData(self::FIELD_ID);
     }
@@ -36,15 +34,15 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getIsActive()
+    public function getIsActive(): int
     {
-        return (bool)$this->getData(self::FIELD_IS_ACTIVE);
+        return $this->getData(self::FIELD_IS_ACTIVE);
     }
 
     /**
      * @inheritdoc
      */
-    public function getReference()
+    public function getReference(): string
     {
         return $this->getData(self::FIELD_REFERENCE);
     }
@@ -52,23 +50,25 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getQuoteId()
+    public function getQuoteId(): ?int
     {
-        return $this->getData(self::FIELD_QUOTE_ID);
+        $value = $this->getData(self::FIELD_QUOTE_ID);
+        return $value !== null ? (int)$value : null;
     }
 
     /**
      * @inheritdoc
      */
-    public function getQliroOrderId()
+    public function getQliroOrderId(): ?int
     {
-        return $this->getData(self::FIELD_QLIRO_ORDER_ID);
+        $value = $this->getData(self::FIELD_QLIRO_ORDER_ID);
+        return $value !== null ? (int)$value : null;
     }
 
     /**
      * @inheritdoc
      */
-    public function getQliroOrderStatus()
+    public function getQliroOrderStatus(): ?string
     {
         return $this->getData(self::FIELD_QLIRO_ORDER_STATUS);
     }
@@ -76,15 +76,16 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getOrderId()
+    public function getOrderId(): ?int
     {
-        return $this->getData(self::FIELD_ORDER_ID);
+        $value = $this->getData(self::FIELD_ORDER_ID);
+        return $value !== null ? (int)$value : null;
     }
 
     /**
      * @inheritdoc
      */
-    public function getRemoteIp()
+    public function getRemoteIp(): string
     {
         return $this->getData(self::FIELD_REMOTE_IP);
     }
@@ -92,7 +93,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getCreatedAt()
+    public function getCreatedAt(): string
     {
         return $this->getData(self::FIELD_CREATED_AT);
     }
@@ -100,7 +101,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getUpdatedAt()
+    public function getUpdatedAt(): string
     {
         return $this->getData(self::FIELD_UPDATED_AT);
     }
@@ -108,7 +109,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getPlacedAt()
+    public function getPlacedAt(): string
     {
         return $this->getData(self::FIELD_PLACED_AT);
     }
@@ -116,7 +117,8 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getQuoteSnapshot() {
+    public function getQuoteSnapshot(): string
+    {
 
         return $this->getData(self::FIELD_QUOTE_SNAPSHOT);
     }
@@ -124,7 +126,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getMessage()
+    public function getMessage(): string
     {
         return $this->getData(self::FIELD_MESSAGE);
     }
@@ -132,17 +134,18 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getUnifaunShippingAmount()
+    public function getUnifaunShippingAmount(): float
     {
-        return $this->getData(self::FIELD_UNIFAUN_SHIPPING_AMOUNT);
+        return (float)$this->getData(self::FIELD_UNIFAUN_SHIPPING_AMOUNT);
     }
 
     /**
      * @inheritdoc
      */
-    public function getIngridShippingAmount()
+    public function getIngridShippingAmount(): ?float
     {
-        return $this->getData(self::FIELD_INGRID_SHIPPING_AMOUNT);
+        $value = $this->getData(self::FIELD_INGRID_SHIPPING_AMOUNT);
+        return $value !== null ? (float)$value : null;
     }
 
     /**
@@ -156,7 +159,15 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setIsActive($value)
+    public function setId(mixed $value): static
+    {
+        return $this->setData(self::FIELD_ID, $value);
+    }
+
+    /**
+     * @inheritdoc
+     */
+    public function setIsActive(int|bool $value): static
     {
         return $this->setData(self::FIELD_IS_ACTIVE, $value);
     }
@@ -164,7 +175,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setReference($value)
+    public function setReference(string $value): static
     {
         return $this->setData(self::FIELD_REFERENCE, $value);
     }
@@ -172,7 +183,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setQuoteId($value)
+    public function setQuoteId(int|string $value): static
     {
         return $this->setData(self::FIELD_QUOTE_ID, $value);
     }
@@ -180,15 +191,15 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setQliroOrderId($value)
+    public function setQliroOrderId(int|string|null $value): static
     {
-        return $this->setData(self::FIELD_QLIRO_ORDER_ID, $value);
+        return $this->setData(self::FIELD_QLIRO_ORDER_ID, $value !== null ? (int)$value : null);
     }
 
     /**
      * @inheritdoc
      */
-    public function setQliroOrderStatus($value)
+    public function setQliroOrderStatus(string $value): static
     {
         return $this->setData(self::FIELD_QLIRO_ORDER_STATUS, $value);
     }
@@ -196,7 +207,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setOrderId($value)
+    public function setOrderId(int|string $value): static
     {
         return $this->setData(self::FIELD_ORDER_ID, $value);
     }
@@ -204,7 +215,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setRemoteIp($value)
+    public function setRemoteIp(string $value): static
     {
         return $this->setData(self::FIELD_REMOTE_IP, $value);
     }
@@ -212,7 +223,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setCreatedAt($value)
+    public function setCreatedAt(string $value): static
     {
         return $this->setData(self::FIELD_CREATED_AT, $value);
     }
@@ -220,7 +231,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setUpdatedAt($value)
+    public function setUpdatedAt(string $value): static
     {
         return $this->setData(self::FIELD_UPDATED_AT, $value);
     }
@@ -228,7 +239,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setPlacedAt($value)
+    public function setPlacedAt(string $value): static
     {
         return $this->setData(self::FIELD_PLACED_AT, $value);
     }
@@ -236,7 +247,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setQuoteSnapshot($value)
+    public function setQuoteSnapshot(?string $value): static
     {
         return $this->setData(self::FIELD_QUOTE_SNAPSHOT, $value);
     }
@@ -244,7 +255,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setMessage($value)
+    public function setMessage(string $value): static
     {
         return $this->setData(self::FIELD_MESSAGE, $value);
     }
@@ -252,7 +263,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setUnifaunShippingAmount($value)
+    public function setUnifaunShippingAmount(float $value): static
     {
         return $this->setData(self::FIELD_UNIFAUN_SHIPPING_AMOUNT, $value);
     }
@@ -260,7 +271,7 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function setIngridShippingAmount($value)
+    public function setIngridShippingAmount(?float $value): static
     {
         return $this->setData(self::FIELD_INGRID_SHIPPING_AMOUNT, $value);
     }
@@ -268,9 +279,8 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritDoc
      */
-    public function setIsLocked(bool $value): LinkInterface
+    public function setIsLocked(bool $value): static
     {
-        $this->setData(self::FIELD_IS_LOCKED, $value);
-        return $this;
+        return $this->setData(self::FIELD_IS_LOCKED, $value);
     }
 }

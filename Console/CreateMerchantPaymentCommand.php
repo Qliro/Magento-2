@@ -19,40 +19,33 @@ use Qliro\QliroOne\Api\RecurringInfoRepositoryInterface;
  */
 class CreateMerchantPaymentCommand extends Command
 {
-    private PlaceOrders $placeOrders;
-
-    private RecurringInfoRepositoryInterface $recurringInfoRepo;
-
-    private OrderFactory $orderFactory;
-
-    private OrderResourceFactory $orderResourceFactory;
-
-    private Emulation $emulation;
-
-    private State $appState;
-
+    /**
+     * Class constructor
+     *
+     * @param PlaceOrders $placeOrders
+     * @param RecurringInfoRepositoryInterface $recurringInfoRepo
+     * @param OrderFactory $orderFactory
+     * @param OrderResourceFactory $orderResourceFactory
+     * @param Emulation $emulation
+     * @param State $appState
+     * @param string|null $name
+     */
     public function __construct(
-        PlaceOrders $placeOrders,
-        RecurringInfoRepositoryInterface $recurringInfoRepo,
-        OrderFactory $orderFactory,
-        OrderResourceFactory $orderResourceFactory,
-        Emulation $emulation,
-        State $appState,
+        private readonly PlaceOrders $placeOrders,
+        private readonly RecurringInfoRepositoryInterface $recurringInfoRepo,
+        private readonly OrderFactory $orderFactory,
+        private readonly OrderResourceFactory $orderResourceFactory,
+        private readonly Emulation $emulation,
+        private readonly State $appState,
         ?string $name = null
     ) {
-        $this->placeOrders = $placeOrders;
-        $this->recurringInfoRepo = $recurringInfoRepo;
-        $this->orderFactory = $orderFactory;
-        $this->orderResourceFactory = $orderResourceFactory;
-        $this->emulation = $emulation;
-        $this->appState = $appState;
         parent::__construct($name);
     }
 
     /**
      * @inheritDoc
      */
-    protected function configure()
+    protected function configure(): void
     {
         $this->setName('qliroone:merchantpayment:create');
         $this->setDescription('Create a Merchant Payment based on a placed Subscription Order');
@@ -61,7 +54,7 @@ class CreateMerchantPaymentCommand extends Command
         parent::configure();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $orderId = (int)$input->getArgument('order_id');
         $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($orderId);

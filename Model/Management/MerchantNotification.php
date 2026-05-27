@@ -5,79 +5,61 @@ namespace Qliro\QliroOne\Model\Management;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Qliro\QliroOne\Api\Data\MerchantNotificationInterface;
-use Qliro\QliroOne\Api\Data\MerchantNotificationResponseInterfaceFactory;
-use Qliro\QliroOne\Api\Data\MerchantNotificationResponseInterface;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\ResourceModel\Lock;
 
 /**
  * Merchant Notification management class
  */
-class MerchantNotification extends AbstractManagement
+class MerchantNotification
 {
-    /**
-     * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
-     */
-    private LinkRepositoryInterface $linkRepo;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private OrderRepositoryInterface $orderRepo;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private Manager $logManager;
-
-    /**
-     * @var MerchantNotificationInterfaceFactory
-     */
-    private MerchantNotificationResponseInterfaceFactory $responseFactory;
-
     /**
      * @var array|null
      */
     private ?array $logContext = null;
 
     /**
-     * @var MerchantNotificationResponseInterface|null
+     * @var array|null
      */
-    private ?MerchantNotificationResponseInterface $response = null;
+    private ?array $response = null;
 
+    /**
+     * Class constructor
+     *
+     * @param LinkRepositoryInterface $linkRepo
+     * @param OrderRepositoryInterface $orderRepo
+     * @param Manager $logManager
+     * @param Lock $lock
+     */
     public function __construct(
-        LinkRepositoryInterface $linkRepo,
-        OrderRepositoryInterface $orderRepo,
-        Manager $logManager,
-        MerchantNotificationResponseInterfaceFactory $responseFactory
+        private readonly LinkRepositoryInterface $linkRepo,
+        private readonly OrderRepositoryInterface $orderRepo,
+        private readonly Manager $logManager,
+        private readonly Lock $lock,
     ) {
-        $this->linkRepo = $linkRepo;
-        $this->orderRepo = $orderRepo;
-        $this->logManager = $logManager;
-        $this->responseFactory = $responseFactory;
     }
 
     /**
      * @param MerchantNotificationInterface $container
      * @return MerchantNotificationResponseInterface
      */
-    public function execute(MerchantNotificationInterface $container): MerchantNotificationResponseInterface
+    public function execute(array $container): array
     {
-        $this->logManager->setMerchantReference($container->getMerchantReference());
+        $this->logManager->setMerchantReference($container['MerchantReference'] ?? null);
         $this->logContext = [
             'extra' => [
-                'qliro_order_id' => $container->getOrderId(),
+                'qliro_order_id' => $container['OrderId'] ?? null,
             ],
         ];
 
-        $eventType = $container->getEventType();
+        $eventType = $container['EventType'] ?? null;
 
         $this->logManager->info('Handling event type: ' . $eventType);
-        if ($eventType === MerchantNotificationInterface::EVENT_TYPE_SHIPPING_PROVIDER_UPDATE) {
+        if ($eventType === 'ShippingProviderUpdate') {
             $this->shippingProviderUpdate($container);
         }
 
-        if (null === $this->response) {
+        if ($this->response === null) {
             $this->createResponse('We cannot handle this event type', 400);
         }
 
@@ -91,10 +73,12 @@ class MerchantNotification extends AbstractManagement
      * @return void
      * @throws \Exception
      */
-    private function shippingProviderUpdate(MerchantNotificationInterface $container): void
+    private function shippingProviderUpdate(array $container): void
     {
+        $qliroOrderId = $container['OrderId'] ?? null;
+
         try {
-            $link = $this->linkRepo->getByQliroOrderId($container->getOrderId());
+            $link = $this->linkRepo->getByQliroOrderId($qliroOrderId);
         } catch (NoSuchEntityException $e) {
             $this->logManager->critical('Link missing', $this->logContext);
             $this->createResponse('Qliro Link not found', 500);
@@ -110,51 +94,60 @@ class MerchantNotification extends AbstractManagement
             return;
         }
 
-        try {
-            $order = $this->orderRepo->get($link->getOrderId());
-        } catch (\Exception $e) {
-            $this->logManager->critical(
-                sprintf('Magento Order with id: [%s] not found for MerchantNotification', $link->getOrderId()),
+        if (!$this->lock->lock($qliroOrderId)) {
+            $this->logManager->warning(
+                'MerchantNotification: could not acquire lock — concurrent request in progress.',
                 $this->logContext
             );
-            $this->createResponse('Magento Order not found', 500);
+            $this->createResponse('Order locked by concurrent request, try again later', 500);
             return;
         }
 
-        $payment = $order->getPayment();
-        $additionalInfo = $payment->getAdditionalInformation();
-        $shippingInfo = $additionalInfo['qliroone_shipping_info'] ?? [];
-
-        if (isset($shippingInfo['payload']) && $shippingInfo['payload'] == $container->getPayload()) {
-            $this->createResponse('Shipping Provider Update already handled', 200);
-            return;
-        }
-
-        $shippingInfo['provider'] = $container->getProvider();
-        $shippingInfo['payload'] = $container->getPayload();
-        $additionalInfo['qliroone_shipping_info'] = $shippingInfo;
-        $payment->setAdditionalInformation($additionalInfo);
-        if ($shippingInfo) {
-            if ($shippingInfo['provider'] == 'Unifaun') {
-                $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["service"]["name"] . ' (' . $additionalInfo["qliroone_shipping_info"]["payload"]["service"]["id"] . ')');
-            } else if ($shippingInfo['provider'] == 'Ingrid') {
-                $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier"] . ' (' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier_product_id"] . ')');
+        try {
+            try {
+                $order = $this->orderRepo->get($link->getOrderId());
+            } catch (\Exception $e) {
+                $this->logManager->critical(
+                    sprintf('Magento Order with id: [%s] not found for MerchantNotification', $link->getOrderId()),
+                    $this->logContext
+                );
+                $this->createResponse('Magento Order not found', 500);
+                return;
             }
-            
-        }
 
-        try {
-            $this->orderRepo->save($order);
-        } catch (\Exception $e) {
-            $this->logManager->critical(
-                $e->getMessage(),
-                $this->logContext
-            );
-            $this->createResponse('Failed to update Magento order ', 500);
-            return;
-        }
+            $payment = $order->getPayment();
+            $additionalInfo = $payment->getAdditionalInformation();
+            $shippingInfo = $additionalInfo['qliroone_shipping_info'] ?? [];
 
-        $this->createResponse('Shipping Provider Update handled successfully', 200);
+            if (isset($shippingInfo['payload']) && $shippingInfo['payload'] == $container['Payload'] ?? null) {
+                $this->createResponse('Shipping Provider Update already handled', 200);
+                return;
+            }
+
+            $shippingInfo['provider'] = $container['Provider'] ?? null;
+            $shippingInfo['payload'] = $container['Payload'] ?? null;
+            $additionalInfo['qliroone_shipping_info'] = $shippingInfo;
+            $payment->setAdditionalInformation($additionalInfo);
+            if ($shippingInfo) {
+                if ($shippingInfo['provider'] == 'Unifaun') {
+                    $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["service"]["name"] . ' (' . $additionalInfo["qliroone_shipping_info"]["payload"]["service"]["id"] . ')');
+                } else if ($shippingInfo['provider'] == 'Ingrid') {
+                    $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier"] . ' (' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier_product_id"] . ')');
+                }
+            }
+
+            try {
+                $this->orderRepo->save($order);
+            } catch (\Exception $e) {
+                $this->logManager->critical($e->getMessage(), $this->logContext);
+                $this->createResponse('Failed to update Magento order ', 500);
+                return;
+            }
+
+            $this->createResponse('Shipping Provider Update handled successfully', 200);
+        } finally {
+            $this->lock->unlock($qliroOrderId);
+        }
     }
 
     /**
@@ -164,8 +157,6 @@ class MerchantNotification extends AbstractManagement
      */
     private function createResponse(string $result, int $statusCode): void
     {
-        $this->response = $this->responseFactory->create()
-            ->setCallbackResponse($result)
-            ->setCallbackResponseCode($statusCode);
+        $this->response = ['CallbackResponse' => $result, 'callbackResponseCode' => $statusCode];
     }
 }

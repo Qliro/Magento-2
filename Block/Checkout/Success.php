@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Block\Checkout;
 
@@ -17,51 +18,40 @@ use Qliro\QliroOne\Model\Success\Session as SuccessSession;
 class Success extends Template
 {
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $qliroConfig;
-
-    /**
-     * @var SuccessSession
-     */
-    private $successSession;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Framework\View\Element\Template\Context $context
-     * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param Context $context
+     * @param Config $qliroConfig
+     * @param SuccessSession $successSession
      * @param array $data
      */
     public function __construct(
         Context $context,
-        Config $qliroConfig,
-        SuccessSession $successSession,
+        private readonly Config $qliroConfig,
+        private readonly SuccessSession $successSession,
         array $data = []
     ) {
         parent::__construct($context, $data);
-        $this->qliroConfig = $qliroConfig;
-        $this->successSession = $successSession;
-    }
-
-    /**
-     * Get QliroOne final HTML snippet
-     *
-     * @return string
-     */
-    public function getHtmlSnippet()
-    {
-        return $this->successSession->getSuccessHtmlSnippet();
     }
 
     /**
      * Get Id of placed order
      *
-     * @return string
+     * @return string|null
      */
-    public function getIncrementId()
+    public function getIncrementId(): ?string
     {
         return $this->successSession->getSuccessIncrementId();
+    }
+
+    /**
+     * Get the Qliro order confirmation HTML snippet, if available.
+     *
+     * @return string|null
+     */
+    public function getSuccessHtmlSnippet(): ?string
+    {
+        return $this->successSession->getSuccessHtmlSnippet();
     }
 
     /**
@@ -69,7 +59,7 @@ class Success extends Template
      *
      * @return bool
      */
-    public function isDebug()
+    public function isDebug(): bool
     {
         return $this->qliroConfig->isDebugMode();
     }

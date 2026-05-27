@@ -3,13 +3,17 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Method\QliroOne;
 
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Payment\Gateway\CommandInterface;
 use Magento\Payment\Gateway\Command\ResultInterface;
-use Qliro\QliroOne\Model\Management;
+use Magento\Payment\Model\InfoInterface;
+use Qliro\QliroOne\Api\Admin\OrderServiceInterface;
+
 
 /**
  * Class Refund for QliroOne payment method
@@ -17,17 +21,13 @@ use Qliro\QliroOne\Model\Management;
 class Refund implements CommandInterface
 {
     /**
-     * @var Management
-     */
-    private $qliroManagement;
-
-    /**
-     * @param Management $qliroManagement
+     * Class constructor
+     *
+     * @param OrderServiceInterface $qliroManagement
      */
     public function __construct(
-        Management $qliroManagement
+        private readonly OrderServiceInterface $qliroManagement
     ) {
-        $this->qliroManagement = $qliroManagement;
     }
 
     /**
@@ -39,11 +39,11 @@ class Refund implements CommandInterface
      * @throws LocalizedException
      * @throws NoSuchEntityException
      */
-    public function execute(array $commandSubject)
+    public function execute(array $commandSubject): ?ResultInterface
     {
-        /** @var \Magento\Payment\Model\InfoInterface $payment */
+        /** @var InfoInterface $payment */
         $payment = $commandSubject['payment']->getPayment();
-        $amount = $commandSubject['amount'];
+        $amount = (float) $commandSubject['amount'];
 
         try {
             $this->qliroManagement->refundByInvoice($payment, $amount);

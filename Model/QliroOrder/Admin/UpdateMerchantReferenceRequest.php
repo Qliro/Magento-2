@@ -3,10 +3,10 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
-use Qliro\QliroOne\Api\Data\AdminCancelOrderRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 
 /**
@@ -14,105 +14,52 @@ use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
  */
 class UpdateMerchantReferenceRequest implements AdminUpdateMerchantReferenceRequestInterface
 {
-    /**
-     * @var string
-     */
-    private $newMerchantReference;
+    private string $newMerchantReference = '';
+    private string $merchantApiKey = '';
+    private int $orderId = 0;
+    private string $requestId = '';
 
-    /**
-     * @var string
-     */
-    private $merchantApiKey;
-
-    /**
-     * @var int
-     */
-    private $orderId;
-
-    /**
-     * @var string
-     */
-    private $requestId;
-
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getMerchantApiKey()
+    public function getMerchantApiKey(): string
     {
         return $this->merchantApiKey;
     }
 
-    /**
-     * @param string $merchantApiKey
-     * @return UpdateMerchantReferenceRequest
-     */
-    public function setMerchantApiKey($merchantApiKey)
+    public function setMerchantApiKey($merchantApiKey): static
     {
-        $this->merchantApiKey = $merchantApiKey;
-
+        $this->merchantApiKey = (string)$merchantApiKey;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return int
-     */
-    public function getOrderId()
+    public function getOrderId(): int
     {
         return $this->orderId;
     }
 
-    /**
-     * @param int $orderId
-     * @return UpdateMerchantReferenceRequest
-     */
-    public function setOrderId($orderId)
+    public function setOrderId($orderId): static
     {
-        $this->orderId = $orderId;
-
+        $this->orderId = (int)$orderId;
         return $this;
     }
 
-    /**
-     * Getter.
-     *
-     * @return string
-     */
-    public function getRequestId()
+    public function getRequestId(): string
     {
         return $this->requestId;
     }
 
-    /**
-     * @param string $requestId
-     * @return UpdateMerchantReferenceRequest
-     */
-    public function setRequestId($requestId)
+    public function setRequestId($requestId): static
     {
-        $this->requestId = $requestId;
-
+        $this->requestId = (string)$requestId;
         return $this;
     }
 
-    /**
-     * @return string
-     */
-    public function getNewMerchantReference()
+    public function getNewMerchantReference(): string
     {
         return $this->newMerchantReference;
     }
 
-    /**
-     * @param string $value
-     * @return UpdateMerchantReferenceRequest
-     */
-    public function setNewMerchantReference($value)
+    public function setNewMerchantReference($value): static
     {
-        $this->newMerchantReference = $value;
-
+        $this->newMerchantReference = (string)$value;
         return $this;
     }
 }

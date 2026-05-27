@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Security;
 
@@ -16,26 +17,20 @@ class Jwt
     /**
      * @var array
      */
-    private $supportedMethods = [
+    private array $supportedMethods = [
         'HS256' => 'sha256',
         'HS384' => 'sha384',
         'HS512' => 'sha512',
     ];
 
     /**
-     * @var \Magento\Framework\Serialize\Serializer\Json
-     */
-    private $json;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
      * @param \Magento\Framework\Serialize\Serializer\Json $json
      */
     public function __construct(
-        Json $json
+        private readonly Json $json
     ) {
-        $this->json = $json;
     }
 
     /**
@@ -48,7 +43,7 @@ class Jwt
      * @throws \UnexpectedValueException
      * @throws \DomainException
      */
-    public function decode($jwt, $secretKey = null, $verify = true)
+    public function decode(string $jwt, ?string $secretKey = null, bool $verify = true): array
     {
         $tokenSegments = explode('.', $jwt);
 
@@ -89,7 +84,7 @@ class Jwt
      * @param string $algorithm
      * @return string
      */
-    public function encode($payload, $secretKey, $algorithm = 'HS256')
+    public function encode(array $payload, string $secretKey, string $algorithm = 'HS256'): string
     {
         $header = ['typ' => 'JWT', 'alg' => $algorithm];
         $segments = [];
@@ -106,18 +101,18 @@ class Jwt
      * Sign a string with a given key and algorithm
      *
      * @param string $message
-     * @param string $secretKey
+     * @param string|null $secretKey
      * @param string $algorithm
      * @return string
      * @throws \DomainException
      */
-    private function sign($message, $secretKey, $algorithm = 'HS256')
+    private function sign(string $message, ?string $secretKey, string $algorithm = 'HS256'): string
     {
         if (!isset($this->supportedMethods[$algorithm])) {
             throw new \DomainException('Algorithm is not supported.');
         }
 
-        return \hash_hmac($this->supportedMethods[$algorithm], $message, $secretKey, true);
+        return \hash_hmac($this->supportedMethods[$algorithm], $message, (string)$secretKey, true);
     }
 
     /**
@@ -127,7 +122,7 @@ class Jwt
      * @return array
      * @throws \DomainException Provided string was invalid JSON
      */
-    private function jsonDecode($input)
+    private function jsonDecode(string $input): array
     {
         try {
             $data = $this->json->unserialize($input);
@@ -149,7 +144,7 @@ class Jwt
      * @return string
      * @throws \DomainException
      */
-    private function jsonEncode($input)
+    private function jsonEncode(array $input): string
     {
         try {
             $json = $this->json->serialize($input);
@@ -170,7 +165,7 @@ class Jwt
      * @param string $input
      * @return string
      */
-    private function safeDecode($input)
+    private function safeDecode(string $input): string
     {
         $remainder = strlen($input) % 4;
         if ($remainder) {
@@ -187,7 +182,7 @@ class Jwt
      * @param string $input
      * @return string
      */
-    private function safeEncode($input)
+    private function safeEncode(string $input): string
     {
         return str_replace('=', '', strtr(\base64_encode($input), '+/', '-_'));
     }

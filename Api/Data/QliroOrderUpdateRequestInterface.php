@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
@@ -11,49 +12,49 @@ namespace Qliro\QliroOne\Api\Data;
  *
  * @api
  */
-interface QliroOrderUpdateRequestInterface extends ContainerInterface
+interface QliroOrderUpdateRequestInterface
 {
     /**
      * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
      */
-    public function getOrderItems();
+    public function getOrderItems(): array;
 
     /**
-     * @return string
+     * @return array|null
      */
-    public function getAvailableShippingMethods();
+    public function getAvailableShippingMethods(): ?array;
 
     /**
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface
+     * @return \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface|null
      */
-    public function getShippingConfiguration();
+    public function getShippingConfiguration(): ?QliroOrderShippingConfigInterface;
 
     /**
-     * @return bool
+     * @return bool|null
      */
-    public function getRequireIdentityVerification();
+    public function getRequireIdentityVerification(): ?bool;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setOrderItems($value);
+    public function setOrderItems(mixed $value): static;
 
     /**
-     * @param array $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setAvailableShippingMethods($value);
+    public function setAvailableShippingMethods(mixed $value): static;
 
     /**
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderShippingConfigInterface $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setShippingConfiguration($value);
+    public function setShippingConfiguration(mixed $value): static;
 
     /**
-     * @param bool $value
-     * @return $this
+     * @param mixed $value
+     * @return static
      */
-    public function setRequireIdentityVerification($value);
+    public function setRequireIdentityVerification(mixed $value): static;
 }

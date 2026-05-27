@@ -3,6 +3,8 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Carrier;
 
 use Magento\Quote\Model\Quote\Address\RateRequest;
@@ -31,28 +33,11 @@ class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
      * @var \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory
      */
     protected $_rateMethodFactory;
-    /**
-     * @var LinkRepositoryInterface
-     */
-    private $linkRepository;
-    /**
-     * @var Config
-     */
-    private $qliroConfig;
-    /**
-     * @var CartRepositoryInterface
-     */
-    private $quoteRepository;
+
+    private mixed $quoteId = null;
 
     /**
-     * @var
-     */
-    private $quoteId;
-
-
-
-    /**
-     * Shipping constructor.
+     * Class constructor
      *
      * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
      * @param \Magento\Quote\Model\Quote\Address\RateResult\ErrorFactory $rateErrorFactory
@@ -60,8 +45,8 @@ class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
      * @param \Magento\Shipping\Model\Rate\ResultFactory $rateResultFactory
      * @param \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory $rateMethodFactory
      * @param LinkRepositoryInterface $linkRepository
-     * @param Cart $name
      * @param CartRepositoryInterface $quoteRepository
+     * @param Config $qliroConfig
      * @param array $data
      */
     public function __construct(
@@ -70,24 +55,21 @@ class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
         \Psr\Log\LoggerInterface $logger,
         \Magento\Shipping\Model\Rate\ResultFactory $rateResultFactory,
         \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory $rateMethodFactory,
-        LinkRepositoryInterface $linkRepository,
-        CartRepositoryInterface $quoteRepository,
-        Config $qliroConfig,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly CartRepositoryInterface $quoteRepository,
+        private readonly Config $qliroConfig,
         array $data = []
     ) {
         $this->_rateResultFactory = $rateResultFactory;
         $this->_rateMethodFactory = $rateMethodFactory;
         parent::__construct($scopeConfig, $rateErrorFactory, $logger, $data);
-        $this->linkRepository = $linkRepository;
-        $this->quoteRepository = $quoteRepository;
-        $this->qliroConfig = $qliroConfig;
     }
 
     /**
      * get allowed methods
      * @return array
      */
-    public function getAllowedMethods()
+    public function getAllowedMethods(): array
     {
         return [$this->_code => $this->getConfigData('name')];
     }
@@ -95,7 +77,7 @@ class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
     /**
      * @return float
      */
-    private function getShippingPrice()
+    private function getShippingPrice(): float
     {
         $quoteId = $this->quoteId;
         try {
@@ -118,7 +100,7 @@ class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
      * @param RateRequest $request
      * @return bool|Result
      */
-    public function collectRates(RateRequest $request)
+    public function collectRates(RateRequest $request): bool|Result
     {
         if (!$this->getConfigFlag('active') ||
             !$this->qliroConfig->isIngridEnabled($this->getStore())) {

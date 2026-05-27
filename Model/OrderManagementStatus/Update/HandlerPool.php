@@ -3,11 +3,11 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update;
 
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 
 /**
@@ -15,38 +15,26 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
  */
 class HandlerPool
 {
-    /**
-     * @var array
-     */
-    private $handlerPool;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
-     */
-    private $logManager;
-
     private $handlerStatusMap = [
-        QliroOrderManagementStatusInterface::STATUS_SUCCESS => 'handleSuccess',
-        QliroOrderManagementStatusInterface::STATUS_CANCELLED => 'handleCancelled',
-        QliroOrderManagementStatusInterface::STATUS_ERROR => 'handleError',
-        QliroOrderManagementStatusInterface::STATUS_INPROCESS => 'handleInProcess',
-        QliroOrderManagementStatusInterface::STATUS_ONHOLD => 'handleOnHold',
-        QliroOrderManagementStatusInterface::STATUS_USER_INTERACTION => 'handleUserInteraction',
-        QliroOrderManagementStatusInterface::STATUS_CREATED => 'handleCreated',
+        'Success' => 'handleSuccess',
+        'Cancelled' => 'handleCancelled',
+        'Error' => 'handleError',
+        'InProcess' => 'handleInProcess',
+        'OnHold' => 'handleOnHold',
+        'UserInteraction' => 'handleUserInteraction',
+        'Created' => 'handleCreated',
     ];
 
     /**
-     * HandlerPool constructor.
+     * Class constructor
      *
-     * @param array $handlerPool
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param array $handlerPool
      */
     public function __construct(
-        LogManager $logManager,
-        $handlerPool = []
+        private readonly LogManager $logManager,
+        private readonly array $handlerPool = []
     ) {
-        $this->handlerPool = $handlerPool;
-        $this->logManager = $logManager;
     }
 
     /**
@@ -57,7 +45,7 @@ class HandlerPool
      * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
      * @return bool
      */
-    public function handle($qliroOrderManagementStatus, $omStatus)
+    public function handle(array $qliroOrderManagementStatus, mixed $omStatus): bool
     {
         try {
             $type = $omStatus->getRecordType();
@@ -67,7 +55,7 @@ class HandlerPool
             }
             $handler = $this->handlerPool[$type] ?? null;
             if ($handler instanceof OrderManagementStatusUpdateHandlerInterface) {
-                $handlerFunction = $this->handlerStatusMap[$qliroOrderManagementStatus->getStatus()];
+                $handlerFunction = $this->handlerStatusMap[$qliroOrderManagementStatus['Status'] ?? null];
                 if ($handlerFunction) {
                     $handler->$handlerFunction($qliroOrderManagementStatus, $omStatus);
                 } else {
@@ -83,7 +71,7 @@ class HandlerPool
                 [
                     'extra' => [
                         'type' => $type,
-                        'status' => $qliroOrderManagementStatus->getStatus(),
+                        'status' => $qliroOrderManagementStatus['Status'] ?? null,
                     ],
                 ]
             );

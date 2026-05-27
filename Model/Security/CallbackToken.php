@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Security;
 
@@ -51,7 +52,7 @@ class CallbackToken
      * @param string $token The token to be verified.
      * @return bool Returns true if the token is valid, otherwise false.
      */
-    public function verifyToken($token): bool
+    public function verifyToken(string $token): bool
     {
         try {
             $payload = $this->jwt->decode($token, $this->qliroConfig->getMerchantApiSecret(), true);

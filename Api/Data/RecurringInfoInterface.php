@@ -1,21 +1,30 @@
-<?php declare(strict_types=1);
+<?php
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
+ * Recurring Info interface
+ *
+ * @api
+ *
  * @method int getId()
- * @method self setId(int $id)
- * @method self setFrequencyOption(string $recurringFrequency)
+ * @method static setId(int $id)
+ * @method static setFrequencyOption(string $recurringFrequency)
  * @method string getFrequencyOption()
- * @method self setOriginalOrderId(int $orderId)
+ * @method static setOriginalOrderId(int $orderId)
  * @method int getOriginalOrderId()
- * @method self setPaymentMethod(string $paymentMethod)
+ * @method static setPaymentMethod(string $paymentMethod)
  * @method string getPaymentMethod()
- * @method self setSavedCreditCardId(string $id)
+ * @method static setSavedCreditCardId(string $id)
  * @method string|null getSavedCreditCardId()
- * @method self setNextOrderDate(string|null $nextOrderDate)
+ * @method static setNextOrderDate(string|null $nextOrderDate)
  * @method string|null getNextOrderDate()
- * @method self setCanceledDate(string $canceledDate)
+ * @method static setCanceledDate(string $canceledDate)
  * @method string|null getCanceledDate()
  * @method string|null getPersonalNumber()
  */

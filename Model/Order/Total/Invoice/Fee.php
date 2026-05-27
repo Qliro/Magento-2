@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Order\Total\Invoice;
 
@@ -17,7 +18,7 @@ class Fee extends AbstractTotal
      * @param Invoice $invoice
      * @return $this
      */
-    public function collect(Invoice $invoice)
+    public function collect(Invoice $invoice): static
     {
         /** @var \Magento\Sales\Model\Order $order */
         $order = $invoice->getOrder();

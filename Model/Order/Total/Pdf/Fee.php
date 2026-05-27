@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Order\Total\Pdf;
 
@@ -16,7 +17,7 @@ class Fee extends DefaultTotal
      *
      * @return array
      */
-    public function getTotalsForDisplay()
+    public function getTotalsForDisplay(): array
     {
         $qlirooneFees = $this->getOrder()->getPayment()->getAdditionalInformation('qliroone_fees');
         $fontSize = $this->getFontSize() ? $this->getFontSize() : 7;

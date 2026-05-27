@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
@@ -14,29 +15,29 @@ use Magento\Quote\Model\Quote\Address;
 class AddressConverter
 {
     /**
-     * Convert given quote address from QliroOne address and other parameters
+     * Convert given quote address from raw QliroOne address and customer arrays
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroAddress
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
+     * @param array $qliroAddress
+     * @param array $qliroCustomer
      * @param \Magento\Quote\Model\Quote\Address $address
      * @param string|null $countryCode
      */
     public function convert(
-        $qliroAddress,
-        $qliroCustomer,
+        array $qliroAddress,
+        array $qliroCustomer,
         Address $address,
-        $countryCode = null
-    ) {
+        ?string $countryCode = null
+    ): void {
         $addressData = [
-            'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
-            'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,
-            'email' => $qliroCustomer? $qliroCustomer->getEmail() : null,
-            'care_of' => $qliroAddress ? $qliroAddress->getCareOf() : null, // Is ignored for now if no attribute
-            'street' => $qliroAddress ? $qliroAddress->getStreet() : null,
-            'telephone' => $qliroCustomer ? $qliroCustomer->getMobileNumber() : null,
-            'city' => $qliroAddress ? $qliroAddress->getCity() : null,
-            'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
-            'company' => $qliroAddress ? $qliroAddress->getCompanyName() : null,
+            'firstname' => $qliroAddress['FirstName'] ?? null,
+            'lastname'  => $qliroAddress['LastName'] ?? null,
+            'email'     => $qliroCustomer['Email'] ?? null,
+            'care_of'   => $qliroAddress['CareOf'] ?? null, // Is ignored for now if no attribute
+            'street'    => $qliroAddress['Street'] ?? null,
+            'telephone' => $qliroCustomer['MobileNumber'] ?? null,
+            'city'      => $qliroAddress['City'] ?? null,
+            'postcode'  => $qliroAddress['PostalCode'] ?? null,
+            'company'   => $qliroAddress['CompanyName'] ?? null,
         ];
 
         $changed = false;

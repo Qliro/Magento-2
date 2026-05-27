@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
@@ -12,79 +13,60 @@ use Qliro\QliroOne\Api\SubscriptionInterface;
 /**
  * Quote from QliroOne order container converter class
  */
-class QuoteFromOrderConverter
+readonly class QuoteFromOrderConverter
 {
     /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\OrderItemsConverter
-     */
-    private $orderItemsConverter;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\CustomerConverter
-     */
-    private $customerConverter;
-
-    /**
-     * @var \Qliro\QliroOne\Api\SubscriptionInterface
-     */
-    private $subscription;
-
-    /**
-     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter
-     */
-    private $addressConverter;
-
-    /**
-     * Inject dependnecies
+     * Class constructor
      *
-     * @param \Qliro\QliroOne\Model\QliroOrder\Converter\CustomerConverter $customerConverter
-     * @param \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter $addressConverter
-     * @param \Qliro\QliroOne\Model\QliroOrder\Converter\OrderItemsConverter $orderItemsConverter
-     * @param \Qliro\QliroOne\Api\SubscriptionInterface $subscription
+     * @param CustomerConverter $customerConverter
+     * @param AddressConverter $addressConverter
+     * @param OrderItemsConverter $orderItemsConverter
+     * @param SubscriptionInterface $subscription
      */
     public function __construct(
-        CustomerConverter $customerConverter,
-        AddressConverter $addressConverter,
-        OrderItemsConverter $orderItemsConverter,
-        SubscriptionInterface $subscription
+        private CustomerConverter     $customerConverter,
+        private AddressConverter      $addressConverter,
+        private OrderItemsConverter   $orderItemsConverter,
+        private SubscriptionInterface $subscription
     ) {
-        $this->orderItemsConverter = $orderItemsConverter;
-        $this->customerConverter = $customerConverter;
-        $this->subscription = $subscription;
-        $this->addressConverter = $addressConverter;
     }
 
     /**
      * Convert update shipping methods request into quote
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderInterface $container
+     * @param array $qliroOrder Raw array from MerchantInterface::getOrder()
      * @param \Magento\Quote\Model\Quote $quote
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    public function convert($container, Quote $quote)
+    public function convert(array $qliroOrder, Quote $quote): void
     {
-        $this->customerConverter->convert($container->getCustomer(), $quote);
+        $qliroCustomer = $qliroOrder['Customer'] ?? [];
 
-        if ($qliroBillingAddress = $container->getBillingAddress()) {
+        $this->customerConverter->convert($qliroCustomer, $quote);
+
+        $billingAddress = $qliroOrder['BillingAddress'] ?? [];
+        if ($billingAddress) {
             $this->addressConverter->convert(
-                $qliroBillingAddress,
-                $container->getCustomer(),
+                $billingAddress,
+                $qliroCustomer,
                 $quote->getBillingAddress()
             );
         }
 
-        if (!$quote->isVirtual() && ($qliroShippingAddress = $container->getShippingAddress())) {
-            $this->addressConverter->convert(
-                $qliroShippingAddress,
-                $container->getCustomer(),
-                $quote->getShippingAddress()
-            );
+        if (!$quote->isVirtual()) {
+            $shippingAddress = $qliroOrder['ShippingAddress'] ?? [];
+            if ($shippingAddress) {
+                $this->addressConverter->convert(
+                    $shippingAddress,
+                    $qliroCustomer,
+                    $quote->getShippingAddress()
+                );
+            }
         }
 
-        $this->orderItemsConverter->convert($container->getOrderItems(), $quote);
+        $this->orderItemsConverter->convert($qliroOrder['OrderItems'] ?? [], $quote);
 
-        $signupForNewsletter = $container->getSignupForNewsletter();
-        if ($signupForNewsletter) {
+        if (!empty($qliroOrder['SignupForNewsletter'])) {
             $email = $quote->getCustomer()->getEmail();
             $this->subscription->addSubscription($email, $quote->getStoreId());
         }

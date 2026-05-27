@@ -11,6 +11,7 @@ use Magento\Framework\Event\Observer;
 use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
+use Qliro\QliroOne\Model\Method\QliroOne;
 use Qliro\QliroOne\Model\Quote\ItemsLimitValidator;
 
 /**
@@ -40,7 +41,7 @@ class QuoteManagement implements ObserverInterface
         }
 
         $paymentMethod = $quote->getPayment()->getMethod();
-        if ($paymentMethod == 'qliroone') {
+        if ($paymentMethod == QliroOne::PAYMENT_METHOD_CHECKOUT_CODE) {
             $this->itemLimitValidator->validateQuoteItemsLimit($quote);
         }
     }

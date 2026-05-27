@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Observer;
 
@@ -17,31 +18,21 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 class CustomerLogin implements ObserverInterface
 {
     /**
-     * @var LinkRepositoryInterface
-     */
-    private $linkRepository;
-    /**
-     * @var Session
-     */
-    private $checkoutSession;
-
-    /**
-     * Inject dependencies
+     * Class constructor
+     *
      * @param LinkRepositoryInterface $linkRepository
      * @param Session $checkoutSession
      */
     public function __construct(
-        LinkRepositoryInterface $linkRepository,
-        Session $checkoutSession
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly Session $checkoutSession
     ) {
-        $this->linkRepository = $linkRepository;
-        $this->checkoutSession = $checkoutSession;
     }
 
     /**
      * @param Observer $observer
      */
-    public function execute(\Magento\Framework\Event\Observer $observer)
+    public function execute(\Magento\Framework\Event\Observer $observer): void
     {
         try {
             $link = $this->linkRepository->getByQuoteId($this->getQuote()->getId());
@@ -57,7 +48,7 @@ class CustomerLogin implements ObserverInterface
      *
      * @return \Magento\Quote\Model\Quote
      */
-    private function getQuote()
+    private function getQuote(): \Magento\Quote\Model\Quote
     {
         return $this->checkoutSession->getQuote();
     }

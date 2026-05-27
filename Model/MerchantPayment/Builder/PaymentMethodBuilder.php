@@ -10,26 +10,20 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringPaymentsDataServic
 class PaymentMethodBuilder
 {
     /**
-     * @var \Qliro\QliroOne\Api\Data\MerchantPaymentPaymentMethodInterfaceFactory
-     */
-    private PaymentMethodFactory $paymentMethodFactory;
-
-    /**
-     * @var \Qliro\QliroOne\Service\RecurringPayments\Data
-     */
-    private RecurringPaymentsDataService $recurringPaymentsDataService;
-
-    /**
      * @var \Magento\Quote\Model\Quote|null
      */
     private ?Quote $quote = null;
 
+    /**
+     * Class constructor
+     *
+     * @param PaymentMethodFactory $paymentMethodFactory
+     * @param RecurringPaymentsDataService $recurringPaymentsDataService
+     */
     public function __construct(
-        PaymentMethodFactory $paymentMethodFactory,
-        RecurringPaymentsDataService $recurringPaymentsDataService
+        private readonly PaymentMethodFactory $paymentMethodFactory,
+        private readonly RecurringPaymentsDataService $recurringPaymentsDataService
     ) {
-        $this->paymentMethodFactory = $paymentMethodFactory;
-        $this->recurringPaymentsDataService = $recurringPaymentsDataService;
     }
 
     /**

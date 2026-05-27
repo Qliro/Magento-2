@@ -4,6 +4,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product;
 
@@ -11,24 +12,19 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\Data\CartItemInterface;
 use Magento\Sales\Api\Data\OrderItemInterface;
+use Magento\SalesRule\Api\RuleRepositoryInterface as SalesRuleRepository;
 use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
-use Magento\SalesRule\Api\RuleRepositoryInterface;
 
-class ProductNameResolver implements ProductNameResolverInterface
+readonly class ProductNameResolver implements ProductNameResolverInterface
 {
     /**
-     * @var RuleRepositoryInterface
-     */
-    private RuleRepositoryInterface $ruleRepository;
-
-    /**
-     * @param RuleRepositoryInterface $ruleRepository
+     * Class constructor
+     *
+     * @param SalesRuleRepository   $ruleRepository
      */
     public function __construct(
-        RuleRepositoryInterface $ruleRepository
-    )
-    {
-        $this->ruleRepository = $ruleRepository;
+        private SalesRuleRepository $ruleRepository
+    ) {
     }
 
     /**

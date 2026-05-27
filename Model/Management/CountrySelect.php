@@ -7,16 +7,16 @@ use Magento\Checkout\Model\Session;
 
 class CountrySelect
 {
-    private Config $config;
-
-    private Session $checkoutSession;
-
+    /**
+     * Class constructor
+     *
+     * @param Config $config
+     * @param Session $checkoutSession
+     */
     public function __construct(
-        Config $config,
-        Session $checkoutSession
+        private readonly Config $config,
+        private readonly Session $checkoutSession
     ) {
-        $this->config = $config;
-        $this->checkoutSession = $checkoutSession;
     }
 
     /**

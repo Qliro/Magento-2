@@ -3,163 +3,164 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Api\Data;
 
 /**
- * Interface AdminReturnWithItemsRequestInterface
+ * Admin Return With Items Request interface
  *
- * Represents a contract for handling return requests with associated items in an administrative context.
+ * @api
  */
-interface AdminReturnWithItemsRequestInterface extends ContainerInterface
+interface AdminReturnWithItemsRequestInterface
 {
     /**
-     * Retrieves the API key associated with the merchant.
+     * Get merchant API key
      *
      * @return string
      */
-    public function getMerchantApiKey();
+    public function getMerchantApiKey(): string;
 
     /**
-     * Retrieves the payment reference.
+     * Get payment reference
      *
      * @return int
      */
-    public function getPaymentReference();
+    public function getPaymentReference(): int;
 
     /**
-     * Retrieves the unique identifier for the request.
+     * Get request ID
      *
-     * @return string The request ID, type may vary based on implementation.
+     * @return string
      */
-    public function getRequestId();
+    public function getRequestId(): string;
 
     /**
-     * Retrieves the currency.
+     * Get currency code
      *
-     * @return string The currency value. The return type depends on the implementation.
+     * @return string
      */
-    public function getCurrency();
+    public function getCurrency(): string;
 
     /**
-     * Retrieves the items associated with an order.
+     * Get order items
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
+     * @return QliroOrderItemInterface[]
      */
-    public function getOrderItems();
+    public function getOrderItems(): array;
 
     /**
-     * Retrieves the fees associated with a specific operation or transaction.
+     * Get fee items
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] The fees value, which could be of various data types depending on implementation.
+     * @return QliroOrderItemInterface[]
      */
-    public function getFees();
+    public function getFees(): array;
 
     /**
-     * Sets the API key for the merchant.
+     * Get discount items
      *
-     * @param string $value The API key to be set.
-     * @return $this
+     * @return QliroOrderItemInterface[]
      */
-    public function setMerchantApiKey($value);
+    public function getDiscounts(): array;
 
     /**
-     * Sets the payment reference value.
+     * Get Qliro order ID
      *
-     * @param int $value The value to set as the payment reference.
-     * @return $this
-     */
-    public function setPaymentReference($value);
-
-    /**
-     * Sets the request ID.
-     *
-     * @param string $value The value to set as the request ID.
-     * @return $this
-     */
-    public function setRequestId($value);
-
-    /**
-     * Sets the currency.
-     *
-     * @param string $value The currency code to set.
-     * @return $this
-     */
-    public function setCurrency($value);
-
-    /**
-     * Sets the order items for an order.
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $orderItems The items to associate with the order.
-     * @return $this
-     */
-    public function setOrderItems($orderItems);
-
-    /**
-     * Sets the fees.
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value The value to set as fees.
-     * @return $this
-     */
-    public function setFees($value);
-
-    /**
-     * Sets the order ID.
-     *
-     * @param int $value The order ID to set.
-     * @return $this
-     */
-    public function setOrderId(int $value);
-
-    /**
-     * Retrieves the unique identifier of the order.
-     *
-     * @return int The unique order ID.
+     * @return int
      */
     public function getOrderId(): int;
 
     /**
-     * Sets the returns value.
+     * Get returns data
      *
-     * @param array $value The array value to set.
-     * @return $this
-     */
-    public function setReturns(array $value);
-
-    /**
-     * Retrieves the list of returns.
-     *
-     * @return array The list of returned items.
+     * @return array
      */
     public function getReturns(): array;
 
     /**
-     * Sets the payment transaction ID.
+     * Get payment transaction ID
      *
-     * @param int $value The payment transaction ID to set.
-     * @return $this
-     */
-    public function setPaymentTransactionId(int$value);
-
-    /**
-     * Retrieves the unique identifier of the payment transaction.
-     *
-     * @return int The unique transaction ID.
+     * @return int
      */
     public function getPaymentTransactionId(): int;
 
     /**
-     * Retrieves a list of available discounts.
+     * Set merchant API key
      *
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] An array of available discounts
-     */
-    public function getDiscounts();
-
-    /**
-     * Sets the discounts for the item or order.
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value The discounts to be applied. This could be a single discount or a collection of discounts.
+     * @param string $value
      * @return $this
      */
-    public function setDiscounts($value);
+    public function setMerchantApiKey(string $value): static;
+
+    /**
+     * Set payment reference
+     *
+     * @param int $value
+     * @return $this
+     */
+    public function setPaymentReference(int $value): static;
+
+    /**
+     * Set request ID
+     *
+     * @param string $value
+     * @return $this
+     */
+    public function setRequestId(string $value): static;
+
+    /**
+     * Set currency code
+     *
+     * @param string $value
+     * @return $this
+     */
+    public function setCurrency(string $value): static;
+
+    /**
+     * Set order items
+     *
+     * @param QliroOrderItemInterface[] $orderItems
+     * @return $this
+     */
+    public function setOrderItems(array $orderItems): static;
+
+    /**
+     * Set fee items
+     *
+     * @param QliroOrderItemInterface[] $value
+     * @return $this
+     */
+    public function setFees(array $value): static;
+
+    /**
+     * Set discount items
+     *
+     * @param QliroOrderItemInterface[] $value
+     * @return $this
+     */
+    public function setDiscounts(array $value): static;
+
+    /**
+     * Set Qliro order ID
+     *
+     * @param int $value
+     * @return $this
+     */
+    public function setOrderId(int $value): static;
+
+    /**
+     * Set returns data
+     *
+     * @param array $value
+     * @return $this
+     */
+    public function setReturns(array $value): static;
+
+    /**
+     * Set payment transaction ID
+     *
+     * @param int $value
+     * @return $this
+     */
+    public function setPaymentTransactionId(int $value): static;
 }

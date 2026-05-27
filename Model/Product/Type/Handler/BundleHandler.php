@@ -1,8 +1,8 @@
 <?php
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Magento\Bundle\Model\Product\Type as BundleType;
@@ -12,32 +12,23 @@ use Magento\Bundle\Model\Product\Type as BundleType;
  */
 class BundleHandler extends DefaultHandler
 {
-
     /**
-     * Get a reference to source item out of QliroOne order item, or null if not applicable
-     *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem
-     * @param \Qliro\QliroOne\Api\Product\TypeSourceProviderInterface $typeSourceProvider
-     * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
+     * @inHeirtDoc
      */
-    public function getItem(QliroOrderItemInterface $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider)
+    public function getItem(array $qliroOrderItem, TypeSourceProviderInterface $typeSourceProvider): ?TypeSourceItemInterface
     {
-        if ($qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT &&
-            $qliroOrderItem->getType() !== QliroOrderItemInterface::TYPE_BUNDLE) {
+        $type = $qliroOrderItem['Type'] ?? null;
+        if ($type !== 'Product' && $type !== 'Bundle') {
             return null;
         }
 
-        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem->getMetadata());
+        return $typeSourceProvider->getSourceItemByMerchantReference($qliroOrderItem['Metadata'] ?? []);
     }
 
     /**
-     * Prepare price depending on bundle dynamic pricing setting
-     *
-     * @param TypeSourceItemInterface $item
-     * @param boolean $taxIncluded
-     * @return void
+     * @inHeirtDoc
      */
-    public function preparePrice(TypeSourceItemInterface $item, $taxIncluded = true)
+    public function preparePrice(TypeSourceItemInterface $item, bool $taxIncluded = true): float
     {
         if ($item->getType() !== BundleType::TYPE_CODE) {
             return parent::preparePrice($item, $taxIncluded);

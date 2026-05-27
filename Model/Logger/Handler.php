@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
@@ -21,22 +22,16 @@ use Qliro\QliroOne\Model\ResourceModel\LogRecord as DbLogRecord;
 class Handler extends AbstractProcessingHandler
 {
     /**
-     * @var ConnectionProvider
-     */
-    private $connectionProvider;
-
-    /**
-     * Handler constructor.
+     * Class constructor
      *
      * @param FormatterInterface $formatter
      * @param ConnectionProvider $connectionProvider
      */
     public function __construct(
         FormatterInterface $formatter,
-        ConnectionProvider $connectionProvider
+        private readonly ConnectionProvider $connectionProvider
     ) {
         $this->formatter = $formatter;
-        $this->connectionProvider = $connectionProvider;
 
         parent::__construct();
     }
@@ -46,48 +41,33 @@ class Handler extends AbstractProcessingHandler
      */
     protected function write(array|LogRecord $record): void
     {
-        $maxAttempts = 3;
-        $attempt = 0;
+        $context = $record['context'];
+        $record = $record['formatted'];
 
-        while ($attempt < $maxAttempts) {
-            try {
-                $context = $record['context'];
-                $record = $record['formatted'];
+        $mark = $context['mark'] ?? null;
+        $message = ($mark ? sprintf('%s: ', strtoupper($mark)) : null) . $record['message'];
 
-                $mark = $context['mark'] ?? null;
-                $message = ($mark ? sprintf('%s: ', strtoupper($mark)) : null) . $record['message'];
-
-                $connection = $this->connectionProvider->getConnection();
-                $connection->insert(
-                    $connection->getTableName(DbLogRecord::TABLE_LOG),
-                    [
-                        LogRecordInterface::FIELD_DATE => $record['datetime'],
-                        LogRecordInterface::FIELD_LEVEL => $record['level_name'],
-                        LogRecordInterface::FIELD_MESSAGE => $message,
-                        LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
-                        LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
-                        LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
-                        LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
-                        LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s')
-                    ]
-                );
-                return;
-            } catch (\Magento\Framework\DB\Adapter\DeadlockException $e) {
-                $attempt++;
-                usleep(50000); // 50 ms
-            } catch (\Throwable $e) {
-                // Never let logging break business flow
-                return;
-            }
-        }
-
+        $connection = $this->connectionProvider->getConnection();
+        $connection->insert(
+            $connection->getTableName(DbLogRecord::TABLE_LOG),
+            [
+                LogRecordInterface::FIELD_DATE => $record['datetime'],
+                LogRecordInterface::FIELD_LEVEL => $record['level_name'],
+                LogRecordInterface::FIELD_MESSAGE => $message,
+                LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
+                LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
+                LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
+                LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
+                LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s')
+            ]
+        );
     }
 
     /**
      * @param array|string $data
      * @return string
      */
-    private function encodeExtra($data)
+    private function encodeExtra(array|string $data): string|null
     {
         try {
             $serializedData = is_array($data) ? $this->serialize($data) : $data;
@@ -104,7 +84,7 @@ class Handler extends AbstractProcessingHandler
      * @param array $data
      * @return false|string
      */
-    private function serialize($data)
+    private function serialize(array $data): string|false
     {
         return \json_encode($data, JSON_PRETTY_PRINT + JSON_UNESCAPED_SLASHES + JSON_UNESCAPED_UNICODE);
     }

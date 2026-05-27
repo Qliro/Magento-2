@@ -1,9 +1,17 @@
 <?xml version="1.0"?>
-
+<!--
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+-->
 <config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Cron:etc/crontab.xsd">
     <group id="default">
         <job instance="Qliro\QliroOne\Cron\RecurringOrders" method="placeOrders" name="qliroone_recurring_orders">
             <schedule>0 6 * * *</schedule>
+        </job>
+        <job instance="Qliro\QliroOne\Cron\CleanLogs" method="execute" name="qliroone_clean_logs">
+            <schedule>0 2 * * *</schedule>
         </job>
     </group>
 </config>

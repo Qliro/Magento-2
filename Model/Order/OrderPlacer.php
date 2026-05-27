@@ -3,124 +3,66 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Order;
 
-use Magento\Customer\Api\CustomerRepositoryInterface;
+use Magento\Customer\Api\CustomerRepositoryInterface as CustomerRepository;
+use Magento\Customer\Api\Data\GroupInterface;
+use Magento\Framework\Exception\CouldNotSaveException;
 use Magento\Quote\Model\Quote;
-use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Checkout\Model\Type\Onepage;
-use Magento\Quote\Api\CartManagementInterface;
-use Magento\Sales\Api\OrderRepositoryInterface;
-use Magento\Framework\Event\ManagerInterface;
+use Magento\Quote\Api\CartManagementInterface as CartManagement;
+use Magento\Sales\Api\OrderRepositoryInterface as OrderRepository;
+use Magento\Sales\Model\Order;
 
 /**
  * Magento order placer class
  */
-class OrderPlacer
+readonly class OrderPlacer
 {
     /**
-     * @var \Magento\Quote\Api\CartRepositoryInterface
-     */
-    private $quoteRepository;
-
-    /**
-     * @var \Magento\Quote\Api\CartManagementInterface
-     */
-    private $cartManagement;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
-     */
-    private $orderRepository;
-
-    /**
-     * @var \Magento\Framework\Event\ManagerInterface
-     */
-    private $eventManager;
-
-    /**
-     * @var CustomerRepositoryInterface
-     */
-    private $customerRepository;
-
-    /**
-     * @var \Magento\Checkout\Model\GuestPaymentInformationManagement
-     */
-    private $guestPaymentInformationManagement;
-
-    /**
-     * @var \Magento\Checkout\Model\PaymentInformationManagement
-     */
-    private $paymentInformationManagement;
-
-    /**
-     * @var \Magento\Quote\Model\QuoteIdMaskFactory
-     */
-    private $quoteIdMaskFactory;
-
-    /**
-     * Inject dependencies
+     * Class constructor
      *
-     * @param \Magento\Quote\Api\CartRepositoryInterface $quoteRepository
-     * @param \Magento\Quote\Api\CartManagementInterface $cartManagement
-     * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
-     * @param \Magento\Framework\Event\ManagerInterface $eventManager
-     * @param CustomerRepositoryInterface $customerRepository
+     * @param CartManagement       $cartManagement
+     * @param OrderRepository      $orderRepository
+     * @param CustomerRepository   $customerRepository
      */
     public function __construct(
-        CartRepositoryInterface $quoteRepository,
-        CartManagementInterface $cartManagement,
-        OrderRepositoryInterface $orderRepository,
-        ManagerInterface $eventManager,
-        CustomerRepositoryInterface $customerRepository,
-        \Magento\Checkout\Model\GuestPaymentInformationManagement $guestPaymentInformationManagement,
-        \Magento\Checkout\Model\PaymentInformationManagement $paymentInformationManagement,
-        \Magento\Quote\Model\QuoteIdMaskFactory $quoteIdMaskFactory
+        private CartManagement     $cartManagement,
+        private OrderRepository    $orderRepository,
+        private CustomerRepository $customerRepository
     ) {
-        $this->quoteRepository = $quoteRepository;
-        $this->cartManagement = $cartManagement;
-        $this->orderRepository = $orderRepository;
-        $this->eventManager = $eventManager;
-        $this->customerRepository = $customerRepository;
-        $this->guestPaymentInformationManagement = $guestPaymentInformationManagement;
-        $this->paymentInformationManagement = $paymentInformationManagement;
-        $this->quoteIdMaskFactory = $quoteIdMaskFactory;
     }
 
     /**
-     * Place order should be very small, all validations and updates should be done before calling this
-     * Onepage::METHOD_REGISTER should not be possible to get
+     * Place a Magento order from the given quote.
+     *
+     * Uses CartManagementInterface::placeOrder() directly for both guest and logged-in
+     * customers. The old guest path via GuestPaymentInformationManagement required a
+     * quote_id_mask record and a real guest session context — neither of which is
+     * guaranteed when placing a pending order server-side during HtmlSnippet::get().
+     * CartManagementInterface::placeOrder($quoteId) works unconditionally for both cases.
      *
      * @param Quote $quote
-     * @return \Magento\Sales\Model\Order
-     * @throws \Magento\Framework\Exception\CouldNotSaveException
+     * @return Order
+     * @throws CouldNotSaveException
      */
-    public function place($quote)
+    public function place(Quote $quote): Order
     {
         switch ($this->getCheckoutMethod($quote)) {
             case Onepage::METHOD_GUEST:
                 $this->prepareGuestQuote($quote);
-                $quote->save(); // quoteRepository->save does stupid things...
-                $quoteIdMask = $this->quoteIdMaskFactory->create()->load($quote->getId(),'quote_id');
-                $maskedCartId = $quoteIdMask->getMaskedId();
-                $orderId = $this->guestPaymentInformationManagement->savePaymentInformationAndPlaceOrder(
-                    $maskedCartId,
-                    $quote->getCustomerEmail(),
-                    $quote->getPayment()
-                );
                 break;
             default:
                 $this->prepareCustomerQuote($quote);
-                $quote->save(); // quoteRepository->save does stupid things...
-                $orderId = $this->paymentInformationManagement->savePaymentInformationAndPlaceOrder(
-                    $quote->getId(),
-                    $quote->getPayment()
-                );
                 break;
         }
 
-        /** @var \Magento\Sales\Model\Order $order */
+        $quote->save();
+        $orderId = $this->cartManagement->placeOrder($quote->getId());
+
+        /** @var Order $order */
         $order = $this->orderRepository->get($orderId);
 
         return $order;
@@ -128,17 +70,17 @@ class OrderPlacer
 
     /**
      * Get quote checkout method
-     * No need to test for guest, as it's impossible to get to checkout if that's disallowed.
      *
      * @param Quote $quote
      * @return string
      */
-    private function getCheckoutMethod($quote)
+    private function getCheckoutMethod(Quote $quote): string
     {
         if ($quote->getCustomerId()) {
             $quote->setCheckoutMethod(Onepage::METHOD_CUSTOMER);
             return $quote->getCheckoutMethod();
         }
+
         if (!$quote->getCheckoutMethod()) {
             $quote->setCheckoutMethod(Onepage::METHOD_GUEST);
         }
@@ -150,15 +92,14 @@ class OrderPlacer
      * Prepare quote for guest checkout order submit
      *
      * @param Quote $quote
-     * @return $this
+     * @return void
      */
-    private function prepareGuestQuote($quote)
+    private function prepareGuestQuote(Quote $quote): void
     {
-        $quote->setCustomerId(null)
+        $quote->setCustomerId(0)
             ->setCustomerEmail($quote->getBillingAddress()->getEmail())
             ->setCustomerIsGuest(true)
-            ->setCustomerGroupId(\Magento\Customer\Api\Data\GroupInterface::NOT_LOGGED_IN_ID);
-        return $this;
+            ->setCustomerGroupId(GroupInterface::NOT_LOGGED_IN_ID);
     }
 
     /**
@@ -166,27 +107,26 @@ class OrderPlacer
      *
      * @param Quote $quote
      * @return void
-     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
-    private function prepareCustomerQuote($quote)
+    private function prepareCustomerQuote(Quote $quote): void
     {
-        $billing = $quote->getBillingAddress();
+        $billing  = $quote->getBillingAddress();
         $shipping = $quote->isVirtual() ? null : $quote->getShippingAddress();
 
-        /** @var \Magento\Customer\Model\Customer $customer */
-        $customer = $this->customerRepository->getById($quote->getCustomerId());
-        $hasDefaultBilling = (bool)$customer->getDefaultBilling();
+        $customer           = $this->customerRepository->getById($quote->getCustomerId());
+        $hasDefaultBilling  = (bool)$customer->getDefaultBilling();
         $hasDefaultShipping = (bool)$customer->getDefaultShipping();
 
-        if ($shipping && !$shipping->getSameAsBilling() &&
-            (!$shipping->getCustomerId() || $shipping->getSaveInAddressBook())
+        if ($shipping
+            && !$shipping->getSameAsBilling()
+            && (!$shipping->getCustomerId() || $shipping->getSaveInAddressBook())
         ) {
             $shippingAddress = $shipping->exportCustomerAddress();
             if (!$hasDefaultShipping) {
-                //Make provided address as default shipping address
                 $shippingAddress->setIsDefaultShipping(true);
                 $hasDefaultShipping = true;
             }
+
             $quote->addCustomerAddress($shippingAddress);
             $shipping->setCustomerAddressData($shippingAddress);
         }
@@ -194,16 +134,14 @@ class OrderPlacer
         if (!$billing->getCustomerId() || $billing->getSaveInAddressBook()) {
             $billingAddress = $billing->exportCustomerAddress();
             if (!$hasDefaultBilling) {
-                //Make provided address as default shipping address
                 if (!$hasDefaultShipping) {
-                    //Make provided address as default shipping address
                     $billingAddress->setIsDefaultShipping(true);
                 }
                 $billingAddress->setIsDefaultBilling(true);
             }
+
             $quote->addCustomerAddress($billingAddress);
             $billing->setCustomerAddressData($billingAddress);
         }
     }
-
 }

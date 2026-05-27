@@ -3,106 +3,75 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Admin;
 
 use Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface;
 
 /**
- * Admin QliroOne Order class
+ * Admin QliroOne Transaction Response class
  */
 class TransactionResponse implements AdminTransactionResponseInterface
 {
-    private $paymentTransactionId;
-    private $status;
-    private $type;
-    private $reversalPaymentTransactionId;
-    private $reversalPaymentTransactionStatus;
+    private ?int $paymentTransactionId = null;
+    private ?string $status = null;
+    private ?string $type = null;
+    private ?int $reversalPaymentTransactionId = null;
+    private ?string $reversalPaymentTransactionStatus = null;
 
-    /**
-     * @return int
-     */
-    public function getPaymentTransactionId()
+    public function getPaymentTransactionId(): ?int
     {
         return $this->paymentTransactionId;
     }
 
-    /**
-     * @return string
-     */
-    public function getStatus()
+    public function getStatus(): ?string
     {
         return $this->status;
     }
 
-    /**
-     * @return string
-     */
-    public function getType()
+    public function getType(): ?string
     {
-        $this->type;
+        return $this->type;
     }
 
-    /**
-     * @return int
-     */
-    public function getReversalPaymentTransactionId()
+    public function getReversalPaymentTransactionId(): ?int
     {
-        $this->reversalPaymentTransactionId;
+        return $this->reversalPaymentTransactionId;
     }
 
-    /**
-     * @return string
-     */
-    public function getReversalPaymentTransactionStatus()
+    public function getReversalPaymentTransactionStatus(): ?string
     {
-        $this->reversalPaymentTransactionStatus;
+        return $this->reversalPaymentTransactionStatus;
     }
 
-    /**
-     * @param int $value
-     * @return $this
-     */
-    public function setPaymentTransactionId($value)
+    public function setPaymentTransactionId(mixed $value): static
     {
-        $this->paymentTransactionId = $value;
+        $this->paymentTransactionId = $value !== null ? (int)$value : null;
         return $this;
     }
 
-    /**
-     * @param string $value
-     * @return $this
-     */
-    public function setStatus($value)
+    public function setStatus(mixed $value): static
     {
-        $this->status = $value;
+        $this->status = $value !== null ? (string)$value : null;
         return $this;
     }
 
-    /**
-     * @param string $value
-     * @return $this
-     */
-    public function setType($value)
+    public function setType(mixed $value): static
     {
-        // TODO: Implement setType() method.
+        $this->type = $value !== null ? (string)$value : null;
+        return $this;
     }
 
-    /**
-     * @param int $value
-     * @return $this
-     */
-    public function setReversalPaymentTransactionId($value)
+    public function setReversalPaymentTransactionId(mixed $value): static
     {
-        // TODO: Implement setReversalPaymentTransactionId() method.
+        $this->reversalPaymentTransactionId = $value !== null ? (int)$value : null;
+        return $this;
     }
 
-    /**
-     * @param string $value
-     * @return $this
-     */
-    public function setReversalPaymentTransactionStatus($value)
+    public function setReversalPaymentTransactionStatus(mixed $value): static
     {
-        // TODO: Implement setReversalPaymentTransactionStatus() method.
+        $this->reversalPaymentTransactionStatus = $value !== null ? (string)$value : null;
+        return $this;
     }
 }
