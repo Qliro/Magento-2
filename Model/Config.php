@@ -360,7 +360,7 @@ class Config
     /**
      * @return int
      */
-    public function getStylingButtonCurnerRadius(): int
+    public function getStylingButtonCornerRadius(): int
     {
         return (int)$this->adapter->getConfigData(self::QLIROONE_STYLING_BUTTON_CORNER);
     }

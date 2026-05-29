@@ -62,7 +62,7 @@ class Merchant implements MerchantInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheriDoc
      */
     public function getOrder(int $qliroOrderId): array
     {
@@ -82,7 +82,7 @@ class Merchant implements MerchantInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheriDoc
      */
     public function updateOrder(int $qliroOrderId, array $payload): int
     {

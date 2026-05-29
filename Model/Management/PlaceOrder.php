@@ -10,8 +10,8 @@ namespace Qliro\QliroOne\Model\Management;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Quote as MagentoQuote;
 use Magento\Sales\Api\OrderRepositoryInterface;
-use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagement\OrderMutatorInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
@@ -20,13 +20,13 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderAddressUpdater;
 use Qliro\QliroOne\Model\Order\OrderItemsSyncer;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrderShippingMethodSyncer;
 use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
-use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
@@ -306,6 +306,19 @@ class PlaceOrder
                     return true;
 
                 case 'OnHold':
+                    // Qliro never legitimately moves a payment from Completed back to OnHold.
+                    // If the order is already processing, this OnHold is a stale/retried
+                    // notification that arrived out of order — ignore it so it cannot
+                    // downgrade a confirmed order back to payment_review.
+                    if ($order->getState() === Order::STATE_PROCESSING) {
+                        $this->logManager->debug('Ignoring stale OnHold — order already processing (Completed applied).', [
+                            'extra' => [
+                                'order_id'       => $orderId,
+                                'qliro_order_id' => $link->getQliroOrderId(),
+                            ],
+                        ]);
+                        return true;
+                    }
                     $this->orderStateSetter->apply($order, Order::STATE_PAYMENT_REVIEW);
                     return true;
 

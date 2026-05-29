@@ -8,11 +8,12 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Payment\Model\InfoInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Shipment;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
-use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Config;
@@ -37,40 +38,40 @@ class Payment
      * Set by Shipment handler on the payment object to signal that capture was already
      * triggered via shipment and should not be triggered again via invoice.
      */
-    public const QLIRO_SKIP_ACTUAL_CAPTURE = 'qliro_skip_actual_capture';
+    public const string QLIRO_SKIP_ACTUAL_CAPTURE = 'qliro_skip_actual_capture';
 
     /**
      * Class constructor
      *
-     * @param Config $qliroConfig
-     * @param OrderManagementInterface $orderManagementApi
-     * @param LinkRepositoryInterface $linkRepository
-     * @param OrderRepositoryInterface $orderRepository
-     * @param LogManager $logManager
-     * @param BuilderInterface $transactionBuilder
-     * @param OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory
-     * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
-     * @param InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder
-     * @param ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
-     * @param ReturnWithItemsBuilder $returnWithItemsBuilder
+     * @param Config                                              $qliroConfig
+     * @param OrderManagementInterface                            $orderManagementApi
+     * @param LinkRepositoryInterface                             $linkRepository
+     * @param OrderRepositoryInterface                            $orderRepository
+     * @param LogManager                                          $logManager
+     * @param BuilderInterface                                    $transactionBuilder
+     * @param OrderManagementStatusInterfaceFactory               $orderManagementStatusInterfaceFactory
+     * @param OrderManagementStatusRepositoryInterface            $orderManagementStatusRepository
+     * @param InvoiceMarkItemsAsShippedRequestBuilder             $invoiceMarkItemsAsShippedRequestBuilder
+     * @param ShipmentMarkItemsAsShippedRequestBuilder            $shipmentMarkItemsAsShippedRequestBuilder
+     * @param ReturnWithItemsBuilder                              $returnWithItemsBuilder
      */
     public function __construct(
-        private readonly Config $qliroConfig,
-        private readonly OrderManagementInterface $orderManagementApi,
-        private readonly LinkRepositoryInterface $linkRepository,
-        private readonly OrderRepositoryInterface $orderRepository,
-        private readonly LogManager $logManager,
-        private readonly BuilderInterface $transactionBuilder,
-        private readonly OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
+        private readonly Config                                   $qliroConfig,
+        private readonly OrderManagementInterface                 $orderManagementApi,
+        private readonly LinkRepositoryInterface                  $linkRepository,
+        private readonly OrderRepositoryInterface                 $orderRepository,
+        private readonly LogManager                               $logManager,
+        private readonly BuilderInterface                         $transactionBuilder,
+        private readonly OrderManagementStatusInterfaceFactory    $orderManagementStatusInterfaceFactory,
         private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
-        private readonly InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
+        private readonly InvoiceMarkItemsAsShippedRequestBuilder  $invoiceMarkItemsAsShippedRequestBuilder,
         private readonly ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
-        private readonly ReturnWithItemsBuilder $returnWithItemsBuilder
+        private readonly ReturnWithItemsBuilder                   $returnWithItemsBuilder
     ) {
     }
 
     /**
-     * Create payment transaction, which will hold and handle the Order Management features.
+     * Create a payment transaction, which will hold and handle the Order Management features.
      * This saves payment and transaction, possibly also the order.
      *
      * This should have been done differently, with authorization keyword in method etc...
@@ -85,8 +86,14 @@ class Payment
         $this->logManager->setMark('PAYMENT TRANSACTION');
 
         try {
-            /** @var \Magento\Sales\Model\Order\Payment $payment */
+            /** @var Order\Payment $payment */
             $payment = $order->getPayment();
+
+            if ($payment === null) {
+                throw new LocalizedException(
+                    __('Cannot create payment transaction: order %1 has no payment.', $order->getIncrementId())
+                );
+            }
 
             $payment->setLastTransId($qliroOrder['OrderId'] ?? null);
             $transactionId = 'qliroone-' . ($qliroOrder['OrderId'] ?? 'unknown');
@@ -108,16 +115,9 @@ class Payment
             $payment->setSkipOrderProcessing(true);
             $payment->save();
 
-            if (empty($status)) {
-                if ($order->getState() != $state) {
-                    $order->setState($state);
-                    $this->orderRepository->save($order);
-                }
-            } else {
-                if ($order->getState() != $state || $order->getStatus() != $status) {
-                    $order->setState($state)->setStatus($status);
-                    $this->orderRepository->save($order);
-                }
+            if ($order->getState() != $state) {
+                $order->setState($state);
+                $this->orderRepository->save($order);
             }
 
             $transaction->save();
@@ -129,12 +129,12 @@ class Payment
     }
 
     /**
-     * @param \Magento\Payment\Model\InfoInterface $payment
+     * @param InfoInterface $payment
      * @param float $amount
      * @return void
      * @throws \Exception
      */
-    public function captureByInvoice(\Magento\Payment\Model\InfoInterface $payment, float $amount): void
+    public function captureByInvoice(InfoInterface $payment, float $amount): void
     {
         if ($payment->getData(self::QLIRO_SKIP_ACTUAL_CAPTURE)) {
             $this->logManager->debug('captureByInvoice — skipped (QLIRO_SKIP_ACTUAL_CAPTURE is set)', [
@@ -227,11 +227,11 @@ class Payment
     }
 
     /**
-     * @param \Magento\Sales\Model\Order\Shipment $shipment
+     * @param Shipment $shipment
      * @return void
      * @throws \Exception
      */
-    public function captureByShipment(\Magento\Sales\Model\Order\Shipment $shipment): void
+    public function captureByShipment(Shipment $shipment): void
     {
         if (!$this->qliroConfig->shouldCaptureOnShipment($shipment->getStoreId())) {
             return;
@@ -283,12 +283,12 @@ class Payment
     }
 
     /**
-     * @param \Magento\Sales\Model\Order\Payment $payment
+     * @param Order\Payment $payment
      * @param float $amount
      * @return void
      * @throws LocalizedException
      */
-    public function refundByInvoice(\Magento\Sales\Model\Order\Payment $payment, float $amount): void
+    public function refundByInvoice(Order\Payment $payment, float $amount): void
     {
         if (!$amount) {
             throw new LocalizedException(__('Zero amount is not allowed.'));
@@ -358,12 +358,11 @@ class Payment
      * Validate return request items and requested amount
      *
      * @param AdminReturnWithItemsRequestInterface $request
-     * @param $amount
+     * @param float $amount
      * @return bool
      */
     private function isValidRequestAmount(AdminReturnWithItemsRequestInterface $request, float $amount): bool
     {
-
         $returns = $request->getReturns();
         if (!count($returns)) {
             return false;

@@ -119,7 +119,7 @@ class MerchantNotification
             $additionalInfo = $payment->getAdditionalInformation();
             $shippingInfo = $additionalInfo['qliroone_shipping_info'] ?? [];
 
-            if (isset($shippingInfo['payload']) && $shippingInfo['payload'] == $container['Payload'] ?? null) {
+            if (isset($shippingInfo['payload']) && $shippingInfo['payload'] == ($container['Payload'] ?? null)) {
                 $this->createResponse('Shipping Provider Update already handled', 200);
                 return;
             }
@@ -130,9 +130,15 @@ class MerchantNotification
             $payment->setAdditionalInformation($additionalInfo);
             if ($shippingInfo) {
                 if ($shippingInfo['provider'] == 'Unifaun') {
-                    $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["service"]["name"] . ' (' . $additionalInfo["qliroone_shipping_info"]["payload"]["service"]["id"] . ')');
+                    $service = $shippingInfo['payload']['service'] ?? [];
+                    $order->setShippingDescription(
+                        $shippingInfo['provider'] . ' - ' . ($service['name'] ?? '') . ' (' . ($service['id'] ?? '') . ')'
+                    );
                 } else if ($shippingInfo['provider'] == 'Ingrid') {
-                    $order->setShippingDescription($shippingInfo['provider'] . ' - ' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier"] . ' (' . $shippingInfo["payload"]["session"]["delivery_groups"][0]["shipping"]["carrier_product_id"] . ')');
+                    $shipping = $shippingInfo['payload']['session']['delivery_groups'][0]['shipping'] ?? [];
+                    $order->setShippingDescription(
+                        $shippingInfo['provider'] . ' - ' . ($shipping['carrier'] ?? '') . ' (' . ($shipping['carrier_product_id'] ?? '') . ')'
+                    );
                 }
             }
 

@@ -82,9 +82,6 @@ class CheckoutStatus
 
             $this->logManager->setMerchantReference($link->getReference());
 
-            $link->setQliroOrderStatus($checkoutStatus['Status'] ?? '');
-            $this->linkRepository->save($link);
-
             $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
 
             // Lock the entire order-load → hydrate block so concurrent callbacks
@@ -101,8 +98,12 @@ class CheckoutStatus
 
             try {
                 // Re-fetch link under the lock so we see the latest order_id even if a
-                // concurrent early-placement just wrote it.
+                // concurrent early-placement just wrote it. The status is written here,
+                // inside the lock, so concurrent callbacks (e.g. OnHold + Completed
+                // arriving together) cannot clobber each other's status.
                 $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+                $link->setQliroOrderStatus($checkoutStatus['Status'] ?? '');
+                $this->linkRepository->save($link);
                 $orderId = $link->getOrderId();
 
                 if (empty($orderId)) {

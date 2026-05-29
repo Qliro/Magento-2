@@ -219,7 +219,7 @@ class CreateRequestBuilder
         $createRequest['CallToActionColor'] = $this->qliroConfig->getStylingCallToActionColor();
         $createRequest['CallToActionHoverColor'] = $this->qliroConfig->getStylingHoverColor();
         $createRequest['CornerRadius'] = $this->qliroConfig->getStylingRadius();
-        $createRequest['ButtonCornerRadius'] = $this->qliroConfig->getStylingButtonCurnerRadius();
+        $createRequest['ButtonCornerRadius'] = $this->qliroConfig->getStylingButtonCornerRadius();
         $minAge = (int)$this->qliroConfig->getMinimumCustomerAge();
         if ($minAge > 0) {
             $createRequest['MinimumCustomerAge'] = $minAge;
