@@ -284,10 +284,6 @@ class ValidateOrderBuilder
         foreach ($qliroOrderItems as $qliroOrderItem) {
             if (!in_array($qliroOrderItem->getType(), $skipTypes)) {
                 $hash = $qliroOrderItem->getMerchantReference();
-                if ($qliroOrderItem->getType() == QliroOrderItemInterface::TYPE_DISCOUNT) {
-                    $qliroOrderItem->setPricePerItemExVat(\abs($qliroOrderItem->getPricePerItemExVat()));
-                    $qliroOrderItem->setPricePerItemIncVat(\abs($qliroOrderItem->getPricePerItemIncVat()));
-                }
                 $hashedQliroItems[$hash] = $qliroOrderItem;
 
                 if (!isset($hashedQuoteItems[$hash])) {

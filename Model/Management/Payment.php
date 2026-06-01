@@ -13,6 +13,7 @@ use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
@@ -402,7 +403,8 @@ class Payment extends AbstractManagement
             foreach ($return as $inner) {
                 if (is_array($inner) && isset($inner['PricePerItemIncVat'])) {
                     $innerSum = $inner['PricePerItemIncVat'] * $inner['Quantity'];
-                    switch ($type) {
+                    switch ($inner['Type']) {
+                        case QliroOrderItemInterface::TYPE_DISCOUNT:
                         case 'Fees':
                             $innerSum = -abs($innerSum);
                             break;
