@@ -69,33 +69,43 @@ define([
 
     var model = {
         updateCart: function() {
-            if (!config.isEagerCheckoutRefresh) {
-                window.q1.lock();
-            } else {
+            if (config.isEagerCheckoutRefresh) {
                 qliroDebug('Skipping checkout lock.');
+                sendUpdateQuote().fail(function(response) {
+                    var data = response.responseJSON || {};
+                    showErrorMessage(data.error || __('Something went wrong while updating cart.'));
+                });
+                return;
             }
 
-            sendUpdateQuote()
-                .then(
-                    function(data) {
-                        qliroDebug('Quote update pushed, unlocking checkout.', data);
+            window.q1.lock();
 
-                        if (!config.isEagerCheckoutRefresh) {
-                            window.q1.unlock();
-                        }
-                    },
-                    function(response, state, reason) {
-                        var data = response.responseJSON || {};
+            var unlocked = false;
+            var unlock = function() {
+                if (unlocked) return true;
+                unlocked = true;
+                try { window.q1.unlock(); } catch (e) {
+                    qliroDebug('q1.unlock threw', e);
+                }
+                return true; // signal Q1 to drop the onOrderUpdated handler
+            };
 
-                        if (!config.isEagerCheckoutRefresh) {
-                            window.q1.unlock();
-                        } else {
-                            qliroDebug('Skipping checkout unlock.');
-                        }
+            // Register the listener BEFORE sending the update so we catch the event
+            // when Qliro processes our PUT and re-renders the widget with new totals.
+            // Without this the widget price wouldn't refresh live.
+            window.q1.onOrderUpdated(function() {
+                return unlock();
+            });
 
-                        showErrorMessage(data.error || reason);
-                    }
-                );
+            // Safety: if onOrderUpdated never fires (Q1 race, version mismatch, etc.)
+            // unlock anyway so the widget can never stay locked indefinitely.
+            setTimeout(unlock, 5000);
+
+            sendUpdateQuote().fail(function(response, state, reason) {
+                var data = response.responseJSON || {};
+                unlock();
+                showErrorMessage(data.error || reason || __('Something went wrong while updating cart.'));
+            });
         },
 
         onCheckoutLoaded: function() {
