@@ -55,6 +55,8 @@
                 <item name="qliroOneUnlock" xsi:type="object">Qliro\QliroOne\Console\UnlockCommand</item>
                 <item name="qliroOneCreateMerchantPayment" xsi:type="object">Qliro\QliroOne\Console\CreateMerchantPaymentCommand</item>
                 <item name="qliroOneSimulateCallback" xsi:type="object">Qliro\QliroOne\Console\SimulateCallbackCommand</item>
+                <item name="qliroOneCallbackPoll" xsi:type="object">Qliro\QliroOne\Console\PollCallbackCommand</item>
+                <item name="qliroOneDebugShipment" xsi:type="object">Qliro\QliroOne\Console\DebugShipmentCommand</item>
                 <item name="qliroOneCallbackCheckoutStatus" xsi:type="object">Qliro\QliroOne\Console\Callback\CheckoutStatusCommand</item>
                 <item name="qliroOneCallbackTransactionStatus" xsi:type="object">Qliro\QliroOne\Console\Callback\TransactionStatusCommand</item>
                 <item name="qliroOneCallbackShippingMethods" xsi:type="object">Qliro\QliroOne\Console\Callback\ShippingMethodsCommand</item>

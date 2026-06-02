@@ -347,6 +347,14 @@
                         </field>
                     </group>
                 </group>
+                <group id="dev" type="text" sortOrder="100" showInDefault="1" showInWebsite="0" showInStore="0" translate="label">
+                    <label>Developer (local only)</label>
+                    <field id="auto_callback" translate="label comment" type="select" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                        <label>Auto-dispatch Qliro callbacks (local dev)</label>
+                        <comment>Local development only. Enables the qliroone:callback:poll command, which polls Qliro and dispatches callbacks locally. The command also requires developer app mode, so this should never run on production.</comment>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    </field>
+                </group>
             </group>
         </section>
         <section id="tax">

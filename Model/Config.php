@@ -87,6 +87,8 @@ class Config
 
     const string QLIROONE_LOG_RETENTION_DAYS = 'debugging/log_retention_days';
 
+    const string QLIROONE_DEV_AUTO_CALLBACK = 'dev/auto_callback';
+
     /**
      * Payment Fee tax class
      */
@@ -167,6 +169,19 @@ class Config
     public function isDebugMode(): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_DEBUG);
+    }
+
+    /**
+     * Whether the local-development callback poller is enabled.
+     *
+     * This is a developer-only convenience flag (see PollCallbackCommand) and must never
+     * be enabled on production. The poller itself additionally requires developer app mode.
+     *
+     * @return bool
+     */
+    public function isDevAutoCallbackEnabled(): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_DEV_AUTO_CALLBACK);
     }
 
     /**

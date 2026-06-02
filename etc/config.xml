@@ -53,6 +53,11 @@
                 <debugging>
                     <log_retention_days>30</log_retention_days>
                 </debugging>
+                <dev>
+                    <!-- Local-development only: enables the qliroone:callback:poll command.
+                         Must never be enabled on production; the poller also requires developer app mode. -->
+                    <auto_callback>0</auto_callback>
+                </dev>
                 <unifaun>
                     <parameters>
                         {"_1639062625474_474":{"tag":"skrymmande","func":"bulky","value":"bulky"},"_1639063062214_214":{"tag":"weight","func":"weight","value":"weight"},"_1639063072512_512":{"tag":"cartprice","func":"cartprice","value":"grand_total"}}
