@@ -6,14 +6,13 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Exception\InputException;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
-use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
@@ -27,7 +26,7 @@ use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ReturnWithItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
-
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
 /**
  * QliroOne management class
  */
@@ -89,6 +88,11 @@ class Payment extends AbstractManagement
     private $returnWithItemsBuilder;
 
     /**
+     * @var AddItemsToInvoiceBuilder
+     */
+    private $addItemsToInvoiceBuilder;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -102,6 +106,7 @@ class Payment extends AbstractManagement
      * @param InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder
      * @param ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
      * @param ReturnWithItemsBuilder $returnWithItemsBuilder
+     * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
      */
     public function __construct(
         Config $qliroConfig,
@@ -114,7 +119,8 @@ class Payment extends AbstractManagement
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
         ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
-        ReturnWithItemsBuilder $returnWithItemsBuilder
+        ReturnWithItemsBuilder $returnWithItemsBuilder,
+        AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -127,6 +133,7 @@ class Payment extends AbstractManagement
         $this->invoiceMarkItemsAsShippedRequestBuilder = $invoiceMarkItemsAsShippedRequestBuilder;
         $this->shipmentMarkItemsAsShippedRequestBuilder = $shipmentMarkItemsAsShippedRequestBuilder;
         $this->returnWithItemsBuilder = $returnWithItemsBuilder;
+        $this->addItemsToInvoiceBuilder = $addItemsToInvoiceBuilder;
     }
 
     /**
@@ -374,6 +381,66 @@ class Payment extends AbstractManagement
     }
 
     /**
+     * @param \Magento\Sales\Model\Order\Payment $payment
+     * @param $amount
+     * @return void
+     * @throws LocalizedException
+     */
+    public function addItemsToInvoice($payment)
+    {
+        $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
+        $this->logManager->setMerchantReference($link->getReference());
+
+        try {
+            if ($payment->getCreditmemo()->getDiscountAmount() == 0) {
+                throw new InputException(__('No discount for partial refund'));
+            }
+            $request = $this->addItemsToInvoiceBuilder->setPayment($payment)->create();
+            $result = $this->orderManagementApi->addItemsToInvoice($request, $payment->getOrder()->getStoreId());
+
+            try {
+                /** @var OrderManagementStatus $omStatus */
+                $omStatus = $this->orderManagementStatusInterfaceFactory->create();
+
+                $omStatus->setRecordId($payment->getId());
+                $omStatus->setRecordType(OrderManagementStatusInterface::ADD_ITEMS_TO_INVOICE);
+                $omStatus->setTransactionId($result->getPaymentTransactionId());
+                $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+                $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
+                $omStatus->setMessage('Partial discount refund requested');
+                $omStatus->setQliroOrderId($link->getQliroOrderId());
+
+                $this->orderManagementStatusRepository->save($omStatus);
+            } catch (\Exception $exception) {
+                $this->logManager->debug(
+                    $exception,
+                    [
+                        'extra' => [
+                            'payment_id' => $payment->getId(),
+                        ],
+                    ]
+                );
+            }
+
+            if ($result->getStatus() != 'Created') {
+                throw new LocalizedException(
+                    __('Unable to partial refund discounts')
+                );
+            }
+
+        } catch (InputException $e) {
+            $this->logManager->debug(
+                'No discount for partial refund',
+                [
+                    'extra' => [
+                        'order_id' => $payment->getOrder()->getId(),
+                    ],
+                ]
+            );
+        }
+    }
+
+    /**
      * Validate return request items and requested amount
      *
      * @param AdminReturnWithItemsRequestInterface $request
@@ -403,8 +470,7 @@ class Payment extends AbstractManagement
             foreach ($return as $inner) {
                 if (is_array($inner) && isset($inner['PricePerItemIncVat'])) {
                     $innerSum = $inner['PricePerItemIncVat'] * $inner['Quantity'];
-                    switch ($inner['Type']) {
-                        case QliroOrderItemInterface::TYPE_DISCOUNT:
+                    switch ($type) {
                         case 'Fees':
                             $innerSum = -abs($innerSum);
                             break;
