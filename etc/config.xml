@@ -43,6 +43,7 @@
                 </styling>
                 <merchant>
                     <fee_merchant_reference>InvoiceFee</fee_merchant_reference>
+                    <use_increment_id_as_reference>0</use_increment_id_as_reference>
                 </merchant>
                 <callback>
                     <redirect_callbacks>0</redirect_callbacks>

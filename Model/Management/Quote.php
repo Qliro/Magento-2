@@ -163,13 +163,23 @@ class Quote
         if ($link->getQliroOrderId()) {
             $this->logManager->debug('Existing active Qliro link found; skipping legacy update flow');
         } else {
-            if (!$quote->getReservedOrderId()) {
-                $quote->reserveOrderId();
-                $this->quoteRepository->save($quote);
+            if ($this->qliroConfig->useIncrementIdAsReference()) {
+                // Settlement-friendly reference: use the Magento increment_id so PayPal /
+                // Qliro settlements match Magento orders directly. Trade-off: the
+                // increment_id is reserved at checkout init, so abandoned checkouts leave
+                // gaps in the Magento order sequence.
+                if (!$quote->getReservedOrderId()) {
+                    $quote->reserveOrderId();
+                    $this->quoteRepository->save($quote);
+                }
+                $orderReference = (string) $quote->getReservedOrderId();
+                $this->logManager->debug('Qliro order reference (reserved increment_id): ' . $orderReference);
+            } else {
+                // Default: random hash reference (no order-sequence side effects).
+                $orderReference = $this->linkService->generateOrderReference($quote);
+                $this->logManager->debug('Qliro order reference (random hash): ' . $orderReference);
             }
-            $orderReference = $quote->getReservedOrderId();
 
-            $this->logManager->debug('Qliro order reference (reserved increment_id): ' . $orderReference);
             $this->logManager->setMerchantReference($orderReference);
 
             $payload = $this->createRequestBuilder->setQuote($quote)->create();

@@ -50,6 +50,7 @@ class Config
     const string QLIROONE_STYLING_BUTTON_CORNER = 'styling/button_corner_radius';
 
     const string QLIROONE_FEE_MERCHANT_REFERENCE = 'merchant/fee_merchant_reference';
+    const string QLIROONE_USE_INCREMENT_ID_AS_REFERENCE = 'merchant/use_increment_id_as_reference';
     const string QLIROONE_TERMS_URL = 'merchant/terms_url';
     const string QLIROONE_INTEGRITY_POLICY_URL = 'merchant/integrity_policy_url';
 
@@ -182,6 +183,22 @@ class Config
     public function isDevAutoCallbackEnabled(): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_DEV_AUTO_CALLBACK);
+    }
+
+    /**
+     * Whether the reserved Magento order increment_id should be used as the Qliro
+     * merchant reference instead of a random hash.
+     *
+     * When enabled, settlement reports (e.g. PayPal) match Magento orders directly
+     * by increment_id. Side effect: the increment_id is reserved at checkout init,
+     * not at order placement, so abandoned checkouts leave gaps in the Magento
+     * order sequence.
+     *
+     * @return bool
+     */
+    public function useIncrementIdAsReference(): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_USE_INCREMENT_ID_AS_REFERENCE);
     }
 
     /**
