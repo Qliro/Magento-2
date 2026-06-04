@@ -16,21 +16,34 @@ use Qliro\QliroOne\Model\Management\CountrySelect;
  */
 class LanguageMapper implements LanguageMapperInterface
 {
+    /**
+     * Magento locale → Qliro language code.
+     * The full list of language codes supported by Qliro is:
+     *   sv-se, en-us, fi-fi, da-dk, fr-fr, de-de, nb-no, nl-nl
+     */
     private array $languageMap = [
         'sv_SE' => 'sv-se',
         'en_US' => 'en-us',
         'fi_FI' => 'fi-fi',
         'da_DK' => 'da-dk',
+        'fr_FR' => 'fr-fr',
         'de_DE' => 'de-de',
         'nb_NO' => 'nb-no',
         'nn_NO' => 'nb-no',
+        'nl_NL' => 'nl-nl',
     ];
 
+    /**
+     * ISO country code → Qliro language code (used when the country selector is on).
+     */
     private array $countryLanguageMap = [
         'SE' => 'sv-se',
         'DK' => 'da-dk',
         'NO' => 'nb-no',
         'FI' => 'fi-fi',
+        'FR' => 'fr-fr',
+        'DE' => 'de-de',
+        'NL' => 'nl-nl',
     ];
 
     /**
