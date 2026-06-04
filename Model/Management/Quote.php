@@ -212,6 +212,18 @@ class Quote
      */
     public function updateShippingPrice(MagentoQuote $quote, ?float $price): bool
     {
+        if ($this->isQuoteLocked($quote)) {
+            $this->logManager->warning(
+                'AJAX:UPDATE_SHIPPING_PRICE: denied — quote is locked (validate already ran). '
+                . 'Keeping Magento shipping price as-is.',
+                ['extra' => [
+                    'quote_id'        => $quote->getId(),
+                    'requested_price' => $price,
+                ]]
+            );
+            return false;
+        }
+
         if ($price === null) {
             $this->logManager->debug('AJAX:UPDATE_SHIPPING_PRICE: skip reason', [
                 'extra' => ['message' => 'Price is empty'],
@@ -350,6 +362,27 @@ class Quote
         if ($this->countrySelectManagement->countryHasChanged()) {
             $link->setQliroOrderId(null);
             $this->linkRepository->save($link);
+        }
+    }
+
+    /**
+     * Whether the link for this quote is locked (validate already ran).
+     *
+     * No link → not locked. Lookup failure is logged and treated as not-locked (fail open)
+     * so a flaky DB read can't permanently block shipping price updates.
+     */
+    private function isQuoteLocked(MagentoQuote $quote): bool
+    {
+        if (!$quote->getId()) {
+            return false;
+        }
+        try {
+            return $this->linkRepository->getByQuoteId((int) $quote->getId())->getIsLocked();
+        } catch (NoSuchEntityException $e) {
+            return false;
+        } catch (\Exception $e) {
+            $this->logManager->debug($e, ['extra' => ['quote_id' => $quote->getId()]]);
+            return false;
         }
     }
 }

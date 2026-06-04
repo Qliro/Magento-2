@@ -247,9 +247,29 @@ class QliroOrder
                 $quote = $this->quoteRepository->get($link->getQuoteId());
                 $this->quoteFromValidateConverter->convert($validateContainer, $quote);
 
-                return $this->validateOrderBuilder->setQuote($quote)->setValidationRequest(
+                $response = $this->validateOrderBuilder->setQuote($quote)->setValidationRequest(
                     $validateContainer
                 )->create();
+
+                // If validation succeeds (no DeclineReason), freeze the quote: lock the link so
+                // any subsequent shipping-method / shipping-price callback from Qliro or the
+                // iframe is rejected. This prevents Magento ⇄ Qliro shipping drift when a 3rd
+                // party (e.g. Ingrid/nShift) mutates shipping AFTER validation.
+                if (empty($response['DeclineReason'])) {
+                    try {
+                        $link->setIsLocked(true);
+                        $this->linkRepository->save($link);
+                        $this->logManager->debug(
+                            'Quote locked after successful validate — shipping/price updates will be denied.',
+                            ['extra' => ['qliro_order_id' => $link->getQliroOrderId(), 'quote_id' => $link->getQuoteId()]]
+                        );
+                    } catch (\Exception $e) {
+                        // Non-fatal: lock failure should not abort an otherwise successful validate.
+                        $this->logManager->debug($e, ['extra' => ['qliro_order_id' => $link->getQliroOrderId()]]);
+                    }
+                }
+
+                return $response;
             } catch (\Exception $exception) {
                 $this->logManager->critical($exception, ['extra' => [
                     'qliro_order_id' => $validateContainer['OrderId'] ?? null,

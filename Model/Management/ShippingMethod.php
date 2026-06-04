@@ -86,6 +86,19 @@ class ShippingMethod
     {
         $this->logManager->debug('Starting to update shipping method for quote: ' . $quote->getId());
 
+        if ($this->isQuoteLocked($quote)) {
+            $this->logManager->warning(
+                'AJAX:UPDATE_SHIPPING_METHOD: denied — quote is locked (validate already ran). '
+                . 'Keeping Magento shipping method and price as-is.',
+                ['extra' => [
+                    'quote_id'       => $quote->getId(),
+                    'requested_code' => $code,
+                    'requested_price' => $price,
+                ]]
+            );
+            return false;
+        }
+
         if ($code && !$quote->isVirtual()) {
             $this->logManager->debug('Code for quote is: ' . $code);
             $shippingAddress = $quote->getShippingAddress();
@@ -190,6 +203,28 @@ class ShippingMethod
                 ));
                 usleep($delayMs * 1000);
             }
+        }
+    }
+
+    /**
+     * Whether the link for this quote is currently locked (i.e. validate already ran).
+     *
+     * No link → not locked (nothing to protect yet).
+     * Lookup failure is logged at debug and treated as not-locked (fail open) so a flaky
+     * DB lookup can't permanently break shipping selection.
+     */
+    private function isQuoteLocked(MagentoQuote $quote): bool
+    {
+        if (!$quote->getId()) {
+            return false;
+        }
+        try {
+            return $this->linkRepository->getByQuoteId((int) $quote->getId())->getIsLocked();
+        } catch (NoSuchEntityException $e) {
+            return false;
+        } catch (\Exception $e) {
+            $this->logManager->debug($e, ['extra' => ['quote_id' => $quote->getId()]]);
+            return false;
         }
     }
 
