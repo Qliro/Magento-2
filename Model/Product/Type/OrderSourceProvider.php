@@ -138,7 +138,12 @@ class OrderSourceProvider implements TypeSourceProviderInterface
             }
 
             $sourceItem->setQty((float) $item->getQtyOrdered());
-            $sourceItem->setSku($item->getSku());
+            // Configurable parent items can have a null SKU (the SKU lives on the simple child).
+            // Fall back to the parent's SKU when the item itself has none, then to an empty
+            // string so downstream code never receives null.
+            $sourceItem->setSku(
+                $item->getSku() ?? $item->getParentItem()?->getSku() ?? ''
+            );
             $sourceItem->setType($item->getProductType());
             $sourceItem->setProduct($item->getProduct());
             $sourceItem->setItem($item);

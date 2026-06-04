@@ -105,9 +105,9 @@ class TypeSourceItem implements TypeSourceItemInterface
     /**
      * @inheirtDoc
      */
-    public function setSku(string $value): static
+    public function setSku(?string $value): static
     {
-        $this->sku = $value;
+        $this->sku = (string) ($value ?? '');
 
         return $this;
     }
