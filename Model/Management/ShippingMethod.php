@@ -7,11 +7,13 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Quote as MagentoQuote;
+use Magento\Store\Model\ScopeInterface;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -34,7 +36,8 @@ class ShippingMethod
         private readonly PayloadConverter $payloadConverter,
         private readonly LogManager $logManager,
         private readonly ManagerInterface $eventManager,
-        private readonly Quote $quoteManagement
+        private readonly Quote $quoteManagement,
+        private readonly ScopeConfigInterface $scopeConfig
     ) {
     }
 
@@ -104,6 +107,14 @@ class ShippingMethod
                     'same_as_billing' => true,
                 ]);
             }
+
+            // After items are removed from the cart and the quote is then refilled, Magento
+            // may leave addresses with missing country_id. Downstream shipping-rate collection
+            // throws "Cannot update shipping method in quote" and later the order fails with
+            // "not a virtual order, invalid shipping method selected".
+            //
+            // Recover country_id from: shipping -> billing -> store default. Never a hardcode.
+            $this->ensureAddressCountryId($quote, $shippingAddress);
 
             $container = new DataObject([
                 'shipping_method'  => $code,
@@ -179,6 +190,34 @@ class ShippingMethod
                 ));
                 usleep($delayMs * 1000);
             }
+        }
+    }
+
+    /**
+     * Ensure the quote's billing and shipping addresses have a country_id.
+     *
+     * Fallback chain (no hardcoded country): existing value -> billing -> store default
+     * (general/country/default). This prevents "Cannot update shipping method in quote"
+     * after Magento empties an address during cart re-fill.
+     */
+    private function ensureAddressCountryId(MagentoQuote $quote, $shippingAddress): void
+    {
+        $billingAddress = $quote->getBillingAddress();
+
+        $defaultCountry = (string) $this->scopeConfig->getValue(
+            'general/country/default',
+            ScopeInterface::SCOPE_STORE,
+            $quote->getStoreId()
+        );
+
+        if (!$billingAddress->getCountryId()) {
+            $billingAddress->setCountryId($defaultCountry ?: null);
+        }
+
+        if (!$shippingAddress->getCountryId()) {
+            $shippingAddress->setCountryId(
+                $billingAddress->getCountryId() ?: ($defaultCountry ?: null)
+            );
         }
     }
 }
