@@ -6,6 +6,7 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Sales\Model\Order\Creditmemo;
 use Magento\Sales\Model\Order\Payment;
 use Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterfaceFactory;
@@ -19,7 +20,7 @@ use \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 
 class AddItemsToInvoiceBuilder
 {
-    const MERCHANT_REFERENCE_CODE_FIELD = 'PARTIAL_DISCOUNT_REFUND_%s';
+    const MERCHANT_REFERENCE_CODE_FIELD = 'Refund';
 
     /**
      * @var Payment
@@ -56,7 +57,7 @@ class AddItemsToInvoiceBuilder
     {
         if (empty($this->payment)) {
             throw new \LogicException('Payment entity is not set.');
-        }
+        };
 
         $request = $this->prepareRequest();
 
@@ -142,31 +143,60 @@ class AddItemsToInvoiceBuilder
      */
     private function getOrderItems(): QliroOrderItemInterface
     {
-        $discountIncVat = (float)$this->payment->getCreditmemo()->getDiscountAmount();
-        $discountTax = -abs((float)$this->payment->getCreditmemo()->getDiscountTaxCompensationAmount());
-        $discountExVat = $discountIncVat - $discountTax;
-        $vatPercent = abs($discountExVat) > 0
-            ? ((abs($discountIncVat) / abs($discountExVat)) - 1) * 100
-            : 0;
+        $creditMemo = $this->payment->getCreditmemo();
 
-        /** @var QliroOrderItemInterface $additions */
+        $priceIncVat = round(-abs((float)$creditMemo->getGrandTotal()), 2);
+        $vatRate = $this->getCreditMemoVatRate($creditMemo);
+        $priceExVat = round($priceIncVat / (1 + ($vatRate / 100)), 2);
+
+        /** @var QliroOrderItemInterface $orderItems */
         $orderItems = $this->qliroOrderItemFactory->create();
-        $orderItems->setMerchantReference(
-            sprintf(self::MERCHANT_REFERENCE_CODE_FIELD, $this->payment->getCreditmemo()->getInvoiceId())
-        )->setType(
-            QliroOrderItemInterface::TYPE_DISCOUNT
-        )->setQuantity(
-            1
-        )->setPricePerItemIncVat(
-            $discountIncVat
-        )->setVatRate(
-            $vatPercent
-        )->setDescription(
-            $this->payment->getCreditmemo()->getDiscountDescription()
-        )->setPricePerItemExVat(
-            $discountExVat
-        );
+
+        $orderItems
+            ->setMerchantReference(self::MERCHANT_REFERENCE_CODE_FIELD)
+            ->setType(QliroOrderItemInterface::TYPE_DISCOUNT)
+            ->setQuantity(1)
+            ->setPricePerItemIncVat($priceIncVat)
+            ->setPricePerItemExVat($priceExVat)
+            ->setVatRate(round($vatRate, 2))
+            ->setDescription('Refund')
+            ->setMetadata(['qliro' => 'checkout']);
 
         return $orderItems;
+    }
+
+    /**
+     * Calculate the VAT (tax) rate for a given credit memo based on its items.
+     *
+     * @param Creditmemo $creditMemo The credit memo instance for which to determine the VAT rate.
+     * @return float The VAT rate as a percentage. Returns 0.00 if multiple or no VAT rates are found.
+     */
+    private function getCreditMemoVatRate(Creditmemo $creditMemo): float
+    {
+        $rates = [];
+
+        foreach ($creditMemo->getAllItems() as $creditMemoItem) {
+            if ($creditMemoItem->getOrderItem()->isDummy()) {
+                continue;
+            }
+
+            if ((float)$creditMemoItem->getQty() <= 0) {
+                continue;
+            }
+
+            $taxPercent = $creditMemoItem->getOrderItem()->getTaxPercent();
+
+            if ($taxPercent !== null) {
+                $rates[] = round((float)$taxPercent, 2);
+            }
+        }
+
+        $rates = array_unique($rates);
+
+        if (count($rates) === 1) {
+            return (float)reset($rates);
+        }
+
+        return 0.00;
     }
 }

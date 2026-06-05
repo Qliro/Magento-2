@@ -6,25 +6,29 @@
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
+use Magento\Sales\Api\OrderPaymentRepositoryInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
 use Qliro\QliroOne\Model\Logger\Manager;
 
 class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var Manager
-     */
-    private $logManager;
-
-    /**
      * Inject dependencies
      *
      * @param Manager $logManager
      */
+    /**
+     * Payment constructor.
+     * @param OrderPaymentRepositoryInterface $paymentRepository
+     * @param OrderRepositoryInterface $orderRepository
+     * @param Manager $logManager
+     */
     public function __construct(
-        Manager $logManager
+        private readonly OrderPaymentRepositoryInterface $paymentRepository,
+        private readonly OrderRepositoryInterface $orderRepository,
+        private readonly Manager $logManager
     ) {
-        $this->logManager = $logManager;
     }
 
     /**
@@ -33,6 +37,17 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     public function handleSuccess($qliroOrderManagementStatus, $omStatus)
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
+
+        $payment = $this->paymentRepository->get($omStatus->getRecordId());
+        $order = $payment->getOrder();
+
+        $formattedPrice = $order->getBaseCurrency()->formatTxt(
+            abs($qliroOrderManagementStatus->getAmount())
+        );
+
+        $order->addCommentToStatusHistory(__('Refund of %1 confirmed successful', $formattedPrice));
+        $this->orderRepository->save($order);
+
     }
 
     /**

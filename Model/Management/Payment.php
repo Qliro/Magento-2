@@ -314,87 +314,12 @@ class Payment extends AbstractManagement
      * @return void
      * @throws LocalizedException
      */
-    public function refundByInvoice($payment, $amount)
-    {
-        if (!$amount) {
-            throw new LocalizedException(__('Zero amount is not allowed.'));
-        }
-
-        try {
-            $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
-            $this->logManager->setMerchantReference($link->getReference());
-            $request = $this->returnWithItemsBuilder
-                ->setPayment($payment)
-                ->create();
-
-            if (!$this->isValidRequestAmount($request, $amount)) {
-                throw new LocalizedException(__('Request amount is not valid.'));
-            }
-
-
-            $result = $this->orderManagementApi->returnWithItems($request, $payment->getOrder()->getStoreId());
-
-            try {
-                /** @var OrderManagementStatus $omStatus */
-                $omStatus = $this->orderManagementStatusInterfaceFactory->create();
-
-                $omStatus->setRecordId($payment->getId());
-                $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_REFUND);
-                $omStatus->setTransactionId($result->getPaymentTransactionId());
-                $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
-                $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
-                $omStatus->setMessage('Refund Requested');
-                $omStatus->setQliroOrderId($link->getQliroOrderId());
-
-                $this->orderManagementStatusRepository->save($omStatus);
-            } catch (\Exception $exception) {
-                $this->logManager->debug(
-                    $exception,
-                    [
-                        'extra' => [
-                            'payment_id' => $payment->getId(),
-                        ],
-                    ]
-                );
-            }
-
-            if ($result->getStatus() != 'Created') {
-                throw new LocalizedException(
-                    __('Unable refund items')
-                );
-            }
-        } catch (ClientException $e) {
-            $this->logManager->debug(
-                $e,
-                [
-                    'extra' => [
-                        'order_id' => $payment->getOrder()->getId(),
-                        'quote_id' => $payment->getOrder()->getQuoteId(),
-                    ],
-                ]
-            );
-
-            throw new LocalizedException(
-                __('Unable refund items')
-            );
-        }
-    }
-
-    /**
-     * @param \Magento\Sales\Model\Order\Payment $payment
-     * @param $amount
-     * @return void
-     * @throws LocalizedException
-     */
     public function addItemsToInvoice($payment)
     {
         $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
         $this->logManager->setMerchantReference($link->getReference());
 
         try {
-            if ($payment->getCreditmemo()->getDiscountAmount() == 0) {
-                throw new InputException(__('No discount for partial refund'));
-            }
             $request = $this->addItemsToInvoiceBuilder->setPayment($payment)->create();
             $result = $this->orderManagementApi->addItemsToInvoice($request, $payment->getOrder()->getStoreId());
 
@@ -407,7 +332,7 @@ class Payment extends AbstractManagement
                 $omStatus->setTransactionId($result->getPaymentTransactionId());
                 $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
                 $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
-                $omStatus->setMessage('Partial discount refund requested');
+                $omStatus->setMessage('Refund requested with add items to invoice');
                 $omStatus->setQliroOrderId($link->getQliroOrderId());
 
                 $this->orderManagementStatusRepository->save($omStatus);
@@ -424,13 +349,13 @@ class Payment extends AbstractManagement
 
             if ($result->getStatus() != 'Created') {
                 throw new LocalizedException(
-                    __('Unable to partial refund discounts')
+                    __('Unable to refund')
                 );
             }
 
         } catch (InputException $e) {
             $this->logManager->debug(
-                'No discount for partial refund',
+                $e->getMessage(),
                 [
                     'extra' => [
                         'order_id' => $payment->getOrder()->getId(),
@@ -440,54 +365,4 @@ class Payment extends AbstractManagement
         }
     }
 
-    /**
-     * Validate return request items and requested amount
-     *
-     * @param AdminReturnWithItemsRequestInterface $request
-     * @param $amount
-     * @return bool
-     */
-    private function isValidRequestAmount(AdminReturnWithItemsRequestInterface $request, $amount)
-    {
-        $amount = floatval($amount);
-
-        $returns = $request->getReturns();
-        if (!count($returns)) {
-            return false;
-        }
-
-        $sum = 0;
-        foreach ($returns as $type => $return) {
-            if (is_array($return) && isset($return['PricePerItemIncVat'])) {
-                $sum += $return['PricePerItemIncVat'] * $return['Quantity'];
-                continue;
-            }
-
-            if (!is_array($return)) {
-                continue;
-            }
-
-            foreach ($return as $inner) {
-                if (is_array($inner) && isset($inner['PricePerItemIncVat'])) {
-                    $innerSum = $inner['PricePerItemIncVat'] * $inner['Quantity'];
-                    switch ($type) {
-                        case 'Fees':
-                            $innerSum = -abs($innerSum);
-                            break;
-                        default:
-                            $innerSum = abs($innerSum);
-                            break;
-                    }
-
-                    $sum += $innerSum;
-                }
-            }
-        }
-
-        if (($sum * 100) != ($amount * 100)) { // fix php double type comparison issue
-            return false;
-        }
-
-        return true;
-    }
 }
