@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Exception\AlreadyExistsException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Quote as MagentoQuote;
@@ -85,11 +86,24 @@ class Quote
         $quote->setTotalsCollectedFlag(false);
 
         if (!$quote->isVirtual()) {
-            if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
-                $shippingAddress->setShippingMethod(Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE);
-            }
+            // Carriers are mutually exclusive — the iframe can only run one widget at a time.
+            // The previous code ran both branches unconditionally, so when both flags were on,
+            // Ingrid silently overwrote Unifaun on the quote even if the customer picked Unifaun
+            // in the iframe. That produced the "shipping method differs between Magento and
+            // Qliro" mismatch we've seen on real orders. Prefer Ingrid when both are enabled
+            // (matches the existing fall-through order); we also log a warning so the
+            // misconfiguration is visible.
             if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
+                if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+                    $this->logManager->warning(
+                        'Both Unifaun and Ingrid are enabled. Only one widget can run at a time; '
+                        . 'using Ingrid and ignoring Unifaun. Disable one of them in config to silence this warning.',
+                        ['extra' => ['quote_id' => $quote->getId(), 'store_id' => $quote->getStoreId()]]
+                    );
+                }
                 $shippingAddress->setShippingMethod(Ingrid::QLIRO_INGRID_SHIPPING_CODE);
+            } elseif ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+                $shippingAddress->setShippingMethod(Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE);
             }
             if (!$shippingAddress->hasData('item_qty')) {
                 $shippingAddress->setData('item_qty', $quote->getItemsQty());
@@ -128,6 +142,12 @@ class Quote
 
         /** @var \Magento\Quote\Model\Quote\Item $item */
         foreach ($quote->getAllItems() as $item) {
+            // Skip virtual items — they don't ship and must not influence the weight that
+            // Unifaun / Ingrid use to validate the shipment (otherwise mixed virtual+physical
+            // carts can be rejected by the carrier with a generic warning at postcode entry).
+            if ($item->getIsVirtual() || ($item->getProduct() && $item->getProduct()->getIsVirtual())) {
+                continue;
+            }
             if ($item->getRowWeight() > 0) {
                 $computedWeight += (float) $item->getRowWeight();
             }
@@ -139,7 +159,7 @@ class Quote
     /**
      * Get (or create) a Qliro link for the given quote.
      *
-     * @throws \Magento\Framework\Exception\AlreadyExistsException
+     * @throws AlreadyExistsException
      */
     public function getLinkFromQuote(MagentoQuote $quote): LinkInterface
     {
@@ -263,11 +283,53 @@ class Quote
 
         if ($container->getCanSaveQuote()) {
             $this->recalculateAndSaveQuote($quote);
+            $this->logShippingDivergence($quote, (float) $price, 'updateShippingPrice');
             $this->logManager->debug('Finished updating shipping price in Qliro quote ' . $quote->getId());
             return true;
         }
 
         return false;
+    }
+
+    /**
+     * Emit a structured warning when Magento's stored shipping amount diverges from
+     * what Qliro reported. We don't raise an exception (would break checkout); the goal
+     * is to make the next "5 kr off" or "method differs" mismatch immediately findable
+     * in the logs, with quote_id, both totals, the method, and the source of the call.
+     *
+     * Tolerance of 0.005 keeps normal float rounding silent.
+     */
+    private function logShippingDivergence(MagentoQuote $quote, float $qliroPrice, string $source): void
+    {
+        if ($quote->isVirtual()) {
+            return;
+        }
+        $shippingAddress = $quote->getShippingAddress();
+        if (!$shippingAddress) {
+            return;
+        }
+
+        $magentoIncl = (float) $shippingAddress->getShippingInclTax();
+        $magentoExcl = (float) $shippingAddress->getShippingAmount();
+
+        // Match either incl-tax or excl-tax against the Qliro value before warning.
+        if (abs($magentoIncl - $qliroPrice) < 0.005 || abs($magentoExcl - $qliroPrice) < 0.005) {
+            return;
+        }
+
+        $this->logManager->warning(
+            'Shipping price mismatch between Magento and Qliro — investigate tax handling / carrier rate.',
+            ['extra' => [
+                'source'              => $source,
+                'quote_id'            => $quote->getId(),
+                'increment_id'        => $quote->getReservedOrderId(),
+                'qliro_price'         => $qliroPrice,
+                'magento_excl_tax'    => $magentoExcl,
+                'magento_incl_tax'    => $magentoIncl,
+                'shipping_method'     => $shippingAddress->getShippingMethod(),
+                'shipping_description'=> $shippingAddress->getShippingDescription(),
+            ]]
+        );
     }
 
     /**

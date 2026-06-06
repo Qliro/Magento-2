@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Item;
 use Qliro\QliroOne\Model\Formatter\PriceFormatter;
 use Qliro\QliroOne\Model\Config;
 
@@ -118,8 +119,11 @@ class ShippingConfigUnifaunBuilder
     private function calculateQuoteBulky(mixed $attributeCode): bool
     {
         $isBulky = false;
-        /** @var \Magento\Quote\Model\Quote\Item $item */
+        /** @var Item $item */
         foreach ($this->quote->getAllVisibleItems() as $item) {
+            if ($this->isItemVirtual($item)) {
+                continue;
+            }
             $product = $item->getProduct();
             $bulky = $product->getData($attributeCode);
             if ($bulky) {
@@ -134,8 +138,11 @@ class ShippingConfigUnifaunBuilder
     private function calculateQuoteWeight(mixed $attributeCode): float|int
     {
         $totalWeight = 0;
-        /** @var \Magento\Quote\Model\Quote\Item $item */
+        /** @var Item $item */
         foreach ($this->quote->getAllVisibleItems() as $item) {
+            if ($this->isItemVirtual($item)) {
+                continue;
+            }
             $product = $item->getProduct();
             $weight = $product->getData($attributeCode);
             if ($weight > 0) {
@@ -144,6 +151,19 @@ class ShippingConfigUnifaunBuilder
         }
 
         return $totalWeight;
+    }
+
+    /**
+     * Virtual items don't ship and must not influence Unifaun tags (weight / bulky / etc.),
+     * otherwise mixed virtual+physical carts can confuse nShift's shipping-option matching.
+     */
+    private function isItemVirtual(Item $item): bool
+    {
+        if ($item->getIsVirtual()) {
+            return true;
+        }
+        $product = $item->getProduct();
+        return $product && $product->getIsVirtual();
     }
 
     private function calculateQuoteCartPrice(mixed $attributeCode): mixed
