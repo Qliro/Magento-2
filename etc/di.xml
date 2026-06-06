@@ -219,6 +219,11 @@
         <plugin name="qliroone_onepage_allow_zero_total" type="Qliro\QliroOne\Plugin\ZeroTotalPlugin" />
     </type>
 
+    <type name="Magento\Quote\Model\Quote\Item">
+        <plugin name="qliroone_configurable_child_qty"
+                type="Qliro\QliroOne\Plugin\Magento\Quote\ConfigurableChildQtyPlugin" />
+    </type>
+
     <type name="Qliro\QliroOne\Gateway\Config\Config">
         <arguments>
             <argument name="directoryHelper" xsi:type="object">Magento\Directory\Helper\Data\Proxy</argument>
