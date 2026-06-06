@@ -11,9 +11,9 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Validator\Exception;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\SubmitQuoteValidator;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
-use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Validator\QuoteItemComparator;
 
 /**
@@ -32,15 +32,13 @@ class ValidateOrderBuilder
      * @param LogManager $logManager
      * @param SubmitQuoteValidator $submitQuoteValidator
      * @param CustomerManagement $customerManagement
-     * @param Config $config
      */
     public function __construct(
         private readonly QuoteItemComparator $quoteItemComparator,
         private readonly OrderItemsBuilder $orderItemsBuilder,
         private readonly LogManager $logManager,
         private readonly SubmitQuoteValidator $submitQuoteValidator,
-        private readonly CustomerManagement $customerManagement,
-        private readonly Config $config
+        private readonly CustomerManagement $customerManagement
     ) {
     }
 
@@ -132,7 +130,22 @@ class ValidateOrderBuilder
     }
 
     /**
-     * Validates if the Qliro shipping data is valid.
+     * Validates that the customer actually selected a shipping method.
+     *
+     * The customer is considered to have selected shipping only when BOTH:
+     *   1. SelectedShippingMethod is non-empty, AND
+     *   2. A Shipping-type line item in OrderItems carries the same MerchantReference.
+     *
+     * Requiring the matching line item is what catches the Unifaun "fallback" case:
+     * when the shipping iframe cannot load options (e.g. an unsupported postal code
+     * for the configured shipping zone), Unifaun may populate SelectedShippingMethod
+     * with a placeholder/fallback value but no actual shipping product the customer
+     * chose. Without the matching-line-item check, the customer could complete an
+     * order with shipping price 0 and an unselected fallback method.
+     *
+     * Returning false here causes the validated callback to respond with
+     * DeclineReason: NoShippingMethod, prompting the customer to pick a shipping
+     * option (and verify their postal code) before retrying.
      */
     private function isQliroShippingDataValid(): bool
     {
@@ -140,24 +153,21 @@ class ValidateOrderBuilder
             return true;
         }
 
-        $isIngridEnabled = $this->config->isIngridEnabled($this->quote->getStoreId());
-        if (!$isIngridEnabled && empty($this->validationRequest['SelectedShippingMethod'])) {
+        $selectedMethod = $this->validationRequest['SelectedShippingMethod'] ?? null;
+        if (empty($selectedMethod)) {
             return false;
         }
 
-        $isShippingMethodFound = false;
         foreach ($this->validationRequest['OrderItems'] ?? [] as $item) {
-            if (($item['Type'] ?? null) === \Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING) {
-                $isShippingMethodFound = true;
-                break;
+            if (($item['Type'] ?? null) !== QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+            if (($item['MerchantReference'] ?? null) === $selectedMethod) {
+                return true;
             }
         }
 
-        if ($isIngridEnabled && !$isShippingMethodFound) {
-            return false;
-        }
-
-        return true;
+        return false;
     }
 
     private function reset(): void
