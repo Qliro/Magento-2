@@ -26,6 +26,7 @@ use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CancelOrderRequest;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
+use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromValidateConverter;
 use Qliro\QliroOne\Model\Quote\ItemsLimitValidator;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -72,7 +73,8 @@ class QliroOrder
         private readonly OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
         private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         private readonly Quote $quoteManagement,
-        private readonly ItemsLimitValidator $itemsLimitValidator
+        private readonly ItemsLimitValidator $itemsLimitValidator,
+        private readonly Config $qliroConfig
     ) {
     }
 
@@ -122,16 +124,26 @@ class QliroOrder
             if ($isNewOrder) {
                 try {
                     $qliroOrderData = $this->merchantApi->getOrder($qliroOrderId);
+                } catch (\Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException $expired) {
+                    return $this->recoverFromExpired($quote, $link, $qliroOrderId, $allowRecreate, $expired);
                 } catch (\Exception $firstAttemptException) {
                     $this->logManager->debug(
                         'getOrder failed on fresh order, retrying after delay: '
                         . $firstAttemptException->getMessage()
                     );
                     usleep(500000);
-                    $qliroOrderData = $this->merchantApi->getOrder($qliroOrderId);
+                    try {
+                        $qliroOrderData = $this->merchantApi->getOrder($qliroOrderId);
+                    } catch (\Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException $expired) {
+                        return $this->recoverFromExpired($quote, $link, $qliroOrderId, $allowRecreate, $expired);
+                    }
                 }
             } else {
-                $qliroOrderData = $this->merchantApi->getOrder($qliroOrderId);
+                try {
+                    $qliroOrderData = $this->merchantApi->getOrder($qliroOrderId);
+                } catch (\Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException $expired) {
+                    return $this->recoverFromExpired($quote, $link, $qliroOrderId, $allowRecreate, $expired);
+                }
             }
 
             $qliroOrder = $qliroOrderData;
@@ -390,5 +402,92 @@ class QliroOrder
         }
 
         return $responseContainer;
+    }
+
+    /**
+     * Recovery path when the Qliro Merchant API responds ORDER_EXPIRED for an order we
+     * still hold a reference to. Qliro confirmed: nothing needs to be done with the
+     * expired order on their side — it auto-refuses — but a fresh order must use a NEW
+     * unique merchant reference.
+     *
+     * Steps:
+     *   1. Deactivate the link (clear qliro_order_id, reference, status) so the next
+     *      pass through getLinkFromQuote() creates a brand-new Qliro order.
+     *   2. For useIncrementIdAsReference mode, also clear quote.reserved_order_id so a
+     *      fresh increment_id is reserved on the recreate (Qliro requires unique
+     *      references — we can't reuse the old increment_id).
+     *   3. Recurse into get() with allowRecreate=false to prevent infinite loops if the
+     *      fresh order somehow expires again on the same call.
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @param int $expiredQliroOrderId
+     * @param bool $allowRecreate
+     * @param \Throwable $expired  Original exception (for log context)
+     * @return array
+     */
+    private function recoverFromExpired(
+        \Magento\Quote\Model\Quote $quote,
+        \Qliro\QliroOne\Api\Data\LinkInterface $link,
+        int $expiredQliroOrderId,
+        bool $allowRecreate,
+        \Throwable $expired
+    ): array {
+        if (!$allowRecreate) {
+            // We already retried — bubble up so the customer sees a clear error rather
+            // than looping. Reaching this branch suggests a deeper issue (clock skew,
+            // misconfigured reserved_order_id, etc.).
+            $this->logManager->critical(
+                'Qliro ORDER_EXPIRED on the recovery attempt — giving up.',
+                ['extra' => ['expired_qliro_order_id' => $expiredQliroOrderId]]
+            );
+            throw new TerminalException(
+                'Couldn\'t recover from an expired Qliro order.',
+                0,
+                $expired
+            );
+        }
+
+        $this->logManager->warning(
+            'Qliro ORDER_EXPIRED — deactivating link and creating a fresh Qliro order with a new reference.',
+            ['extra' => [
+                'expired_qliro_order_id' => $expiredQliroOrderId,
+                'quote_id'               => $quote->getId(),
+            ]]
+        );
+
+        try {
+            // Clear only what's strictly required for the recreate flow:
+            //   - qliroOrderId: triggers Quote::getLinkFromQuote() to create a fresh Qliro order
+            //   - qliroOrderStatus: empty string clears any stale CheckoutStatus from the
+            //     expired order so applyQliroOrderStatus() doesn't act on it
+            //
+            // 'reference' is left alone — it will be overwritten by the new value in
+            // Quote::getLinkFromQuote() on the recreate. setReference() / setMessage()
+            // are typed `string` (not `?string`), so passing null would TypeError.
+            $link->setQliroOrderId(null);
+            $link->setQliroOrderStatus('');
+            $link->setMessage('Previous Qliro order expired — recreated.');
+            $this->linkRepository->save($link);
+
+            // For increment_id mode the same reserved_order_id can't be reused —
+            // Qliro requires merchant references to be unique. Clearing it makes
+            // Magento reserve a new one on the next reserveOrderId() call.
+            if ($this->qliroConfig->useIncrementIdAsReference()) {
+                $quote->setReservedOrderId(null);
+                $this->quoteRepository->save($quote);
+            }
+        } catch (\Exception $e) {
+            $this->logManager->critical($e, ['extra' => [
+                'expired_qliro_order_id' => $expiredQliroOrderId,
+            ]]);
+            throw new TerminalException(
+                'Failed to deactivate expired Qliro link.',
+                0,
+                $e
+            );
+        }
+
+        return $this->get($quote, false);
     }
 }

@@ -395,7 +395,36 @@ class Quote
                 return;
             }
             $payload = $this->updateRequestBuilder->setQuote($quote)->create();
-            $this->merchantApi->updateOrder($qliroOrderId, $payload);
+            try {
+                $this->merchantApi->updateOrder($qliroOrderId, $payload);
+            } catch (\Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException $expired) {
+                // Qliro session/order has aged out. Deactivate the link so the next
+                // checkout-page load (or quote read) recreates a fresh Qliro order with
+                // a new unique merchant reference. We swallow here on purpose — pushing
+                // updates is best-effort, and surfacing this as a critical to the user
+                // would break the AJAX-triggered iframe refresh.
+                $this->logManager->warning(
+                    'Qliro ORDER_EXPIRED during updateOrder push — deactivating link to allow recreate on next load.',
+                    ['extra' => [
+                        'expired_qliro_order_id' => $qliroOrderId,
+                        'quote_id'               => $quote->getId(),
+                    ]]
+                );
+                // Clear only what's strictly required: qliroOrderId triggers the recreate
+                // path on the next load; qliroOrderStatus is reset so applyQliroOrderStatus()
+                // can't act on the expired order's stale status. setReference() and
+                // setMessage() are typed `string` (not `?string`); 'reference' will be
+                // overwritten by Quote::getLinkFromQuote() on the recreate.
+                $link->setQliroOrderId(null);
+                $link->setQliroOrderStatus('');
+                $link->setMessage('Previous Qliro order expired during update — pending recreate on next checkout load.');
+                $this->linkRepository->save($link);
+                if ($this->qliroConfig->useIncrementIdAsReference()) {
+                    $quote->setReservedOrderId(null);
+                    $this->quoteRepository->save($quote);
+                }
+                return;
+            }
             $this->logManager->debug('Pushed order update to Qliro', [
                 'extra' => ['qliro_order_id' => $qliroOrderId, 'quote_id' => $quote->getId()],
             ]);
@@ -407,7 +436,7 @@ class Quote
     }
 
     /**
-     * If quote was not active when loaded it may be missing Items — complete loading via LoadHandler.
+     * If quote was not active when loaded, it may be missing Items — complete loading via LoadHandler.
      */
     private function completeQuoteLoading(MagentoQuote $quote): void
     {

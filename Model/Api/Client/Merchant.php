@@ -118,6 +118,15 @@ class Merchant implements MerchantInterface
                     $this->logManager->critical($exception, ['extra' => $data]);
                 }
 
+                // Surface ORDER_EXPIRED as a specific exception, so callers can react —
+                // typically by deactivating the dead link and creating a fresh Qliro order
+                // (Qliro requires a NEW unique merchant reference for the recreation).
+                if ($data['ErrorCode'] === 'ORDER_EXPIRED') {
+                    throw new \Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException(
+                        __('Error [%1]: %2', $data['ErrorCode'], $data['ErrorMessage'])
+                    );
+                }
+
                 throw new MerchantApiException(
                     __('Error [%1]: %2', $data['ErrorCode'], $data['ErrorMessage'])
                 );
