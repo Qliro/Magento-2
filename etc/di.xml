@@ -224,6 +224,11 @@
                 type="Qliro\QliroOne\Plugin\Magento\Quote\ConfigurableChildQtyPlugin" />
     </type>
 
+    <type name="Magento\Quote\Model\Quote">
+        <plugin name="qliroone_prevent_quote_changes_when_locked"
+                type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Quote" />
+    </type>
+
     <type name="Qliro\QliroOne\Gateway\Config\Config">
         <arguments>
             <argument name="directoryHelper" xsi:type="object">Magento\Directory\Helper\Data\Proxy</argument>
