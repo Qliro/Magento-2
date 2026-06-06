@@ -27,6 +27,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\CancelOrderRequest;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromValidateConverter;
+use Qliro\QliroOne\Model\Quote\ItemsLimitValidator;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 
 /**
@@ -70,7 +71,8 @@ class QliroOrder
         private readonly Lock $lock,
         private readonly OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
         private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
-        private readonly Quote $quoteManagement
+        private readonly Quote $quoteManagement,
+        private readonly ItemsLimitValidator $itemsLimitValidator
     ) {
     }
 
@@ -245,6 +247,18 @@ class QliroOrder
 
             try {
                 $quote = $this->quoteRepository->get($link->getQuoteId());
+
+                // Final guard against the per-order item limit. The storefront predispatch
+                // observer and the sales_model_service_quote_submit_before observer cover
+                // the standard flows; this catches direct/custom integrations that bypass
+                // them, so we don't charge a customer for an order Qliro would later reject.
+                // ItemsLimitValidator logs the violation with quote_id / item_count / store_id.
+                try {
+                    $this->itemsLimitValidator->validateQuoteItemsLimit($quote);
+                } catch (\Magento\Framework\Exception\LocalizedException $limitEx) {
+                    return ['DeclineReason' => 'Other'];
+                }
+
                 $this->quoteFromValidateConverter->convert($validateContainer, $quote);
 
                 $response = $this->validateOrderBuilder->setQuote($quote)->setValidationRequest(
