@@ -24,13 +24,13 @@ define([
         },
 
         availableFrequencyOptions: [],
-        isRecurring: ko.observable(config.recurringOrder?.isRecurring || false),
+        isRecurring: ko.observable((config.recurringOrder && config.recurringOrder.isRecurring) || false),
         selectedFrequencyOption: ko.observable(''),
 
         initialize: function () {
             this._super();
             // Use config model to get recurring config
-            const frequencyOptions = config.recurringOrder?.availableFrequencyOptions || [];
+            const frequencyOptions = (config.recurringOrder && config.recurringOrder.availableFrequencyOptions) || [];
             if (frequencyOptions.length < 1) {
                 this.template = '';
                 return this;

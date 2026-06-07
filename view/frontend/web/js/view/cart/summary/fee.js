@@ -14,11 +14,11 @@ define(
         "use strict";
         return Component.extend({
             defaults: {
-                isFullTaxSummaryDisplayed: window.checkoutConfig.isFullTaxSummaryDisplayed || false,
+                isFullTaxSummaryDisplayed: (window.checkoutConfig && window.checkoutConfig.isFullTaxSummaryDisplayed) || false,
                 template: 'Qliro_QliroOne/cart/summary/fee'
             },
             totals: quote.getTotals(),
-            isTaxDisplayedInGrandTotal: window.checkoutConfig.includeTaxInGrandTotal || false,
+            isTaxDisplayedInGrandTotal: (window.checkoutConfig && window.checkoutConfig.includeTaxInGrandTotal) || false,
             isDisplayed: function() {
                 return this.isFullMode();
             },
@@ -51,8 +51,10 @@ define(
                         }
                     }
                 }
-                var feeSection = window.checkoutConfig.qliro.qliroone_fee;
-                return feeSection.fee_setup ? feeSection.fee_setup.description : null;
+                var feeSection = window.checkoutConfig
+                    && window.checkoutConfig.qliro
+                    && window.checkoutConfig.qliro.qliroone_fee;
+                return feeSection && feeSection.fee_setup ? feeSection.fee_setup.description : null;
             },
         });
     }

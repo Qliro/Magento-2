@@ -26,7 +26,7 @@ define([
         initialize: function () {
             this._super();
             // Use config model to get countries
-            const countries = config.countrySelector?.availableCountries || [];
+            const countries = (config.countrySelector && config.countrySelector.availableCountries) || [];
             if (countries.length < 1) {
                 this.template = '';
                 return this;
