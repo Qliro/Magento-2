@@ -98,7 +98,7 @@ class ShippingMethodBuilder
         $container = [
             'MerchantReference' => (string)$this->rate->getCode(),
             'DisplayName' => (string)($this->rate->getMethodTitle() ?? $this->rate->getCarrierTitle()),
-            'Brand' => (string)$this->shippingMethodBrandResolver->resolve($this->rate),
+            'Brand' => mb_substr((string)$this->shippingMethodBrandResolver->resolve($this->rate), 0, 50),
         ];
 
         $descriptions = [];
