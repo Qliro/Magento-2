@@ -112,8 +112,13 @@ class Merchant implements MerchantInterface
      */
     private function handleExceptions(\Exception $exception): never
     {
-        if ($exception instanceof RequestException) {
-            $data = $this->json->unserialize($exception->getResponse()->getBody());
+        $requestException = $exception;
+        while ($requestException !== null && !($requestException instanceof RequestException)) {
+            $requestException = $requestException->getPrevious();
+        }
+
+        if ($requestException instanceof RequestException) {
+            $data = $this->json->unserialize($requestException->getResponse()->getBody());
 
             if (isset($data['ErrorCode']) && isset($data['ErrorMessage'])) {
                 if (!($exception instanceof TerminalException)) {
