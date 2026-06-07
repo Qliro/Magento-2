@@ -7,11 +7,11 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
-use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Quote\Api\CartManagementInterface;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Quote;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
-use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagement\OrderMutatorInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderInterface;
@@ -20,12 +20,11 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Payload\PayloadConverter;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
+use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Api\Data\LinkInterface;
-use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
  * QliroOne management class
@@ -33,15 +32,13 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 class PlaceRecurringOrder
 {
     /**
-     * @var \Magento\Quote\Model\Quote|null
+     * @var Quote|null
      */
-    private ?\Magento\Quote\Model\Quote $currentQuote = null;
+    private ?Quote $currentQuote = null;
 
     /**
      * Class constructor
      *
-     * @param Config $qliroConfig
-     * @param MerchantInterface $merchantApi
      * @param OrderMutatorInterface $orderManagementApi
      * @param QuoteFromOrderConverter $quoteFromOrderConverter
      * @param LinkRepositoryInterface $linkRepository
@@ -49,17 +46,14 @@ class PlaceRecurringOrder
      * @param OrderRepositoryInterface $orderRepository
      * @param PayloadConverter $payloadConverter
      * @param LogManager $logManager
-     * @param OrderPlacer $orderPlacer
      * @param OrderSender $orderSender
      * @param Quote $quoteManagement
      * @param Payment $paymentManagement
-     * @param RecurringDataService $recurringDataService
-     * @param \Magento\Quote\Api\CartManagementInterface $cartManagementInterface
+     * @param CartManagementInterface $cartManagementInterface
      * @param OrderStateSetter $orderStateSetter
+     * @param Lock $lock
      */
     public function __construct(
-        private readonly Config $qliroConfig,
-        private readonly MerchantInterface $merchantApi,
         private readonly OrderMutatorInterface $orderManagementApi,
         private readonly QuoteFromOrderConverter $quoteFromOrderConverter,
         private readonly LinkRepositoryInterface $linkRepository,
@@ -67,23 +61,24 @@ class PlaceRecurringOrder
         private readonly OrderRepositoryInterface $orderRepository,
         private readonly PayloadConverter $payloadConverter,
         private readonly LogManager $logManager,
-        private readonly OrderPlacer $orderPlacer,
         private readonly OrderSender $orderSender,
         private readonly Quote $quoteManagement,
         private readonly Payment $paymentManagement,
-        private readonly RecurringDataService $recurringDataService,
-        protected readonly \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
-        private readonly OrderStateSetter $orderStateSetter
+        protected readonly CartManagementInterface $cartManagementInterface,
+        private readonly OrderStateSetter $orderStateSetter,
+        private readonly Lock $lock
     ) {
     }
 
     /**
      * Poll for Magento order placement and return order increment ID if successful
      *
-     * @return \Magento\Sales\Model\Order
+     * @param Quote $quote
+     * @return Order
+     * @throws OrderPlacementPendingException
      * @throws TerminalException
      */
-    public function poll(\Magento\Quote\Model\Quote $quote): \Magento\Sales\Model\Order
+    public function poll(Quote $quote): Order
     {
         $quoteId = $quote->getId();
 
@@ -112,10 +107,10 @@ class PlaceRecurringOrder
     /**
      * Set the quote for the next execute() call.
      *
-     * @param \Magento\Quote\Model\Quote $quote
+     * @param Quote $quote
      * @return static
      */
-    public function setCurrentQuote(\Magento\Quote\Model\Quote $quote): static
+    public function setCurrentQuote(Quote $quote): static
     {
         $this->currentQuote = $quote;
         return $this;
@@ -129,7 +124,7 @@ class PlaceRecurringOrder
      *
      * @param \Qliro\QliroOne\Api\Data\AdminOrderInterface $qliroOrder
      * @param string $state
-     * @return \Magento\Sales\Model\Order
+     * @return Order
      * @throws TerminalException
      * @todo May require doing something upon $this->applyQliroOrderStatus($orderId) returning false
      */
@@ -143,7 +138,32 @@ class PlaceRecurringOrder
         try {
             $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
 
+            // Serialise the check-then-place against the same `qliroone_order_lock` used by
+            // CheckoutStatus::update(). Without this, the CheckoutStatus webhook callback
+            // and a concurrent customer-side flow can both read link.order_id = null and
+            // BOTH call cartManagement->placeOrder(), producing two Magento orders for the
+            // same Qliro order id (~1-2 s apart). The re-read inside the lock guarantees
+            // a duplicate-placement attempt sees the order_id the winning thread wrote.
+            if (!$this->lock->lock($qliroOrderId)) {
+                $this->logManager->warning(
+                    'PlaceRecurringOrder: could not acquire lock — concurrent placement in progress; deferring.',
+                    ['extra' => [
+                        'qliro_order_id' => $qliroOrderId,
+                        'quote_id'       => $link->getQuoteId(),
+                    ]]
+                );
+                // Signal the caller to retry — the holder of the lock will finish and
+                // set link.order_id; the next poll/retry will pick up the existing order.
+                throw new OrderPlacementPendingException(
+                    __('Order placement is in progress on another request.')
+                );
+            }
+
             try {
+                // Re-fetch under the lock so the order_id another thread may have just
+                // written is visible.
+                $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+
                 if ($orderId = $link->getOrderId()) {
                     $this->logManager->debug(
                         'Order is already created, skipping',
@@ -222,7 +242,18 @@ class PlaceRecurringOrder
                 );
 
                 throw $exception;
+            } finally {
+                // Always release the qliroone_order_lock paired with the lock() call above.
+                // OrderPlacementPendingException (failed-to-acquire path) throws BEFORE this
+                // try/finally is entered, so no double-unlock risk.
+                $this->lock->unlock($qliroOrderId);
             }
+        } catch (OrderPlacementPendingException $exception) {
+            // The lock-loser path (the racing concurrent placement) — already logged as a
+            // WARNING above. Do NOT log as critical and do NOT wrap as TerminalException:
+            // callers must be able to distinguish "another request is finishing the
+            // placement" from a real terminal failure, and the type is the signal.
+            throw $exception;
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 $exception,
