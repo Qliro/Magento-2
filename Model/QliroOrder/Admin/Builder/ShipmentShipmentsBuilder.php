@@ -175,19 +175,32 @@ class ShipmentShipmentsBuilder
         $map = [];
         foreach ($shipmentItems as $shipmentItem) {
             $orderItem = $this->order->getItemById($shipmentItem->getOrderItemId());
-            if (!$orderItem || $orderItem->getProductType() !== 'configurable') {
+            if (!$orderItem) {
                 continue;
             }
+
+            $parent = $orderItem->getProductType() === 'configurable'
+                ? $orderItem
+                : ($orderItem->getParentItemId()
+                    ? $this->order->getItemById($orderItem->getParentItemId())
+                    : null);
+
+            if (!$parent || $parent->getProductType() !== 'configurable') {
+                continue;
+            }
+
+            if (isset($map[$parent->getId()])) {
+                continue;
+            }
+
             $shipmentQty = (int)$shipmentItem->getQty();
-            // Preserve the old cap: if an invoice already exists, the parent qty for
-            // shipping is capped at qtyOrdered − qtyInvoiced.
-            if ($orderItem->getQtyInvoiced() > 0) {
-                $remaining = (int)($orderItem->getQtyOrdered() - $orderItem->getQtyInvoiced());
+            if ($parent->getQtyInvoiced() > 0) {
+                $remaining = (int)($parent->getQtyOrdered() - $parent->getQtyInvoiced());
                 if ($remaining < $shipmentQty) {
                     $shipmentQty = $remaining;
                 }
             }
-            $map[$orderItem->getId()] = $shipmentQty;
+            $map[$parent->getId()] = $shipmentQty;
         }
         return $map;
     }
