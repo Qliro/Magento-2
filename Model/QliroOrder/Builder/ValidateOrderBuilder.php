@@ -129,24 +129,6 @@ class ValidateOrderBuilder
         return [];
     }
 
-    /**
-     * Validates that the customer actually selected a shipping method.
-     *
-     * The customer is considered to have selected shipping only when BOTH:
-     *   1. SelectedShippingMethod is non-empty, AND
-     *   2. A Shipping-type line item in OrderItems carries the same MerchantReference.
-     *
-     * Requiring the matching line item is what catches the Unifaun "fallback" case:
-     * when the shipping iframe cannot load options (e.g. an unsupported postal code
-     * for the configured shipping zone), Unifaun may populate SelectedShippingMethod
-     * with a placeholder/fallback value but no actual shipping product the customer
-     * chose. Without the matching-line-item check, the customer could complete an
-     * order with shipping price 0 and an unselected fallback method.
-     *
-     * Returning false here causes the validated callback to respond with
-     * DeclineReason: NoShippingMethod, prompting the customer to pick a shipping
-     * option (and verify their postal code) before retrying.
-     */
     private function isQliroShippingDataValid(): bool
     {
         if ($this->quote->isVirtual()) {
@@ -159,10 +141,7 @@ class ValidateOrderBuilder
         }
 
         foreach ($this->validationRequest['OrderItems'] ?? [] as $item) {
-            if (($item['Type'] ?? null) !== QliroOrderItemInterface::TYPE_SHIPPING) {
-                continue;
-            }
-            if (($item['MerchantReference'] ?? null) === $selectedMethod) {
+            if (($item['Type'] ?? null) === QliroOrderItemInterface::TYPE_SHIPPING) {
                 return true;
             }
         }
