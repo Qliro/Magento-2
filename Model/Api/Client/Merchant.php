@@ -12,6 +12,8 @@ use Magento\Framework\Serialize\Serializer\Json;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\MerchantApiException;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
+use Qliro\QliroOne\Model\Api\Client\Exception\OrderAlreadyExistsException;
+use Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException;
 use Qliro\QliroOne\Model\Api\Service;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -122,7 +124,13 @@ class Merchant implements MerchantInterface
                 // typically by deactivating the dead link and creating a fresh Qliro order
                 // (Qliro requires a NEW unique merchant reference for the recreation).
                 if ($data['ErrorCode'] === 'ORDER_EXPIRED') {
-                    throw new \Qliro\QliroOne\Model\Api\Client\Exception\OrderExpiredException(
+                    throw new OrderExpiredException(
+                        __('Error [%1]: %2', $data['ErrorCode'], $data['ErrorMessage'])
+                    );
+                }
+
+                if ($data['ErrorCode'] === 'ORDER_ALREADY_EXISTS') {
+                    throw new OrderAlreadyExistsException(
                         __('Error [%1]: %2', $data['ErrorCode'], $data['ErrorMessage'])
                     );
                 }

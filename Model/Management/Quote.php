@@ -206,7 +206,18 @@ class Quote
             $payload['MerchantReference'] = $orderReference;
 
             $this->logManager->debug('Sending request to create order ' . $orderReference);
-            $orderId = $this->merchantApi->createOrder($payload);
+            try {
+                $orderId = $this->merchantApi->createOrder($payload);
+            } catch (\Qliro\QliroOne\Model\Api\Client\Exception\OrderAlreadyExistsException $alreadyExists) {
+                $orderReference = $orderReference . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+                $payload['MerchantReference'] = $orderReference;
+                $this->logManager->setMerchantReference($orderReference);
+                $this->logManager->warning(
+                    'Qliro reference collision recovered with suffixed reference: ' . $orderReference,
+                    ['extra' => ['original_error' => $alreadyExists->getMessage()]]
+                );
+                $orderId = $this->merchantApi->createOrder($payload);
+            }
             $this->logManager->debug('Order created ' . $orderId);
 
             $link->setQuoteSnapshot(null);
