@@ -24,7 +24,6 @@ use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
-use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ReturnWithItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
 /**
@@ -83,11 +82,6 @@ class Payment extends AbstractManagement
     private $shipmentMarkItemsAsShippedRequestBuilder;
 
     /**
-     * @var ReturnWithItemsBuilder
-     */
-    private $returnWithItemsBuilder;
-
-    /**
      * @var AddItemsToInvoiceBuilder
      */
     private $addItemsToInvoiceBuilder;
@@ -105,7 +99,6 @@ class Payment extends AbstractManagement
      * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
      * @param InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder
      * @param ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
-     * @param ReturnWithItemsBuilder $returnWithItemsBuilder
      * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
      */
     public function __construct(
@@ -119,7 +112,6 @@ class Payment extends AbstractManagement
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
         ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
-        ReturnWithItemsBuilder $returnWithItemsBuilder,
         AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
     ) {
         $this->qliroConfig = $qliroConfig;
@@ -132,7 +124,6 @@ class Payment extends AbstractManagement
         $this->orderManagementStatusRepository = $orderManagementStatusRepository;
         $this->invoiceMarkItemsAsShippedRequestBuilder = $invoiceMarkItemsAsShippedRequestBuilder;
         $this->shipmentMarkItemsAsShippedRequestBuilder = $shipmentMarkItemsAsShippedRequestBuilder;
-        $this->returnWithItemsBuilder = $returnWithItemsBuilder;
         $this->addItemsToInvoiceBuilder = $addItemsToInvoiceBuilder;
     }
 
