@@ -14,7 +14,6 @@ use Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentResponseInterface;
 use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
-use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
@@ -260,40 +259,6 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 //            }
 //
 //            $this->handleExceptions($exception);
-        }
-
-        return $container;
-    }
-
-    /**
-     * Make a call "Return with items"
-     *
-     * @param \Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface $request
-     * @param int|null $storeId
-     * @return AdminTransactionResponseInterface
-     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
-     */
-    public function returnWithItems(AdminReturnWithItemsRequestInterface $request, $storeId = null)
-    {
-        $container = null;
-        $request->setRequestId($this->idGenerator->generateId());
-
-        try {
-            $payload = [
-                'RequestId' => $request->getRequestId(),
-                'MerchantApiKey' => $request->getMerchantApiKey(),
-                'Currency' => $request->getCurrency(),
-                'OrderId' => $request->getOrderId(),
-                'Returns' => [$request->getReturns()],
-            ];
-
-            $response = $this->service->post('checkout/adminapi/v2/returnitems', $payload, $storeId);
-            $paymentTransactions = $response['PaymentTransactions'] ?? [];
-
-            /** @var AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray( $paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
-        } catch (\Exception $exception) {
-            $this->handleExceptions($exception);
         }
 
         return $container;
