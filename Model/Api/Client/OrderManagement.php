@@ -146,9 +146,33 @@ readonly class OrderManagement implements OrderManagementInterface
             /** @var AdminTransactionResponseInterface $container */
             $container = $this->payloadConverter->fromArray($response, AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
-            $this->logManager->critical($exception, [
-                'extra' => ['qliro_order_id' => $request->getOrderId() ?? 'unknown'],
-            ]);
+            $isExpectedConflict = false;
+            $candidate = $exception;
+            while ($candidate !== null) {
+                if ($candidate instanceof RequestException) {
+                    try {
+                        $data = $this->json->unserialize($candidate->getResponse()->getBody());
+                        $code = $data['ErrorCode'] ?? null;
+                        if ($code === 'UPDATE_MERCHANT_REFERENCE_NOT_SUPPORTED'
+                            || $code === 'NO_SUCCESSFUL_PAYMENT') {
+                            $isExpectedConflict = true;
+                        }
+                    } catch (\Throwable) {
+                    }
+                    break;
+                }
+                $candidate = $candidate->getPrevious();
+            }
+
+            if ($isExpectedConflict) {
+                $this->logManager->debug('updateMerchantReference rejected as expected: ' . $exception->getMessage(), [
+                    'extra' => ['qliro_order_id' => $request->getOrderId() ?? 'unknown'],
+                ]);
+            } else {
+                $this->logManager->critical($exception, [
+                    'extra' => ['qliro_order_id' => $request->getOrderId() ?? 'unknown'],
+                ]);
+            }
         }
 
         return $container;

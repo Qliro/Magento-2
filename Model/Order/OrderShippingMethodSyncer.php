@@ -37,7 +37,19 @@ readonly class OrderShippingMethodSyncer
     {
         $selected = $qliroOrder['SelectedShippingMethod'] ?? null;
         if (empty($selected)) {
-            return;
+            foreach ($qliroOrder['OrderItems'] ?? [] as $item) {
+                if (($item['Type'] ?? null) === 'Shipping') {
+                    $selected = [
+                        'MerchantReference' => $order->getShippingMethod(),
+                        'PriceIncVat'       => $item['PricePerItemIncVat'] ?? null,
+                        'PriceExVat'        => $item['PricePerItemExVat']  ?? null,
+                    ];
+                    break;
+                }
+            }
+            if (empty($selected)) {
+                return;
+            }
         }
 
         $confirmedCode     = $selected['MerchantReference'] ?? null;
