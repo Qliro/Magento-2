@@ -137,6 +137,19 @@ class ValidateOrderBuilder
 
         $selectedMethod = $this->validationRequest['SelectedShippingMethod'] ?? null;
         if (empty($selectedMethod)) {
+            // Free-shipping case: a cart-price rule (or qualifying total) made shipping
+            // free on the Magento side, so Qliro's iframe has nothing for the customer
+            // to choose, and the validated callback arrives with no SelectedShippingMethod
+            // and no Type=Shipping line. Trust the quote when its shipping_method is set
+            // and the resolved amount is zero.
+            $shippingAddress = $this->quote->getShippingAddress();
+            if ($shippingAddress
+                && $shippingAddress->getShippingMethod()
+                && (float) $shippingAddress->getShippingAmount() === 0.0
+                && (float) $shippingAddress->getShippingInclTax() === 0.0
+            ) {
+                return true;
+            }
             return false;
         }
 
