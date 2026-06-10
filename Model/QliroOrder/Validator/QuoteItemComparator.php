@@ -37,13 +37,15 @@ class QuoteItemComparator
      */
     public function checkInStock(Quote $quote): bool
     {
-        foreach ($quote->getAllVisibleItems() as $quoteItem) {
-            $product = $quoteItem->getProduct();
-            $this->logManager->debug('Getting stock for product id: ' . $product->getId());
+        $scopeId = (int) $quote->getStore()->getWebsiteId();
 
-            if (!$this->stockChecker->isAvailable($product, (float) $quoteItem->getQty())) {
-                $this->logManager->debug('Product id is out of stock: ' . $product->getId());
-                $this->logError('checkInStock', 'not enough stock', ['sku' => $quoteItem->getSku()]);
+        foreach ($quote->getAllVisibleItems() as $quoteItem) {
+            $sku = (string) $quoteItem->getSku();
+            $this->logManager->debug('Getting stock for sku: ' . $sku);
+
+            if (!$this->stockChecker->isAvailable($sku, (float) $quoteItem->getQty(), $scopeId)) {
+                $this->logManager->debug('Sku is out of stock: ' . $sku);
+                $this->logError('checkInStock', 'not enough stock', ['sku' => $sku]);
                 return false;
             }
         }

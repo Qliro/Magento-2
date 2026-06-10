@@ -7,11 +7,10 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Validator;
 
-use Magento\Catalog\Api\Data\ProductInterface as Product;
 use Magento\CatalogInventory\Api\StockRegistryInterface as StockRegistry;
 
 /**
- * Decides whether a product can be sold for a requested qty.
+ * Decides whether a SKU can be sold for a requested qty.
  *
  */
 readonly class StockAvailabilityChecker
@@ -21,12 +20,9 @@ readonly class StockAvailabilityChecker
     ) {
     }
 
-    public function isAvailable(Product $product, float $qty): bool
+    public function isAvailable(string $sku, float $qty, ?int $scopeId = null): bool
     {
-        $stockItem = $this->stockRegistry->getStockItem(
-            $product->getId(),
-            $product->getStore()->getWebsiteId()
-        );
+        $stockItem = $this->stockRegistry->getStockItemBySku($sku, $scopeId);
 
         if (!$stockItem->getIsInStock()) {
             return false;
