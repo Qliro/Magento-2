@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Validator\Exception as ValidatorException;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\Quote as MagentoQuote;
 use Magento\Sales\Api\OrderRepositoryInterface;
@@ -150,6 +151,15 @@ class PlaceOrder
 
             return $order;
 
+        } catch (ValidatorException $expected) {
+            $this->logManager->debug($expected->getMessage(), [
+                'extra' => [
+                    'quote_id'       => $quote->getId(),
+                    'qliro_order_id' => $link->getQliroOrderId(),
+                    'note'           => 'expected: quote not yet hydrated; falling back to late placement',
+                ],
+            ]);
+            throw new TerminalException($expected->getMessage(), $expected->getCode(), $expected);
         } catch (\Exception $exception) {
             $this->logManager->critical($exception, [
                 'extra' => [
