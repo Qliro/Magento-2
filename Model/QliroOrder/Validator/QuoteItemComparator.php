@@ -7,26 +7,30 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Validator;
 
-use Magento\CatalogInventory\Api\StockRegistryInterface;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Validator\StockAvailabilityChecker;
 
 /**
- * Validates quote items against the Qliro order item list received in the validate callback.
+ * Validates quote items against the Qliro order item list received in the validated callback.
  *
  * Extracted from ValidateOrderBuilder (SRP): item-comparison algorithms do not belong in a builder.
  */
 class QuoteItemComparator
 {
     public function __construct(
-        private readonly StockRegistryInterface $stockRegistry,
-        private readonly LogManager $logManager
+        private readonly StockAvailabilityChecker $stockChecker,
+        private readonly LogManager               $logManager
     ) {
     }
 
     /**
-     * Check that all visible quote items are in stock.
+     * Check that all visible quote items are in stock for their requested qty.
+     *
+     * Stock resolution (MSI vs legacy CatalogInventory) is delegated to
+     * {@see StockAvailabilityChecker}, so this class doesn't need to know
+     * which inventory backend the store uses.
      *
      * @param Quote $quote
      * @return bool
@@ -34,14 +38,11 @@ class QuoteItemComparator
     public function checkInStock(Quote $quote): bool
     {
         foreach ($quote->getAllVisibleItems() as $quoteItem) {
-            $this->logManager->debug('Getting stock for product id: ' . $quoteItem->getProduct()->getId());
-            $stockItem = $this->stockRegistry->getStockItem(
-                $quoteItem->getProduct()->getId(),
-                $quoteItem->getProduct()->getStore()->getWebsiteId()
-            );
+            $product = $quoteItem->getProduct();
+            $this->logManager->debug('Getting stock for product id: ' . $product->getId());
 
-            if (!$stockItem->getIsInStock()) {
-                $this->logManager->debug('Product id is out of stock: ' . $quoteItem->getProduct()->getId());
+            if (!$this->stockChecker->isAvailable($product, (float) $quoteItem->getQty())) {
+                $this->logManager->debug('Product id is out of stock: ' . $product->getId());
                 $this->logError('checkInStock', 'not enough stock', ['sku' => $quoteItem->getSku()]);
                 return false;
             }
@@ -70,16 +71,15 @@ class QuoteItemComparator
             return false;
         }
 
-        // Index quote items by merchant reference
-        $hashedQuoteItems = [];
+        $groupedQuote = [];
         foreach ($quoteItems as $item) {
-            if (!in_array($item->getType(), $skipTypes)) {
-                $hashedQuoteItems[$item->getMerchantReference()] = $item;
+            if (in_array($item->getType(), $skipTypes)) {
+                continue;
             }
+            $groupedQuote[$item->getMerchantReference()][] = $item;
         }
 
-        // Index Qliro items by merchant reference; apply abs() to discount amounts
-        $hashedQliroItems = [];
+        $groupedQliro = [];
         foreach ($qliroItems as $item) {
             $type = $item['Type'] ?? '';
             if (in_array($type, $skipTypes)) {
@@ -90,28 +90,46 @@ class QuoteItemComparator
                 $item['PricePerItemIncVat'] = abs($item['PricePerItemIncVat'] ?? 0);
             }
             $ref = $item['MerchantReference'] ?? '';
-            $hashedQliroItems[$ref] = $item;
-
-            if (!isset($hashedQuoteItems[$ref])) {
-                $this->logError('compare', 'hashedQuoteItems failed');
-                return false;
-            }
-            if (!$this->compareItems($hashedQuoteItems[$ref], $hashedQliroItems[$ref])) {
-                return false;
-            }
+            $groupedQliro[$ref][] = $item;
         }
 
-        foreach ($quoteItems as $quoteItem) {
-            if (in_array($quoteItem->getType(), $skipTypes)) {
-                continue;
-            }
-            $ref = $quoteItem->getMerchantReference();
-            if (!isset($hashedQliroItems[$ref])) {
-                $this->logError('compare', '$hashedQliroItems failed');
+        if (array_diff_key($groupedQuote, $groupedQliro)
+            || array_diff_key($groupedQliro, $groupedQuote)) {
+            $this->logError('compare', 'merchant reference set mismatch', [
+                'quote_refs' => array_keys($groupedQuote),
+                'qliro_refs' => array_keys($groupedQliro),
+            ]);
+            return false;
+        }
+
+        foreach ($groupedQliro as $ref => $qliroLines) {
+            $quoteLines = $groupedQuote[$ref];
+            if (count($quoteLines) !== count($qliroLines)) {
+                $this->logError('compare', 'line count mismatch for reference', [
+                    'ref'         => $ref,
+                    'quote_count' => count($quoteLines),
+                    'qliro_count' => count($qliroLines),
+                ]);
                 return false;
             }
-            if (!$this->compareItems($hashedQuoteItems[$ref], $hashedQliroItems[$ref])) {
-                return false;
+            // Multiset match: each Qliro line must consume exactly one matching quote line.
+            $remaining = $quoteLines;
+            foreach ($qliroLines as $qliroLine) {
+                $matchedIdx = null;
+                foreach ($remaining as $idx => $candidate) {
+                    if ($this->itemsMatch($candidate, $qliroLine)) {
+                        $matchedIdx = $idx;
+                        break;
+                    }
+                }
+                if ($matchedIdx === null) {
+                    $this->logError('compare', 'no matching quote line for Qliro line', [
+                        'ref'        => $ref,
+                        'qliro_line' => $qliroLine,
+                    ]);
+                    return false;
+                }
+                unset($remaining[$matchedIdx]);
             }
         }
 
@@ -119,45 +137,45 @@ class QuoteItemComparator
     }
 
     /**
-     * Compare a quote item DTO against a raw Qliro order item array.
+     * Compare a single quote item against a single Qliro item.
      *
-     * @param QliroOrderItemInterface $quoteItem
-     * @param array                   $qliroItem
+     * Uses a 0.01 currency tolerance so that small rounding differences from VAT
+     * calculations do not cause spurious validation declines. Returns bool without
+     * logging — the caller logs context when the whole comparison fails.
      */
-    private function compareItems(QliroOrderItemInterface $quoteItem, array $qliroItem): bool
+    private function itemsMatch(QliroOrderItemInterface $quoteItem, array $qliroItem): bool
     {
-        if ($quoteItem->getPricePerItemExVat() != ($qliroItem['PricePerItemExVat'] ?? null)) {
-            $this->logError('compareItems', 'pricePerItemExVat different', [
-                'quote' => $quoteItem->getPricePerItemExVat(),
-                'qliro' => $qliroItem['PricePerItemExVat'] ?? null,
-            ]);
+        $epsilon = 0.01;
+
+        $exVatQuote = (float) $quoteItem->getPricePerItemExVat();
+        $exVatQliro = (float) ($qliroItem['PricePerItemExVat'] ?? 0);
+        if (abs($exVatQuote - $exVatQliro) > $epsilon) {
             return false;
         }
-        if ($quoteItem->getPricePerItemIncVat() != ($qliroItem['PricePerItemIncVat'] ?? null)) {
-            $this->logError('compareItems', 'pricePerItemIncVat different', [
-                'quote' => $quoteItem->getPricePerItemIncVat(),
-                'qliro' => $qliroItem['PricePerItemIncVat'] ?? null,
-            ]);
+
+        $incVatQuote = (float) $quoteItem->getPricePerItemIncVat();
+        $incVatQliro = (float) ($qliroItem['PricePerItemIncVat'] ?? 0);
+        if (abs($incVatQuote - $incVatQliro) > $epsilon) {
             return false;
         }
-        if ($quoteItem->getQuantity() != ($qliroItem['Quantity'] ?? null)) {
-            $this->logError('compareItems', 'quantity different', [
-                'quote' => $quoteItem->getQuantity(),
-                'qliro' => $qliroItem['Quantity'] ?? null,
-            ]);
+
+        if ((float) $quoteItem->getQuantity() !== (float) ($qliroItem['Quantity'] ?? 0)) {
             return false;
         }
-        if ($quoteItem->getType() != ($qliroItem['Type'] ?? null)) {
-            $this->logError('compareItems', 'type different', [
-                'quote' => $quoteItem->getType(),
-                'qliro' => $qliroItem['Type'] ?? null,
-            ]);
+
+        if ($quoteItem->getType() !== ($qliroItem['Type'] ?? null)) {
             return false;
         }
 
         return true;
     }
 
+    /**
+     * @param string $function
+     * @param string $reason
+     * @param array $details
+     * @return void
+     */
     private function logError(string $function, string $reason, array $details = []): void
     {
         $this->logManager->debug('CALLBACK:VALIDATE', [

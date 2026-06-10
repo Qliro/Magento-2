@@ -62,22 +62,24 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      */
     public function getSourceItemByMerchantReference(mixed $reference): ?TypeSourceItem
     {
+        $quoteItemId = null;
+        $sku         = null;
+
         if (is_array($reference)) {
             if (isset($reference['quoteItems'])) {
                 foreach ($reference['quoteItems'] as $ref) {
-                    if (str_contains($ref, ':')) {
-                        list($quoteItemId, $sku) = explode(':', $ref);
+                    if (str_contains((string) $ref, ':')) {
+                        [$quoteItemId, $sku] = explode(':', (string) $ref);
                     } else {
                         $quoteItemId = null;
-                        $sku = $reference;
+                        $sku         = (string) $ref;
                     }
                 }
             }
-        } else {
+        } elseif (is_string($reference)) {
             if (str_contains($reference, ':')) {
-                list($quoteItemId, $sku) = explode(':', $reference);
+                [$quoteItemId, $sku] = explode(':', $reference);
             } else {
-                $quoteItemId = null;
                 $sku = $reference;
             }
         }

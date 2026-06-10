@@ -22,14 +22,14 @@ class DefaultHandler implements ProductTypeHandler
     /**
      * Class constructor
      *
-     * @param Data               $qliroHelper
-     * @param Config             $config
-     * @param VatRate            $vatRate
+     * @param PriceFormatter            $priceFormatter
+     * @param Config                    $config
+     * @param VatRate                   $vatRate
      */
     public function __construct(
         private readonly PriceFormatter $priceFormatter,
-        private readonly Config  $config,
-        private readonly VatRate $vatRate
+        private readonly Config         $config,
+        private readonly VatRate        $vatRate
     ) {
     }
 
@@ -119,7 +119,7 @@ class DefaultHandler implements ProductTypeHandler
         $product = $item->getProduct();
         if ($this->config->isIngridEnabled($product->getStoreId())) {
             $meta['Ingrid'] = [
-                'Weight' => intval($product->getWeight() * 1000),
+                'Weight' => intval($product->getWeight() * 1000 * (float) $item->getQty()),
                 'Sku' => $product->getSku(),
                 'Attributes' => [],
                 'Dimensions' => [//TODO: Create dimensions attributes

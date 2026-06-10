@@ -7,61 +7,57 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Carrier;
 
+use Magento\Framework\App\Config\ScopeConfigInterface as ScopeConfig;
+use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Quote\Api\CartRepositoryInterface as CartRepository;
 use Magento\Quote\Model\Quote\Address\RateRequest;
+use Magento\Quote\Model\Quote\Address\RateResult\ErrorFactory;
+use Magento\Quote\Model\Quote\Address\RateResult\Method;
+use Magento\Quote\Model\Quote\Address\RateResult\MethodFactory;
+use Magento\Shipping\Model\Carrier\AbstractCarrier;
+use Magento\Shipping\Model\Carrier\CarrierInterface;
 use Magento\Shipping\Model\Rate\Result;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Magento\Shipping\Model\Rate\ResultFactory;
+use Psr\Log\LoggerInterface as Logger;
+use Qliro\QliroOne\Api\LinkRepositoryInterface as LinkRepository;
 use Qliro\QliroOne\Model\Config;
-use Magento\Quote\Api\CartRepositoryInterface;
 
-class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
-    \Magento\Shipping\Model\Carrier\CarrierInterface
+/**
+ * Clas Unifaun
+ */
+class Unifaun extends AbstractCarrier implements CarrierInterface
 {
-    const QLIRO_UNIFAUN_SHIPPING = 'qlirounifaun';
-    const QLIRO_UNIFAUN_SHIPPING_CODE = self::QLIRO_UNIFAUN_SHIPPING . '_' . self::QLIRO_UNIFAUN_SHIPPING; // Ugly
+    const string QLIRO_UNIFAUN_SHIPPING = 'qlirounifaun';
+    const string QLIRO_UNIFAUN_SHIPPING_CODE = self::QLIRO_UNIFAUN_SHIPPING . '_' . self::QLIRO_UNIFAUN_SHIPPING; // Ugly
 
-    /**
-     * @var string
-     */
     protected $_code = self::QLIRO_UNIFAUN_SHIPPING;
-
-    /**
-     * @var \Magento\Shipping\Model\Rate\ResultFactory
-     */
-    protected $_rateResultFactory;
-
-    /**
-     * @var \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory
-     */
-    protected $_rateMethodFactory;
 
     private mixed $quoteId = null;
 
     /**
      * Class constructor
      *
-     * @param \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig
-     * @param \Magento\Quote\Model\Quote\Address\RateResult\ErrorFactory $rateErrorFactory
-     * @param \Psr\Log\LoggerInterface $logger
-     * @param \Magento\Shipping\Model\Rate\ResultFactory $rateResultFactory
-     * @param \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory $rateMethodFactory
-     * @param LinkRepositoryInterface $linkRepository
-     * @param CartRepositoryInterface $quoteRepository
-     * @param Config $qliroConfig
-     * @param array $data
+     * @param ScopeConfig               $scopeConfig
+     * @param ErrorFactory              $rateErrorFactory
+     * @param Logger                    $logger
+     * @param ResultFactory             $rateResultFactory
+     * @param MethodFactory             $rateMethodFactory
+     * @param LinkRepository            $linkRepository
+     * @param CartRepository            $quoteRepository
+     * @param Config                    $qliroConfig
+     * @param array                     $data
      */
     public function __construct(
-        \Magento\Framework\App\Config\ScopeConfigInterface $scopeConfig,
-        \Magento\Quote\Model\Quote\Address\RateResult\ErrorFactory $rateErrorFactory,
-        \Psr\Log\LoggerInterface $logger,
-        \Magento\Shipping\Model\Rate\ResultFactory $rateResultFactory,
-        \Magento\Quote\Model\Quote\Address\RateResult\MethodFactory $rateMethodFactory,
-        private readonly LinkRepositoryInterface $linkRepository,
-        private readonly CartRepositoryInterface $quoteRepository,
-        private readonly Config $qliroConfig,
-        array $data = []
+        ScopeConfig                     $scopeConfig,
+        ErrorFactory                    $rateErrorFactory,
+        Logger                          $logger,
+        private readonly ResultFactory  $rateResultFactory,
+        private readonly MethodFactory  $rateMethodFactory,
+        private readonly LinkRepository $linkRepository,
+        private readonly CartRepository $quoteRepository,
+        private readonly Config         $qliroConfig,
+        array                           $data = []
     ) {
-        $this->_rateResultFactory = $rateResultFactory;
-        $this->_rateMethodFactory = $rateMethodFactory;
         parent::__construct($scopeConfig, $rateErrorFactory, $logger, $data);
     }
 
@@ -79,26 +75,26 @@ class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
      */
     private function getShippingPrice(): float
     {
-        $quoteId = $this->quoteId;
         try {
-            $link = $this->linkRepository->getByQuoteId($quoteId);
-            if ($link->getUnifaunShippingAmount()) {
-                $shippingPrice = $link->getUnifaunShippingAmount();
-            } else {
-                $configPrice = $this->getConfigData('price');
-                $shippingPrice = $this->getFinalPriceWithHandlingFee($configPrice);
+            $amount = $this->linkRepository->getByQuoteId($this->quoteId)->getUnifaunShippingAmount();
+            // Distinguish "no value yet" (null) from a legitimate 0.0 chosen by the customer.
+            // A truthiness check would treat free shipping as missing and fall back to the
+            // carrier config price.
+            if ($amount !== null) {
+                return (float) $amount;
             }
         } catch (\Exception $exception) {
-            $configPrice = $this->getConfigData('price');
-            $shippingPrice = $this->getFinalPriceWithHandlingFee($configPrice);
+            // fall through to config price
         }
 
-        return $shippingPrice;
+        // getConfigData() returns false|string — cast for strict-typed signature.
+        return $this->getFinalPriceWithHandlingFee((float) $this->getConfigData('price'));
     }
 
     /**
      * @param RateRequest $request
      * @return bool|Result
+     * @throws NoSuchEntityException
      */
     public function collectRates(RateRequest $request): bool|Result
     {
@@ -107,11 +103,11 @@ class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
             return false;
         }
 
-        /** @var \Magento\Shipping\Model\Rate\Result $result */
-        $result = $this->_rateResultFactory->create();
+        /** @var Result $result */
+        $result = $this->rateResultFactory->create();
 
-        /** @var \Magento\Quote\Model\Quote\Address\RateResult\Method $method */
-        $method = $this->_rateMethodFactory->create();
+        /** @var Method $method */
+        $method = $this->rateMethodFactory->create();
 
         $method->setCarrier($this->_code);
         $method->setCarrierTitle($this->getConfigData('title'));
@@ -121,10 +117,10 @@ class Unifaun extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
         if(count($request->getAllItems())){
             $this->quoteId = $request->getAllItems()[0]->getQuoteId();
             $quote = $this->quoteRepository->get($this->quoteId);
-            if($quote->getShippingAddress()->getShippingDescription() && strpos($quote->getShippingAddress()->getShippingDescription(), 'Unifaun -') !== false) {
-                $shipingMethod = explode(' - ', $quote->getShippingAddress()->getShippingDescription());
-                $method->setCarrierTitle($shipingMethod[0]);
-                $method->setMethodTitle($shipingMethod[1]);
+            if($quote->getShippingAddress()->getShippingDescription() && str_contains($quote->getShippingAddress()->getShippingDescription(), 'Unifaun -')) {
+                $shippingMethod = explode(' - ', $quote->getShippingAddress()->getShippingDescription());
+                $method->setCarrierTitle($shippingMethod[0]);
+                $method->setMethodTitle($shippingMethod[1]);
             }
         }
 

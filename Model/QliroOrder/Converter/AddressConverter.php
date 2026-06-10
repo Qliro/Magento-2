@@ -15,19 +15,14 @@ use Magento\Quote\Model\Quote\Address;
 class AddressConverter
 {
     /**
-     * Convert given quote address from raw QliroOne address and customer arrays
+     * Convert the given quote address from the raw QliroOne address and customer arrays
      *
      * @param array $qliroAddress
      * @param array $qliroCustomer
-     * @param \Magento\Quote\Model\Quote\Address $address
+     * @param Address $address
      * @param string|null $countryCode
      */
-    public function convert(
-        array $qliroAddress,
-        array $qliroCustomer,
-        Address $address,
-        ?string $countryCode = null
-    ): void {
+    public function convert(array $qliroAddress, array $qliroCustomer, Address $address, ?string $countryCode = null): void {
         $addressData = [
             'firstname' => $qliroAddress['FirstName'] ?? null,
             'lastname'  => $qliroAddress['LastName'] ?? null,
@@ -46,6 +41,11 @@ class AddressConverter
                 $address->setData($key, $value);
                 $changed = true;
             }
+        }
+
+        if (($qliroAddress['CompanyName'] ?? null) === null && $address->getCompany()) {
+            $address->setCompany(null);
+            $changed = true;
         }
 
         if (!$address->getCountryId() && $countryCode !== null) {
