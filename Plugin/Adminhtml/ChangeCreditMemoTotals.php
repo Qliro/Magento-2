@@ -19,7 +19,7 @@ class ChangeCreditMemoTotals
      */
     public function afterGetCreditmemo(Totals $subject, Creditmemo $creditmemo): Creditmemo
     {
-        if (!$this->isVirtualOnlyCreditMemo($creditmemo)) {
+        if ($creditmemo->getId() || !$this->isVirtualOnlyCreditMemo($creditmemo)) {
             return $creditmemo;
         }
 
