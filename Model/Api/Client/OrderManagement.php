@@ -38,11 +38,6 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
     private $service;
 
     /**
-     * @var \Qliro\QliroOne\Model\Config
-     */
-    private $config;
-
-    /**
      * @var \Qliro\QliroOne\Model\ContainerMapper
      */
     private $containerMapper;
@@ -51,11 +46,6 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      * @var \Magento\Framework\Serialize\Serializer\Json
      */
     private $json;
-
-    /**
-     * @var \Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory
-     */
-    private $qliroOrderFactory;
 
     /**
      * @var \Qliro\QliroOne\Model\Logger\Manager
@@ -71,27 +61,21 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\Api\Service $service
-     * @param \Qliro\QliroOne\Model\Config $config
      * @param \Magento\Framework\Serialize\Serializer\Json $json
      * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderInterfaceFactory $qliroOrderFactory
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Magento\Framework\DataObject\IdentityGeneratorInterface $idGenerator
      */
     public function __construct(
         Service $service,
-        Config $config,
         Json $json,
         ContainerMapper $containerMapper,
-        QliroOrderInterfaceFactory $qliroOrderFactory,
         LogManager $logManager,
         IdentityGeneratorInterface $idGenerator
     ) {
         $this->service = $service;
-        $this->config = $config;
         $this->containerMapper = $containerMapper;
         $this->json = $json;
-        $this->qliroOrderFactory = $qliroOrderFactory;
         $this->logManager = $logManager;
         $this->idGenerator = $idGenerator;
     }
@@ -151,7 +135,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      */
     public function addItemsToInvoice(AdminAddItemsToInvoiceRequestInterface $request, $storeId = null)
     {
-        $container = null;
+        $containers = [];
         $request->setRequestId($this->idGenerator->generateId());
 
         try {
@@ -159,13 +143,18 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $response = $this->service->post('checkout/adminapi/v2/AddItemsToInvoice', $payload, $storeId);
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
-            /** @var AdminTransactionResponseInterface $container */
-            $container = $this->containerMapper->fromArray($paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
+            foreach ($paymentTransactions as $paymentTransaction) {
+                /** @var AdminTransactionResponseInterface $container */
+                $containers[] = $this->containerMapper->fromArray(
+                    $paymentTransaction,
+                    AdminTransactionResponseInterface::class
+                );
+            }
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
 
-        return $container;
+        return $containers;
     }
 
     /**

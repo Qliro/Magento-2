@@ -6,55 +6,61 @@
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
+use Magento\Sales\Api\OrderPaymentRepositoryInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Model\Exception\TerminalException;
+use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 
 class Payment implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var \Magento\Sales\Api\OrderPaymentRepositoryInterface
+     * @var OrderPaymentRepositoryInterface
      */
     private $paymentRepository;
 
     /**
-     * @var \Magento\Sales\Api\TransactionRepositoryInterface
-     */
-    private $paymentTransactionRepository;
-
-    /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
+     * @var OrderRepositoryInterface
      */
     private $orderRepository;
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
+     * @var Manager
      */
     private $logManager;
 
     /**
+     * @var CaptureTransactionUpdater
+     */
+    private $captureTransactionUpdater;
+
+    /**
      * Payment constructor.
-     * @param \Magento\Sales\Api\OrderPaymentRepositoryInterface $paymentRepository
-     * @param \Magento\Sales\Api\TransactionRepositoryInterface $paymentTransactionRepository
-     * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param OrderPaymentRepositoryInterface $paymentRepository
+     * @param OrderRepositoryInterface $orderRepository
+     * @param Manager $logManager
+     * @param CaptureTransactionUpdater $captureTransactionUpdater
      */
     public function __construct(
-        \Magento\Sales\Api\OrderPaymentRepositoryInterface $paymentRepository,
-        \Magento\Sales\Api\TransactionRepositoryInterface $paymentTransactionRepository,
-        \Magento\Sales\Api\OrderRepositoryInterface $orderRepository,
-        \Qliro\QliroOne\Model\Logger\Manager $logManager
+        OrderPaymentRepositoryInterface $paymentRepository,
+        OrderRepositoryInterface $orderRepository,
+        Manager $logManager,
+        CaptureTransactionUpdater $captureTransactionUpdater
     ) {
         $this->paymentRepository = $paymentRepository;
-        $this->paymentTransactionRepository = $paymentTransactionRepository;
         $this->orderRepository = $orderRepository;
         $this->logManager = $logManager;
+        $this->captureTransactionUpdater = $captureTransactionUpdater;
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleSuccess($qliroOrderManagementStatus, $omStatus)
     {
@@ -89,53 +95,17 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
             throw new TerminalException('Could not handle Invoice Success', $exception->getCode(), $exception);
         }
 
-        /*
-         * Update Payment Transaction
-         */
-        try {
-            /** @var \Magento\Sales\Model\Order\Payment\Transaction $paymentTransaction */
-            $paymentTransaction = $this->getPaymentTransaction(
-                $qliroOrderManagementStatus->getPaymentTransactionId(),
-                $payment->getId(),
-                $order->getId()
-            );
-
-            $paymentTransaction->setAdditionalInformation(
-                'provider_result_description',
-                $qliroOrderManagementStatus->getProviderResultDescription()
-            );
-            $paymentTransaction->setAdditionalInformation(
-                'provider_result_code',
-                $qliroOrderManagementStatus->getProviderResultCode()
-            );
-            $paymentTransaction->setAdditionalInformation(
-                'provider_transaction_id',
-                $qliroOrderManagementStatus->getProviderTransactionId()
-            );
-            $paymentTransaction->setAdditionalInformation(
-                'payment_reference',
-                $qliroOrderManagementStatus->getPaymentReference()
-            );
-
-            $this->paymentTransactionRepository->save($paymentTransaction);
-        } catch (\Exception $exception) {
-            $this->logManager->debug(
-                $exception,
-                [
-                    'extra' => [
-                        'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
-                        'payment_id' => $payment->getId(),
-                    ],
-                ]
-            );
-            // Silent, since this code is not required, just nice to haves
-        }
+        $this->captureTransactionUpdater->update(
+            $qliroOrderManagementStatus,
+            $payment->getId(),
+            $order->getId()
+        );
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleCancelled($qliroOrderManagementStatus, $omStatus)
     {
@@ -143,9 +113,9 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleError($qliroOrderManagementStatus, $omStatus)
     {
@@ -153,8 +123,8 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
     public function handleInProcess($qliroOrderManagementStatus, $omStatus)
     {
@@ -163,9 +133,9 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
 
     /**
      * The OnHold status is used when the capture is not successful and the order should be put on hold
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleOnHold($qliroOrderManagementStatus, $omStatus)
     {
@@ -173,9 +143,9 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleUserInteraction($qliroOrderManagementStatus, $omStatus)
     {
@@ -183,8 +153,8 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
     public function handleCreated($qliroOrderManagementStatus, $omStatus)
     {
@@ -192,7 +162,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param OrderManagementStatus $omStatus
      * @return \Magento\Sales\Model\Order\Payment $payment
      */
     private function getPayment($omStatus)
@@ -203,29 +173,10 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * Get payment transaction with the same transaction number as was part of this notification
-     *
-     * @param int $transactionId
-     * @param int $paymentId
-     * @param int $orderId
-     * @return \Magento\Sales\Model\Order\Payment $payment
-     */
-    private function getPaymentTransaction($transactionId, $paymentId, $orderId)
-    {
-        $paymentTransaction = $this->paymentTransactionRepository->getByTransactionId(
-            $transactionId,
-            $paymentId,
-            $orderId
-        );
-
-        return $paymentTransaction;
-    }
-
-    /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setOnHold($qliroOrderManagementStatus, $omStatus, $contextMessage)
     {
@@ -251,12 +202,12 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
         }
     }
 
-    
+
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setPendingPayment($qliroOrderManagementStatus, $omStatus, $contextMessage)
     {
@@ -286,10 +237,10 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setCanceled($qliroOrderManagementStatus, $omStatus, $contextMessage)
     {

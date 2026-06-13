@@ -25,6 +25,7 @@ use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
 /**
  * QliroOne management class
  */
@@ -86,6 +87,11 @@ class Payment extends AbstractManagement
     private $addItemsToInvoiceBuilder;
 
     /**
+     * @var CaptureRefundAllocator
+     */
+    private $captureRefundAllocator;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -99,6 +105,7 @@ class Payment extends AbstractManagement
      * @param InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder
      * @param ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
      * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
+     * @param CaptureRefundAllocator $captureRefundAllocator
      */
     public function __construct(
         Config $qliroConfig,
@@ -111,7 +118,8 @@ class Payment extends AbstractManagement
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
         ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
-        AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
+        AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder,
+        CaptureRefundAllocator $captureRefundAllocator
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -124,6 +132,7 @@ class Payment extends AbstractManagement
         $this->invoiceMarkItemsAsShippedRequestBuilder = $invoiceMarkItemsAsShippedRequestBuilder;
         $this->shipmentMarkItemsAsShippedRequestBuilder = $shipmentMarkItemsAsShippedRequestBuilder;
         $this->addItemsToInvoiceBuilder = $addItemsToInvoiceBuilder;
+        $this->captureRefundAllocator = $captureRefundAllocator;
     }
 
     /**
@@ -310,38 +319,56 @@ class Payment extends AbstractManagement
         $this->logManager->setMerchantReference($link->getReference());
 
         try {
-            $request = $this->addItemsToInvoiceBuilder->setPayment($payment)->create();
-            $result = $this->orderManagementApi->addItemsToInvoice($request, $payment->getOrder()->getStoreId());
+            $creditMemo = $payment->getCreditmemo();
+            $refundAmount = round(abs((float)$creditMemo->getGrandTotal()), 2);
+            $allocation = $this->captureRefundAllocator->allocate($payment, $refundAmount);
 
-            try {
-                /** @var OrderManagementStatus $omStatus */
-                $omStatus = $this->orderManagementStatusInterfaceFactory->create();
+            $request = $this->addItemsToInvoiceBuilder
+                ->setPayment($payment)
+                ->setAllocation($allocation)
+                ->create();
 
-                $omStatus->setRecordId($payment->getId());
-                $omStatus->setRecordType(OrderManagementStatusInterface::ADD_ITEMS_TO_INVOICE);
-                $omStatus->setTransactionId($result->getPaymentTransactionId());
-                $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
-                $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
-                $omStatus->setMessage('Refund requested with add items to invoice');
-                $omStatus->setQliroOrderId($link->getQliroOrderId());
+            $results = $this->orderManagementApi->addItemsToInvoice($request, $payment->getOrder()->getStoreId());
 
-                $this->orderManagementStatusRepository->save($omStatus);
-            } catch (\Exception $exception) {
-                $this->logManager->debug(
-                    $exception,
-                    [
-                        'extra' => [
-                            'payment_id' => $payment->getId(),
-                        ],
-                    ]
-                );
-            }
-
-            if ($result->getStatus() != 'Created') {
+            if (empty($results)) {
                 throw new LocalizedException(
                     __('Unable to refund')
                 );
             }
+
+            foreach ($results as $result) {
+                try {
+                    /** @var OrderManagementStatus $omStatus */
+                    $omStatus = $this->orderManagementStatusInterfaceFactory->create();
+
+                    $omStatus->setRecordId($payment->getId());
+                    $omStatus->setRecordType(OrderManagementStatusInterface::ADD_ITEMS_TO_INVOICE);
+                    $omStatus->setTransactionId($result->getPaymentTransactionId());
+                    $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+                    $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
+                    $omStatus->setMessage('Refund requested with add items to invoice');
+                    $omStatus->setQliroOrderId($link->getQliroOrderId());
+
+                    $this->orderManagementStatusRepository->save($omStatus);
+                } catch (\Exception $exception) {
+                    $this->logManager->debug(
+                        $exception,
+                        [
+                            'extra' => [
+                                'payment_id' => $payment->getId(),
+                            ],
+                        ]
+                    );
+                }
+
+                if ($result->getStatus() != 'Created') {
+                    throw new LocalizedException(
+                        __('Unable to refund')
+                    );
+                }
+            }
+
+            $this->captureRefundAllocator->registerRefunds($payment, $allocation);
 
         } catch (InputException $e) {
             $this->logManager->debug(

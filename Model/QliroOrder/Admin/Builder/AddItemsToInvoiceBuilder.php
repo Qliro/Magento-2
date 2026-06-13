@@ -28,6 +28,13 @@ class AddItemsToInvoiceBuilder
     private $payment;
 
     /**
+     * Refund allocation across captures, list of ['payment_transaction_id' => int, 'amount' => float]
+     *
+     * @var array
+     */
+    private $allocation = [];
+
+    /**
      * @param AdminAddItemsToInvoiceRequestInterfaceFactory $adminAddItemsToInvoiceRequestFactory
      * @param LinkRepositoryInterface $linkRepository
      * @param Manager $logManager
@@ -62,6 +69,7 @@ class AddItemsToInvoiceBuilder
         $request = $this->prepareRequest();
 
         $this->payment = null;
+        $this->allocation = [];
 
         return $request;
     }
@@ -73,6 +81,21 @@ class AddItemsToInvoiceBuilder
     public function setPayment(Payment $payment): self
     {
         $this->payment = $payment;
+
+        return $this;
+    }
+
+    /**
+     * Set the refund allocation across capture transactions.
+     * When set, one Addition is built per capture. When empty, falls back to a single
+     * Addition against the payment's parent transaction (legacy behavior).
+     *
+     * @param array $allocation List of ['payment_transaction_id' => int, 'amount' => float]
+     * @return self
+     */
+    public function setAllocation(array $allocation): self
+    {
+        $this->allocation = $allocation;
 
         return $this;
     }
@@ -99,7 +122,7 @@ class AddItemsToInvoiceBuilder
             )->setCurrency(
                 $order->getOrderCurrencyCode()
             )->setAdditions(
-                [$this->getAdditions()]
+                $this->buildAdditions()
             );
         } catch (NoSuchEntityException $e) {
             $this->logManager->debug(
@@ -114,6 +137,40 @@ class AddItemsToInvoiceBuilder
         }
 
         return $request;
+    }
+
+    /**
+     * Builds the Additions array for the request.
+     *
+     * When an allocation is set, one Addition is created per capture transaction, each with
+     * its allocated portion of the refund. Qliro validates every Addition against the amount
+     * left in its own capture, so a refund exceeding a single capture must be spread across
+     * several captures. Without an allocation, a single Addition against the payment's parent
+     * transaction is created (legacy behavior for orders without captured-amount tracking).
+     *
+     * @return AdminAdditionsInterface[]
+     */
+    private function buildAdditions(): array
+    {
+        if (empty($this->allocation)) {
+            return [$this->getAdditions()];
+        }
+
+        $additions = [];
+
+        foreach ($this->allocation as $entry) {
+            /** @var AdminAdditionsInterface $addition */
+            $addition = $this->adminAdditionsFactory->create();
+            $addition->setPaymentTransactionId(
+                (int)$entry['payment_transaction_id']
+            )->setOrderItems(
+                [$this->getOrderItems((float)$entry['amount'])]
+            );
+
+            $additions[] = $addition;
+        }
+
+        return $additions;
     }
 
     /**
@@ -139,13 +196,15 @@ class AddItemsToInvoiceBuilder
     /**
      * Creates and returns a Qliro order item representing the discount details from the credit memo.
      *
+     * @param float|null $amount Refund portion (positive) for this line; defaults to the credit memo grand total.
      * @return QliroOrderItemInterface The Qliro order item populated with discount information, including VAT rate calculation, price, and description.
      */
-    private function getOrderItems(): QliroOrderItemInterface
+    private function getOrderItems(?float $amount = null): QliroOrderItemInterface
     {
         $creditMemo = $this->payment->getCreditmemo();
 
-        $priceIncVat = round(-abs((float)$creditMemo->getGrandTotal()), 2);
+        $amount = $amount ?? (float)$creditMemo->getGrandTotal();
+        $priceIncVat = round(-abs($amount), 2);
         $vatRate = $this->getCreditMemoVatRate($creditMemo);
         $priceExVat = round($priceIncVat / (1 + ($vatRate / 100)), 2);
 
