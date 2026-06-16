@@ -17,12 +17,9 @@ use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 /**
  * Allocates a refund amount across Qliro capture transactions.
  *
- * Every Qliro refund (AddItemsToInvoice Addition) must match a PSP transaction, and Qliro
- * validates each Addition against the amount left in its own capture ("shipment"). A single
- * Magento credit memo can therefore need to be spread across several captures. This class
- * keeps tabs on how much money is left in each capture (captured_amount - refunded_amount,
- * both tracked in sales_payment_transaction.additional_information) and splits the refund
- * accordingly.
+ * Qliro validates each Addition against the amount left in its own capture, so a credit memo may
+ * span several captures. Splits the refund by left = captured_amount - refunded_amount (both
+ * tracked in sales_payment_transaction.additional_information).
  */
 class CaptureRefundAllocator
 {
@@ -126,6 +123,27 @@ class CaptureRefundAllocator
         }
 
         return $allocation;
+    }
+
+    /**
+     * Record a confirmed refund against a single capture transaction.
+     *
+     * Used from the success callback once the PSP has actually confirmed the return, so
+     * refunded_amount only ever reflects money that really left the capture.
+     *
+     * @param Payment $payment
+     * @param string $captureTxnId Qliro capture PaymentTransactionId
+     * @param float $amount Positive refunded amount
+     * @return void
+     */
+    public function registerRefundForCapture(Payment $payment, string $captureTxnId, float $amount): void
+    {
+        $this->registerRefunds($payment, [
+            [
+                'payment_transaction_id' => $captureTxnId,
+                'amount' => $amount,
+            ],
+        ]);
     }
 
     /**

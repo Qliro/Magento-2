@@ -164,7 +164,10 @@ class AddItemsToInvoiceBuilder
             $addition->setPaymentTransactionId(
                 (int)$entry['payment_transaction_id']
             )->setOrderItems(
-                [$this->getOrderItems((float)$entry['amount'])]
+                [$this->getOrderItems(
+                    (float)$entry['amount'],
+                    isset($entry['vat_rate']) ? (float)$entry['vat_rate'] : null
+                )]
             );
 
             $additions[] = $addition;
@@ -197,15 +200,18 @@ class AddItemsToInvoiceBuilder
      * Creates and returns a Qliro order item representing the discount details from the credit memo.
      *
      * @param float|null $amount Refund portion (positive) for this line; defaults to the credit memo grand total.
+     * @param float|null $vatRate VAT rate for the line; when null it is derived from the credit memo.
+     *                            Callback-driven Additions pass it explicitly because no credit memo
+     *                            is in context at that point.
      * @return QliroOrderItemInterface The Qliro order item populated with discount information, including VAT rate calculation, price, and description.
      */
-    private function getOrderItems(?float $amount = null): QliroOrderItemInterface
+    private function getOrderItems(?float $amount = null, ?float $vatRate = null): QliroOrderItemInterface
     {
         $creditMemo = $this->payment->getCreditmemo();
 
         $amount = $amount ?? (float)$creditMemo->getGrandTotal();
         $priceIncVat = round(-abs($amount), 2);
-        $vatRate = $this->getCreditMemoVatRate($creditMemo);
+        $vatRate = $vatRate ?? $this->getCreditMemoVatRate($creditMemo);
         $priceExVat = round($priceIncVat / (1 + ($vatRate / 100)), 2);
 
         /** @var QliroOrderItemInterface $orderItems */
@@ -222,6 +228,20 @@ class AddItemsToInvoiceBuilder
             ->setMetadata(['qliro' => 'checkout']);
 
         return $orderItems;
+    }
+
+    /**
+     * Resolve the refund VAT rate for a payment's credit memo.
+     *
+     * Exposed so the caller can capture the rate at refund time and embed it in each queued
+     * allocation entry; subsequent (callback-driven) Additions are built without a credit memo.
+     *
+     * @param Payment $payment
+     * @return float
+     */
+    public function getRefundVatRate(Payment $payment): float
+    {
+        return $this->getCreditMemoVatRate($payment->getCreditmemo());
     }
 
     /**
