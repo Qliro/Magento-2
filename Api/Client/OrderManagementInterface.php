@@ -63,7 +63,7 @@ interface OrderManagementInterface
      *
      * @param AdminAddItemsToInvoiceRequestInterface $request The request object containing the invoice and items data.
      * @param int|null $storeId Optional store ID for identifying the store context.
-     * @return AdminTransactionResponseInterface|null Returns the resulting container or null in case of failure.
+     * @return AdminTransactionResponseInterface[] Returns one container per payment transaction in the response.
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     public function addItemsToInvoice(AdminAddItemsToInvoiceRequestInterface $request, $storeId = null);
