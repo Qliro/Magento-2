@@ -116,7 +116,8 @@ define([
             sendAjaxAsJson(config.updateCustomerUrl, customer).then(
                 function(data) {
                     qliroSuccessDebug('onCustomerInfoChanged', data);
-                    if(!quote.shippingAddress().postcode) {
+                    var shippingAddress = quote.shippingAddress();
+                    if (!shippingAddress || !shippingAddress.postcode) {
                         checkoutDataResolver.resolveShippingAddress();
                     }
                     model.updateCart();

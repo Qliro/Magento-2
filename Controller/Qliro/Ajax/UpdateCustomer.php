@@ -28,6 +28,13 @@ class UpdateCustomer extends AbstractAjaxAction
 
         $customerData = $this->getBody();
 
+        $this->logManager->debug('AJAX:UPDATE_CUSTOMER raw body', [
+            'extra' => [
+                'keys' => array_keys($customerData),
+                'body' => $customerData,
+            ],
+        ]);
+
         try {
             $this->orderService->updateCustomer($customerData);
         } catch (\Exception $e) {
