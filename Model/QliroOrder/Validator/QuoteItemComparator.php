@@ -56,8 +56,8 @@ class QuoteItemComparator
     /**
      * Compare quote item DTOs (built from quote) against raw Qliro order items (from callback).
      *
-     * @param QliroOrderItemInterface[] $quoteItems  Items built from quote by OrderItemsBuilder
-     * @param array[]                   $qliroItems   Raw items from Qliro callback payload
+     * @param array[] $quoteItems  Items built from quote by OrderItemsBuilder (raw arrays)
+     * @param array[] $qliroItems  Raw items from Qliro callback payload
      * @return bool
      */
     public function compare(array $quoteItems, array $qliroItems): bool
@@ -75,10 +75,10 @@ class QuoteItemComparator
 
         $groupedQuote = [];
         foreach ($quoteItems as $item) {
-            if (in_array($item->getType(), $skipTypes)) {
+            if (in_array($item['Type'] ?? null, $skipTypes)) {
                 continue;
             }
-            $groupedQuote[$item->getMerchantReference()][] = $item;
+            $groupedQuote[$item['MerchantReference'] ?? ''][] = $item;
         }
 
         $groupedQliro = [];
@@ -145,27 +145,27 @@ class QuoteItemComparator
      * calculations do not cause spurious validation declines. Returns bool without
      * logging — the caller logs context when the whole comparison fails.
      */
-    private function itemsMatch(QliroOrderItemInterface $quoteItem, array $qliroItem): bool
+    private function itemsMatch(array $quoteItem, array $qliroItem): bool
     {
         $epsilon = 0.01;
 
-        $exVatQuote = (float) $quoteItem->getPricePerItemExVat();
+        $exVatQuote = (float) ($quoteItem['PricePerItemExVat'] ?? 0);
         $exVatQliro = (float) ($qliroItem['PricePerItemExVat'] ?? 0);
         if (abs($exVatQuote - $exVatQliro) > $epsilon) {
             return false;
         }
 
-        $incVatQuote = (float) $quoteItem->getPricePerItemIncVat();
+        $incVatQuote = (float) ($quoteItem['PricePerItemIncVat'] ?? 0);
         $incVatQliro = (float) ($qliroItem['PricePerItemIncVat'] ?? 0);
         if (abs($incVatQuote - $incVatQliro) > $epsilon) {
             return false;
         }
 
-        if ((float) $quoteItem->getQuantity() !== (float) ($qliroItem['Quantity'] ?? 0)) {
+        if ((float) ($quoteItem['Quantity'] ?? 0) !== (float) ($qliroItem['Quantity'] ?? 0)) {
             return false;
         }
 
-        if ($quoteItem->getType() !== ($qliroItem['Type'] ?? null)) {
+        if (($quoteItem['Type'] ?? null) !== ($qliroItem['Type'] ?? null)) {
             return false;
         }
 
