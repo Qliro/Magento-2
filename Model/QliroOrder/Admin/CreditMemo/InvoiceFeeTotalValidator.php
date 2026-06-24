@@ -34,21 +34,31 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
             return false;
         }
 
+        $order = $this->getCreditMemo()->getOrder();
+
         if ($useQtyRefundedOnly) {
             return bccomp(
-                $this->getCreditMemo()->getInvoice()->getBaseTotalRefunded(),
-                $this->getCreditMemo()->getInvoice()->getGrandTotal()
-            ) != -1;
+                    $order->getBaseTotalRefunded(),
+                    $order->getGrandTotal()
+                ) != -1;
         }
 
-        $invoiceGrandTotal = $this->getCreditMemo()->getInvoice()->getGrandTotal() - $this->getOrderFeesTotal();
+        /*
+         * The invoice fee is an order-level charge that is placed on a single invoice (the first
+         * one created). It must therefore be refunded only once the whole order is fully refunded,
+         * not when an individual invoice happens to be fully refunded while other items remain
+         * (e.g. a virtual product captured on its own invoice in a split-capture order).
+         */
+        $orderGrandTotal = floatval($order->getGrandTotal()) - $this->getOrderFeesTotal();
 
-        $totalRefunded = floatval($this->getCreditMemo()->getInvoice()->getBaseTotalRefunded());
+        $totalRefunded = floatval($order->getBaseTotalRefunded());
         $totalCreditMemo = floatval($this->getCreditMemo()->getGrandTotal());
         $fee = $this->getOrderFeesTotal();
-        $orderTotalRefunded = $feeIsAddedAsTotal ? $totalRefunded + $totalCreditMemo - $fee : $totalRefunded + $totalCreditMemo;
+        $orderTotalRefunded = $feeIsAddedAsTotal
+            ? $totalRefunded + $totalCreditMemo - $fee
+            : $totalRefunded + $totalCreditMemo;
 
-        if (bccomp($orderTotalRefunded, $invoiceGrandTotal) != -1) {
+        if (bccomp($orderTotalRefunded, $orderGrandTotal) != -1) {
             return true;
         }
 
