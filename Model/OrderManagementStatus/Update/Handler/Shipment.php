@@ -10,65 +10,67 @@ use Magento\Sales\Api\InvoiceRepositoryInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\ShipmentRepositoryInterface;
 use Magento\Sales\Model\Order\Invoice;
-use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 
 class Shipment implements OrderManagementStatusUpdateHandlerInterface
 {
     /**
-     * @var \Magento\Sales\Api\ShipmentRepositoryInterface
+     * @var ShipmentRepositoryInterface
      */
     private $shipmentRepository;
 
     /**
-     * @var \Magento\Sales\Api\OrderRepositoryInterface
+     * @var OrderRepositoryInterface
      */
     private $orderRepository;
 
     /**
-     * @var \Magento\Sales\Api\InvoiceRepositoryInterface
+     * @var InvoiceRepositoryInterface
      */
     private $invoiceRepository;
 
     /**
-     * @var Order\Payment\Transaction\BuilderInterface
-     */
-    private $transactionBuilder;
-
-    /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
+     * @var Manager
      */
     private $logManager;
 
     /**
+     * @var CaptureTransactionUpdater
+     */
+    private $captureTransactionUpdater;
+
+    /**
      * Shipment constructor.
-     * @param \Magento\Sales\Api\ShipmentRepositoryInterface $shipmentRepository
-     * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
-     * @param \Magento\Sales\Api\InvoiceRepositoryInterface $invoiceRepository
-     * @param \Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface $transactionBuilder
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param ShipmentRepositoryInterface $shipmentRepository
+     * @param OrderRepositoryInterface $orderRepository
+     * @param InvoiceRepositoryInterface $invoiceRepository
+     * @param Manager $logManager
+     * @param CaptureTransactionUpdater $captureTransactionUpdater
      */
     public function __construct(
         ShipmentRepositoryInterface $shipmentRepository,
         OrderRepositoryInterface $orderRepository,
         InvoiceRepositoryInterface $invoiceRepository,
-        BuilderInterface $transactionBuilder,
-        Manager $logManager
+        Manager $logManager,
+        CaptureTransactionUpdater $captureTransactionUpdater
     ) {
         $this->shipmentRepository = $shipmentRepository;
         $this->orderRepository = $orderRepository;
         $this->invoiceRepository = $invoiceRepository;
-        $this->transactionBuilder = $transactionBuilder;
         $this->logManager = $logManager;
+        $this->captureTransactionUpdater = $captureTransactionUpdater;
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleSuccess($qliroOrderManagementStatus, $omStatus)
     {
@@ -138,6 +140,12 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             $order->addStatusHistoryComment(__('Capture of %1 confirmed successful', $formattedPrice));
 
             $this->orderRepository->save($order);
+
+            $this->captureTransactionUpdater->update(
+                $qliroOrderManagementStatus,
+                $payment->getId(),
+                $order->getId()
+            );
         } catch (\Exception $exception) {
             $this->logManager->debug(
                 $exception,
@@ -153,9 +161,9 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleCancelled($qliroOrderManagementStatus, $omStatus)
     {
@@ -163,9 +171,9 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleError($qliroOrderManagementStatus, $omStatus)
     {
@@ -173,8 +181,8 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
     public function handleInProcess($qliroOrderManagementStatus, $omStatus)
     {
@@ -182,9 +190,9 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleOnHold($qliroOrderManagementStatus, $omStatus)
     {
@@ -192,9 +200,9 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
+     * @throws TerminalException
      */
     public function handleUserInteraction($qliroOrderManagementStatus, $omStatus)
     {
@@ -202,8 +210,8 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      */
     public function handleCreated($qliroOrderManagementStatus, $omStatus)
     {
@@ -211,8 +219,8 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
-     * @return \Magento\Sales\Model\Order\Shipment $shipment
+     * @param OrderManagementStatus $omStatus
+     * @return Order\Shipment $shipment
      */
     private function getShipment($omStatus)
     {
@@ -222,10 +230,10 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setOnHold($qliroOrderManagementStatus, $omStatus, $contextMessage)
     {
@@ -254,10 +262,10 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setPendingPayment($qliroOrderManagementStatus, $omStatus, $contextMessage)
     {
@@ -287,10 +295,10 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
-     * @param \Qliro\QliroOne\Model\OrderManagementStatus $omStatus
+     * @param QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setCanceled($qliroOrderManagementStatus, $omStatus, $contextMessage)
     {

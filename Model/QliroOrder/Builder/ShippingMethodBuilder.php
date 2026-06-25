@@ -123,19 +123,28 @@ class ShippingMethodBuilder
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface $container */
         $container = $this->shippingMethodFactory->create();
 
-        $priceExVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
-            false,
-            $shippingAddress,
-            $this->quote->getCustomerTaxClassId()
-        );
+        $isSelectedRate = $this->rate->getCode() === $shippingAddress->getShippingMethod();
+        $storedIncVat = (float)$shippingAddress->getShippingInclTax();
+        $storedExVat = (float)$shippingAddress->getShippingAmount();
 
-        $priceIncVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() - $shippingAddress->getShippingDiscountAmount(),
-            true,
-            $shippingAddress,
-            $this->quote->getCustomerTaxClassId()
-        );
+        if ($isSelectedRate && ($storedIncVat > 0 || $storedExVat > 0)) {
+            $priceIncVat = $storedIncVat;
+            $priceExVat = $storedExVat;
+        } else {
+            $priceExVat = $this->taxHelper->getShippingPrice(
+                $this->rate->getPrice(),
+                false,
+                $shippingAddress,
+                $this->quote->getCustomerTaxClassId()
+            );
+
+            $priceIncVat = $this->taxHelper->getShippingPrice(
+                $this->rate->getPrice(),
+                true,
+                $shippingAddress,
+                $this->quote->getCustomerTaxClassId()
+            );
+        }
 
         $container->setMerchantReference($this->rate->getCode());
         $container->setDisplayName($this->rate->getMethodTitle()?? $this->rate->getCarrierTitle());

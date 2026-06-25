@@ -1,5 +1,8 @@
 <?php
-namespace Qliro\QliroOne\Plugin;
+
+declare(strict_types=1);
+
+namespace Qliro\QliroOne\Plugin\Adminhtml;
 
 use Magento\Sales\Model\ResourceModel\Order\Grid\Collection as OrderGridCollection;
 use Zend_Db_Expr;

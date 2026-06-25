@@ -340,6 +340,6 @@ class Management extends AbstractManagement implements ManagementInterface
      */
     public function refundByInvoice($payment, $amount)
     {
-        $this->paymentManagement->refundByInvoice($payment, $amount);
+        $this->paymentManagement->addItemsToInvoice($payment);
     }
 }

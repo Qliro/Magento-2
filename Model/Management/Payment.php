@@ -6,12 +6,11 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Exception\InputException;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
-use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterface;
-use Qliro\QliroOne\Api\Data\AdminReturnWithItemsRequestInterfaceFactory;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -24,9 +23,10 @@ use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
-use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ReturnWithItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
-
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 /**
  * QliroOne management class
  */
@@ -83,9 +83,19 @@ class Payment extends AbstractManagement
     private $shipmentMarkItemsAsShippedRequestBuilder;
 
     /**
-     * @var ReturnWithItemsBuilder
+     * @var AddItemsToInvoiceBuilder
      */
-    private $returnWithItemsBuilder;
+    private $addItemsToInvoiceBuilder;
+
+    /**
+     * @var CaptureRefundAllocator
+     */
+    private $captureRefundAllocator;
+
+    /**
+     * @var SequentialRefundProcessor
+     */
+    private $sequentialRefundProcessor;
 
     /**
      * Inject dependencies
@@ -100,7 +110,9 @@ class Payment extends AbstractManagement
      * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
      * @param InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder
      * @param ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder
-     * @param ReturnWithItemsBuilder $returnWithItemsBuilder
+     * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
+     * @param CaptureRefundAllocator $captureRefundAllocator
+     * @param SequentialRefundProcessor $sequentialRefundProcessor
      */
     public function __construct(
         Config $qliroConfig,
@@ -113,7 +125,9 @@ class Payment extends AbstractManagement
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         InvoiceMarkItemsAsShippedRequestBuilder $invoiceMarkItemsAsShippedRequestBuilder,
         ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
-        ReturnWithItemsBuilder $returnWithItemsBuilder
+        AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder,
+        CaptureRefundAllocator $captureRefundAllocator,
+        SequentialRefundProcessor $sequentialRefundProcessor
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -125,7 +139,9 @@ class Payment extends AbstractManagement
         $this->orderManagementStatusRepository = $orderManagementStatusRepository;
         $this->invoiceMarkItemsAsShippedRequestBuilder = $invoiceMarkItemsAsShippedRequestBuilder;
         $this->shipmentMarkItemsAsShippedRequestBuilder = $shipmentMarkItemsAsShippedRequestBuilder;
-        $this->returnWithItemsBuilder = $returnWithItemsBuilder;
+        $this->addItemsToInvoiceBuilder = $addItemsToInvoiceBuilder;
+        $this->captureRefundAllocator = $captureRefundAllocator;
+        $this->sequentialRefundProcessor = $sequentialRefundProcessor;
     }
 
     /**
@@ -255,12 +271,6 @@ class Payment extends AbstractManagement
             return;
         }
 
-        if ($this->qliroConfig->shouldCaptureOnInvoice($shipment->getStoreId())) {
-            // captureOnInvoice already sent MarkItemsAsShipped when the invoice was created.
-            // Sending it again here would cause NO_ITEMS_LEFT_IN_RESERVATION from Qliro.
-            return;
-        }
-
         /** @var Order $order */
         $order = $shipment->getOrder();
         $link = $this->linkRepository->getByOrderId($order->getId());
@@ -312,36 +322,83 @@ class Payment extends AbstractManagement
      * @return void
      * @throws LocalizedException
      */
-    public function refundByInvoice($payment, $amount)
+    public function addItemsToInvoice($payment)
     {
-        if (!$amount) {
-            throw new LocalizedException(__('Zero amount is not allowed.'));
-        }
+        $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
+        $this->logManager->setMerchantReference($link->getReference());
 
         try {
-            $link = $this->linkRepository->getByOrderId($payment->getOrder()->getId());
-            $this->logManager->setMerchantReference($link->getReference());
-            $request = $this->returnWithItemsBuilder
-                ->setPayment($payment)
-                ->create();
+            // Split the refund across captures (Qliro validates each Addition against its own
+            // capture). Empty allocation = no captured-amount data, use single-Addition fallback.
+            $creditMemo = $payment->getCreditmemo();
+            $refundAmount = round(abs((float)$creditMemo->getGrandTotal()), 2);
+            $allocation = $this->captureRefundAllocator->allocate($payment, $refundAmount);
 
-            if (!$this->isValidRequestAmount($request, $amount)) {
-                throw new LocalizedException(__('Request amount is not valid.'));
+            if (empty($allocation)) {
+                $this->sendSingleAdditionRefund($payment, $link);
+
+                return;
             }
 
+            // PSP accepts only one in-flight return at a time, so send the first Addition and
+            // queue the rest for the success callback. VAT is embedded per entry (no credit memo
+            // available later).
+            $vatRate = $this->addItemsToInvoiceBuilder->getRefundVatRate($payment);
 
-            $result = $this->orderManagementApi->returnWithItems($request, $payment->getOrder()->getStoreId());
+            foreach ($allocation as &$entry) {
+                $entry['vat_rate'] = $vatRate;
+            }
+            unset($entry);
 
+            $this->sequentialRefundProcessor->start($payment, $allocation);
+
+        } catch (InputException $e) {
+            $this->logManager->debug(
+                $e->getMessage(),
+                [
+                    'extra' => [
+                        'order_id' => $payment->getOrder()->getId(),
+                    ],
+                ]
+            );
+        }
+    }
+
+    /**
+     * Send a single Addition for the full credit memo amount against the payment's parent
+     * transaction. Used when no per-capture allocation is available.
+     *
+     * @param \Magento\Sales\Model\Order\Payment $payment
+     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @return void
+     * @throws LocalizedException
+     */
+    private function sendSingleAdditionRefund($payment, $link)
+    {
+        $request = $this->addItemsToInvoiceBuilder
+            ->setPayment($payment)
+            ->setAllocation([])
+            ->create();
+
+        $results = $this->orderManagementApi->addItemsToInvoice($request, $payment->getOrder()->getStoreId());
+
+        if (empty($results)) {
+            throw new LocalizedException(
+                __('Unable to refund')
+            );
+        }
+
+        foreach ($results as $result) {
             try {
                 /** @var OrderManagementStatus $omStatus */
                 $omStatus = $this->orderManagementStatusInterfaceFactory->create();
 
                 $omStatus->setRecordId($payment->getId());
-                $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_REFUND);
+                $omStatus->setRecordType(OrderManagementStatusInterface::ADD_ITEMS_TO_INVOICE);
                 $omStatus->setTransactionId($result->getPaymentTransactionId());
                 $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
                 $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
-                $omStatus->setMessage('Refund Requested');
+                $omStatus->setMessage('Refund requested with add items to invoice');
                 $omStatus->setQliroOrderId($link->getQliroOrderId());
 
                 $this->orderManagementStatusRepository->save($omStatus);
@@ -358,74 +415,10 @@ class Payment extends AbstractManagement
 
             if ($result->getStatus() != 'Created') {
                 throw new LocalizedException(
-                    __('Unable refund items')
+                    __('Unable to refund')
                 );
             }
-        } catch (ClientException $e) {
-            $this->logManager->debug(
-                $e,
-                [
-                    'extra' => [
-                        'order_id' => $payment->getOrder()->getId(),
-                        'quote_id' => $payment->getOrder()->getQuoteId(),
-                    ],
-                ]
-            );
-
-            throw new LocalizedException(
-                __('Unable refund items')
-            );
         }
     }
 
-    /**
-     * Validate return request items and requested amount
-     *
-     * @param AdminReturnWithItemsRequestInterface $request
-     * @param $amount
-     * @return bool
-     */
-    private function isValidRequestAmount(AdminReturnWithItemsRequestInterface $request, $amount)
-    {
-        $amount = floatval($amount);
-
-        $returns = $request->getReturns();
-        if (!count($returns)) {
-            return false;
-        }
-
-        $sum = 0;
-        foreach ($returns as $type => $return) {
-            if (is_array($return) && isset($return['PricePerItemIncVat'])) {
-                $sum += $return['PricePerItemIncVat'] * $return['Quantity'];
-                continue;
-            }
-
-            if (!is_array($return)) {
-                continue;
-            }
-
-            foreach ($return as $inner) {
-                if (is_array($inner) && isset($inner['PricePerItemIncVat'])) {
-                    $innerSum = $inner['PricePerItemIncVat'] * $inner['Quantity'];
-                    switch ($type) {
-                        case 'Fees':
-                            $innerSum = -abs($innerSum);
-                            break;
-                        default:
-                            $innerSum = abs($innerSum);
-                            break;
-                    }
-
-                    $sum += $innerSum;
-                }
-            }
-        }
-
-        if (($sum * 100) != ($amount * 100)) { // fix php double type comparison issue
-            return false;
-        }
-
-        return true;
-    }
 }

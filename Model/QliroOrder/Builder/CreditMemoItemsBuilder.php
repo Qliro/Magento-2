@@ -30,47 +30,6 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
     private $creditMemo;
 
     /**
-     * @var OrderItemRepositoryInterface
-     */
-    private $orderItemRepository;
-
-    /**
-     * @param TaxHelper $taxHelper
-     * @param TaxCalculation $taxCalculation
-     * @param TypePoolHandler $typeResolver
-     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param QliroHelper $qliroHelper
-     * @param QuoteSourceProvider $quoteSourceProvider
-     * @param ManagerInterface $eventManager
-     * @param OrderItemRepositoryInterface $orderItemRepository
-     * @param $handlers
-     */
-    public function __construct(
-        TaxHelper $taxHelper,
-        TaxCalculation $taxCalculation,
-        TypePoolHandler $typeResolver,
-        QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        QliroHelper $qliroHelper,
-        QuoteSourceProvider $quoteSourceProvider,
-        ManagerInterface $eventManager,
-        OrderItemRepositoryInterface $orderItemRepository,
-        $handlers = []
-    )
-    {
-        parent::__construct(
-            $taxHelper,
-            $taxCalculation,
-            $typeResolver,
-            $qliroOrderItemFactory,
-            $qliroHelper,
-            $quoteSourceProvider,
-            $eventManager,
-            $handlers
-        );
-        $this->orderItemRepository = $orderItemRepository;
-    }
-
-    /**
      * Set credit memo for data extraction
      *
      * @param CreditmemoInterface $creditMemo
@@ -93,6 +52,7 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
         if (empty($this->creditMemo)) {
             throw new \LogicException('Credit memo entity is not set.');
         }
+        $this->handlers = [];
         $items = parent::create();
 
         if (!count($items)) {

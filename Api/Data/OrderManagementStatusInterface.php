@@ -29,6 +29,7 @@ interface OrderManagementStatusInterface
     const RECORD_TYPE_SHIPMENT = 'shipment';
     const RECORD_TYPE_PAYMENT = 'payment';
     const RECORD_TYPE_REFUND = 'refund';
+    const ADD_ITEMS_TO_INVOICE = 'add_items_to_invoice';
     const RECORD_TYPE_CANCEL = 'cancel';
 
     /**

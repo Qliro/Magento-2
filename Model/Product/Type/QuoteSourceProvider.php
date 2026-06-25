@@ -8,14 +8,12 @@ namespace Qliro\QliroOne\Model\Product\Type;
 
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Item;
-use Magento\Tax\Helper\Data as TaxHelper;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
-use Qliro\QliroOne\Api\Product\ProductNameResolverInterface;
 use Qliro\QliroOne\Model\Product\VatRate;
 
 /**
@@ -54,16 +52,6 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $recurringDataService;
 
     /**
-     * @var ProductNameResolverInterface
-     */
-    private $productNameResolver;
-
-    /**
-     * @var TaxHelper
-     */
-    private $taxHelper;
-
-    /**
      * @var VatRate
      */
     private $vatRate;
@@ -75,24 +63,19 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
      * @param Config $config
      * @param RecurringDataService $recurringDataService
-     * @param ProductNameResolverInterface $productNameResolver
-     * @param TaxHelper $taxHelper
+     * @param VatRate $vatRate
      */
     public function __construct(
         ProductPool $productPool,
         TypeSourceItemInterfaceFactory $typeSourceItemFactory,
         Config $config,
         RecurringDataService $recurringDataService,
-        ProductNameResolverInterface $productNameResolver,
-        TaxHelper $taxHelper,
         VatRate $vatRate
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
         $this->config = $config;
         $this->recurringDataService = $recurringDataService;
-        $this->productNameResolver = $productNameResolver;
-        $this->taxHelper = $taxHelper;
         $this->vatRate = $vatRate;
     }
 
@@ -192,24 +175,9 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
             $sourceItem = $this->typeSourceItemFactory->create();
 
             $sourceItem->setId($item->getItemId());
-            $sourceItem->setName($this->productNameResolver->getName($item));
-
-            if ($this->taxHelper->discountTax($item->getStore())) {
-                $sourceItem->setPriceInclTax(
-                    ($item->getRowTotalInclTax() - $item->getDiscountAmount()) / $quantity
-                );
-                $sourceItem->setPriceExclTax(
-                    ($item->getRowTotalInclTax() - $item->getDiscountAmount() - $item->getTaxAmount()) / $quantity
-                );
-            } else {
-                $sourceItem->setPriceInclTax(
-                    ($item->getRowTotal() - $item->getDiscountAmount() + $item->getTaxAmount()) / $quantity
-                );
-                $sourceItem->setPriceExclTax(
-                    ($item->getRowTotal() - $item->getDiscountAmount()) / $quantity
-                );
-            }
-
+            $sourceItem->setName($item->getName());
+            $sourceItem->setPriceInclTax((float)$item->getPriceInclTax());
+            $sourceItem->setPriceExclTax((float)$item->getPrice());
             $sourceItem->setVatRate($this->vatRate->getVatRateForProduct($item));
             $sourceItem->setQty($item->getQty());
             $sku = $item->getSku() ?? $item->getProduct()?->getSku() ?? '';

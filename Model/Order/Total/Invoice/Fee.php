@@ -21,6 +21,11 @@ class Fee extends AbstractTotal
     {
         /** @var \Magento\Sales\Model\Order $order */
         $order = $invoice->getOrder();
+
+        if ((float)$order->getTotalInvoiced() > 0) {
+            return $this;
+        }
+
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
         $qliroFeeTotal = 0;
         if (is_array($qlirooneFees)) {

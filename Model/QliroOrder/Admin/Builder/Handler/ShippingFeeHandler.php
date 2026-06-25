@@ -60,8 +60,8 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
         $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
         $merchantReference = $paymentAdditionalInfo[self::MERCHANT_REFERENCE_CODE_FIELD] ?? false;
 
-        $inclTax = (float)$order->getShippingInclTax() - $order->getShippingDiscountAmount();
-        $exclTax = $inclTax - $order->getShippingTaxAmount();
+        $inclTax = (float)$order->getShippingAmount() + $order->getShippingTaxAmount();
+        $exclTax = (float)$order->getShippingAmount();
 
         $formattedInclAmount = $this->qliroHelper->formatPrice($inclTax);
         $formattedExclAmount = $this->qliroHelper->formatPrice($exclTax);
