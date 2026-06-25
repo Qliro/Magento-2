@@ -51,11 +51,40 @@ class DefaultHandler implements TypeHandlerInterface
         $qliroOrderItem->setQuantity($this->prepareQuantity($item));
         $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
         $qliroOrderItem->setPricePerItemExVat((float)$this->qliroHelper->formatPrice($pricePerItemExVat));
-        $qliroOrderItem->setVatRate($this->vatRate->getVatRateForProduct($item)); //@Todo make value dynamic
+        $qliroOrderItem->setVatRate($this->resolveVatRate($item, (float)$pricePerItemIncVat, (float)$pricePerItemExVat));
         $qliroOrderItem->setDescription($this->prepareDescription($item));
         $qliroOrderItem->setMetaData($this->prepareMetaData($item));
 
         return $qliroOrderItem;
+    }
+
+    /**
+     * Resolve the VAT rate for a line.
+     *
+     * Prefer the tax percent Magento already calculated on the quote item (taken from the
+     * configurable parent when present, like the discount below). That value uses the real
+     * customer address, unlike the store-default tax lookup which can resolve to 0 depending
+     * on tax configuration. Fall back to deriving the rate from the prices being sent (keeps
+     * IncVat/ExVat/VatRate consistent), then to the store calculation as a last resort.
+     *
+     * @param TypeSourceItemInterface $item
+     * @param float $incVat
+     * @param float $exVat
+     * @return float
+     */
+    private function resolveVatRate(TypeSourceItemInterface $item, float $incVat, float $exVat): float
+    {
+        $sourceItem = $item->getParent() ? $item->getParent()->getItem() : $item->getItem();
+
+        if ($sourceItem && (float)$sourceItem->getTaxPercent() > 0) {
+            return (float)$sourceItem->getTaxPercent();
+        }
+
+        if ($exVat > 0 && $incVat > $exVat) {
+            return round(($incVat / $exVat - 1) * 100, 2);
+        }
+
+        return $this->vatRate->getVatRateForProduct($item);
     }
 
     /**
@@ -113,7 +142,7 @@ class DefaultHandler implements TypeHandlerInterface
             'qliro' => 'checkout'
         ];
         if ($item->getSubscription()) {
-            
+
             $meta = [
                 'Subscription' => [
                     'Enabled' => true
@@ -145,7 +174,7 @@ class DefaultHandler implements TypeHandlerInterface
                     intval($item->getItem()->getDiscountAmount() * 100)
             ];
             return $meta;
-            
+
         }
         return $meta;
     }
