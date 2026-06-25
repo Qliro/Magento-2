@@ -1,6 +1,31 @@
 
 # Change Log
 
+## [1.7.6] - 2026-06-25
+
+### Fixed
+
+- Fixed credit memo refunds failing on orders split across multiple captures (e.g. mixed physical and virtual products), where sending several `AddItemsToInvoice` additions at once caused the PSP to reject all but the first with a concurrent-reversal conflict
+- Fixed captured amount being recorded for a capture even when its reversal was rejected by the PSP; refunded amounts are now stored only after the success callback
+- Fixed the invoice fee being refunded too early on split-capture orders; the fee is now refunded only once the whole order is fully refunded, not when a single invoice is fully refunded while items remain
+- Fixed product line VAT rate being sent as `0` to Qliro when the store tax rate could not be resolved from the default tax destination; the rate is now taken from the quote item's calculated tax percent
+
+### Added
+
+- Added per-capture captured-amount tracking on payment transactions, used as the basis for refund allocation
+- Added sequential, callback-gated refund processing that sends one reversal at a time and waits for confirmation before sending the next
+- Added refund allocation across capture transactions based on the amount left in each capture
+
+### Changed
+
+- Switched credit memo refunds to Qliro's `AddItemsToInvoice` endpoint (previously `returnitems`)
+- Refund amounts are now spread across the correct Qliro captures when a credit memo exceeds a single capture
+- Removed unused constructor dependencies in order management status handlers and the order management API client
+
+### Removed
+
+- Removed the legacy `returnitems`-based refund implementation, now superseded by `AddItemsToInvoice`
+
 ## [1.7.5] - 2026-05-13
 
 ### Fixed
