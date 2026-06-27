@@ -39,16 +39,21 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
             return $orderItems;
         }
 
+        if ($order->getIsVirtual()) {
+            return $orderItems;
+        }
+
         $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
         $merchantReference = $paymentAdditionalInfo[self::MERCHANT_REFERENCE_CODE_FIELD] ?? false;
 
-        $inclTax = (float)$order->getShippingInclTax() - $order->getShippingDiscountAmount();
-        $exclTax = $inclTax - $order->getShippingTaxAmount();
+        $shippingDiscount = (float)$order->getShippingDiscountAmount();
+        $inclTax = (float)$order->getShippingInclTax() - $shippingDiscount;
+        $exclTax = (float)$order->getShippingAmount() - $shippingDiscount;
 
         $formattedInclAmount = $this->priceFormatter->format($inclTax);
         $formattedExclAmount = $this->priceFormatter->format($exclTax);
 
-        if ($merchantReference) {
+        if ($merchantReference && $inclTax > 0) {
             $orderItems[] = [
                 'MerchantReference'  => $merchantReference,
                 'Description'        => $merchantReference,
