@@ -7,13 +7,13 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
-use Magento\Sales\Api\InvoiceRepositoryInterface;
-use Magento\Sales\Api\OrderRepositoryInterface;
-use Magento\Sales\Api\ShipmentRepositoryInterface;
-use Magento\Sales\Model\Order\Invoice;
-use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
-use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
+use Magento\Sales\Api\InvoiceRepositoryInterface as InvoiceRepository;
+use Magento\Sales\Api\OrderRepositoryInterface as OrderRepository;
+use Magento\Sales\Api\ShipmentRepositoryInterface as ShipmentRepository;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Invoice;
+use Magento\Sales\Model\Order\Shipment\Item;
+use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\OrderManagementStatus;
@@ -23,25 +23,23 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     /**
      * Class constructor
      *
-     * @param \Magento\Sales\Api\ShipmentRepositoryInterface $shipmentRepository
-     * @param \Magento\Sales\Api\OrderRepositoryInterface $orderRepository
-     * @param \Magento\Sales\Api\InvoiceRepositoryInterface $invoiceRepository
-     * @param \Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface $transactionBuilder
-     * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param ShipmentRepository            $shipmentRepository
+     * @param OrderRepository               $orderRepository
+     * @param InvoiceRepository             $invoiceRepository
+     * @param Manager                       $logManager
      */
     public function __construct(
-        private readonly ShipmentRepositoryInterface $shipmentRepository,
-        private readonly OrderRepositoryInterface $orderRepository,
-        private readonly InvoiceRepositoryInterface $invoiceRepository,
-        private readonly BuilderInterface $transactionBuilder,
-        private readonly Manager $logManager
+        private readonly ShipmentRepository $shipmentRepository,
+        private readonly OrderRepository    $orderRepository,
+        private readonly InvoiceRepository  $invoiceRepository,
+        private readonly Manager            $logManager
     ) {
     }
 
     /**
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     public function handleSuccess(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
@@ -64,17 +62,13 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             $invoiceItems = [];
             $shipmentItems = $shipment->getAllItems();
 
-            /** @var \Magento\Sales\Model\Order\Shipment\Item $shipmentItem */
+            /** @var Item $shipmentItem */
             foreach ($shipmentItems as $shipmentItem) {
                 $qty = (int)$shipmentItem->getQty();
 
-                /** @var \Magento\Sales\Model\Order\Item $item */
+                /** @var Order\Item $item */
                 $item = $order->getItemById($shipmentItem->getOrderItemId());
 
-                /*
-                 * This is the same test for invoice made earlier, as seen in:
-                 * \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentOrderItemsBuilder::create
-                 */
                 if ($item->getQtyInvoiced() > 0) {
                     $remaining = $item->getQtyOrdered() - $item->getQtyInvoiced();
                     if ($remaining < $qty) {
@@ -83,6 +77,23 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 }
 
                 $invoiceItems[$shipmentItem->getOrderItemId()] = $qty;
+            }
+
+            foreach ($order->getAllItems() as $orderItem) {
+                if ($orderItem->getParentItemId()) {
+                    continue;
+                }
+
+                $isNonShippable = (bool)$orderItem->getIsVirtual()
+                    || in_array($orderItem->getProductType(), ['virtual', 'downloadable'], true);
+                if (!$isNonShippable) {
+                    continue;
+                }
+
+                $remaining = (int)$orderItem->getQtyToInvoice();
+                if ($remaining > 0) {
+                    $invoiceItems[$orderItem->getId()] = $remaining;
+                }
             }
 
             /*
@@ -114,7 +125,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 $qliroOrderManagementStatus['Amount'] ?? null
             );
 
-            $order->addStatusHistoryComment(__('Capture of %1 confirmed successful', $formattedPrice));
+            $order->addCommentToStatusHistory(__('Capture of %1 confirmed successful', $formattedPrice));
 
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {
@@ -134,7 +145,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     /**
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     public function handleCancelled(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
@@ -144,7 +155,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     /**
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     public function handleError(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
@@ -163,7 +174,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     /**
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     public function handleOnHold(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
@@ -173,7 +184,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     /**
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     public function handleUserInteraction(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus): void
     {
@@ -191,9 +202,9 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
 
     /**
      * @param OrderManagementStatus $omStatus
-     * @return \Magento\Sales\Model\Order\Shipment
+     * @return Order\Shipment
      */
-    private function getShipment(OrderManagementStatus $omStatus): \Magento\Sales\Model\Order\Shipment
+    private function getShipment(OrderManagementStatus $omStatus): Order\Shipment
     {
         return $this->shipmentRepository->get($omStatus->getRecordId());
     }
@@ -202,7 +213,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setOnHold(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus, string $contextMessage): void
     {
@@ -211,7 +222,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             $order = $shipment->getOrder();
             $order->hold();
 
-            $order->addStatusHistoryComment(
+            $order->addCommentToStatusHistory(
                 __('Order set on hold because Qliro One reported an error with the capture: %1', $contextMessage)
             );
 
@@ -234,7 +245,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setPendingPayment(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus, string $contextMessage): void
     {
@@ -245,7 +256,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 return;
             }
             $order->setState(Order::STATE_PENDING_PAYMENT);
-            $order->addStatusHistoryComment(
+            $order->addCommentToStatusHistory(
                 __('Order set to pending payment because Qliro One returned the capture with status: %1', $contextMessage)
             );
             $this->orderRepository->save($order);
@@ -267,7 +278,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param array $qliroOrderManagementStatus
      * @param OrderManagementStatus $omStatus
      * @param string $contextMessage
-     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     * @throws TerminalException
      */
     private function setCanceled(array $qliroOrderManagementStatus, OrderManagementStatus $omStatus, string $contextMessage): void
     {
@@ -278,7 +289,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 return;
             }
             $order->cancel();
-            $order->addStatusHistoryComment(
+            $order->addCommentToStatusHistory(
                 __('Order canceled because Qliro One returned the capture with status: %1', $contextMessage)
             );
             $this->orderRepository->save($order);

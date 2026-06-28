@@ -58,6 +58,7 @@ class ShipmentShipmentsBuilder
      * Create an array of containers
      *
      * @return QliroShipmentInterface[]
+     * @throws LocalizedException
      */
     public function create(): array
     {
@@ -122,6 +123,7 @@ class ShipmentShipmentsBuilder
 
         if ($this->isFirstShipment()) {
             $this->order->setFirstCaptureFlag(true);
+            $shipmentOrderItems = $this->appendNonShippableOrderItems($shipmentOrderItems);
         }
 
         foreach ($this->handlers as $handler) {
@@ -130,6 +132,7 @@ class ShipmentShipmentsBuilder
             }
         }
 
+        /** @var QliroShipmentInterface $shipment */
         $shipment = $this->qliroShipmentFactory->create();
         $shipment->setOrderItems($shipmentOrderItems);
 
@@ -157,6 +160,62 @@ class ShipmentShipmentsBuilder
             return false;
         }
         return true;
+    }
+
+    /**
+     * Append the order's non-shippable (virtual/downloadable) items to the capture request.
+     *
+     * These items never appear in a shipment, so they are added here, using their remaining
+     * invoiceable quantity, so the first shipment's capture includes them in Qliro. Already
+     * invoiced quantities (getQtyToInvoice() == 0) are skipped, keeping the operation idempotent.
+     *
+     * @param array $shipmentOrderItems
+     * @return array
+     */
+    private function appendNonShippableOrderItems(array $shipmentOrderItems): array
+    {
+        foreach ($this->order->getAllItems() as $orderItem) {
+            // Child lines (e.g. configurable/bundle children) are represented by their parent.
+            if ($orderItem->getParentItemId()) {
+                continue;
+            }
+
+            if (!$this->isNonShippable($orderItem)) {
+                continue;
+            }
+
+            $qty = (int)$orderItem->getQtyToInvoice();
+            if ($qty <= 0) {
+                continue;
+            }
+
+            $qliroOrderItem = $this->typeResolver->resolveQliroOrderItem(
+                $this->orderSourceProvider->generateSourceItem($orderItem, $qty),
+                $this->orderSourceProvider
+            );
+
+            if ($qliroOrderItem) {
+                $qliroOrderItem['Quantity'] = (float)$qty;
+                $shipmentOrderItems[] = $qliroOrderItem;
+            }
+        }
+
+        return $shipmentOrderItems;
+    }
+
+    /**
+     * Whether an order item can never be shipped (virtual or downloadable product).
+     *
+     * @param Order\Item $orderItem
+     * @return bool
+     */
+    private function isNonShippable(Order\Item $orderItem): bool
+    {
+        if ((bool)$orderItem->getIsVirtual()) {
+            return true;
+        }
+
+        return in_array($orderItem->getProductType(), ['virtual', 'downloadable'], true);
     }
 
     /**
