@@ -14,6 +14,7 @@ use Magento\Customer\Model\AddressFactory;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode;
 
 /**
  * QliroOne Order Customer builder class
@@ -78,11 +79,13 @@ class CustomerBuilder
             return $qliroOrderCustomer;
         }
 
+        $lockData = $this->shouldLockCustomerData();
+
         try {
             if ($address = $this->getAddress()) {
                 $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
                 $qliroOrderCustomer['Address'] = $qliroOrderCustomerAddress;
-                $qliroOrderCustomer['LockCustomerAddress'] = false;
+                $qliroOrderCustomer['LockCustomerAddress'] = $lockData;
                 $qliroOrderCustomer['JuridicalType'] = !empty($qliroOrderCustomerAddress['CompanyName'] ?? null)
                     ? 'Company'
                     : 'Physical';
@@ -95,18 +98,37 @@ class CustomerBuilder
 
         if ($email = $this->getEmail()) {
             $qliroOrderCustomer['Email'] = $email;
-            $qliroOrderCustomer['LockCustomerEmail'] = (bool)$this->customer;
+            // Preserve the existing logged-in lock; additionally lock in embedded-iframe mode.
+            $qliroOrderCustomer['LockCustomerEmail'] = $lockData || (bool)$this->customer;
         }
 
         if ($mobileNumber = $this->getMobileNumber()) {
             $qliroOrderCustomer['MobileNumber'] = $mobileNumber;
-            $qliroOrderCustomer['LockCustomerMobileNumber'] = false;
+            $qliroOrderCustomer['LockCustomerMobileNumber'] = $lockData;
+        }
+
+        if ($lockData && !empty($qliroOrderCustomer)) {
+            $qliroOrderCustomer['LockCustomerInformation'] = true;
         }
 
         $this->customer = null;
         $this->quote = null;
 
         return $qliroOrderCustomer;
+    }
+
+    /**
+     * Whether pre-supplied customer data should be locked (non-editable) in the Qliro iframe.
+     *
+     *
+     * @return bool
+     */
+    private function shouldLockCustomerData(): bool
+    {
+        $storeId = $this->quote->getStoreId();
+
+        return $this->qliroConfig->getShowAsPaymentMethod($storeId)
+            && $this->qliroConfig->getPaymentMethodRenderMode($storeId) === PaymentMethodRenderMode::MODE_IFRAME;
     }
 
     /**

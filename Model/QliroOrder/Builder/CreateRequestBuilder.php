@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
-use Magento\Catalog\Model\Product\Type;
 use Magento\Customer\Model\Session;
 use Magento\Directory\Helper\Data;
 use Magento\Framework\App\Config\ScopeConfigInterface;
@@ -21,10 +20,11 @@ use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\GeoIpResolverInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Security\CallbackToken;
 use Qliro\QliroOne\Model\Management\CountrySelect;
-use \Magento\Framework\Url\QueryParamsResolverInterface;
+use Magento\Framework\Url\QueryParamsResolverInterface;
 use Magento\Store\Model\Information;
 
 /**
@@ -141,6 +141,14 @@ class CreateRequestBuilder
         if (!empty($storeInfo)) {
             $shippingAddress->clearInstance()->save();
         }
+        // Embedded-iframe payment method: native Magento checkout already chose the shipping method,
+        // so reduce the list to that single method — the iframe then shows no shipping picker while
+        // still conveying the shipping cost (it travels only via AvailableShippingMethods, there is no
+        // shipping line item). Falls back to the full list if the selection can't be matched, so we
+        // never risk an empty list / dropped shipping total.
+        if ($this->isEmbeddedIframeMode()) {
+            $availableShippingMethods = $this->filterToSelectedShippingMethod($availableShippingMethods);
+        }
         $createRequest['AvailableShippingMethods'] = $availableShippingMethods;
 
         $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();
@@ -176,6 +184,56 @@ class CreateRequestBuilder
         $this->quote = null;
 
         return $createRequest;
+    }
+
+    /**
+     * Whether the order is being created for the embedded-iframe payment method (payment-only UX),
+     * where native Magento checkout owns identity, address and shipping selection.
+     *
+     * @return bool
+     */
+    private function isEmbeddedIframeMode(): bool
+    {
+        $storeId = $this->quote->getStoreId();
+
+        return $this->qliroConfig->getShowAsPaymentMethod($storeId)
+            && $this->qliroConfig->getPaymentMethodRenderMode($storeId) === PaymentMethodRenderMode::MODE_IFRAME;
+    }
+
+    /**
+     * Reduce the available shipping methods to the one already selected in native checkout.
+     *
+     * Returns a single-entry list when the quote's selected method is found, so the iframe shows no
+     * shipping picker. If the list is empty, no method is selected, or the selection isn't present in
+     * the list, the original list is returned unchanged — the shipping cost rides on
+     * AvailableShippingMethods, so an empty/wrong list would corrupt the Qliro total.
+     *
+     * @param array $availableShippingMethods
+     * @return array
+     */
+    private function filterToSelectedShippingMethod(array $availableShippingMethods): array
+    {
+        if (empty($availableShippingMethods)) {
+            return $availableShippingMethods;
+        }
+
+        $selected = $this->quote->getShippingAddress()->getShippingMethod();
+        if (empty($selected)) {
+            return $availableShippingMethods;
+        }
+
+        foreach ($availableShippingMethods as $method) {
+            if (($method['MerchantReference'] ?? null) === $selected) {
+                return [$method];
+            }
+        }
+
+        $this->logManager->debug(
+            'Payment-only: selected shipping method not found in AvailableShippingMethods; sending full list',
+            ['extra' => ['selected' => $selected]]
+        );
+
+        return $availableShippingMethods;
     }
 
     /**

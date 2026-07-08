@@ -121,6 +121,15 @@
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                         <comment>Set to 'Yes' to use native magento checkout with Qliro payment option</comment>
                     </field>
+
+                    <field id="payment_method_render_mode" translate="label" type="select" sortOrder="160" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                        <label>Payment method display</label>
+                        <source_model>Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode</source_model>
+                        <comment>How Qliro appears once selected: redirect to the Qliro checkout page, or an embedded iframe inside native checkout.</comment>
+                        <depends>
+                            <field id="show_as_payment_method">1</field>
+                        </depends>
+                    </field>
                 </group>
 
                 <group id="qliro_api" translate="label" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">

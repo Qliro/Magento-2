@@ -4,11 +4,14 @@
         <policy id="frame-src">
             <values>
                 <value id="qliro" type="host">https://*.qliro.com</value>
+                <!-- Ingrid/nShift shipping widget rendered inside the Qliro iframe (per Qliro). -->
+                <value id="ingrid" type="host">https://*.ingrid.com</value>
             </values>
         </policy>
         <policy id="script-src">
             <values>
                 <value id="qliro" type="host">https://*.qliro.com</value>
+                <value id="ingrid" type="host">https://*.ingrid.com</value>
             </values>
         </policy>
         <policy id="form-action">

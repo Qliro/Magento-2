@@ -67,6 +67,12 @@ define([
         getPaymentInformationAction();
     }
 
+    function isQliroActive() {
+        var method = quote.paymentMethod();
+
+        return !!method && method.method === 'qliroone';
+    }
+
     var model = {
         updateCart: function() {
             if (config.isEagerCheckoutRefresh) {
@@ -75,6 +81,11 @@ define([
                     var data = response.responseJSON || {};
                     showErrorMessage(data.error || __('Something went wrong while updating cart.'));
                 });
+                return;
+            }
+
+            if (!window.q1) {
+                qliroDebug('updateCart skipped: no active Qliro widget');
                 return;
             }
 
@@ -90,9 +101,6 @@ define([
                 return true; // signal Q1 to drop the onOrderUpdated handler
             };
 
-            // Register the listener BEFORE sending the update so we catch the event
-            // when Qliro processes our PUT and re-renders the widget with new totals.
-            // Without this the widget price wouldn't refresh live.
             window.q1.onOrderUpdated(function() {
                 return unlock();
             });
@@ -131,8 +139,10 @@ define([
         },
 
         onPaymentDeclined: function(declineReason) {
-            $(".opc-block-summary").show();
-            $(".discount-code").show();
+            if (isQliroActive()) {
+                $(".opc-block-summary").show();
+                $(".discount-code").show();
+            }
             qliroSuccessDebug('onPaymentDeclined', declineReason);
         },
 
@@ -151,20 +161,26 @@ define([
         },
 
         onPaymentProcessStart: function() {
-            $(".opc-block-summary").hide();
-            $(".discount-code").hide();
+            if (isQliroActive()) {
+                $(".opc-block-summary").hide();
+                $(".discount-code").hide();
+            }
             qliroSuccessDebug('onPaymentProcessStart', q1);
         },
 
         onPaymentProcessEnd: function() {
-            $(".opc-block-summary").show();
-            $(".discount-code").show();
+            if (isQliroActive()) {
+                $(".opc-block-summary").show();
+                $(".discount-code").show();
+            }
             qliroSuccessDebug('onPaymentProcessEnd', q1);
         },
 
         onSessionExpired: function() {
             qliroSuccessDebug('onSessionExpired', q1);
-            window.location.reload();
+            if (isQliroActive()) {
+                window.location.reload();
+            }
         },
 
         onShippingMethodChanged: function(shipping) {

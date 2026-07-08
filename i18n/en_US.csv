@@ -11,3 +11,8 @@
 "Order has successfully been placed. Order ID: #%1", "Order has successfully been placed. Order ID: #%1"
 "Proceed to Qliro Checkout","Proceed to Qliro Checkout"
 "You have an ongoing Qliro payment. Please complete or cancel it before updating your cart","You have an ongoing Qliro payment. Please complete or cancel it before updating your cart"
+"Payment method display","Payment method display"
+"How Qliro appears once selected: redirect to the Qliro checkout page, or an embedded iframe inside native checkout.","How Qliro appears once selected: redirect to the Qliro checkout page, or an embedded iframe inside native checkout."
+"Redirect to Qliro checkout page","Redirect to Qliro checkout page"
+"Embedded iframe in checkout","Embedded iframe in checkout"
+"Something went wrong while loading Qliro checkout.","Something went wrong while loading Qliro checkout."

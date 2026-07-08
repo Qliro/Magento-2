@@ -24,6 +24,11 @@
             <!--/ko-->
         </div>
 
+        <!-- ko if: isIframeMode() -->
+        <div class="qliroone-embedded-checkout" data-bind="afterRender: setIframeContainer"></div>
+        <!-- /ko -->
+
+        <!-- ko ifnot: isIframeMode() -->
         <div class="actions-toolbar">
             <div class="primary">
                 <button data-role="review-save"
@@ -40,5 +45,6 @@
                 </button>
             </div>
         </div>
+        <!-- /ko -->
     </div>
 </div>
