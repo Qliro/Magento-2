@@ -36,6 +36,7 @@ class Config
     const string QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const string QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
     const string QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
+    const string QLIROONE_PAYMENT_METHOD_RENDER_MODE = 'api/payment_method_render_mode';
 
     const string QLIROONE_API_TYPE = 'qliro_api/type';
     const string QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
@@ -714,6 +715,16 @@ class Config
     public function getShowAsPaymentMethod(int|string|null $storeId = null): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_SHOW_AS_PAYMENT_METHOD, $storeId);
+    }
+
+    /**
+     *
+     * @param int|string|null $storeId
+     * @return string
+     */
+    public function getPaymentMethodRenderMode(int|string|null $storeId = null): string
+    {
+        return (string)$this->adapter->getConfigData(self::QLIROONE_PAYMENT_METHOD_RENDER_MODE, $storeId);
     }
 
     /**
