@@ -51,6 +51,9 @@ class QliroOne extends AbstractInfo
      */
     public function getQliroMethod(): mixed
     {
-        return $this->getInfo()->getAdditionalInformation('qliro_payment_method_code');
+        $info = $this->getInfo();
+        $code = $info->getAdditionalInformation('qliro_payment_method_code');
+
+        return $code ?: $info->getAdditionalInformation('qliro_payment_method_name');
     }
 }
