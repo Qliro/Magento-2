@@ -81,15 +81,20 @@ class ShippingMethodBuilder
 
         $shippingAddress = $this->quote->getShippingAddress();
 
+        $discountAmount = ($this->rate->getCode() === $shippingAddress->getShippingMethod())
+            ? (float)$shippingAddress->getShippingDiscountAmount()
+            : 0.0;
+        $ratePrice = max(0.0, (float)$this->rate->getPrice() - $discountAmount);
+
         $priceExVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() -  $shippingAddress->getShippingDiscountAmount(),
+            $ratePrice,
             false,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
         );
 
         $priceIncVat = $this->taxHelper->getShippingPrice(
-            $this->rate->getPrice() - $shippingAddress->getShippingDiscountAmount(),
+            $ratePrice,
             true,
             $shippingAddress,
             $this->quote->getCustomerTaxClassId()
