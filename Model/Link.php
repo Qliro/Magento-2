@@ -134,9 +134,10 @@ class Link extends AbstractModel implements LinkInterface
     /**
      * @inheritdoc
      */
-    public function getUnifaunShippingAmount(): float
+    public function getUnifaunShippingAmount(): ?float
     {
-        return (float)$this->getData(self::FIELD_UNIFAUN_SHIPPING_AMOUNT);
+        $value = $this->getData(self::FIELD_UNIFAUN_SHIPPING_AMOUNT);
+        return $value !== null ? (float)$value : null;
     }
 
     /**

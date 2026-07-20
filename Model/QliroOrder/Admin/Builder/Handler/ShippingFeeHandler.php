@@ -53,7 +53,7 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
         $formattedInclAmount = $this->priceFormatter->format($inclTax);
         $formattedExclAmount = $this->priceFormatter->format($exclTax);
 
-        if ($merchantReference && $inclTax > 0) {
+        if ($merchantReference && $inclTax >= 0) {
             $orderItems[] = [
                 'MerchantReference'  => $merchantReference,
                 'Description'        => $merchantReference,

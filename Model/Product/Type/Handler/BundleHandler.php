@@ -40,4 +40,17 @@ class BundleHandler extends DefaultHandler
 
         return parent::preparePrice($item, $taxIncluded);
     }
+
+    /**
+     * @inHeirtDoc
+     */
+    public function prepareQuantity(TypeSourceItemInterface $item): int
+    {
+        $parent = $item->getParent();
+        if ($parent) {
+            return (int)($item->getQty() * $parent->getQty());
+        }
+
+        return (int)$item->getQty();
+    }
 }

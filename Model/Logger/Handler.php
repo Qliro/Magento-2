@@ -47,20 +47,34 @@ class Handler extends AbstractProcessingHandler
         $mark = $context['mark'] ?? null;
         $message = ($mark ? sprintf('%s: ', strtoupper($mark)) : null) . $record['message'];
 
-        $connection = $this->connectionProvider->getConnection();
-        $connection->insert(
-            $connection->getTableName(DbLogRecord::TABLE_LOG),
-            [
-                LogRecordInterface::FIELD_DATE => $record['datetime'],
-                LogRecordInterface::FIELD_LEVEL => $record['level_name'],
-                LogRecordInterface::FIELD_MESSAGE => $message,
-                LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
-                LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
-                LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
-                LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
-                LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s')
-            ]
-        );
+        $data = [
+            LogRecordInterface::FIELD_LEVEL => $record['level_name'],
+            LogRecordInterface::FIELD_MESSAGE => $message,
+            LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
+            LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
+            LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
+            LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
+            LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s'),
+        ];
+
+        $attempts = 0;
+        while (true) {
+            try {
+                $connection = $this->connectionProvider->getConnection();
+                $connection->insert(
+                    $connection->getTableName(DbLogRecord::TABLE_LOG),
+                    $data
+                );
+                return;
+            } catch (\Magento\Framework\DB\Adapter\DeadlockException $e) {
+                if (++$attempts >= 3) {
+                    return;
+                }
+                usleep(50000);
+            } catch (\Throwable $e) {
+                return;
+            }
+        }
     }
 
     /**

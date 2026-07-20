@@ -125,9 +125,9 @@ interface LinkInterface
     /**
      * Get unifaun shipping amount
      *
-     * @return float
+     * @return float|null null when no amount has been stored yet (vs a legitimate 0.0)
      */
-    public function getUnifaunShippingAmount(): float;
+    public function getUnifaunShippingAmount(): ?float;
 
     /**
      * Get ingrid shipping amount
