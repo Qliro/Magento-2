@@ -93,27 +93,35 @@ define([
 
             var unlocked = false;
             var unlock = function() {
-                if (unlocked) return true;
+                if (unlocked) return;
                 unlocked = true;
                 try { window.q1.unlock(); } catch (e) {
                     qliroDebug('q1.unlock threw', e);
                 }
-                return true; // signal Q1 to drop the onOrderUpdated handler
             };
 
-            window.q1.onOrderUpdated(function() {
-                return unlock();
-            });
+            setTimeout(unlock, 8000);
 
-            // Safety: if onOrderUpdated never fires (Q1 race, version mismatch, etc.)
-            // unlock anyway so the widget can never stay locked indefinitely.
-            setTimeout(unlock, 5000);
+            sendUpdateQuote().then(
+                function(data) {
+                    var expectedTotal = data && data.order ? Number(data.order.totalPrice) : null;
 
-            sendUpdateQuote().fail(function(response, state, reason) {
-                var data = response.responseJSON || {};
-                unlock();
-                showErrorMessage(data.error || reason || __('Something went wrong while updating cart.'));
-            });
+                    window.q1.onOrderUpdated(function(order) {
+                        qliroDebug('onOrderUpdated', order);
+                        if (expectedTotal !== null
+                            && order
+                            && Math.abs(Number(order.totalPrice) - expectedTotal) < 0.01) {
+                            unlock();
+                        }
+                        // else: totals not in sync yet — wait for the next fire.
+                    });
+                },
+                function(response, state, reason) {
+                    var data = response.responseJSON || {};
+                    unlock();
+                    showErrorMessage(data.error || reason || __('Something went wrong while updating cart.'));
+                }
+            );
         },
 
         onCheckoutLoaded: function() {

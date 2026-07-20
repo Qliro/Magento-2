@@ -32,14 +32,18 @@ class UpdateQuote extends AbstractAjaxAction
             $quote = $this->checkoutSession->getQuote();
             $quote->collectTotals();
             $this->orderService->pushQuoteUpdate();
-            $grandTotal = (float) $quote->getGrandTotal();
+
+            $shippingInclTax = $quote->isVirtual()
+                ? 0.0
+                : (float) $quote->getShippingAddress()->getShippingInclTax();
+            $totalPrice = round((float) $quote->getGrandTotal() - $shippingInclTax, 2);
         } catch (\Exception $e) {
             $this->logManager->critical($e);
             return $this->errorResponse($e->getMessage());
         }
 
         return $this->jsonResponse([
-            'order' => ['totalPrice' => $grandTotal],
+            'order' => ['totalPrice' => $totalPrice],
         ]);
     }
 }
