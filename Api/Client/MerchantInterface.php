@@ -31,6 +31,17 @@ interface MerchantInterface
     public function getOrder(int $qliroOrderId): array;
 
     /**
+     * Get a QliroOne order by its merchant reference.
+     *
+     * Used to recover an order whose id was lost (e.g. a createOrder request that timed out
+     * after Qliro had already created the order), instead of creating a duplicate.
+     *
+     * @param string $merchantReference
+     * @return array Empty array when no order exists for the reference.
+     */
+    public function getOrderByMerchantReference(string $merchantReference): array;
+
+    /**
      * Update QliroOne order.
      *
      * @param int $qliroOrderId

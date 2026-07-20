@@ -86,6 +86,29 @@ class Merchant implements MerchantInterface
     /**
      * @inheriDoc
      */
+    public function getOrderByMerchantReference(string $merchantReference): array
+    {
+        $data = [];
+        $this->logManager->addTag('sensitive');
+
+        try {
+            $data = $this->service->get(
+                'checkout/merchantapi/orders',
+                ['merchantReference' => $merchantReference]
+            );
+        } catch (\Exception $exception) {
+            $this->logManager->removeTag('sensitive');
+            $this->handleExceptions($exception);
+        }
+
+        $this->logManager->removeTag('sensitive');
+
+        return $data;
+    }
+
+    /**
+     * @inheriDoc
+     */
     public function updateOrder(int $qliroOrderId, array $payload): int
     {
         $this->logManager->addTag('sensitive');

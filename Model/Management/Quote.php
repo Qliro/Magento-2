@@ -218,14 +218,35 @@ class Quote
             try {
                 $orderId = $this->merchantApi->createOrder($payload);
             } catch (\Qliro\QliroOne\Model\Api\Client\Exception\OrderAlreadyExistsException $alreadyExists) {
-                $orderReference = $orderReference . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
-                $payload['MerchantReference'] = $orderReference;
-                $this->logManager->setMerchantReference($orderReference);
+                $orderId = $this->resolveOrderIdByReference($orderReference);
+
+                if ($orderId) {
+                    $this->logManager->warning(
+                        'Recovered existing Qliro order by merchant reference after a create '
+                        . 'collision (likely a prior create timeout).',
+                        ['extra' => ['reference' => $orderReference, 'qliro_order_id' => $orderId]]
+                    );
+                } else {
+                    $orderReference = $orderReference . '-' . substr(bin2hex(random_bytes(3)), 0, 6);
+                    $payload['MerchantReference'] = $orderReference;
+                    $this->logManager->setMerchantReference($orderReference);
+                    $this->logManager->warning(
+                        'Qliro reference collision could not be reconciled by lookup; recovered '
+                        . 'with suffixed reference: ' . $orderReference,
+                        ['extra' => ['original_error' => $alreadyExists->getMessage()]]
+                    );
+                    $orderId = $this->merchantApi->createOrder($payload);
+                }
+            } catch (\Qliro\QliroOne\Model\Api\Client\Exception\ClientException $createException) {
+                $orderId = $this->resolveOrderIdByReference($orderReference);
+                if (!$orderId) {
+                    throw $createException;
+                }
                 $this->logManager->warning(
-                    'Qliro reference collision recovered with suffixed reference: ' . $orderReference,
-                    ['extra' => ['original_error' => $alreadyExists->getMessage()]]
+                    'createOrder failed at transport level but the order was found by merchant '
+                    . 'reference — reusing it (likely a lost create response / timeout).',
+                    ['extra' => ['reference' => $orderReference, 'qliro_order_id' => $orderId]]
                 );
-                $orderId = $this->merchantApi->createOrder($payload);
             }
             $this->logManager->debug('Order created ' . $orderId);
 
@@ -238,6 +259,30 @@ class Quote
         }
 
         return $link;
+    }
+
+    /**
+     * Resolve the Qliro order id of an existing order by its merchant reference.
+     *
+     * Returns null when nothing can be resolved (lookup failed or no order found), so the
+     * caller can fall back to creating a fresh order.
+     */
+    private function resolveOrderIdByReference(string $reference): ?int
+    {
+        try {
+            $existing = $this->merchantApi->getOrderByMerchantReference($reference);
+        } catch (\Exception $exception) {
+            $this->logManager->warning(
+                'Lookup by merchant reference failed during create-collision recovery: '
+                . $exception->getMessage(),
+                ['extra' => ['reference' => $reference]]
+            );
+            return null;
+        }
+
+        $orderId = $existing['OrderId'] ?? null;
+
+        return $orderId ? (int) $orderId : null;
     }
 
     /**
