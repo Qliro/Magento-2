@@ -8,28 +8,26 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Model\Management;
 
 use Magento\Framework\DataObject;
-use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Framework\Exception\AlreadyExistsException;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
+use Magento\Quote\Api\CartRepositoryInterface as CartRepository;
 use Magento\Quote\Model\Quote as MagentoQuote;
 use Magento\Quote\Model\QuoteRepository\LoadHandler;
-use Qliro\QliroOne\Api\Client\MerchantInterface;
+use Qliro\QliroOne\Api\Client\MerchantInterface as Merchant;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\Data\LinkInterfaceFactory;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Api\LinkRepositoryInterface as LinkRepository;
 use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Model\Carrier\Unifaun;
 use Qliro\QliroOne\Model\Config;
-use Qliro\QliroOne\Model\Fee;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Method\QliroOne;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\CustomerConverter;
-use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
 use Qliro\QliroOne\Service\General\LinkService;
-use Magento\Framework\Serialize\Serializer\Json;
 
 /**
  * Quote operations for QliroOne checkout.
@@ -39,23 +37,39 @@ use Magento\Framework\Serialize\Serializer\Json;
  */
 class Quote
 {
+    /**
+     * Class constructor
+     *
+     * @param Config                          $qliroConfig
+     * @param LinkService                     $linkService
+     * @param Merchant                        $merchantApi
+     * @param CreateRequestBuilder            $createRequestBuilder
+     * @param UpdateRequestBuilder            $updateRequestBuilder
+     * @param CustomerConverter               $customerConverter
+     * @param LinkInterfaceFactory            $linkFactory
+     * @param LinkRepository                  $linkRepository
+     * @param CartRepository                  $quoteRepository
+     * @param LogManager                      $logManager
+     * @param RemoteAddress                   $remoteAddress
+     * @param EventManager                    $eventManager
+     * @param LoadHandler                     $loadHandler
+     * @param CountrySelect                   $countrySelectManagement
+     */
     public function __construct(
-        private readonly Config $qliroConfig,
-        private readonly LinkService $linkService,
-        private readonly MerchantInterface $merchantApi,
+        private readonly Config               $qliroConfig,
+        private readonly LinkService          $linkService,
+        private readonly Merchant             $merchantApi,
         private readonly CreateRequestBuilder $createRequestBuilder,
         private readonly UpdateRequestBuilder $updateRequestBuilder,
-        private readonly CustomerConverter $customerConverter,
+        private readonly CustomerConverter    $customerConverter,
         private readonly LinkInterfaceFactory $linkFactory,
-        private readonly LinkRepositoryInterface $linkRepository,
-        private readonly CartRepositoryInterface $quoteRepository,
-        private readonly LogManager $logManager,
-        private readonly Json $json,
-        private readonly Fee $fee,
-        private readonly RemoteAddress $remoteAddress,
-        private readonly ManagerInterface $eventManager,
-        private readonly LoadHandler $loadHandler,
-        private readonly CountrySelect $countrySelectManagement
+        private readonly LinkRepository       $linkRepository,
+        private readonly CartRepository       $quoteRepository,
+        private readonly LogManager           $logManager,
+        private readonly RemoteAddress        $remoteAddress,
+        private readonly EventManager         $eventManager,
+        private readonly LoadHandler          $loadHandler,
+        private readonly CountrySelect        $countrySelectManagement
     ) {
     }
 
@@ -86,24 +100,19 @@ class Quote
         $quote->setTotalsCollectedFlag(false);
 
         if (!$quote->isVirtual()) {
-            // Carriers are mutually exclusive — the iframe can only run one widget at a time.
-            // The previous code ran both branches unconditionally, so when both flags were on,
-            // Ingrid silently overwrote Unifaun on the quote even if the customer picked Unifaun
-            // in the iframe. That produced the "shipping method differs between Magento and
-            // Qliro" mismatch we've seen on real orders. Prefer Ingrid when both are enabled
-            // (matches the existing fall-through order); we also log a warning so the
-            // misconfiguration is visible.
-            if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
-                if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
-                    $this->logManager->warning(
-                        'Both Unifaun and Ingrid are enabled. Only one widget can run at a time; '
-                        . 'using Ingrid and ignoring Unifaun. Disable one of them in config to silence this warning.',
-                        ['extra' => ['quote_id' => $quote->getId(), 'store_id' => $quote->getStoreId()]]
-                    );
+            if (!$shippingAddress->getShippingMethod()) {
+                if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
+                    if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+                        $this->logManager->warning(
+                            'Both Unifaun and Ingrid are enabled. Only one widget can run at a time; '
+                            . 'using Ingrid and ignoring Unifaun. Disable one of them in config to silence this warning.',
+                            ['extra' => ['quote_id' => $quote->getId(), 'store_id' => $quote->getStoreId()]]
+                        );
+                    }
+                    $shippingAddress->setShippingMethod(Ingrid::QLIRO_INGRID_SHIPPING_CODE);
+                } elseif ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
+                    $shippingAddress->setShippingMethod(Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE);
                 }
-                $shippingAddress->setShippingMethod(Ingrid::QLIRO_INGRID_SHIPPING_CODE);
-            } elseif ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
-                $shippingAddress->setShippingMethod(Unifaun::QLIRO_UNIFAUN_SHIPPING_CODE);
             }
             if (!$shippingAddress->hasData('item_qty')) {
                 $shippingAddress->setData('item_qty', $quote->getItemsQty());
