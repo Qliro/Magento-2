@@ -264,7 +264,7 @@ class QliroOrder
                 // observer and the sales_model_service_quote_submit_before observer cover
                 // the standard flows; this catches direct/custom integrations that bypass
                 // them, so we don't charge a customer for an order Qliro would later reject.
-                // ItemsLimitValidator logs the violation with quote_id / item_count / store_id.
+                // ItemsLimitValidator logs the violation with quote_id / line_count / store_id.
                 try {
                     $this->itemsLimitValidator->validateQuoteItemsLimit($quote);
                 } catch (\Magento\Framework\Exception\LocalizedException $limitEx) {
