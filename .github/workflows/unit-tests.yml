@@ -1,0 +1,34 @@
+name: Unit Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main, "release/**"]
+
+jobs:
+  phpunit:
+    name: PHPUnit (PHP 8.4)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Point Magento packages at the public Mage-OS mirror
+        # composer.json declares repo.magento.com, which needs marketplace keys. The public
+        # Mage-OS mirror serves the same magento/* packages with no auth, so CI stays
+        # self-contained (no secrets required). This only rewrites the CI workspace copy.
+        run: |
+          jq '.repositories = [{"type":"composer","url":"https://mirror.mage-os.org/"}]' composer.json > composer.tmp
+          mv composer.tmp composer.json
+
+      - name: Install dependencies
+        run: composer install --no-plugins --ignore-platform-reqs --no-interaction --no-progress
+
+      - name: Run unit tests
+        run: vendor/bin/phpunit

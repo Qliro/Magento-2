@@ -1,6 +1,12 @@
 
 # Change Log
 
+## [1.7.7] - 2026-08-06
+
+### Fixed
+
+- Order item-limit check now counts the number of order lines actually sent to Qliro (from `OrderItemsBuilder`) instead of summing item quantities over the visible quote items. A single product with a high quantity is one line and is no longer wrongly rejected, and bundle child lines are counted, so the check matches the real payload (PLIN-305).
+
 ## [1.7.6] - 2026-06-25
 
 ### Fixed
