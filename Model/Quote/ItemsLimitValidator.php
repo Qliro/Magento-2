@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\Quote;
 
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
+use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 
 /**
  * Class responsible for validating the maximum allowed items in a quote
@@ -16,10 +17,28 @@ use Magento\Quote\Model\Quote;
 class ItemsLimitValidator
 {
     /** @var int */
-    private const MAX_ITEMS = 200;
+    public const MAX_ITEMS = 200;
 
     /**
-     * Validate that the quote does not exceed max items
+     * Class constructor
+     *
+     * @param OrderItemsBuilder $orderItemsBuilder
+     */
+    public function __construct(
+        private readonly OrderItemsBuilder $orderItemsBuilder
+    ) {
+    }
+
+    /**
+     * Validate that the quote does not exceed Qliro's per-order item limit.
+     *
+     * The limit is on the number of order LINES sent to Qliro, not the summed unit
+     * quantity, so one product at qty 300 counts as a single line. The count is taken from
+     * the exact array OrderItemsBuilder produces for the create/update order request, so it
+     * matches the real payload: a bundle expands to its parent plus one line per child, a
+     * configurable collapses to its child line, and a cart discount is its own line. Summing
+     * getAllVisibleItems() was wrong twice over, it counted quantities and skipped
+     * bundle/configurable children.
      *
      * @throws LocalizedException
      */
@@ -29,13 +48,9 @@ class ItemsLimitValidator
             return;
         }
 
-        $itemsCount = 0;
+        $lineCount = count($this->orderItemsBuilder->setQuote($quote)->create());
 
-        foreach ($quote->getAllVisibleItems() as $item) {
-            $itemsCount += (int)$item->getQty();
-        }
-
-        if ($itemsCount > self::MAX_ITEMS) {
+        if ($lineCount > self::MAX_ITEMS) {
             throw new LocalizedException(
                 __(
                     'Qliro supports a maximum of %1 items per order. Please reduce the number of items and try again',
