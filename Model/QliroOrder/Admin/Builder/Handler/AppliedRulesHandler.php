@@ -121,6 +121,6 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             return 0.0;
         }
 
-        return (($discountInclVat - $discountExclVat) / $discountExclVat) * 100;
+        return round((($discountInclVat - $discountExclVat) / $discountExclVat) * 100, 2);
     }
 }
