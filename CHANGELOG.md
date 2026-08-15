@@ -1,6 +1,12 @@
 
 # Change Log
 
+## [1.7.8] - 2026-08-14
+
+### Fixed
+
+- Discount line VAT rate is now rounded to two decimals. A discount whose ex VAT amount does not land on whole öre produced a rate like `24.137931034483`, which the Qliro API rejects with `SYSTEM_ERROR`, "Input must have no more than two decimal places", so the order could neither be created nor updated and the checkout showed "Cannot fetch Qliro One order." (PLIN-358, GitHub issue #122)
+
 ## [1.7.7] - 2026-08-06
 
 ### Fixed
