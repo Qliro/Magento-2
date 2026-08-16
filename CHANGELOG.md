@@ -1,6 +1,13 @@
 
 # Change Log
 
+## [1.7.9] - 2026-08-16
+
+### Fixed
+
+- Order-management calls now target the Qliro order the order was placed against. `applyQliroOrderStatus()` re-loaded the link by Magento order id, which can return a stale/foreign row after a store DB reset/restore reuses an order id; `updatemerchantreference` was then sent to another merchant's Qliro order (`MERCHANT_MISMATCH` / `ORDER_NOT_FOUND`) and the placed order kept its temporary generated reference (e.g. `Z11kwQ` instead of `3000000020`). The callers now pass the link they already resolved by Qliro order id. (PLIN-373)
+- A failed `updatemerchantreference` is now logged as a failure instead of "New merchant reference was assigned". `updateMerchantReference()` returns `null` on any API error, which the caller logged as success. The call stays fire-once (it runs inside a Qliro notification handler on every status callback, so it must not re-attempt or write to the order on each call), but the log now tells the truth so a stuck reference is visible. (PLIN-373)
+
 ## [1.7.8] - 2026-08-14
 
 ### Fixed
