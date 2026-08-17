@@ -370,7 +370,7 @@ class PlaceOrder extends AbstractManagement
                     $this->linkRepository->save($link);
                 }
 
-                $this->applyQliroOrderStatus($order);
+                $this->applyQliroOrderStatus($order, $link);
             } catch (\Exception $exception) {
                 $this->logManager->debug('Failed to place order from quote: ' . $this->getQuote()->getId() . PHP_EOL . $exception->getMessage());
                 $link->setIsActive(false);
@@ -415,14 +415,26 @@ class PlaceOrder extends AbstractManagement
      * - Refused - deny the purchase
      *
      * @param Order $order
+     * @param LinkInterface|null $link the link already resolved for this Qliro order; when omitted
+     *        it is loaded by Magento order id (kept for backward compatibility)
      * @return bool
      */
-    public function applyQliroOrderStatus($order)
+    public function applyQliroOrderStatus($order, ?LinkInterface $link = null)
     {
         $orderId = $order->getId();
 
         try {
-            $link = $this->linkRepository->getByOrderId($orderId);
+            /**
+             * PLIN-373: prefer the link the caller already resolved for THIS Qliro order (by Qliro
+             * order id). Re-loading by Magento order id alone can return a stale/foreign link row
+             * when a Magento order id has been reused (a store DB reset/restore leaves an old link
+             * carrying the same order id), which pointed order-management calls at another merchant's
+             * Qliro order (MERCHANT_MISMATCH / ORDER_NOT_FOUND) and left the placed order with its
+             * temporary generated reference.
+             */
+            if ($link === null) {
+                $link = $this->linkRepository->getByOrderId($orderId);
+            }
 
             switch ($link->getQliroOrderStatus()) {
                 case CheckoutStatusInterface::STATUS_COMPLETED:
@@ -456,18 +468,42 @@ class PlaceOrder extends AbstractManagement
                             );
 
                             $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-                            $transactionId = 'unknown';
-                            if ($response && $response->getPaymentTransactionId()) {
-                                $transactionId = $response->getPaymentTransactionId();
+
+                            if ($response === null) {
+                                /**
+                                 * PLIN-373: updateMerchantReference() returns null on any API error
+                                 * (it swallows the exception so a Qliro notification still gets its
+                                 * ok). Log that as a failure instead of the old "assigned" debug line,
+                                 * which hid that the Qliro order still carries its temporary reference.
+                                 * Behaviour is otherwise unchanged - the reference is still marked as
+                                 * handled below (fire-once): this runs inside a Qliro notification on
+                                 * every status callback, so it must not re-attempt or write to the
+                                 * order on each call across merchants.
+                                 */
+                                $this->logManager->critical(
+                                    new \RuntimeException('Failed to set the Magento order reference on the Qliro One order'),
+                                    [
+                                        'extra' => [
+                                            'qliro_order_id' => $link->getQliroOrderId(),
+                                            'order_id' => $order->getId(),
+                                            'new_merchant_reference' => $order->getIncrementId(),
+                                        ],
+                                    ]
+                                );
+                            } else {
+                                $transactionId = $response->getPaymentTransactionId() ?: 'unknown';
+                                $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
+                                    'payment_transaction_id' => $transactionId,
+                                    'qliro_order_id' => $link->getQliroOrderId(),
+                                    'order_id' => $order->getId(),
+                                    'new_merchant_reference' => $order->getIncrementId(),
+                                ]);
                             }
-                            $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                                'payment_transaction_id' => $transactionId,
-                                'qliro_order_id' => $link->getQliroOrderId(),
-                                'order_id' => $order->getId(),
-                                'new_merchant_reference' => $order->getIncrementId(),
-                            ]);
                         }
 
+                        // Fire-once regardless of outcome, exactly as before: the notification path
+                        // must just respond ok, and re-attempting on every later callback would add
+                        // load and noise across all merchants' orders.
                         $paymentAdditionalInfo['qliroone_updated_merchant_reference'] = true;
                         $order->getPayment()->setAdditionalInformation($paymentAdditionalInfo);
                     }

@@ -166,7 +166,7 @@ class CheckoutStatus extends AbstractManagement
 
                         $orderId = $link->getOrderId();
                         if (!empty($orderId)) {
-                            if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId))) {
+                            if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId), $link)) {
                                 $response = $this->checkoutStatusRespond(
                                     CheckoutStatusResponseInterface::RESPONSE_RECEIVED
                                 );
@@ -224,7 +224,7 @@ class CheckoutStatus extends AbstractManagement
                 $this->linkRepository->save($link);
 
                 $orderId = $link->getOrderId();
-                if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId))) {
+                if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId), $link)) {
                     $response = $this->checkoutStatusRespond(
                         CheckoutStatusResponseInterface::RESPONSE_RECEIVED
                     );
