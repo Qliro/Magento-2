@@ -45,7 +45,7 @@ class CustomerConverter
      * @param \Magento\Quote\Model\Quote $quote
      * @return bool Whether anything was applied to the quote
      */
-    public function convert($qliroCustomer, Quote $quote): bool
+    public function convert($qliroCustomer, Quote $quote)
     {
         if (!$qliroCustomer) {
             return false;

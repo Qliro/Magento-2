@@ -51,7 +51,7 @@ class ShippingMethodsBuilder
     private $qliroConfig;
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager
+     * @var \Qliro\QliroOne\Model\Logger\Manager|null
      */
     private $logManager;
 
@@ -63,7 +63,7 @@ class ShippingMethodsBuilder
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
      * @param StoreManagerInterface $storeManager
      * @param Config $qliroConfig
-     * @param LogManager $logManager
+     * @param LogManager|null $logManager
      */
     public function __construct(
         UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory,
@@ -71,7 +71,7 @@ class ShippingMethodsBuilder
         ManagerInterface $eventManager,
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
-        LogManager $logManager,
+        ?LogManager $logManager = null,
     ) {
         $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
         $this->shippingMethodBuilder = $shippingMethodBuilder;
@@ -166,12 +166,12 @@ class ShippingMethodsBuilder
         // before the customer has identified. Only a rateable address that yields nothing
         // points at a real problem.
         if (!$shippingAddress->getPostcode() || !$shippingAddress->getCountryId()) {
-            $this->logManager->debug($message, $context);
+            $this->logManager?->debug($message, $context);
 
             return;
         }
 
-        $this->logManager->notice($message, $context);
+        $this->logManager?->notice($message, $context);
     }
 
     /**

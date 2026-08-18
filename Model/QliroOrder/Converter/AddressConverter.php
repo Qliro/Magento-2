@@ -27,7 +27,7 @@ class AddressConverter
         $qliroCustomer,
         Address $address,
         $countryCode = null
-    ): bool {
+    ) {
         $addressData = [
             'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
             'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,

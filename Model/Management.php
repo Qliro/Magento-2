@@ -212,7 +212,7 @@ class Management extends AbstractManagement implements ManagementInterface
      * @return bool Whether the payload changed anything on the quote
      * @throws \Exception
      */
-    public function updateCustomer($customerData): bool
+    public function updateCustomer($customerData)
     {
         return $this->quoteManagement->setQuote($this->getQuote())->updateCustomer($customerData);
     }

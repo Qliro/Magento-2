@@ -8,6 +8,7 @@ namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
 use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
@@ -73,7 +74,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Qliro\QliroOne\Model\Quote\Agent $quoteAgent
-     * @param \Qliro\QliroOne\Model\Quote\ShippingAddressFormDataBuilder $shippingAddressFormDataBuilder
+     * @param \Qliro\QliroOne\Model\Quote\ShippingAddressFormDataBuilder|null $shippingAddressFormDataBuilder
      */
     public function __construct(
         Context $context,
@@ -84,7 +85,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         Session $checkoutSession,
         Manager $logManager,
         Agent $quoteAgent,
-        ShippingAddressFormDataBuilder $shippingAddressFormDataBuilder
+        ?ShippingAddressFormDataBuilder $shippingAddressFormDataBuilder = null
     ) {
         parent::__construct($context);
         $this->dataHelper = $dataHelper;
@@ -94,7 +95,10 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         $this->checkoutSession = $checkoutSession;
         $this->logManager = $logManager;
         $this->quoteAgent = $quoteAgent;
-        $this->shippingAddressFormDataBuilder = $shippingAddressFormDataBuilder;
+        // Optional so a subclass calling parent::__construct() with the old signature keeps
+        // working, resolved here because the frontend depends on the address being returned.
+        $this->shippingAddressFormDataBuilder = $shippingAddressFormDataBuilder
+            ?: ObjectManager::getInstance()->get(ShippingAddressFormDataBuilder::class);
     }
 
     /**

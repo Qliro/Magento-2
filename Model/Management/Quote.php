@@ -531,7 +531,7 @@ class Quote extends AbstractManagement
      * @return bool Whether the payload changed anything on the quote
      * @throws \Exception
      */
-    public function updateCustomer($customerData): bool
+    public function updateCustomer($customerData)
     {
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer */
         $qliroCustomer = $this->containerMapper->fromArray($customerData, QliroOrderCustomerInterface::class);
