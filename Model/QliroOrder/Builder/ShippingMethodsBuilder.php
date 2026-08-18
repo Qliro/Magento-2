@@ -6,6 +6,7 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address\Rate;
@@ -51,7 +52,7 @@ class ShippingMethodsBuilder
     private $qliroConfig;
 
     /**
-     * @var \Qliro\QliroOne\Model\Logger\Manager|null
+     * @var \Qliro\QliroOne\Model\Logger\Manager
      */
     private $logManager;
 
@@ -78,7 +79,10 @@ class ShippingMethodsBuilder
         $this->eventManager = $eventManager;
         $this->storeManager = $storeManager;
         $this->qliroConfig = $qliroConfig;
-        $this->logManager = $logManager;
+        // Optional so a subclass calling parent::__construct() with the old signature keeps
+        // working. Magento passes null for optional arguments instead of resolving them, so
+        // the instance is fetched here rather than left to DI.
+        $this->logManager = $logManager ?: ObjectManager::getInstance()->get(LogManager::class);
     }
 
     /**
@@ -166,12 +170,12 @@ class ShippingMethodsBuilder
         // before the customer has identified. Only a rateable address that yields nothing
         // points at a real problem.
         if (!$shippingAddress->getPostcode() || !$shippingAddress->getCountryId()) {
-            $this->logManager?->debug($message, $context);
+            $this->logManager->debug($message, $context);
 
             return;
         }
 
-        $this->logManager?->notice($message, $context);
+        $this->logManager->notice($message, $context);
     }
 
     /**

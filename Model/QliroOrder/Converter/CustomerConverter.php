@@ -43,7 +43,7 @@ class CustomerConverter
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
      * @param \Magento\Quote\Model\Quote $quote
-     * @return bool Whether anything was applied to the quote
+     * @return bool Whether anything from the payload was applied to the quote
      */
     public function convert($qliroCustomer, Quote $quote)
     {

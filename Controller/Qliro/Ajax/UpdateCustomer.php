@@ -153,7 +153,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
 
             if (!$applied) {
                 $this->logManager->notice(
-                    'Customer payload from QliroOne changed nothing on the quote',
+                    'Customer payload from QliroOne had nothing to apply to the quote',
                     [
                         'extra' => [
                             'quote_id' => $quote->getId(),
