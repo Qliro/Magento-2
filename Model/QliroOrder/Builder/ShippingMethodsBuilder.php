@@ -14,6 +14,7 @@ use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Carrier\Ingrid;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 
 /**
  * Shipping Methods Builder class
@@ -50,6 +51,11 @@ class ShippingMethodsBuilder
     private $qliroConfig;
 
     /**
+     * @var \Qliro\QliroOne\Model\Logger\Manager
+     */
+    private $logManager;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory
@@ -57,6 +63,7 @@ class ShippingMethodsBuilder
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
      * @param StoreManagerInterface $storeManager
      * @param Config $qliroConfig
+     * @param LogManager $logManager
      */
     public function __construct(
         UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory,
@@ -64,12 +71,14 @@ class ShippingMethodsBuilder
         ManagerInterface $eventManager,
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
+        LogManager $logManager,
     ) {
         $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
         $this->shippingMethodBuilder = $shippingMethodBuilder;
         $this->eventManager = $eventManager;
         $this->storeManager = $storeManager;
         $this->qliroConfig = $qliroConfig;
+        $this->logManager = $logManager;
     }
 
     /**
@@ -114,6 +123,7 @@ class ShippingMethodsBuilder
         } else {
             $collectedShippingMethods = $this->collectShippingMethods();
             if (empty($collectedShippingMethods)) {
+                $this->logDecline();
                 $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
             } else {
                 $container->setAvailableShippingMethods($collectedShippingMethods);
@@ -131,6 +141,37 @@ class ShippingMethodsBuilder
         $this->quote = null;
 
         return $container;
+    }
+
+    /**
+     * Log why the quote produced no shipping method, so a decline is diagnosable
+     *
+     * @return void
+     */
+    private function logDecline(): void
+    {
+        $shippingAddress = $this->quote->getShippingAddress();
+        $message = 'No shipping method available for the quote, declining with ' .
+            UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE;
+        $context = [
+            'extra' => [
+                'quote_id' => $this->quote->getId(),
+                'postcode' => $shippingAddress->getPostcode(),
+                'country_id' => $shippingAddress->getCountryId(),
+                'collected_rates' => count($shippingAddress->getAllShippingRates()),
+            ],
+        ];
+
+        // An address that cannot be rated yet is the normal state when the order is created,
+        // before the customer has identified. Only a rateable address that yields nothing
+        // points at a real problem.
+        if (!$shippingAddress->getPostcode() || !$shippingAddress->getCountryId()) {
+            $this->logManager->debug($message, $context);
+
+            return;
+        }
+
+        $this->logManager->notice($message, $context);
     }
 
     /**

@@ -88,7 +88,7 @@ interface ManagementInterface
      * Update customer with data from QliroOne frontend callback
      *
      * @param array $customerData
-     * @return void
+     * @return bool Whether the payload changed anything on the quote
      * @throws \Exception
      */
     public function updateCustomer($customerData);

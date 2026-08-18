@@ -20,13 +20,14 @@ class AddressConverter
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
      * @param \Magento\Quote\Model\Quote\Address $address
      * @param string|null $countryCode
+     * @return bool Whether any value on the quote address was changed
      */
     public function convert(
         $qliroAddress,
         $qliroCustomer,
         Address $address,
         $countryCode = null
-    ) {
+    ): bool {
         $addressData = [
             'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
             'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,
@@ -55,5 +56,7 @@ class AddressConverter
         if ($changed && $address->getCustomerAddressId()) {
             $address->setCustomerAddressId(null);
         }
+
+        return $changed;
     }
 }

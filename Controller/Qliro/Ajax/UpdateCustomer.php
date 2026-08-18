@@ -14,6 +14,7 @@ use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Quote\Agent;
+use Qliro\QliroOne\Model\Quote\ShippingAddressFormDataBuilder;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
 /**
@@ -57,6 +58,11 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
     private $quoteAgent;
 
     /**
+     * @var \Qliro\QliroOne\Model\Quote\ShippingAddressFormDataBuilder
+     */
+    private $shippingAddressFormDataBuilder;
+
+    /**
      * Inject dependnecies
      *
      * @param \Magento\Framework\App\Action\Context $context
@@ -67,6 +73,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Qliro\QliroOne\Model\Quote\Agent $quoteAgent
+     * @param \Qliro\QliroOne\Model\Quote\ShippingAddressFormDataBuilder $shippingAddressFormDataBuilder
      */
     public function __construct(
         Context $context,
@@ -76,7 +83,8 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         ManagementInterface $qliroManagement,
         Session $checkoutSession,
         Manager $logManager,
-        Agent $quoteAgent
+        Agent $quoteAgent,
+        ShippingAddressFormDataBuilder $shippingAddressFormDataBuilder
     ) {
         parent::__construct($context);
         $this->dataHelper = $dataHelper;
@@ -86,6 +94,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         $this->checkoutSession = $checkoutSession;
         $this->logManager = $logManager;
         $this->quoteAgent = $quoteAgent;
+        $this->shippingAddressFormDataBuilder = $shippingAddressFormDataBuilder;
     }
 
     /**
@@ -135,8 +144,20 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
 
         try {
             $this->logManager->debug('Starting to update customer in Qliro quote ' . $quote->getId());
-            $this->qliroManagement->setQuote($quote)->updateCustomer($data);
+            $applied = $this->qliroManagement->setQuote($quote)->updateCustomer($data);
             $this->logManager->debug('Finished to update customer in Qliro quote ' . $quote->getId());
+
+            if (!$applied) {
+                $this->logManager->notice(
+                    'Customer payload from QliroOne changed nothing on the quote',
+                    [
+                        'extra' => [
+                            'quote_id' => $quote->getId(),
+                            'has_address' => !empty($data['address']) || !empty($data['Address']),
+                        ],
+                    ]
+                );
+            }
         } catch (\Exception $exception) {
             $this->logManager->debug('Failed to update customer in Qliro quote ' . $quote->getId());
             return $this->dataHelper->sendPreparedPayload(
@@ -151,7 +172,11 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         }
 
         return $this->dataHelper->sendPreparedPayload(
-            ['status' => 'OK'],
+            [
+                'status' => 'OK',
+                // The frontend has no address form to read, so it takes the address from here
+                'address' => $this->shippingAddressFormDataBuilder->build($quote),
+            ],
             200,
             null,
             'AJAX:UPDATE_CUSTOMER'
