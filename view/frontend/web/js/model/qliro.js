@@ -12,7 +12,9 @@ define([
     'Magento_Checkout/js/model/quote',
     'Magento_Customer/js/customer-data',
     'mage/translate',
-    'Magento_Checkout/js/model/checkout-data-resolver',
+    'Magento_Checkout/js/checkout-data',
+    'Magento_Checkout/js/model/address-converter',
+    'Magento_Checkout/js/action/select-shipping-address',
     'Magento_Checkout/js/action/get-payment-information'
 ], function(
     $,
@@ -20,7 +22,9 @@ define([
     quote,
     customerData,
     __,
-    checkoutDataResolver,
+    checkoutData,
+    addressConverter,
+    selectShippingAddress,
     getPaymentInformationAction
 ) {
     function sendUpdateQuote() {
@@ -65,6 +69,38 @@ define([
 
     function updateTotals() {
         getPaymentInformationAction();
+    }
+
+    function joinStreet(street) {
+        return Array.isArray(street) ? street.join(', ') : (street || '');
+    }
+
+    function isSameAsQuoteAddress(addressData) {
+        var current = quote.shippingAddress();
+
+        return !!current &&
+            current.postcode === addressData.postcode &&
+            current.city === addressData.city &&
+            current.countryId === addressData.country_id &&
+            joinStreet(current.street) === joinStreet(addressData.street);
+    }
+
+    /**
+     * Put the address Magento stored for the quote into the client side quote.
+     *
+     * This checkout has no address form, so nothing else ever fills the client side
+     * address. Without this the shipping rate estimation runs on an empty address and
+     * returns no shipping methods on the first attempt.
+     */
+    function syncShippingAddress(addressData) {
+        if (!addressData || !addressData.postcode || isSameAsQuoteAddress(addressData)) {
+            qliroDebug('Skipping shipping address sync', addressData);
+
+            return;
+        }
+
+        checkoutData.setShippingAddressFromData(addressData);
+        selectShippingAddress(addressConverter.formAddressDataToQuoteAddress(addressData));
     }
 
     return {
@@ -122,9 +158,7 @@ define([
             sendAjaxAsJson(config.updateCustomerUrl, customer).then(
                 function(data) {
                     qliroSuccessDebug('onCustomerInfoChanged', data);
-                    if(!quote.shippingAddress().postcode) {
-                        checkoutDataResolver.resolveShippingAddress();
-                    }
+                    syncShippingAddress(data && data.address);
                 },
                 function(response) {
                     var data = response.responseJSON || {};

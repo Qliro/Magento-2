@@ -209,11 +209,12 @@ class Management extends AbstractManagement implements ManagementInterface
      * Update customer with data from QliroOne frontend callback
      *
      * @param array $customerData
+     * @return bool Whether anything from the payload was applied to the quote
      * @throws \Exception
      */
     public function updateCustomer($customerData)
     {
-        $this->quoteManagement->setQuote($this->getQuote())->updateCustomer($customerData);
+        return $this->quoteManagement->setQuote($this->getQuote())->updateCustomer($customerData);
     }
 
     /**

@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.7.10] - 2026-08-18
+
+### Fixed
+
+- Shipping methods were missing on the first attempt for a new customer, and appeared after a reload or an address edit. One chain with two links: (PLIN-376)
+  - `CustomerConverter` applied nothing at all, the address included, when `Customer.Email` was absent. Qliro's `onCustomerInfoChanged` delivers the address from the personal number lookup before the email is typed, so on the first event no postcode reached the quote, while `updateCustomer` still answered `OK`. Returning customers have the email from the first event, which is why this only reproduced for new ones. Email and address are now applied independently, and the address write no longer depends on the email.
+  - The frontend then called Magento's `checkoutDataResolver.resolveShippingAddress()`, which resolves only from checkout local storage and the customer address book. Both are empty for a first time customer, so an empty address was selected. That assignment both estimated shipping on `postcode: null` and was the only trigger that rebuilds the Qliro order, so `AvailableShippingMethods` was rebuilt from an address-less quote and the checkout got `DeclineReason: POSTAL_CODE`. `updateCustomer` now returns the address it stored on the quote and the frontend selects that one instead.
+- `updateCustomer` no longer answers `OK` after applying nothing. The converters report whether anything was written, and a payload that changed nothing is logged (PLIN-376)
+
+### Added
+
+- The shipping methods callback falls back to `Customer.Address` when the payload carries no `ShippingAddress`. Hardening rather than a fix for the report above, the callback is a server to server request that is not ordered against the browser call storing the address, so it should not depend on that address already being on the quote (PLIN-376)
+- A decline from the shipping methods callback is logged with the postcode, country and number of collected rates, so an empty method list can be diagnosed from the module log alone (PLIN-376)
+
 ## [1.7.9] - 2026-08-16
 
 ### Fixed

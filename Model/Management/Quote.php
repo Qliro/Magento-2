@@ -528,6 +528,7 @@ class Quote extends AbstractManagement
      * Update customer with data from QliroOne frontend callback
      *
      * @param array $customerData
+     * @return bool Whether anything from the payload was applied to the quote
      * @throws \Exception
      */
     public function updateCustomer($customerData)
@@ -535,8 +536,10 @@ class Quote extends AbstractManagement
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer */
         $qliroCustomer = $this->containerMapper->fromArray($customerData, QliroOrderCustomerInterface::class);
 
-        $this->customerConverter->convert($qliroCustomer, $this->getQuote());
+        $applied = $this->customerConverter->convert($qliroCustomer, $this->getQuote());
         $this->recalculateAndSaveQuote();
+
+        return $applied;
     }
 
     /**

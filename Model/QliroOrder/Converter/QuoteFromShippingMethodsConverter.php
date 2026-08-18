@@ -47,11 +47,21 @@ class QuoteFromShippingMethodsConverter
      */
     public function convert(UpdateShippingMethodsNotificationInterface $container, Quote $quote)
     {
+        $customer = $container->getCustomer();
+        $qliroAddress = $container->getShippingAddress();
+
+        // This callback is not ordered against the browser call that stores the address, so it
+        // must rate what its own payload carries. Qliro can put the address on the customer
+        // rather than on ShippingAddress while the buyer is still identifying.
+        if (!$qliroAddress && $customer) {
+            $qliroAddress = $customer->getAddress();
+        }
+
         $billingAddress = $quote->getBillingAddress();
 
         $this->addressConverter->convert(
-            $container->getShippingAddress(),
-            $container->getCustomer(),
+            $qliroAddress,
+            $customer,
             $billingAddress,
             $container->getCountryCode()
         );
@@ -60,8 +70,8 @@ class QuoteFromShippingMethodsConverter
             $shippingAddress = $quote->getShippingAddress();
 
             $this->addressConverter->convert(
-                $container->getShippingAddress(),
-                $container->getCustomer(),
+                $qliroAddress,
+                $customer,
                 $shippingAddress,
                 $container->getCountryCode()
             );

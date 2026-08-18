@@ -43,33 +43,38 @@ class CustomerConverter
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
      * @param \Magento\Quote\Model\Quote $quote
+     * @return bool Whether anything from the payload was applied to the quote
      */
     public function convert($qliroCustomer, Quote $quote)
     {
-        if ($qliroCustomer && $qliroCustomer->getEmail() !== null) {
-            $customer = $quote->getCustomer();
-            $qliroAddress = $qliroCustomer->getAddress() ?? null;
-
-            $customerData = [
-                'email' => $qliroCustomer->getEmail(),
-            ];
-
-            foreach ($customerData as $key => $value) {
-                if ($value !== null) {
-                    $customer->setData($key, $value);
-                }
-            }
-
-            if ($qliroAddress) {
-                $billingAddress = $quote->getBillingAddress();
-                $this->addressConverter->convert($qliroAddress, $qliroCustomer, $billingAddress);
-
-                if (!$quote->isVirtual()) {
-                    $shippingAddress = $quote->getShippingAddress();
-                    $this->addressConverter->convert($qliroAddress, $qliroCustomer, $shippingAddress);
-                    $shippingAddress->setSameAsBilling($this->helper->doAddressesMatch($shippingAddress, $billingAddress));
-                }
-            }
+        if (!$qliroCustomer) {
+            return false;
         }
+
+        $applied = false;
+
+        if ($qliroCustomer->getEmail() !== null) {
+            $quote->getCustomer()->setData('email', $qliroCustomer->getEmail());
+            $applied = true;
+        }
+
+        // The address is applied on its own: Qliro can send it before the email is known,
+        // and skipping it here left the quote without a postcode to rate shipping on.
+        $qliroAddress = $qliroCustomer->getAddress() ?? null;
+
+        if (!$qliroAddress) {
+            return $applied;
+        }
+
+        $billingAddress = $quote->getBillingAddress();
+        $applied = $this->addressConverter->convert($qliroAddress, $qliroCustomer, $billingAddress) || $applied;
+
+        if (!$quote->isVirtual()) {
+            $shippingAddress = $quote->getShippingAddress();
+            $applied = $this->addressConverter->convert($qliroAddress, $qliroCustomer, $shippingAddress) || $applied;
+            $shippingAddress->setSameAsBilling($this->helper->doAddressesMatch($shippingAddress, $billingAddress));
+        }
+
+        return $applied;
     }
 }
