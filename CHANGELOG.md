@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.7.11] - 2026-08-19
+
+### Fixed
+
+- Shipping methods stayed missing until the checkout page was reloaded, for customers whose address Qliro already has on file. Qliro sends `Address: {"isMasked": true}` in the browser `updateCustomer` payload, so the quote cannot learn the address from it, and the unmasked address only arrives when the module fetches the order over the merchant API. `QliroOrder::get()` pushed the order update, which carries `AvailableShippingMethods`, before that fetch, so the update was always built from a quote with no address and Qliro received order items and nothing else. The address landed on the quote a moment later, which is why a reload showed the methods. The update is now pushed again when the fetched order actually changed the quote. (PLIN-376)
+
+### Changed
+
+- The converters report a change rather than the presence of a value, so a repeated payload no longer counts as an update. Without this the fix above would push an order update to Qliro on every checkout request (PLIN-376)
+
 ## [1.7.10] - 2026-08-18
 
 ### Fixed

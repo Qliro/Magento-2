@@ -53,8 +53,12 @@ class CustomerConverter
 
         $applied = false;
 
-        if ($qliroCustomer->getEmail() !== null) {
-            $quote->getCustomer()->setData('email', $qliroCustomer->getEmail());
+        $email = $qliroCustomer->getEmail();
+
+        // Compared, not just written: callers use the return value to decide whether the quote
+        // is worth pushing to Qliro again, and a repeated payload must not look like a change.
+        if ($email !== null && $quote->getCustomer()->getEmail() != $email) {
+            $quote->getCustomer()->setData('email', $email);
             $applied = true;
         }
 

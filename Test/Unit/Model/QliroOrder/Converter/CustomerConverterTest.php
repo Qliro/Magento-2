@@ -105,6 +105,7 @@ class CustomerConverterTest extends TestCase
         $qliroCustomer->method('getAddress')->willReturn(null);
 
         $customer = $this->createMock(Customer::class);
+        $customer->method('getEmail')->willReturn(null);
         $customer->expects(self::once())->method('setData')->with('email', 'buyer@example.com');
 
         $quote = $this->createMock(Quote::class);
@@ -113,6 +114,26 @@ class CustomerConverterTest extends TestCase
         $this->addressConverter->expects(self::never())->method('convert');
 
         self::assertTrue($this->converter->convert($qliroCustomer, $quote));
+    }
+
+    /**
+     * An email the quote already carries is not a change. The Qliro order fetch reports this
+     * back, and treating it as a change would push a pointless order update every time.
+     */
+    public function testReportsNoChangeWhenTheEmailIsAlreadyOnTheQuote(): void
+    {
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getEmail')->willReturn('buyer@example.com');
+        $qliroCustomer->method('getAddress')->willReturn(null);
+
+        $customer = $this->createMock(Customer::class);
+        $customer->method('getEmail')->willReturn('buyer@example.com');
+        $customer->expects(self::never())->method('setData');
+
+        $quote = $this->createMock(Quote::class);
+        $quote->method('getCustomer')->willReturn($customer);
+
+        self::assertFalse($this->converter->convert($qliroCustomer, $quote));
     }
 
     /**
