@@ -261,7 +261,7 @@ class QliroOrder extends AbstractManagement
                     }
 
                     try {
-                        $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
+                        $isQuoteChanged = $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
                         $this->logManager->debug('Convert update shipping methods request into quote: ' . $qliroOrder->getOrderId());
                         $this->quoteManagement->recalculateAndSaveQuote();
                     } catch (\Exception $exception) {
@@ -282,6 +282,24 @@ class QliroOrder extends AbstractManagement
                 }
 
                 $this->lock->unlock($qliroOrderId);
+
+                // The update above ran before this order was fetched, so it was built from a
+                // quote that did not know the customer address yet. Qliro masks that address in
+                // the browser payload, so this fetch is the first place it becomes available,
+                // and without a second push the checkout keeps the empty shipping method list
+                // until the page is reloaded.
+                if (!empty($isQuoteChanged)) {
+                    $this->logManager->debug(
+                        'Qliro order taught the quote something new, pushing the update again',
+                        [
+                            'extra' => [
+                                'quote_id' => $link->getQuoteId(),
+                                'qliro_order_id' => $qliroOrderId,
+                            ],
+                        ]
+                    );
+                    $this->quoteManagement->setQuote($this->getQuote())->update($qliroOrderId);
+                }
             } else {
                 $this->logManager->debug(
                     'An order is in preparation, not possible to update the quote',

@@ -59,26 +59,27 @@ class QuoteFromOrderConverter
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderInterface $container
      * @param \Magento\Quote\Model\Quote $quote
+     * @return bool Whether the fetched order changed the customer or address on the quote
      * @throws \Magento\Framework\Exception\LocalizedException
      */
     public function convert($container, Quote $quote)
     {
-        $this->customerConverter->convert($container->getCustomer(), $quote);
+        $applied = $this->customerConverter->convert($container->getCustomer(), $quote);
 
         if ($qliroBillingAddress = $container->getBillingAddress()) {
-            $this->addressConverter->convert(
+            $applied = $this->addressConverter->convert(
                 $qliroBillingAddress,
                 $container->getCustomer(),
                 $quote->getBillingAddress()
-            );
+            ) || $applied;
         }
 
         if (!$quote->isVirtual() && ($qliroShippingAddress = $container->getShippingAddress())) {
-            $this->addressConverter->convert(
+            $applied = $this->addressConverter->convert(
                 $qliroShippingAddress,
                 $container->getCustomer(),
                 $quote->getShippingAddress()
-            );
+            ) || $applied;
         }
 
         $this->orderItemsConverter->convert($container->getOrderItems(), $quote);
@@ -88,5 +89,7 @@ class QuoteFromOrderConverter
             $email = $quote->getCustomer()->getEmail();
             $this->subscription->addSubscription($email, $quote->getStoreId());
         }
+
+        return $applied;
     }
 }
