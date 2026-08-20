@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.7.12] - 2026-08-20
+
+### Fixed
+
+- Shipping methods still did not appear on the first attempt after 1.7.11, because the fix could not run. Qliro masks the address in the `updateCustomer` payload, so the store has nothing to store and the response carries no address. 1.7.10 made the frontend select an address only when there is one, and selecting an address is what triggers the Qliro order refresh that fetches the real address and pushes the shipping methods. With nothing to select, nothing was triggered and the refresh only happened on a page reload. The frontend now asks for that refresh directly when the store has no address yet. (PLIN-376)
+
+### Changed
+
+- A customer payload that changed nothing now logs the address field names it carried instead of a "has address" flag. Qliro sends `{"isMasked": true}` in place of the address, which made the flag read as true while there was nothing to apply (PLIN-376)
+
 ## [1.7.11] - 2026-08-19
 
 ### Fixed
