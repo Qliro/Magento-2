@@ -118,6 +118,23 @@ class MerchantNotification implements HttpPostActionInterface
             MerchantNotificationInterface::class
         );
 
+        if (empty($updateContainer->getOrderId())) {
+            $this->logManager->warning(
+                'Callback payload carries no OrderId, refusing to look up a link with an empty value. '
+                . 'The request body was probably lost on the way, check the callback URL for redirects.'
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    MerchantNotificationResponseInterface::CALLBACK_RESPONSE =>
+                        MerchantNotificationResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                ],
+                400,
+                null,
+                'CALLBACK:MERCHANT_NOTIFICATION:ERROR_NO_ORDER_ID'
+            );
+        }
+
         $responseContainer = $this->qliroManagement->merchantNotification($updateContainer);
 
         $response = $this->dataHelper->sendPreparedPayload(
