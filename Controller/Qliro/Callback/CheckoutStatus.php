@@ -127,6 +127,23 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
             CheckoutStatusInterface::class
         );
 
+        if (empty($updateContainer->getOrderId())) {
+            $this->logManager->warning(
+                'Callback payload carries no OrderId, refusing to look up a link with an empty value. '
+                . 'The request body was probably lost on the way, check the callback URL for redirects.'
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    CheckoutStatusResponseInterface::CALLBACK_RESPONSE =>
+                        CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                ],
+                400,
+                null,
+                'CALLBACK:CHECKOUT_STATUS:ERROR_NO_ORDER_ID'
+            );
+        }
+
         $responseContainer = $this->qliroManagement->checkoutStatus($updateContainer);
 
         $response = $this->dataHelper->sendPreparedPayload(

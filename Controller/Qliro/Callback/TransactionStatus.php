@@ -122,6 +122,20 @@ class TransactionStatus extends \Magento\Framework\App\Action\Action
             QliroOrderManagementStatusInterface::class
         );
 
+        if (empty($updateContainer->getOrderId())) {
+            $this->logManager->warning(
+                'Callback payload carries no OrderId, refusing to look up a link with an empty value. '
+                . 'The request body was probably lost on the way, check the callback URL for redirects.'
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                [OmStatusResponse::CALLBACK_RESPONSE => OmStatusResponse::RESPONSE_ORDER_NOT_FOUND],
+                400,
+                null,
+                'CALLBACK:MANAGEMENT_STATUS:ERROR_NO_ORDER_ID'
+            );
+        }
+
         $responseContainer = $this->qliroManagement->handleTransactionStatus($updateContainer);
 
         $response = $this->dataHelper->sendPreparedPayload(

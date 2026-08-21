@@ -87,7 +87,7 @@ class Repository implements LinkRepositoryInterface
      */
     public function get($id, $onlyActive = true)
     {
-        return $this->getByField($id, null, $onlyActive);
+        return $this->getByField($id, Link::FIELD_ID, $onlyActive);
     }
 
     /**
@@ -236,6 +236,12 @@ class Repository implements LinkRepositoryInterface
      */
     private function getByField($value, $field, $onlyActive = true)
     {
+        // An empty value must never reach the query: MySQL casts '' to 0 on the integer
+        // columns, which matches unrelated links that have no Qliro order yet.
+        if ($this->isEmptyLookupValue($value)) {
+            throw new NoSuchEntityException(__('Cannot find a link with an empty %1', $field));
+        }
+
         /** @var \Qliro\QliroOne\Model\Link $link */
         if ($onlyActive) {
             $collection = $this->collectionFactory->create()
@@ -252,6 +258,23 @@ class Repository implements LinkRepositoryInterface
         }
 
         return $link;
+    }
+
+    /**
+     * Check if a lookup value cannot identify a link
+     *
+     * @param string|int|null $value
+     * @return bool
+     */
+    private function isEmptyLookupValue($value)
+    {
+        if (!\is_scalar($value) || \is_bool($value)) {
+            return true;
+        }
+
+        $value = \trim((string) $value);
+
+        return $value === '' || $value === '0';
     }
 
     /**

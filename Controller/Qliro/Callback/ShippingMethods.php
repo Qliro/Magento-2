@@ -121,6 +121,20 @@ class ShippingMethods extends \Magento\Framework\App\Action\Action
             UpdateShippingMethodsNotificationInterface::class
         );
 
+        if (empty($updateContainer->getOrderId())) {
+            $this->logManager->warning(
+                'Callback payload carries no OrderId, refusing to look up a link with an empty value. '
+                . 'The request body was probably lost on the way, check the callback URL for redirects.'
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                ['error' => UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE],
+                400,
+                null,
+                'CALLBACK:SHIPPING_METHODS:ERROR_NO_ORDER_ID'
+            );
+        }
+
         $responseContainer = $this->qliroManagement->getShippingMethods($updateContainer);
 
         $response = $this->dataHelper->sendPreparedPayload(
