@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Service\Callback;
 
-use Magento\Framework\Url\QueryParamsResolverInterface;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -30,7 +29,6 @@ class UrlBuilderTest extends TestCase
     private Config&MockObject $qliroConfig;
     private Store&MockObject $store;
     private CallbackToken&MockObject $callbackToken;
-    private QueryParamsResolverInterface&MockObject $queryParamsResolver;
     private UrlBuilder $urlBuilder;
 
     protected function setUp(): void
@@ -38,19 +36,13 @@ class UrlBuilderTest extends TestCase
         $this->qliroConfig = $this->createMock(Config::class);
         $this->store = $this->createMock(Store::class);
         $this->callbackToken = $this->createMock(CallbackToken::class);
-        $this->queryParamsResolver = $this->createMock(QueryParamsResolverInterface::class);
 
         $storeManager = $this->createMock(StoreManagerInterface::class);
         $storeManager->method('getStore')->willReturn($this->store);
 
         $this->callbackToken->method('getToken')->willReturn('a.token');
 
-        $this->urlBuilder = new UrlBuilder(
-            $this->qliroConfig,
-            $storeManager,
-            $this->callbackToken,
-            $this->queryParamsResolver
-        );
+        $this->urlBuilder = new UrlBuilder($this->qliroConfig, $storeManager, $this->callbackToken);
     }
 
     /**
@@ -151,13 +143,53 @@ class UrlBuilderTest extends TestCase
     }
 
     /**
+     * The token is signed with the store's API credentials, and this service is a singleton the
+     * recurring orders cron reuses while emulating every store, so one cached token for the whole
+     * process would hand stores 2..n a token signed by store 1 and every push would be rejected.
+     */
+    public function testGeneratesOneTokenPerStore(): void
+    {
+        $firstStore = $this->createMock(Store::class);
+        $firstStore->method('getId')->willReturn(1);
+
+        $secondStore = $this->createMock(Store::class);
+        $secondStore->method('getId')->willReturn(2);
+
+        $storeManager = $this->createMock(StoreManagerInterface::class);
+        $storeManager->method('getStore')->willReturnOnConsecutiveCalls(
+            $firstStore,
+            $firstStore,
+            $secondStore,
+            $secondStore
+        );
+
+        $callbackToken = $this->createMock(CallbackToken::class);
+        $callbackToken->expects(self::exactly(2))
+            ->method('getToken')
+            ->willReturnOnConsecutiveCalls('first.token', 'second.token');
+
+        $urlBuilder = new UrlBuilder($this->qliroConfig, $storeManager, $callbackToken);
+
+        $firstStore->expects(self::once())
+            ->method('getUrl')
+            ->with(self::PATH, ['_query' => ['token' => 'first.token']])
+            ->willReturn('https://shop.test/' . self::PATH);
+        $secondStore->expects(self::once())
+            ->method('getUrl')
+            ->with(self::PATH, ['_query' => ['token' => 'second.token']])
+            ->willReturn('https://shop.test/' . self::PATH);
+
+        $urlBuilder->getCallbackUrl(self::PATH);
+        $urlBuilder->getCallbackUrl(self::PATH);
+    }
+
+    /**
      * The configured callback base URI is used verbatim, it never had a trailing slash to lose.
      */
     public function testUsesTheConfiguredCallbackBaseUri(): void
     {
         $this->qliroConfig->method('redirectCallbacks')->willReturn(true);
         $this->qliroConfig->method('getCallbackUri')->willReturn('https://callbacks.test/');
-        $this->queryParamsResolver->method('getQuery')->willReturn('token=a.token');
 
         $this->store->expects(self::never())->method('getUrl');
 

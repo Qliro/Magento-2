@@ -112,6 +112,57 @@ class RepositoryTest extends TestCase
     }
 
     /**
+     * The integer columns read anything non numeric as 0, so a garbled id would match a link
+     * that has no Qliro order yet instead of finding nothing. That is the same cross customer
+     * quote mutation the empty check above prevents, reached through a different value.
+     *
+     * @dataProvider nonNumericIntegerLookupProvider
+     */
+    public function testRejectsNonNumericValueOnTheIntegerColumns(string $method, mixed $value): void
+    {
+        $this->collectionFactory->expects(self::never())->method('create');
+        $this->linkResourceModel->expects(self::never())->method('load');
+
+        $this->expectException(NoSuchEntityException::class);
+
+        $this->repository->{$method}($value);
+    }
+
+    /**
+     * @return array<string, array{string, mixed}>
+     */
+    public static function nonNumericIntegerLookupProvider(): array
+    {
+        $methods = ['get', 'getByQliroOrderId', 'getByQuoteId', 'getByOrderId'];
+        $values = [
+            'letters' => 'abc',
+            'id with a suffix' => '7abc',
+            'negative' => '-7',
+            'decimal' => '7.5',
+        ];
+
+        $cases = [];
+
+        foreach ($methods as $method) {
+            foreach ($values as $label => $value) {
+                $cases[$method . ' with ' . $label] = [$method, $value];
+            }
+        }
+
+        return $cases;
+    }
+
+    /**
+     * A reference is a varchar column, so it takes any non empty string.
+     */
+    public function testAcceptsANonNumericReference(): void
+    {
+        $this->givenCollectionReturnsLink(7);
+
+        self::assertSame(7, (int)$this->repository->getByReference('QLO-123-ABC')->getId());
+    }
+
+    /**
      * A real Qliro order id is looked up among active links only.
      */
     public function testFindsActiveLinkByQliroOrderId(): void

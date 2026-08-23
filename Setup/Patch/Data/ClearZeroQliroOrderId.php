@@ -19,6 +19,11 @@ use Qliro\QliroOne\Model\ResourceModel\Link;
 class ClearZeroQliroOrderId implements DataPatchInterface
 {
     /**
+     * Rows per statement, the table holds one row per checkout the shop ever started
+     */
+    private const BATCH_SIZE = 5000;
+
+    /**
      * Class constructor
      *
      * @param ModuleDataSetupInterface $moduleDataSetup
@@ -34,13 +39,30 @@ class ClearZeroQliroOrderId implements DataPatchInterface
     public function apply(): self
     {
         $connection = $this->moduleDataSetup->getConnection();
+        $table = $this->moduleDataSetup->getTable(Link::TABLE_LINK);
         $connection->startSetup();
 
-        $connection->update(
-            $this->moduleDataSetup->getTable(Link::TABLE_LINK),
-            [LinkInterface::FIELD_QLIRO_ORDER_ID => null],
-            [LinkInterface::FIELD_QLIRO_ORDER_ID . ' = ?' => 0]
-        );
+        // Walked in batches: the zeroes are the abandoned checkouts, so on a long lived shop
+        // they are most of the table and one statement would hold it for the whole upgrade
+        do {
+            $ids = $connection->fetchCol(
+                $connection->select()
+                    ->from($table, LinkInterface::FIELD_ID)
+                    ->where(LinkInterface::FIELD_QLIRO_ORDER_ID . ' = ?', 0)
+                    ->order(LinkInterface::FIELD_ID . ' ASC')
+                    ->limit(self::BATCH_SIZE)
+            );
+
+            if (!$ids) {
+                break;
+            }
+
+            $connection->update(
+                $table,
+                [LinkInterface::FIELD_QLIRO_ORDER_ID => null],
+                [LinkInterface::FIELD_ID . ' IN (?)' => $ids]
+            );
+        } while (\count($ids) === self::BATCH_SIZE);
 
         $connection->endSetup();
 

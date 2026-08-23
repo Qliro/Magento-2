@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Service\Callback;
 
-use Magento\Framework\Url\QueryParamsResolverInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Security\CallbackToken;
@@ -18,9 +17,9 @@ use Qliro\QliroOne\Model\Security\CallbackToken;
 class UrlBuilder
 {
     /**
-     * @var string|null
+     * @var array<int, string> Token per store, the token is signed with the store's credentials
      */
-    private ?string $generatedToken = null;
+    private array $generatedTokens = [];
 
     /**
      * Class constructor
@@ -28,13 +27,11 @@ class UrlBuilder
      * @param Config $qliroConfig
      * @param StoreManagerInterface $storeManager
      * @param CallbackToken $callbackToken
-     * @param QueryParamsResolverInterface $queryParamsResolver
      */
     public function __construct(
         private readonly Config $qliroConfig,
         private readonly StoreManagerInterface $storeManager,
-        private readonly CallbackToken $callbackToken,
-        private readonly QueryParamsResolverInterface $queryParamsResolver
+        private readonly CallbackToken $callbackToken
     ) {
     }
 
@@ -55,8 +52,9 @@ class UrlBuilder
         if ($this->qliroConfig->redirectCallbacks() && ($baseUri = $this->qliroConfig->getCallbackUri())) {
             $url = \implode('/', [\rtrim($baseUri, '/'), \ltrim($path, '/')]);
 
-            $this->queryParamsResolver->addQueryParams($query);
-            $url .= '?' . $this->queryParamsResolver->getQuery();
+            // Built here instead of through the shared query params resolver: that one is a
+            // singleton whose params leak into every other URL generated in the same request
+            $url .= '?' . \http_build_query($query);
 
             return $this->applyHttpAuth($url);
         }
@@ -106,16 +104,21 @@ class UrlBuilder
     }
 
     /**
-     * Generate the token once and reuse it for every callback URL of the same request
+     * Generate the token once per store and reuse it for every callback URL of that store
+     *
+     * Keyed by store because the token is signed with the store's API credentials, and this
+     * service is a singleton the recurring orders cron reuses while emulating every store.
      *
      * @return string
      */
     private function generateCallbackToken(): string
     {
-        if (!$this->generatedToken) {
-            $this->generatedToken = $this->callbackToken->getToken();
+        $storeId = (int)$this->storeManager->getStore()->getId();
+
+        if (empty($this->generatedTokens[$storeId])) {
+            $this->generatedTokens[$storeId] = $this->callbackToken->getToken();
         }
 
-        return $this->generatedToken;
+        return $this->generatedTokens[$storeId];
     }
 }
