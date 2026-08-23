@@ -366,7 +366,8 @@ class CreateRequestBuilder
         if (empty($countryCode)) {
             $countryCode = $this->scopeConfig->getValue(
                 \Magento\Directory\Helper\Data::XML_PATH_DEFAULT_COUNTRY,
-                ScopeInterface::SCOPE_STORE
+                ScopeInterface::SCOPE_STORE,
+                $this->quote->getStoreId()
             );
         }
 

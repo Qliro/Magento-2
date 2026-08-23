@@ -90,15 +90,99 @@ class AddressConverterTest extends TestCase
     }
 
     /**
-     * A country already on the quote wins, the country selector owns that value.
+     * The country the quote carries is a guess made when the order was created, so a country
+     * Qliro reports later replaces it. Without this a Danish address kept SE and Magento
+     * rated the carrier for Sweden, which collects no rate for a Danish postcode.
      */
-    public function testKeepsTheCountryTheAddressAlreadyHas(): void
+    public function testOverwritesACountryThatDiffersFromTheOneQliroReports(): void
     {
         $address = $this->address();
-        $address->method('getCountryId')->willReturn('NO');
+        $address->method('getCountryId')->willReturn('SE');
+        $address->expects(self::once())->method('setCountryId')->with('DK');
+
+        self::assertTrue(
+            $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address, 'DK')
+        );
+    }
+
+    /**
+     * A region was picked in the country it belongs to, so it cannot survive a country change.
+     */
+    public function testClearsTheRegionWhenTheCountryChanges(): void
+    {
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('SE');
+        $address->expects(self::once())->method('setRegion')->with(null);
+        $address->expects(self::once())->method('setRegionId')->with(null);
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address, 'DK');
+    }
+
+    /**
+     * A callback can carry a country and no address at all, and then the country is not enough
+     * to replace one: the postcode on the quote would keep pointing at the previous country.
+     */
+    public function testDoesNotReplaceTheCountryWhenThePayloadCarriesNoAddress(): void
+    {
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('DK');
         $address->expects(self::never())->method('setCountryId');
 
         self::assertFalse($this->converter->convert(null, null, $address, 'SE'));
+    }
+
+    /**
+     * Qliro sends an address object with empty fields while the buyer is still identifying.
+     * That is no better than no address, the postcode it would leave behind is the old one.
+     */
+    public function testDoesNotReplaceTheCountryWhenThePayloadAddressHasNoPostcode(): void
+    {
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getPostalCode')->willReturn(null);
+
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('DK');
+        $address->expects(self::never())->method('setCountryId');
+
+        self::assertFalse($this->converter->convert($qliroAddress, null, $address, 'SE'));
+    }
+
+    /**
+     * A country that already matches is not a change, otherwise every callback would push a
+     * pointless order update to Qliro.
+     */
+    public function testReportsNoChangeWhenTheCountryAlreadyMatches(): void
+    {
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('FI');
+        $address->expects(self::never())->method('setCountryId');
+
+        self::assertFalse($this->converter->convert(null, null, $address, 'FI'));
+    }
+
+    /**
+     * A payload without a country never clears the one the quote holds.
+     */
+    public function testKeepsTheCountryWhenThePayloadCarriesNone(): void
+    {
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('DK');
+        $address->expects(self::never())->method('setCountryId');
+
+        self::assertFalse($this->converter->convert(null, null, $address));
+    }
+
+    /**
+     * An empty country in the payload is not a country. Overwriting on difference without
+     * this would replace a working country with an empty string.
+     */
+    public function testKeepsTheCountryWhenThePayloadCarriesAnEmptyOne(): void
+    {
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('DK');
+        $address->expects(self::never())->method('setCountryId');
+
+        self::assertFalse($this->converter->convert(null, null, $address, ''));
     }
 
     /**

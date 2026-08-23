@@ -48,8 +48,21 @@ class AddressConverter
             }
         }
 
-        if (!$address->getCountryId() && $countryCode !== null) {
+        // Qliro owns the country, the buyer can change it after the order was created. Replacing
+        // one takes a payload that also brings the postcode, otherwise the quote would keep the
+        // postcode of the country being replaced, which is the very failure this fixes.
+        $currentCountry = $address->getCountryId();
+        $mayReplaceCountry = !$currentCountry || ($qliroAddress && $qliroAddress->getPostalCode());
+
+        if (!empty($countryCode) && $mayReplaceCountry && $currentCountry != $countryCode) {
             $address->setCountryId($countryCode);
+
+            // A region belongs to the country it was picked in
+            if ($currentCountry) {
+                $address->setRegion(null);
+                $address->setRegionId(null);
+            }
+
             $changed = true;
         }
 
