@@ -232,11 +232,13 @@ class ShippingMethod extends AbstractManagement
 
             $shippingAddress->setShippingMethod($container->getShippingMethod());
 
-            $defaultCountry = $this->scopeConfig->getValue('general/country/default', ScopeInterface::SCOPE_STORE) ??
-                $this->scopeConfig->getValue('general/country/default', ScopeInterface::SCOPE_WEBSITE);
-            if (!$defaultCountry) {
-                $defaultCountry = $this->scopeConfig->getValue('general/country/default');
-            }
+            // Resolved for the quote's store rather than the current one, and ScopeConfig
+            // already falls back to website and default on its own
+            $defaultCountry = $this->scopeConfig->getValue(
+                'general/country/default',
+                ScopeInterface::SCOPE_STORE,
+                $quote->getStoreId()
+            );
 
             if (!$shippingAddress->getCountryId()) {
                 $shippingAddress->setCountryId($defaultCountry);
