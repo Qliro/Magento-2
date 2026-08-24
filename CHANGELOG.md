@@ -1,6 +1,14 @@
 
 # Change Log
 
+## [1.7.13] - 2026-08-24
+
+### Fixed
+
+- Shipping methods stayed missing on a store view whose country is not the one the checkout was created with, Denmark in the report while Sweden worked. The country on the quote is written once, when the Qliro order is created, and nothing corrected it afterwards: `AddressConverter` filled an empty country but kept an existing one, and `CreateRequestBuilder` stamps a country onto both quote addresses before any address is known, so the guard was permanently closed. Postcode, city and street were updated as the buyer typed while the country stayed at its initial guess, Magento rated the carrier for Sweden on a Danish postcode and collected no rate at all. The country Qliro reports in the shipping methods callback now replaces a stored country that differs from it, and a country change clears the region picked in the previous country. Reported by Vajper (PLIN-376)
+- The default country `ShippingMethod::update()` falls back to is resolved for the quote's store rather than the current one, and the store to website to default cascade it walked by hand is what `ScopeConfig` already does (PLIN-376)
+- `CreateRequestBuilder` resolves its default country for the quote's store too. Hardening rather than a fix for the report above, the builder runs in a browser request where the current store is correct (PLIN-376)
+
 ## [1.7.11] - 2026-08-19
 
 ### Fixed
