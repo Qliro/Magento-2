@@ -25,6 +25,17 @@ abstract class AbstractManagement
     const QLIRO_CAPTURE_SUBMITTED = 'qliro_capture_submitted';
 
     /**
+     * Qliro's PaymentTransactionId for the capture taken in the current request, carried on the
+     * ORDER so the path that stands down can still put it on the payment.
+     *
+     * It has to reach the payment or refunds break: CaptureTransactionUpdater looks the capture
+     * transaction up by this id to write captured_amount, and CaptureRefundAllocator::getCaptures()
+     * skips any capture transaction that has none. Letting Magento generate its own txn_id instead
+     * would trade an unclosable order for an unrefundable one (PLIN-381).
+     */
+    const QLIRO_CAPTURE_TRANSACTION_ID = 'qliro_capture_transaction_id';
+
+    /**
      * Qliro's answer when the reservation has nothing left to ship, i.e. this capture already
      * happened. Not a failure for us: it means the money moved, so the Magento document must be
      * allowed to complete rather than rolled back (PLIN-381).

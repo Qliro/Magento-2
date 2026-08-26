@@ -8,7 +8,10 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\Management;
 
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Payment;
+use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Magento\Sales\Model\Order\Shipment;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -23,18 +26,47 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Management\AbstractManagement;
-use Qliro\QliroOne\Model\Management\Payment;
+use Qliro\QliroOne\Model\OrderManagementStatus;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 
 /**
- * The capture submission contract, per PLIN-381.
+ * The capture submission contract, per PLIN-381. Both paths are covered, because both duplicate the
+ * logic and only the invoice one carries the transaction id onto the payment.
  *
  * @see \Qliro\QliroOne\Model\Management\Payment::captureByShipment
+ * @see \Qliro\QliroOne\Model\Management\Payment::captureByInvoice
  */
 class PaymentCaptureTest extends TestCase
 {
+    private const QLIRO_ORDER_ID = 5478412;
+
     private OrderManagementInterface&MockObject $orderManagementApi;
     private Order&MockObject $order;
+
+    /** @var array<int, array{transactionId: int|string|null, message: string}> */
+    private array $savedStatuses = [];
+
+    /** @var array<int, string> */
+    private array $orderComments = [];
+
+    private int|string|null $appliedTransactionId = null;
+
+    /** @var array<int, \ArrayObject> */
+    private array $builtRows = [];
+
+    protected function setUp(): void
+    {
+        $this->savedStatuses = [];
+        $this->orderComments = [];
+        $this->appliedTransactionId = null;
+        $this->builtRows = [];
+    }
+
+    // ---- captureByShipment --------------------------------------------------------------------
 
     /**
      * capture_on_shipment and capture_on_invoice are independent settings and one admin action can
@@ -43,59 +75,83 @@ class PaymentCaptureTest extends TestCase
      */
     public function testASecondCaptureInTheSameRequestIsNotSubmitted(): void
     {
-        $payment = $this->buildPayment();
+        $capture = $this->buildCapture();
         $this->order->setData(AbstractManagement::QLIRO_CAPTURE_SUBMITTED, true);
 
         $this->orderManagementApi->expects(self::never())->method('markItemsAsShipped');
 
-        $payment->captureByShipment($this->buildShipment($this->order));
+        $capture->captureByShipment($this->buildShipment());
     }
 
     /**
-     * The first submission marks the order, which is what makes the check above fire.
+     * The first submission marks the order and records Qliro's transaction id on it, which is what
+     * lets the path that stands down still put that id on the payment.
      */
-    public function testTheFirstCaptureMarksTheOrderAsSubmitted(): void
+    public function testTheFirstCaptureRecordsTheTransactionOnTheOrder(): void
     {
-        $payment = $this->buildPayment();
+        $capture = $this->buildCapture();
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
 
-        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 1));
-
-        $payment->captureByShipment($this->buildShipment($this->order));
+        $capture->captureByShipment($this->buildShipment());
 
         self::assertTrue((bool)$this->order->getData(AbstractManagement::QLIRO_CAPTURE_SUBMITTED));
+        self::assertSame(325188256, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
     }
 
     /**
      * Already shipped means the money moved, so the document must be allowed to complete. Throwing
-     * here left the order permanently unclosable: the reservation is spent, so every retry is
-     * refused the same way.
+     * left the order permanently unclosable: the reservation is spent, so every retry is refused
+     * the same way. Accepting it silently is its own defect though, so the OM status row is
+     * asserted rather than merely the absence of a throw.
      */
-    public function testAnAlreadyShippedRefusalDoesNotFailTheDocument(): void
+    public function testAnAlreadyShippedRefusalIsAcceptedAndRecorded(): void
     {
-        $payment = $this->buildPayment();
-        $this->orderManagementApi->method('markItemsAsShipped')
-            ->willThrowException($this->qliroRefusal(AbstractManagement::QLIRO_ERROR_NO_ITEMS_LEFT, 'All items already shipped'));
+        $capture = $this->buildCapture();
+        $this->refuseWith(
+            AbstractManagement::QLIRO_ERROR_NO_ITEMS_LEFT,
+            "All items already shipped for transaction '325065091' , therefore no items left."
+        );
 
-        $payment->captureByShipment($this->buildShipment($this->order));
+        $capture->captureByShipment($this->buildShipment());
 
-        self::assertTrue(true, 'no exception escaped');
+        self::assertSame(325065091, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+        self::assertCount(1, $this->savedStatuses, 'the capture has to stay on our books');
+        self::assertSame(325065091, $this->savedStatuses[0]['transactionId']);
+        self::assertStringContainsString('already registered at Qliro', $this->savedStatuses[0]['message']);
+        self::assertSame([], $this->orderComments, 'the id was known, nothing to escalate');
     }
 
     /**
-     * An order Qliro has never heard of is not a transient failure, and "Request to Qliro One has
-     * failed" told the operator nothing. The message now names the id and says retrying is futile.
+     * Qliro names the transaction in the refusal, which is the only place the id exists when the
+     * capture happened in an earlier request. When the wording does not match we must not invent
+     * one, and the miss has to reach an operator now rather than at refund time.
+     */
+    public function testAnUnidentifiableCaptureIsEscalatedOnTheOrder(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_NO_ITEMS_LEFT, 'Nothing left to ship');
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertNull($this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+        self::assertCount(1, $this->orderComments);
+        self::assertStringContainsString('could not be identified', $this->orderComments[0]);
+    }
+
+    /**
+     * An order Qliro has never heard of is not transient, and "Request to Qliro One has failed"
+     * told the operator nothing. The message now names the id and says retrying is futile.
      */
     public function testAnUnknownOrderIsReportedWithItsId(): void
     {
-        $payment = $this->buildPayment();
-        $this->orderManagementApi->method('markItemsAsShipped')
-            ->willThrowException($this->qliroRefusal(AbstractManagement::QLIRO_ERROR_ORDER_NOT_FOUND, 'Order not found'));
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_ORDER_NOT_FOUND, 'Order not found');
 
         try {
-            $payment->captureByShipment($this->buildShipment($this->order));
+            $capture->captureByShipment($this->buildShipment());
             self::fail('an unknown order must fail the capture');
         } catch (LocalizedException $e) {
-            self::assertStringContainsString('5478412', $e->getMessage());
+            self::assertStringContainsString((string)self::QLIRO_ORDER_ID, $e->getMessage());
             self::assertStringContainsString('Retrying will not help', $e->getMessage());
         }
     }
@@ -105,15 +161,100 @@ class PaymentCaptureTest extends TestCase
      */
     public function testAnyOtherRefusalIsPassedThrough(): void
     {
-        $payment = $this->buildPayment();
-        $refusal = $this->qliroRefusal('INVALID_ITEM', 'Item does not match');
-        $this->orderManagementApi->method('markItemsAsShipped')->willThrowException($refusal);
+        $capture = $this->buildCapture();
+        $this->refuseWith('INVALID_ITEM', 'Item does not match');
 
         $this->expectException(OrderManagementApiException::class);
 
-        $payment->captureByShipment($this->buildShipment($this->order));
+        $capture->captureByShipment($this->buildShipment());
     }
 
+    // ---- captureByInvoice: the path that also has to put the id on the payment -----------------
+
+    /**
+     * The reason the id is carried on the order at all: when the sibling path captured in this
+     * request, the invoice must record the capture under Qliro's transaction id. Letting Magento
+     * generate its own leaves captured_amount unwritten, and CaptureRefundAllocator::getCaptures()
+     * skips a capture without it, so the order becomes unrefundable.
+     */
+    public function testStandingDownStillPutsTheSiblingsTransactionIdOnThePayment(): void
+    {
+        $capture = $this->buildCapture();
+        $this->order->setData(AbstractManagement::QLIRO_CAPTURE_SUBMITTED, true);
+        $this->order->setData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID, 325065091);
+
+        $this->orderManagementApi->expects(self::never())->method('markItemsAsShipped');
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+
+        self::assertSame(325065091, $this->appliedTransactionId);
+    }
+
+    /**
+     * Same requirement when the capture happened in an EARLIER request, which is the realistic
+     * flow: the shipment captures, then the merchant invoices manually before Qliro's callback
+     * creates the invoice. There the order carries no marker, so the id comes from the refusal.
+     */
+    public function testAnAlreadyShippedInvoiceAdoptsTheTransactionFromTheRefusal(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(
+            AbstractManagement::QLIRO_ERROR_NO_ITEMS_LEFT,
+            "All items already shipped for transaction '324964039' , therefore no items left."
+        );
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+
+        self::assertSame(324964039, $this->appliedTransactionId);
+        self::assertCount(1, $this->savedStatuses);
+        self::assertSame([], $this->orderComments);
+    }
+
+    /**
+     * When it cannot be identified the invoice is still allowed through, with nothing put on the
+     * payment and the miss on the order for an operator to see.
+     */
+    public function testAnUnidentifiableInvoiceCaptureSetsNoTransactionId(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_NO_ITEMS_LEFT, 'Nothing left to ship');
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+
+        self::assertNull($this->appliedTransactionId);
+        self::assertCount(1, $this->orderComments);
+    }
+
+    /**
+     * A capture that goes through keeps recording Qliro's transaction id, on the payment and on the
+     * order for the sibling path.
+     */
+    public function testASuccessfulInvoiceCaptureRecordsTheTransactionId(): void
+    {
+        $capture = $this->buildCapture();
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+
+        self::assertSame(325188256, $this->appliedTransactionId);
+        self::assertSame(325188256, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+    }
+
+    // ---- harness ------------------------------------------------------------------------------
+
+    /**
+     * Make every markItemsAsShipped call answer with a Qliro refusal carrying this code.
+     */
+    private function refuseWith(string $code, string $message): void
+    {
+        $this->orderManagementApi->method('markItemsAsShipped')
+            ->willThrowException($this->qliroRefusal($code, $message));
+    }
+
+    /**
+     * Shaped the way Service and the OM client produce a refusal, so the code travels on the
+     * TerminalException the caller reads it from.
+     */
     private function qliroRefusal(string $code, string $message): OrderManagementApiException
     {
         $terminal = new TerminalException($message);
@@ -141,17 +282,94 @@ class PaymentCaptureTest extends TestCase
         };
     }
 
-    private function buildShipment(Order $order): Shipment&MockObject
+    private function buildShipment(): Shipment&MockObject
     {
         $shipment = $this->createMock(Shipment::class);
-        $shipment->method('getOrder')->willReturn($order);
+        $shipment->method('getOrder')->willReturn($this->order);
         $shipment->method('getStoreId')->willReturn(1);
         $shipment->method('getId')->willReturn(7);
 
         return $shipment;
     }
 
-    private function buildPayment(): Payment
+    /**
+     * captureByInvoice takes the payment, and setTransactionId on it is the side effect that keeps
+     * refunds working, so it is recorded rather than ignored.
+     */
+    private function buildPayment(): Payment&MockObject
+    {
+        $payment = $this->getMockBuilder(Payment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getOrder', 'getData', 'setTransactionId', 'getId'])
+            ->getMock();
+        $payment->method('getOrder')->willReturn($this->order);
+        $payment->method('getData')->willReturn(null);
+        $payment->method('getId')->willReturn(31);
+        $payment->method('setTransactionId')->willReturnCallback(
+            function ($id) use ($payment) {
+                $this->appliedTransactionId = $id;
+
+                return $payment;
+            }
+        );
+
+        return $payment;
+    }
+
+    /**
+     * The OM status row is our bookkeeping for the capture, so what was saved is recorded rather
+     * than any call being accepted.
+     */
+    private function statusFactory(): OrderManagementStatusInterfaceFactory&MockObject
+    {
+        $factory = $this->createMock(OrderManagementStatusInterfaceFactory::class);
+        $factory->method('create')->willReturnCallback(
+            function () {
+                $row = new \ArrayObject(['transactionId' => null, 'message' => '']);
+
+                $status = $this->createMock(OrderManagementStatus::class);
+                $this->builtRows[spl_object_id($status)] = $row;
+                $status->method('setTransactionId')->willReturnCallback(
+                    function ($id) use ($row, $status) {
+                        $row['transactionId'] = $id;
+
+                        return $status;
+                    }
+                );
+                $status->method('setMessage')->willReturnCallback(
+                    function ($message) use ($row, $status) {
+                        $row['message'] = (string)$message;
+
+                        return $status;
+                    }
+                );
+
+                return $status;
+            }
+        );
+
+        return $factory;
+    }
+
+    /**
+     * Records on SAVE, not on create: a row built and then dropped is exactly the bookkeeping miss
+     * this covers, so counting factory calls would not catch it.
+     */
+    private function statusRepository(): OrderManagementStatusRepositoryInterface&MockObject
+    {
+        $repository = $this->createMock(OrderManagementStatusRepositoryInterface::class);
+        $repository->method('save')->willReturnCallback(
+            function ($status) {
+                $this->savedStatuses[] = $this->builtRows[spl_object_id($status)];
+
+                return $status;
+            }
+        );
+
+        return $repository;
+    }
+
+    private function buildCapture(): \Qliro\QliroOne\Model\Management\Payment
     {
         $this->orderManagementApi = $this->createMock(OrderManagementInterface::class);
 
@@ -160,7 +378,7 @@ class PaymentCaptureTest extends TestCase
 
         $link = $this->createMock(Link::class);
         $link->method('getReference')->willReturn('ZW1YpE');
-        $link->method('getQliroOrderId')->willReturn(5478412);
+        $link->method('getQliroOrderId')->willReturn(self::QLIRO_ORDER_ID);
 
         $linkRepository = $this->createMock(LinkRepositoryInterface::class);
         $linkRepository->method('getByOrderId')->willReturn($link);
@@ -168,14 +386,41 @@ class PaymentCaptureTest extends TestCase
         $request = $this->createMock(AdminMarkItemsAsShippedRequestInterface::class);
         $request->method('getShipments')->willReturn([['OrderItems' => []]]);
 
-        $builder = $this->createMock(ShipmentMarkItemsAsShippedRequestBuilder::class);
-        $builder->method('setShipment')->willReturnSelf();
-        $builder->method('create')->willReturn($request);
+        $shipmentBuilder = $this->createMock(ShipmentMarkItemsAsShippedRequestBuilder::class);
+        $shipmentBuilder->method('setShipment')->willReturnSelf();
+        $shipmentBuilder->method('create')->willReturn($request);
 
+        $invoiceBuilder = $this->createMock(InvoiceMarkItemsAsShippedRequestBuilder::class);
+        $invoiceBuilder->method('setPayment')->willReturnSelf();
+        $invoiceBuilder->method('setAmount')->willReturnSelf();
+        $invoiceBuilder->method('create')->willReturn($request);
+
+        $this->order = $this->buildOrder();
+
+        return new \Qliro\QliroOne\Model\Management\Payment(
+            $config,
+            $this->orderManagementApi,
+            $linkRepository,
+            $this->createMock(OrderRepositoryInterface::class),
+            $this->createMock(LogManager::class),
+            $this->createMock(BuilderInterface::class),
+            $this->statusFactory(),
+            $this->statusRepository(),
+            $invoiceBuilder,
+            $shipmentBuilder,
+            $this->createMock(AddItemsToInvoiceBuilder::class),
+            $this->createMock(CaptureRefundAllocator::class),
+            $this->createMock(SequentialRefundProcessor::class)
+        );
+    }
+
+    private function buildOrder(): Order&MockObject
+    {
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getId', 'getStoreId', 'getData', 'setData'])
+            ->onlyMethods(['getId', 'getStoreId', 'getData', 'setData', 'addStatusHistoryComment'])
             ->getMock();
+
         // By reference in both, an arrow function would snapshot the array as it is now and the
         // writes below would never be visible to the reads.
         $bag = [];
@@ -193,37 +438,14 @@ class PaymentCaptureTest extends TestCase
                 return $order;
             }
         );
+        $order->method('addStatusHistoryComment')->willReturnCallback(
+            function ($comment) {
+                $this->orderComments[] = (string)$comment;
 
-        $payment = new Payment(
-            $config,
-            $this->orderManagementApi,
-            $linkRepository,
-            $this->createMock(\Magento\Sales\Api\OrderRepositoryInterface::class),
-            $this->createMock(LogManager::class),
-            $this->createMock(\Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface::class),
-            $this->statusFactory(),
-            $this->createMock(OrderManagementStatusRepositoryInterface::class),
-            $this->createMock(\Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder::class),
-            $builder,
-            $this->createMock(\Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder::class),
-            $this->createMock(\Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator::class),
-            $this->createMock(\Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor::class)
+                return null;
+            }
         );
 
-        $this->order = $order;
-
-        return $payment;
-    }
-
-    /**
-     * The OM status record is written inside its own try/catch, so a bare stub is enough.
-     */
-    private function statusFactory(): OrderManagementStatusInterfaceFactory&MockObject
-    {
-        $status = $this->createMock(\Qliro\QliroOne\Model\OrderManagementStatus::class);
-        $factory = $this->createMock(OrderManagementStatusInterfaceFactory::class);
-        $factory->method('create')->willReturn($status);
-
-        return $factory;
+        return $order;
     }
 }
