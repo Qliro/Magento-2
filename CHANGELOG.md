@@ -1,6 +1,27 @@
 
 # Change Log
 
+## [1.7.12] - 2026-08-21
+
+### Fixed
+
+- A callback that arrives without a Qliro order id no longer loads an unrelated customer's quote. `qliro_order_id` is an integer column, so `getByField()` turned an empty lookup value into `WHERE qliro_order_id = ''`, MySQL cast that to `0`, and the filter matched any active link that has no Qliro order yet, of which the country selector and a failed order creation both leave plenty. `ShippingMethod::get()` then wrote the incoming payload address into that stranger's quote, saved it, and answered Qliro with shipping methods priced from a foreign cart. Every lookup now rejects `null`, an empty string and a zero before the query is issued. Reported by Outland (PLIN-378)
+- Callback URLs handed to Qliro no longer carry a slash before the query string. Magento appends one after the action name, so the URL read `.../shippingMethods/?token=...`, setups that strip the slash answer with a redirect, and a client that does not resend the body on a redirect turns the callback into a POST with an empty body. That is how the callback above ended up with no order id in the first place (PLIN-378)
+- `Repository::get()` filters on the `link_id` column. It passed `null` as the field name, so its active-links branch could not work at all (PLIN-378)
+- Shipping methods stayed missing on a store view whose country is not the one the checkout was created with, Denmark in the report while Sweden worked. The country on the quote is written once, when the Qliro order is created, and nothing corrected it afterwards: `AddressConverter` filled an empty country but kept an existing one, and `CreateRequestBuilder` stamps a country onto both quote addresses before any address is known, so the guard was permanently closed. Postcode, city and street were updated as the buyer typed while the country stayed at its initial guess, Magento rated the carrier for Sweden on a Danish postcode and collected no rate at all. The country Qliro reports in the shipping methods callback now replaces a stored country that differs from it. Reported by Vajper (PLIN-376)
+- The default country `ShippingMethod::update()` falls back to is resolved for the quote's store rather than the current one, and the store to website to default cascade it walked by hand is what `ScopeConfig` already does (PLIN-376)
+- `CreateRequestBuilder` resolves its default country for the quote's store too. Hardening rather than a fix for the report above, the builder runs in a browser request where the current store is correct (PLIN-376)
+- The callback token is cached per store. `UrlBuilder` is a singleton and the token is signed with the store's API credentials, so one token per process handed stores 2..n a token signed by the first store the recurring orders cron emulated, and `verifyToken()` rejected those pushes with a merchant id mismatch (PLIN-378)
+- A lookup value that is not a positive integer is rejected on the `link_id`, `quote_id`, `qliro_order_id` and `order_id` columns. Rejecting the empty ones was not enough, MySQL reads `'abc'` as `0` just as it reads `''`, so a garbled id could still match a link that has no Qliro order yet (PLIN-378)
+- Callback URLs build their query string themselves instead of going through the shared query params resolver. That resolver is a singleton and keeps what it is given, so the callback token was appended to other URLs generated in the same request (PLIN-378)
+- A rejected link lookup names the value it rejected. The message said "empty" for anything unusable, which is what sent the investigation after the wrong cause once already (PLIN-378)
+
+### Changed
+
+- `qliro_order_id` on `qliroone_link` is nullable, and a data patch turns the zeroes already stored into null, so a comparison against an empty value can no longer match a link that has no Qliro order. The patch walks the table in batches of 5000, the zeroes are the abandoned checkouts and on a long lived shop they are most of the rows (PLIN-378)
+- A callback with no `OrderId` in the payload is declined in the controller and logged as a missing order id. Qliro still receives `PostalCodeIsNotSupported`, the only reason the callback response defines, but the module log now names the real cause. The report above took a week to trace because the log named the postal code (PLIN-378)
+- The callback URL logic lives in `Service\Callback\UrlBuilder` instead of being duplicated in the two create request builders (PLIN-378)
+
 ## [1.7.11] - 2026-08-19
 
 ### Fixed

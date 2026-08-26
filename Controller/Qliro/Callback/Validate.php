@@ -122,6 +122,20 @@ class Validate extends \Magento\Framework\App\Action\Action
             ValidateOrderNotificationInterface::class
         );
 
+        if (empty($validateContainer->getOrderId())) {
+            $this->logManager->warning(
+                'Callback payload carries no OrderId, refusing to look up a link with an empty value. '
+                . 'The request body was probably lost on the way, check the callback URL for redirects.'
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                ['error' => ValidateOrderResponseInterface::REASON_OTHER],
+                400,
+                null,
+                'CALLBACK:VALIDATE:ERROR_NO_ORDER_ID'
+            );
+        }
+
         $responseContainer = $this->qliroManagement->validateQliroOrder($validateContainer);
 
         $response = $this->dataHelper->sendPreparedPayload(

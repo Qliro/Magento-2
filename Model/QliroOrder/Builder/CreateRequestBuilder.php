@@ -19,9 +19,8 @@ use Qliro\QliroOne\Api\GeoIpResolverInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
-use Qliro\QliroOne\Model\Security\CallbackToken;
 use Qliro\QliroOne\Model\Management\CountrySelect;
-use \Magento\Framework\Url\QueryParamsResolverInterface;
+use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
 use Magento\Store\Model\Information;
 
 /**
@@ -29,11 +28,6 @@ use Magento\Store\Model\Information;
  */
 class CreateRequestBuilder
 {
-    /**
-     * @var string
-     */
-    private $generatedToken;
-
     /**
      * @var \Magento\Quote\Model\Quote
      */
@@ -90,14 +84,9 @@ class CreateRequestBuilder
     private $geoIpResolver;
 
     /**
-     * @var \Qliro\QliroOne\Model\Security\CallbackToken
+     * @var \Qliro\QliroOne\Service\Callback\UrlBuilder
      */
-    private $callbackToken;
-
-    /**
-     * @var \Magento\Framework\Url\QueryParamsResolverInterface
-     */
-    private $queryParamsResolver;
+    private $callbackUrlBuilder;
 
     /**
      * @var \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder
@@ -142,8 +131,7 @@ class CreateRequestBuilder
      * @param \Magento\Customer\Model\Session $session
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
      * @param \Qliro\QliroOne\Api\GeoIpResolverInterface $geoIpResolver
-     * @param \Qliro\QliroOne\Model\Security\CallbackToken $callbackToken
-     * @param \Magento\Framework\Url\QueryParamsResolverInterface $queryParamsResolver
+     * @param \Qliro\QliroOne\Service\Callback\UrlBuilder $callbackUrlBuilder
      * @param \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder $shippingMethodsBuilder
      * @param \Magento\Store\Model\Information $information
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
@@ -161,8 +149,7 @@ class CreateRequestBuilder
         Session $session,
         StoreManagerInterface $storeManager,
         GeoIpResolverInterface $geoIpResolver,
-        CallbackToken $callbackToken,
-        QueryParamsResolverInterface $queryParamsResolver,
+        CallbackUrlBuilder $callbackUrlBuilder,
         ShippingMethodsBuilder $shippingMethodsBuilder,
         ShippingConfigBuilder $shippingConfigBuilder,
         Information $information,
@@ -180,8 +167,7 @@ class CreateRequestBuilder
         $this->session = $session;
         $this->storeManager = $storeManager;
         $this->geoIpResolver = $geoIpResolver;
-        $this->callbackToken = $callbackToken;
-        $this->queryParamsResolver = $queryParamsResolver;
+        $this->callbackUrlBuilder = $callbackUrlBuilder;
         $this->shippingMethodsBuilder = $shippingMethodsBuilder;
         $this->information = $information;
         $this->eventManager = $eventManager;
@@ -313,26 +299,30 @@ class CreateRequestBuilder
         $createRequest->setMerchantConfirmationUrl($this->getUrl('checkout/qliro/pending'));
 
         $createRequest->setMerchantCheckoutStatusPushUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/checkoutStatus')
+            $this->callbackUrlBuilder->getCallbackUrl('checkout/qliro_callback/checkoutStatus')
         );
 
         if ($this->qliroConfig->isUseRecurring($this->quote->getStoreId())) {
-            $createRequest->setMerchantSavedCreditCardPushUrl($this->getCallbackUrl('checkout/qliro_callback/savedCreditCard'));
+            $createRequest->setMerchantSavedCreditCardPushUrl(
+                $this->callbackUrlBuilder->getCallbackUrl('checkout/qliro_callback/savedCreditCard')
+            );
         }
 
         $createRequest->setMerchantOrderManagementStatusPushUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/transactionStatus')
+            $this->callbackUrlBuilder->getCallbackUrl('checkout/qliro_callback/transactionStatus')
         );
 
         $createRequest->setMerchantNotificationUrl(
-            $this->getCallbackUrl('checkout/qliro_callback/merchantNotification')
+            $this->callbackUrlBuilder->getCallbackUrl('checkout/qliro_callback/merchantNotification')
         );
 
-        $createRequest->setMerchantOrderValidationUrl($this->getCallbackUrl('checkout/qliro_callback/validate'));
+        $createRequest->setMerchantOrderValidationUrl(
+            $this->callbackUrlBuilder->getCallbackUrl('checkout/qliro_callback/validate')
+        );
 
         if (!($this->qliroConfig->isIngridEnabled($this->quote->getStoreId()) || $this->qliroConfig->isUnifaunEnabled($this->quote->getStoreId()))) {
             $createRequest->setMerchantOrderAvailableShippingMethodsUrl(
-                $this->getCallbackUrl('checkout/qliro_callback/shippingMethods')
+                $this->callbackUrlBuilder->getCallbackUrl('checkout/qliro_callback/shippingMethods')
             );
         }
 
@@ -376,56 +366,12 @@ class CreateRequestBuilder
         if (empty($countryCode)) {
             $countryCode = $this->scopeConfig->getValue(
                 \Magento\Directory\Helper\Data::XML_PATH_DEFAULT_COUNTRY,
-                ScopeInterface::SCOPE_STORE
+                ScopeInterface::SCOPE_STORE,
+                $this->quote->getStoreId()
             );
         }
 
         return $countryCode;
-    }
-
-    /**
-     * Get a callback URL with provided path and generated token
-     *
-     * @param string $path
-     * @return string
-     */
-    private function getCallbackUrl($path)
-    {
-        $params['_query']['token'] = $this->generateCallbackToken();
-
-        if ($this->qliroConfig->isDebugMode()) {
-            $params['_query']['XDEBUG_SESSION_START'] = $this->qliroConfig->getCallbackXdebugSessionFlagName();
-        }
-
-        if ($this->qliroConfig->redirectCallbacks() && ($baseUri = $this->qliroConfig->getCallbackUri())) {
-            $url = implode('/', [rtrim($baseUri, '/'), ltrim($path, '/')]);
-
-            $this->queryParamsResolver->addQueryParams($params['_query']);
-            $queryString = $this->queryParamsResolver->getQuery();
-            $url .= '?' . $queryString;
-
-            return $this->applyHttpAuth($url);
-        }
-
-        return $this->applyHttpAuth($this->getUrl($path, $params));
-    }
-
-    /**
-     * Apply HTTP authentication credentials if specified
-     *
-     * @param string $url
-     * @return string
-     */
-    private function applyHttpAuth($url)
-    {
-        if ($this->qliroConfig->isHttpAuthEnabled() && preg_match('#^(https?://)(.+)$#', $url, $match)) {
-            $authUsername = $this->qliroConfig->getCallbackHttpAuthUsername();
-            $authPassword = $this->qliroConfig->getCallbackHttpAuthPassword();
-
-            $url = sprintf('%s%s:%s@%s', $match[1], \urlencode($authUsername), \urlencode($authPassword), $match[2]);
-        }
-
-        return $url;
     }
 
     /**
@@ -441,17 +387,5 @@ class CreateRequestBuilder
         $store = $this->storeManager->getStore();
 
         return $store->getUrl($path, $params);
-    }
-
-    /**
-     * @return string
-     */
-    private function generateCallbackToken()
-    {
-        if (!$this->generatedToken) {
-            $this->generatedToken = $this->callbackToken->getToken();
-        }
-
-        return $this->generatedToken;
     }
 }

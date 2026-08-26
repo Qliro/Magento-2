@@ -27,6 +27,16 @@ use Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory;
 class Repository implements LinkRepositoryInterface
 {
     /**
+     * Columns a lookup value has to be a positive integer for
+     */
+    private const INTEGER_FIELDS = [
+        Link::FIELD_ID,
+        Link::FIELD_QUOTE_ID,
+        Link::FIELD_QLIRO_ORDER_ID,
+        Link::FIELD_ORDER_ID,
+    ];
+
+    /**
      * @var \Qliro\QliroOne\Model\ResourceModel\Link
      */
     private $linkResourceModel;
@@ -87,7 +97,7 @@ class Repository implements LinkRepositoryInterface
      */
     public function get($id, $onlyActive = true)
     {
-        return $this->getByField($id, null, $onlyActive);
+        return $this->getByField($id, Link::FIELD_ID, $onlyActive);
     }
 
     /**
@@ -236,6 +246,14 @@ class Repository implements LinkRepositoryInterface
      */
     private function getByField($value, $field, $onlyActive = true)
     {
+        // A value MySQL casts to 0 must never reach the query: the integer columns then match
+        // unrelated links that have no Qliro order yet.
+        if (!$this->isUsableLookupValue($value, $field)) {
+            throw new NoSuchEntityException(
+                __('Cannot find a link with %1 = "%2", the value cannot identify one', $field, $this->describe($value))
+            );
+        }
+
         /** @var \Qliro\QliroOne\Model\Link $link */
         if ($onlyActive) {
             $collection = $this->collectionFactory->create()
@@ -252,6 +270,53 @@ class Repository implements LinkRepositoryInterface
         }
 
         return $link;
+    }
+
+    /**
+     * Render a rejected lookup value for the message, so the log names the real cause
+     *
+     * @param mixed $value
+     * @return string
+     */
+    private function describe($value)
+    {
+        if ($value === null) {
+            return 'null';
+        }
+
+        if (\is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        return \is_scalar($value) ? (string) $value : \gettype($value);
+    }
+
+    /**
+     * Check whether a lookup value can identify a link on the given column
+     *
+     * @param string|int|null $value
+     * @param string $field
+     * @return bool
+     */
+    private function isUsableLookupValue($value, $field)
+    {
+        if (!\is_scalar($value) || \is_bool($value)) {
+            return false;
+        }
+
+        $value = \trim((string) $value);
+
+        if ($value === '' || $value === '0') {
+            return false;
+        }
+
+        // The integer columns take anything non numeric as 0, so a garbled id would match a
+        // link that has no Qliro order instead of finding nothing
+        if (\in_array($field, self::INTEGER_FIELDS, true)) {
+            return \ctype_digit($value);
+        }
+
+        return true;
     }
 
     /**
