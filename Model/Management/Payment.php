@@ -16,6 +16,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
@@ -217,6 +218,11 @@ class Payment extends AbstractManagement
 
         /** @var Order $order */
         $order = $payment->getOrder();
+
+        if ($this->hasSubmittedCapture($order)) {
+            return;
+        }
+
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
 
@@ -224,7 +230,19 @@ class Payment extends AbstractManagement
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
 
         $request = $this->invoiceMarkItemsAsShippedRequestBuilder->create();
-        $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
+
+        try {
+            $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        } catch (ClientException $exception) {
+            if ($this->isAlreadyShipped($exception)) {
+                $this->logAlreadyShipped($order, 'invoice');
+
+                return;
+            }
+
+            throw $this->describeCaptureFailure($exception, $order, $link->getQliroOrderId());
+        }
 
         try {
             /** @var OrderManagementStatus $omStatus */
@@ -261,6 +279,117 @@ class Payment extends AbstractManagement
     }
 
     /**
+     * Whether this module already sent a capture for this order in the current request.
+     *
+     * capture_on_shipment and capture_on_invoice are independent settings and one admin action can
+     * fire both paths. Qliro stamps a fresh RequestId per call, so it cannot recognise the second
+     * submission as a repeat of the first; it sees a new shipment request against a reservation
+     * that has nothing left and refuses it (PLIN-381).
+     *
+     * @param Order $order
+     * @return bool
+     */
+    private function hasSubmittedCapture(Order $order)
+    {
+        if (!$order->getData(self::QLIRO_CAPTURE_SUBMITTED)) {
+            return false;
+        }
+
+        $this->logManager->debug(
+            'Skipping capture, one was already submitted for this order in this request',
+            [
+                'extra' => [
+                    'order_id' => $order->getId(),
+                ],
+            ]
+        );
+
+        return true;
+    }
+
+    /**
+     * Whether Qliro refused because the reservation has nothing left to ship, i.e. the capture
+     * this module is asking for already happened.
+     *
+     * @param ClientException $exception
+     * @return bool
+     */
+    private function isAlreadyShipped(ClientException $exception)
+    {
+        return $this->qliroErrorCode($exception) === self::QLIRO_ERROR_NO_ITEMS_LEFT;
+    }
+
+    /**
+     * The money already moved, so the Magento document must be allowed to complete. Throwing here
+     * rolled the invoice back and left the order permanently unclosable: the reservation is spent,
+     * so every retry is refused the same way (PLIN-381).
+     *
+     * @param Order $order
+     * @param string $trigger
+     * @return void
+     */
+    private function logAlreadyShipped(Order $order, $trigger)
+    {
+        $this->logManager->info(
+            'Capture was already registered at Qliro, treating it as done',
+            [
+                'extra' => [
+                    'order_id' => $order->getId(),
+                    'trigger' => $trigger,
+                ],
+            ]
+        );
+    }
+
+    /**
+     * Turn a capture refusal into something an operator can act on. Every failure used to surface
+     * as "Request to Qliro One has failed", which does not distinguish an order Qliro has never
+     * heard of from a network problem (PLIN-381).
+     *
+     * @param ClientException $exception
+     * @param Order $order
+     * @param string|int|null $qliroOrderId
+     * @return \Magento\Framework\Exception\LocalizedException
+     */
+    private function describeCaptureFailure(ClientException $exception, Order $order, $qliroOrderId)
+    {
+        if ($this->qliroErrorCode($exception) !== self::QLIRO_ERROR_ORDER_NOT_FOUND) {
+            return $exception;
+        }
+
+        $this->logManager->critical(
+            'Qliro does not know the order id stored for this Magento order',
+            [
+                'extra' => [
+                    'order_id' => $order->getId(),
+                    'qliro_order_id' => $qliroOrderId,
+                ],
+            ]
+        );
+
+        return new LocalizedException(
+            __(
+                'Qliro does not know order %1, which is the Qliro order stored for this order. '
+                . 'This usually means it was created against the other Qliro environment, so it '
+                . 'cannot be captured here. Retrying will not help.',
+                $qliroOrderId
+            ),
+            $exception
+        );
+    }
+
+    /**
+     * @param ClientException $exception
+     * @return string|null
+     */
+    private function qliroErrorCode(ClientException $exception)
+    {
+        $previous = $exception->getPrevious();
+
+        return $previous instanceof TerminalException ? $previous->getQliroErrorCode() : null;
+    }
+
+    /**
      * @param \Magento\Sales\Model\Order\Shipment $shipment
      * @return void
      * @throws \Exception
@@ -273,6 +402,11 @@ class Payment extends AbstractManagement
 
         /** @var Order $order */
         $order = $shipment->getOrder();
+
+        if ($this->hasSubmittedCapture($order)) {
+            return;
+        }
+
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
 
@@ -283,7 +417,19 @@ class Payment extends AbstractManagement
             return;
         }
 
-        $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
+
+        try {
+            $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        } catch (ClientException $exception) {
+            if ($this->isAlreadyShipped($exception)) {
+                $this->logAlreadyShipped($order, 'shipment');
+
+                return;
+            }
+
+            throw $this->describeCaptureFailure($exception, $order, $link->getQliroOrderId());
+        }
 
         try {
             /** @var OrderManagementStatus $omStatus */

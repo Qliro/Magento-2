@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.17] - 2026-08-26
+
+### Fixed
+
+- A capture is now sent once per order instead of once per enabled trigger. `capture_on_shipment` and `capture_on_invoice` are independent settings, and with both on one admin action fired both paths: the first `MarkItemsAsShipped` succeeded and took the money, the second was refused with `NO_ITEMS_LEFT_IN_RESERVATION`, and that refusal rolled the whole action back. The result was money captured at Qliro, no invoice in Magento, and an order that could never be closed, because the reservation was spent and every retry hit the same refusal. Qliro stamps a fresh `RequestId` per call, so it could not recognise the second submission as a repeat of the first. Reported by Skyla (PLIN-381)
+- A capture Qliro reports as already shipped no longer fails the Magento document. The money moved, so the invoice must be allowed to complete rather than rolled back (PLIN-381)
+- Order-management failures now say what Qliro actually answered. `Model/Api/Service.php` wraps every API failure in a `TerminalException`, so the branch in the API clients that formats Qliro's `ErrorCode` could never be reached and every refusal surfaced as "Request to Qliro One has failed", whether it was an already-shipped reservation, an order Qliro has never heard of, or a timeout (PLIN-381)
+- A capture against a Qliro order id that Qliro does not know now names the id and says that retrying will not help, instead of the generic failure above. That is what a store sees for an order created against the other Qliro environment, test against production or the reverse (PLIN-381)
+
+### Changed
+
+- The admin help text for both capture triggers says to pick one, not both (PLIN-381)
+
 ## [1.7.15] - 2026-08-26
 
 ### Fixed

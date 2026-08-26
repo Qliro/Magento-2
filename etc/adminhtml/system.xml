@@ -75,13 +75,13 @@
                     <field id="capture_on_shipment" translate="label" type="select" sortOrder="100" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Trigger capture when shipment is created</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                        <comment>This will also auto create invoice if capture was successful</comment>
+                        <comment>This will also auto create invoice if capture was successful. Pick either this or the invoice trigger below, not both: one capture is sent per order either way, and enabling both only makes which document triggers it harder to follow.</comment>
                     </field>
 
                     <field id="capture_on_invoice" translate="label" type="select" sortOrder="110" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Trigger capture when invoice is created</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
-                        <comment>This will only occur if invoice is created before shipment</comment>
+                        <comment>This will only occur if invoice is created before shipment. Pick either this or the shipment trigger above, not both.</comment>
                     </field>
 
                     <field id="newsletter_signup" translate="label" type="select" sortOrder="120" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">

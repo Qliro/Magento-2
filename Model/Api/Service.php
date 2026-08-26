@@ -226,14 +226,16 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
                 'uri' => $endpointUri,
                 'request' => $body,
             ];
+            $qliroError = [];
 
             if ($exception instanceof ClientException) {
                 $response = $exception->getResponse();
+                $qliroError = $this->getResponseData($response);
 
                 $exceptionData = array_merge($exceptionData, [
                     'status_code' => $response->getStatusCode(),
                     'error_reason' => $response->getReasonPhrase(),
-                    'response' => $this->getResponseData($response),
+                    'response' => $qliroError,
                 ]);
             }
 
@@ -245,7 +247,17 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            // Carry Qliro's own error code out with the exception. Everything above this line
+            // becomes a TerminalException, so a caller that needs to tell one refusal from
+            // another (an already-shipped reservation from an unknown order from a timeout) had
+            // no way to do it and could only report that the request failed.
+            $terminal = new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            $terminal->setQliroError(
+                is_array($qliroError) ? ($qliroError['ErrorCode'] ?? null) : null,
+                is_array($qliroError) ? ($qliroError['ErrorMessage'] ?? null) : null
+            );
+
+            throw $terminal;
         } finally {
             $this->logManager->setMark(null);
         }

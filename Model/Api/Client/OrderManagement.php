@@ -351,6 +351,17 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      */
     private function handleExceptions(\Exception $exception)
     {
+        // Service wraps every API failure in a TerminalException, so the RequestException branch
+        // below can only be reached by a caller that hands us a raw Guzzle exception. Read the
+        // error off the TerminalException first, otherwise every refusal Qliro explained in full
+        // reached the operator as "Request to Qliro One has failed".
+        if ($exception instanceof TerminalException && $exception->getQliroErrorCode()) {
+            throw new OrderManagementApiException(
+                __('Error [%1]: %2', $exception->getQliroErrorCode(), $exception->getQliroErrorMessage()),
+                $exception
+            );
+        }
+
         if ($exception instanceof RequestException) {
             $data = $this->json->unserialize($exception->getResponse()->getBody());
 
@@ -360,7 +371,8 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
                 }
 
                 throw new OrderManagementApiException(
-                    __('Error [%1]: %2', $data['ErrorCode'], $data['ErrorMessage'])
+                    __('Error [%1]: %2', $data['ErrorCode'], $data['ErrorMessage']),
+                    $exception
                 );
             }
         }
