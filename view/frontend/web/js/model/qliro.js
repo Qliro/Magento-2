@@ -93,62 +93,133 @@ define([
      * returns no shipping methods on the first attempt.
      */
     function syncShippingAddress(addressData) {
-        if (!addressData || !addressData.postcode || isSameAsQuoteAddress(addressData)) {
-            qliroDebug('Skipping shipping address sync', addressData);
+        if (!addressData || !addressData.postcode) {
+            qliroDebug('No address stored for the quote yet', addressData);
 
-            return;
+            return false;
+        }
+
+        if (isSameAsQuoteAddress(addressData)) {
+            qliroDebug('Shipping address already in sync', addressData);
+
+            return true;
         }
 
         checkoutData.setShippingAddressFromData(addressData);
         selectShippingAddress(addressConverter.formAddressDataToQuoteAddress(addressData));
+
+        return true;
+    }
+
+    // The iframe is locked while the store updates the quote and released when Qliro reports an
+    // order whose total matches ours. Both sides of that live at module scope on purpose:
+    //
+    // - The unlock CANNOT depend only on an order update arriving. refreshCart() is also called
+    //   when the store had nothing to apply, so there may be no quote change for Qliro to report
+    //   and no onOrderUpdated to release the lock. Without the watchdog below the customer is
+    //   left with a permanently frozen checkout, and since eager_checkout_refresh defaults to
+    //   off, locking is the default path rather than an edge case.
+    // - The handler is registered ONCE and compares against the CURRENT expected total. Keeping
+    //   the counter and the total inside the callback gave every refresh its own copy of both,
+    //   so a second refresh compared Qliro's order against a total captured earlier and counted
+    //   mismatches on a counter nobody else could reset.
+    var unlockWatchdog = null;
+    var expectedTotalPrice = null;
+    var unmatchCount = 0;
+    var orderUpdatedBound = false;
+
+    // Long enough that a normal order update wins the race, short enough that a customer does
+    // not sit in front of a frozen checkout wondering.
+    var UNLOCK_WATCHDOG_MS = 10000;
+
+    function lockCheckout() {
+        if (config.isEagerCheckoutRefresh) {
+            qliroDebug('Skipping checkout lock.');
+
+            return;
+        }
+
+        window.q1.lock();
+    }
+
+    function unlockCheckout(reason) {
+        clearTimeout(unlockWatchdog);
+        unlockWatchdog = null;
+
+        if (config.isEagerCheckoutRefresh) {
+            qliroDebug('Skipping checkout unlock.', reason);
+
+            return;
+        }
+
+        qliroDebug('Unlocking checkout', reason);
+        window.q1.unlock();
+    }
+
+    function armUnlockWatchdog() {
+        if (config.isEagerCheckoutRefresh) {
+            return;
+        }
+
+        clearTimeout(unlockWatchdog);
+        unlockWatchdog = setTimeout(function() {
+            unlockCheckout('no matching order update within ' + UNLOCK_WATCHDOG_MS + 'ms');
+        }, UNLOCK_WATCHDOG_MS);
+    }
+
+    function bindOrderUpdated() {
+        if (orderUpdatedBound) {
+            return;
+        }
+
+        orderUpdatedBound = true;
+
+        window.q1.onOrderUpdated(function(order) {
+            if (config.isEagerCheckoutRefresh) {
+                qliroDebug('Skipping checkout update polling.');
+
+                return true;
+            }
+
+            if (expectedTotalPrice === null) {
+                return true;
+            }
+
+            if (Math.abs(order.totalPrice - expectedTotalPrice) < 0.005) {
+                unmatchCount = 0;
+                unlockCheckout('totals match');
+            } else {
+                unmatchCount++;
+
+                if (unmatchCount > 3) {
+                    unmatchCount = 0;
+                    showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
+                }
+            }
+        });
+    }
+
+    function refreshCart() {
+        lockCheckout();
+
+        sendUpdateQuote()
+            .then(
+                function(data) {
+                    expectedTotalPrice = data && data.order ? data.order.totalPrice : null;
+                    bindOrderUpdated();
+                    armUnlockWatchdog();
+                },
+                function(response, state, reason) {
+                    var data = response.responseJSON || {};
+
+                    unlockCheckout('quote update failed');
+                    showErrorMessage(data.error || reason);
+                }
+            );
     }
 
     return {
-        updateCart: function() {
-            if (!config.isEagerCheckoutRefresh) {
-                window.q1.lock();
-            } else {
-                qliroDebug('Skipping checkout lock.');
-            }
-
-            sendUpdateQuote()
-                .then(
-                    function(data) {
-                        var unmatchCount = 0;
-
-                        window.q1.onOrderUpdated(function(order) {
-                            if (config.isEagerCheckoutRefresh) {
-                                qliroDebug('Skipping checkout update polling.');
-
-                                return true;
-                            }
-
-                            if (Math.abs(order.totalPrice - data.order.totalPrice) < 0.005) {
-                                unmatchCount = 0;
-                                window.q1.unlock();
-                            } else {
-                                unmatchCount++;
-
-                                if (unmatchCount > 3) {
-                                    unmatchCount = 0;
-                                    showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
-                                }
-                            }
-                        })
-                    },
-                    function(response, state, reason) {
-                        var data = response.responseJSON || {};
-
-                        if (!config.isEagerCheckoutRefresh) {
-                            window.q1.unlock();
-                        } else {
-                            qliroDebug('Skipping checkout unlock.');
-                        }
-
-                        showErrorMessage(data.error || reason);
-                    }
-                );
-        },
+        updateCart: refreshCart,
 
         onCheckoutLoaded: function() {
             qliroSuccessDebug('onCheckoutLoaded', q1);
@@ -158,7 +229,15 @@ define([
             sendAjaxAsJson(config.updateCustomerUrl, customer).then(
                 function(data) {
                     qliroSuccessDebug('onCustomerInfoChanged', data);
-                    syncShippingAddress(data && data.address);
+
+                    if (syncShippingAddress(data && data.address)) {
+                        return;
+                    }
+
+                    // Qliro masks the address in this payload, so the store can only learn it
+                    // by fetching the order, and selecting an address is what normally triggers
+                    // that. With nothing to select the refresh has to be asked for directly.
+                    refreshCart();
                 },
                 function(response) {
                     var data = response.responseJSON || {};

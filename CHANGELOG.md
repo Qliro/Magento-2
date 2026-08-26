@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.18] - 2026-08-27
+
+### Fixed
+
+- Shipping methods still did not appear on the first attempt after 1.7.11, because the fix could not run. Qliro masks the address in the `updateCustomer` payload, so the store has nothing to store and the response carries no address. 1.7.10 made the frontend select an address only when there is one, and selecting an address is what triggers the Qliro order refresh that fetches the real address and pushes the shipping methods. With nothing to select, nothing was triggered and the refresh only happened on a page reload. The frontend now asks for that refresh directly when the store has no address yet (PLIN-376)
+- The QliroOne iframe could stay locked for good. The frontend locks it while the store updates the quote and releases it when Qliro reports an order whose total matches, but the refresh above is asked for precisely when the store had nothing to apply, so there may be no quote change for Qliro to report and no order update to release the lock. A watchdog now releases it regardless, and since `eager_checkout_refresh` defaults to off, locking is the default path rather than an edge case (PLIN-376)
+- The mismatch counter and the total it compares against live at module scope instead of inside the order-update callback, and the callback is registered once. Each refresh used to get its own copy of both, so a later refresh compared Qliro's order against a total captured earlier and counted mismatches on a counter nothing else could reset, which is what raises the "totals don't match" message (PLIN-376)
+- A customer payload whose `address` arrives as a scalar no longer turns the log line that reports it into a 500. `array_keys()` raises a `TypeError`, which is an `Error` and escapes the surrounding `catch (\Exception)` (PLIN-376)
+
+### Changed
+
+- A customer payload that changed nothing logs the address field names it carried instead of a "has address" flag. Qliro sends `{"isMasked": true}` in place of the address, which made the flag read as true while there was nothing to apply (PLIN-376)
+
 ## [1.7.17] - 2026-08-26
 
 ### Fixed

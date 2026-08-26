@@ -157,7 +157,12 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
                     [
                         'extra' => [
                             'quote_id' => $quote->getId(),
-                            'has_address' => !empty($data['address']) || !empty($data['Address']),
+                            // Names only. Qliro sends {"isMasked": true} instead of the address
+                            // until the customer is identified, and a plain "has address" flag
+                            // reads as true for that. Cast because a scalar here would make
+                            // array_keys() raise a TypeError, which is an Error and would escape
+                            // the catch below as a 500 out of a logging line.
+                            'address_fields' => array_keys((array)($data['address'] ?? $data['Address'] ?? [])),
                         ],
                     ]
                 );
