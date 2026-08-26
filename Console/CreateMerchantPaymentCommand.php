@@ -61,7 +61,7 @@ class CreateMerchantPaymentCommand extends Command
         parent::configure();
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $orderId = (int)$input->getArgument('order_id');
         $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($orderId);

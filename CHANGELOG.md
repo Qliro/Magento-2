@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.7.15] - 2026-08-26
+
+### Fixed
+
+- The module now runs on Magento 2.4.9. Its console commands declared `execute()` without a return type, while 2.4.9 ships `symfony/console` 7 where the base method is declared `: int`. Magento loads every module's commands to build the CLI, so the incompatible declaration was a fatal error that took down all of `bin/magento`, and cron and `setup:upgrade` with it. Verified against real `magento/framework` 103.0.9: without this the module's own `Console/AbstractCommand.php` fatals on load, with it all eight commands load (PLIN-382)
+- The QliroOne checkout no longer fails to load on PHP 8.5, which Magento 2.4.9 supports. `TypePoolHandler` indexed its handler pool with the value `TypeResolver` returns, which is `null` for an item it cannot resolve. PHP 8.5 deprecates a null array offset and developer mode raises that as an exception, so one unresolvable line ended the whole checkout with "Couldn't fetch the QliroOne order." on the storefront. Silent on 8.2 to 8.4, which is why it surfaced only on 2.4.9 stores (PLIN-382)
+
+### Changed
+
+- CI runs the unit suite on PHP 8.2, 8.3, 8.4 and 8.5, and the suite now fails on a deprecation. The checkout defect above was a deprecation on 8.5 only, so the single 8.4 job could not have caught it. The range is what the Magento releases inside `magento/framework: ^103.0` support: 2.4.7 and 2.4.8 still allow 8.2, only 2.4.9 dropped it (PLIN-382)
+
 ## [1.7.12] - 2026-08-21
 
 ### Fixed
