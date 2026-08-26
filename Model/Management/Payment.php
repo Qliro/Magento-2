@@ -16,6 +16,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
@@ -217,14 +218,42 @@ class Payment extends AbstractManagement
 
         /** @var Order $order */
         $order = $payment->getOrder();
+
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
+
+        // The sibling path already captured in this request. Its transaction id still has to reach
+        // the payment, otherwise the invoice records the capture under a txn_id of Magento's own
+        // making and the capture becomes invisible to refunds.
+        if ($this->hasSubmittedCapture($order)) {
+            $this->adoptCaptureTransaction($order, $payment, $link, 'invoice');
+
+            return;
+        }
 
         $this->invoiceMarkItemsAsShippedRequestBuilder->setPayment($payment);
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
 
         $request = $this->invoiceMarkItemsAsShippedRequestBuilder->create();
-        $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
+
+        try {
+            $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        } catch (ClientException $exception) {
+            if ($this->isAlreadyShipped($exception)) {
+                $order->setData(
+                    self::QLIRO_CAPTURE_TRANSACTION_ID,
+                    $this->refusedTransactionId($exception, $order)
+                );
+                $this->adoptCaptureTransaction($order, $payment, $link, 'invoice');
+
+                return;
+            }
+
+            throw $this->describeCaptureFailure($exception, $order, $link->getQliroOrderId());
+        }
+
+        $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
 
         try {
             /** @var OrderManagementStatus $omStatus */
@@ -261,6 +290,212 @@ class Payment extends AbstractManagement
     }
 
     /**
+     * Whether this module already sent a capture for this order in the current request.
+     *
+     * capture_on_shipment and capture_on_invoice are independent settings and one admin action can
+     * fire both paths. Qliro stamps a fresh RequestId per call, so it cannot recognise the second
+     * submission as a repeat of the first; it sees a new shipment request against a reservation
+     * that has nothing left and refuses it (PLIN-381).
+     *
+     * @param Order $order
+     * @return bool
+     */
+    private function hasSubmittedCapture(Order $order)
+    {
+        if (!$order->getData(self::QLIRO_CAPTURE_SUBMITTED)) {
+            return false;
+        }
+
+        $this->logManager->debug(
+            'Skipping capture, one was already submitted for this order in this request',
+            [
+                'extra' => [
+                    'order_id' => $order->getId(),
+                ],
+            ]
+        );
+
+        return true;
+    }
+
+    /**
+     * Whether Qliro refused because the reservation has nothing left to ship, i.e. the capture
+     * this module is asking for already happened.
+     *
+     * @param ClientException $exception
+     * @return bool
+     */
+    private function isAlreadyShipped(ClientException $exception)
+    {
+        return $this->qliroErrorCode($exception) === self::QLIRO_ERROR_NO_ITEMS_LEFT;
+    }
+
+    /**
+     * Accept a capture that already happened at Qliro, and keep our own record of it.
+     *
+     * The money moved, so the Magento document must be allowed to complete: throwing rolled the
+     * invoice back and left the order permanently unclosable, because the reservation is spent and
+     * every retry is refused the same way. But accepting it silently is its own defect. The
+     * transaction id has to reach the payment or refunds break later
+     * (CaptureTransactionUpdater looks the capture transaction up by it to write captured_amount,
+     * and CaptureRefundAllocator::getCaptures() skips any capture that has none), and an
+     * OrderManagementStatus row is our bookkeeping for the capture either way. When the id cannot
+     * be established the order says so in its history, where an operator will see it, rather than
+     * the miss surfacing months later as a refund that does not work (PLIN-381).
+     *
+     * @param Order $order
+     * @param \Magento\Payment\Model\InfoInterface|null $payment
+     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @param string $trigger
+     * @return void
+     */
+    private function adoptCaptureTransaction(Order $order, $payment, $link, $trigger)
+    {
+        $transactionId = $order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
+
+        if ($transactionId && $payment) {
+            $payment->setTransactionId($transactionId);
+        }
+
+        $this->recordCaptureStatus($order, $link, $transactionId, $trigger);
+
+        if ($transactionId) {
+            $this->logManager->info(
+                'Capture was already registered at Qliro, adopting its transaction',
+                [
+                    'extra' => [
+                        'order_id' => $order->getId(),
+                        'transaction_id' => $transactionId,
+                        'trigger' => $trigger,
+                    ],
+                ]
+            );
+
+            return;
+        }
+
+        // No id anywhere: not ours from this request, and Qliro did not name one in the refusal.
+        // The document is still allowed through, but a refund of this capture will not find its
+        // amount, so this must be visible to a human now rather than at refund time.
+        $this->logManager->critical(
+            'Capture accepted as already done at Qliro, but its transaction id is unknown',
+            [
+                'extra' => [
+                    'order_id' => $order->getId(),
+                    'qliro_order_id' => $link->getQliroOrderId(),
+                    'trigger' => $trigger,
+                ],
+            ]
+        );
+
+        $order->addStatusHistoryComment(
+            __(
+                'Qliro reports this order as already captured, so the document was allowed to '
+                . 'complete, but the Qliro transaction could not be identified. Refunding it may '
+                . 'need the transaction linked manually.'
+            )
+        );
+    }
+
+    /**
+     * Qliro names the transaction it already shipped in the refusal itself ("All items already
+     * shipped for transaction 'N'"), which is the only place the id is available when the capture
+     * happened in an earlier request. Read from Qliro's own answer rather than guessed, and absent
+     * rather than invented when the wording does not match.
+     *
+     * @param ClientException $exception
+     * @param Order $order
+     * @return int|null
+     */
+    private function refusedTransactionId(ClientException $exception, Order $order)
+    {
+        $fromThisRequest = $order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
+
+        if ($fromThisRequest) {
+            return (int)$fromThisRequest;
+        }
+
+        $previous = $exception->getPrevious();
+        $message = $previous instanceof TerminalException ? (string)$previous->getQliroErrorMessage() : '';
+
+        return preg_match("/transaction '(\\d+)'/", $message, $matches) ? (int)$matches[1] : null;
+    }
+
+    /**
+     * @param Order $order
+     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @param int|null $transactionId
+     * @param string $trigger
+     * @return void
+     */
+    private function recordCaptureStatus(Order $order, $link, $transactionId, $trigger)
+    {
+        try {
+            /** @var OrderManagementStatus $omStatus */
+            $omStatus = $this->orderManagementStatusInterfaceFactory->create();
+            $omStatus->setRecordId($order->getId());
+            $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_PAYMENT);
+            $omStatus->setTransactionId($transactionId);
+            $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
+            $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
+            $omStatus->setMessage(sprintf('Capture already registered at Qliro (%s)', $trigger));
+            $omStatus->setQliroOrderId($link->getQliroOrderId());
+
+            $this->orderManagementStatusRepository->save($omStatus);
+        } catch (\Exception $exception) {
+            $this->logManager->debug($exception, ['extra' => ['order_id' => $order->getId()]]);
+        }
+    }
+
+    /**
+     * Turn a capture refusal into something an operator can act on. Every failure used to surface
+     * as "Request to Qliro One has failed", which does not distinguish an order Qliro has never
+     * heard of from a network problem (PLIN-381).
+     *
+     * @param ClientException $exception
+     * @param Order $order
+     * @param string|int|null $qliroOrderId
+     * @return \Magento\Framework\Exception\LocalizedException
+     */
+    private function describeCaptureFailure(ClientException $exception, Order $order, $qliroOrderId)
+    {
+        if ($this->qliroErrorCode($exception) !== self::QLIRO_ERROR_ORDER_NOT_FOUND) {
+            return $exception;
+        }
+
+        $this->logManager->critical(
+            'Qliro does not know the order id stored for this Magento order',
+            [
+                'extra' => [
+                    'order_id' => $order->getId(),
+                    'qliro_order_id' => $qliroOrderId,
+                ],
+            ]
+        );
+
+        return new LocalizedException(
+            __(
+                'Qliro does not know order %1, which is the Qliro order stored for this order. '
+                . 'This usually means it was created against the other Qliro environment, so it '
+                . 'cannot be captured here. Retrying will not help.',
+                $qliroOrderId
+            ),
+            $exception
+        );
+    }
+
+    /**
+     * @param ClientException $exception
+     * @return string|null
+     */
+    private function qliroErrorCode(ClientException $exception)
+    {
+        $previous = $exception->getPrevious();
+
+        return $previous instanceof TerminalException ? $previous->getQliroErrorCode() : null;
+    }
+
+    /**
      * @param \Magento\Sales\Model\Order\Shipment $shipment
      * @return void
      * @throws \Exception
@@ -273,6 +508,11 @@ class Payment extends AbstractManagement
 
         /** @var Order $order */
         $order = $shipment->getOrder();
+
+        if ($this->hasSubmittedCapture($order)) {
+            return;
+        }
+
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
 
@@ -283,7 +523,25 @@ class Payment extends AbstractManagement
             return;
         }
 
-        $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
+
+        try {
+            $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
+        } catch (ClientException $exception) {
+            if ($this->isAlreadyShipped($exception)) {
+                $order->setData(
+                    self::QLIRO_CAPTURE_TRANSACTION_ID,
+                    $this->refusedTransactionId($exception, $order)
+                );
+                $this->adoptCaptureTransaction($order, null, $link, 'shipment');
+
+                return;
+            }
+
+            throw $this->describeCaptureFailure($exception, $order, $link->getQliroOrderId());
+        }
+
+        $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
 
         try {
             /** @var OrderManagementStatus $omStatus */
