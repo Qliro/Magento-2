@@ -11,6 +11,8 @@
          colors="true"
          failOnWarning="true"
          failOnRisky="true"
+         failOnNotice="true"
+         failOnDeprecation="true"
          cacheDirectory=".phpunit.cache">
     <testsuites>
         <testsuite name="QliroOne unit tests">

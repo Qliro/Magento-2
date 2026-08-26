@@ -46,10 +46,10 @@ abstract class AbstractCommand extends Command
      *
      * @param InputInterface $input
      * @param OutputInterface $output
-     * @return int|null
+     * @return int
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         throw new LocalizedException(__('You must override the execute() method in the concrete command class.'));
     }

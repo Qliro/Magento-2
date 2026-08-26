@@ -7,15 +7,23 @@ on:
 
 jobs:
   phpunit:
-    name: PHPUnit (PHP 8.4)
+    # Every PHP version the Magento releases in composer.json's magento/framework ^103.0 range
+    # support, because a defect can be silent on one of them: the null array offset that killed
+    # the checkout on a 2.4.9 store is a deprecation only on 8.5. 2.4.7 and 2.4.8 still support
+    # 8.2, so it stays in the matrix even though 2.4.9 dropped it (PLIN-382).
+    name: PHPUnit (PHP ${{ matrix.php }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.2', '8.3', '8.4', '8.5']
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: ${{ matrix.php }}
           tools: composer:v2
           coverage: none
 

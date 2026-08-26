@@ -90,11 +90,18 @@ class TypePoolHandler
     /**
      * Resolve handler class from a type
      *
-     * @param string $type
+     * TypeResolver returns null for an item it cannot resolve, and PHP 8.5 deprecates a null
+     * array offset, which developer mode raises as an exception and kills the checkout.
+     *
+     * @param string|null $type
      * @return \Qliro\QliroOne\Api\Product\TypeHandlerInterface|null
      */
-    private function resolveHandler($type)
+    private function resolveHandler(?string $type)
     {
+        if ($type === null) {
+            return null;
+        }
+
         return $this->pool[$type] ?? null;
     }
 }
