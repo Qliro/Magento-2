@@ -23,6 +23,10 @@
     </tr>
     <tr>
         <th><?php echo $block->escapeHtml(__('Payment Method')); ?>:</th>
-        <td><?php echo $block->getQliroMethod(); ?></td>
+        <td><?php echo $block->escapeHtml($block->getQliroMethodName()); ?></td>
+    </tr>
+    <tr>
+        <th><?php echo $block->escapeHtml(__('Payment Method Code')); ?>:</th>
+        <td><?php echo $block->escapeHtml($block->getQliroMethod()); ?></td>
     </tr>
 </table>

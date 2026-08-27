@@ -46,4 +46,19 @@ class QliroOne extends AbstractInfo
     {
         return $this->getInfo()->getAdditionalInformation('qliro_payment_method_code');
     }
+
+    /**
+     * Readable name Qliro sent for the method, falling back to the raw code
+     *
+     * Qliro keeps adding method codes (the QLIROPAYLATER family), and the code alone is not
+     * something a merchant can read.
+     *
+     * @return string
+     */
+    public function getQliroMethodName()
+    {
+        $name = $this->getInfo()->getAdditionalInformation('qliro_payment_method_name');
+
+        return $name !== null && $name !== '' ? $name : (string)$this->getQliroMethod();
+    }
 }

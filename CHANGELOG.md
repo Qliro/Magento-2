@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.7.20] - 2026-09-01
+
+### Changed
+
+- The order view shows the payment method name Qliro sent instead of the raw method code, falling back to the code when no name was stored. The admin view keeps the code in its own row for support. Qliro keeps adding method codes, the six `QLIROPAYLATER_*` ones from the Ironman rollout among them, and `QLIROPAYLATER_INVOICE30` is not something a merchant can read (PLIN-374)
+- The method rows in the order view are escaped on output, they were printed raw (PLIN-374)
+
+### Added
+
+- Unit tests pinning that a payment method code passes through unchanged, for the six Ironman codes and for a legacy one. The Ironman rollout rests on these needing no code change in the module, so it is now a test rather than an assertion (PLIN-374)
+
 ## [1.7.19] - 2026-08-31
 
 ### Fixed
