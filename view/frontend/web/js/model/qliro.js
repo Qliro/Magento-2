@@ -15,7 +15,8 @@ define([
     'Magento_Checkout/js/checkout-data',
     'Magento_Checkout/js/model/address-converter',
     'Magento_Checkout/js/action/select-shipping-address',
-    'Magento_Checkout/js/action/get-payment-information'
+    'Magento_Checkout/js/action/get-payment-information',
+    'Magento_Checkout/js/model/shipping-service'
 ], function(
     $,
     config,
@@ -25,7 +26,8 @@ define([
     checkoutData,
     addressConverter,
     selectShippingAddress,
-    getPaymentInformationAction
+    getPaymentInformationAction,
+    shippingService
 ) {
     function sendUpdateQuote() {
         return (
@@ -92,6 +94,20 @@ define([
      * address. Without this the shipping rate estimation runs on an empty address and
      * returns no shipping methods on the first attempt.
      */
+    /**
+     * Whether Magento has actually produced shipping rates for the current address.
+     *
+     * An address equal to the quote's does NOT mean the rates behind it were ever calculated:
+     * the quote can already carry the full address, written when the Qliro order was created,
+     * while shippingRates() is still empty and no rate request has been made. Selecting the
+     * address is what triggers that request, so equality alone is not enough to skip it.
+     */
+    function hasShippingRates() {
+        var rates = shippingService.getShippingRates();
+
+        return !!rates && rates().length > 0;
+    }
+
     function syncShippingAddress(addressData) {
         if (!addressData || !addressData.postcode) {
             qliroDebug('No address stored for the quote yet', addressData);
@@ -99,10 +115,17 @@ define([
             return false;
         }
 
-        if (isSameAsQuoteAddress(addressData)) {
-            qliroDebug('Shipping address already in sync', addressData);
+        // Skip only when the address matches AND the rates behind it exist. Skipping on equality
+        // alone left a store whose quote was already complete with no rate request at all, so no
+        // delivery methods appeared until the customer edited the address or reloaded the page.
+        if (isSameAsQuoteAddress(addressData) && hasShippingRates()) {
+            qliroDebug('Shipping address already in sync and rates are loaded', addressData);
 
             return true;
+        }
+
+        if (isSameAsQuoteAddress(addressData)) {
+            qliroDebug('Address matches the quote but no rates yet, selecting it to trigger them', addressData);
         }
 
         checkoutData.setShippingAddressFromData(addressData);
@@ -127,6 +150,18 @@ define([
     var expectedTotalPrice = null;
     var unmatchCount = 0;
     var orderUpdatedBound = false;
+    var lockDeferred = false;
+
+    /**
+     * window.q1 is created by Qliro's own script, loaded by the snippet on this page, and nothing
+     * sequences that against our handlers: updateCart can run during page initialisation, before
+     * it exists. Calling into it then threw "Cannot read properties of undefined (reading 'lock')",
+     * and because that happened inside a promise callback it abandoned everything after it in the
+     * same callback, including the address sync. So every use goes through here (PLIN-376).
+     */
+    function qliroCheckout() {
+        return window.q1 && typeof window.q1.lock === 'function' ? window.q1 : null;
+    }
 
     // Long enough that a normal order update wins the race, short enough that a customer does
     // not sit in front of a frozen checkout wondering.
@@ -139,12 +174,26 @@ define([
             return;
         }
 
-        window.q1.lock();
+        var checkout = qliroCheckout();
+
+        if (!checkout) {
+            // Nothing to lock yet, the iframe is not on the page, so there is no way for the
+            // customer to pay against a stale total. Remembered rather than dropped, so the lock
+            // is applied when the checkout announces itself instead of being lost silently.
+            lockDeferred = true;
+            qliroDebug('Qliro checkout not initialised yet, lock deferred');
+
+            return;
+        }
+
+        lockDeferred = false;
+        checkout.lock();
     }
 
     function unlockCheckout(reason) {
         clearTimeout(unlockWatchdog);
         unlockWatchdog = null;
+        lockDeferred = false;
 
         if (config.isEagerCheckoutRefresh) {
             qliroDebug('Skipping checkout unlock.', reason);
@@ -152,8 +201,16 @@ define([
             return;
         }
 
+        var checkout = qliroCheckout();
+
+        if (!checkout) {
+            qliroDebug('Qliro checkout not initialised, nothing to unlock', reason);
+
+            return;
+        }
+
         qliroDebug('Unlocking checkout', reason);
-        window.q1.unlock();
+        checkout.unlock();
     }
 
     function armUnlockWatchdog() {
@@ -172,9 +229,18 @@ define([
             return;
         }
 
+        var checkout = qliroCheckout();
+
+        if (!checkout) {
+            // Bound from onCheckoutLoaded instead, which cannot run before the script exists.
+            qliroDebug('Qliro checkout not initialised yet, order updates not bound');
+
+            return;
+        }
+
         orderUpdatedBound = true;
 
-        window.q1.onOrderUpdated(function(order) {
+        checkout.onOrderUpdated(function(order) {
             if (config.isEagerCheckoutRefresh) {
                 qliroDebug('Skipping checkout update polling.');
 
@@ -222,7 +288,18 @@ define([
         updateCart: refreshCart,
 
         onCheckoutLoaded: function() {
-            qliroSuccessDebug('onCheckoutLoaded', q1);
+            qliroSuccessDebug('onCheckoutLoaded', window.q1);
+
+            // The script exists by definition here, so anything that had to wait for it is applied
+            // now: an order-update handler that could not be bound, and a lock that was asked for
+            // before the iframe was on the page. The watchdog is re-armed with the lock so a
+            // deferred one cannot outlive the update it was taken for.
+            bindOrderUpdated();
+
+            if (lockDeferred) {
+                lockCheckout();
+                armUnlockWatchdog();
+            }
         },
 
         onCustomerInfoChanged: function(customer) {
