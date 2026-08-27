@@ -151,22 +151,31 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
             $applied = $this->qliroManagement->setQuote($quote)->updateCustomer($data);
             $this->logManager->debug('Finished to update customer in Qliro quote ' . $quote->getId());
 
-            if (!$applied) {
-                $this->logManager->notice(
-                    'Customer payload from QliroOne had nothing to apply to the quote',
-                    [
-                        'extra' => [
-                            'quote_id' => $quote->getId(),
-                            // Names only. Qliro sends {"isMasked": true} instead of the address
-                            // until the customer is identified, and a plain "has address" flag
-                            // reads as true for that. Cast because a scalar here would make
-                            // array_keys() raise a TypeError, which is an Error and would escape
-                            // the catch below as a 500 out of a logging line.
-                            'address_fields' => array_keys((array)($data['address'] ?? $data['Address'] ?? [])),
-                        ],
-                    ]
-                );
-            }
+            // Always logged, and it deliberately does not lean on $applied to describe the
+            // address. CustomerConverter sets that flag for a new email alone, so a payload whose
+            // address was masked still reports as applied, and a log line that only fired when it
+            // was false said nothing about the case worth diagnosing. What matters for shipping is
+            // whether the quote ended up with a postcode and a country, because without those
+            // Magento collects no rates and the response carries no address for the frontend to
+            // select. Field names only, never values, the payload carries personal data.
+            $shippingAddress = $quote->isVirtual() ? null : $quote->getShippingAddress();
+
+            $this->logManager->debug(
+                'Customer payload from QliroOne applied to the quote',
+                [
+                    'extra' => [
+                        'quote_id' => $quote->getId(),
+                        'anything_applied' => (bool)$applied,
+                        // Qliro sends {"isMasked": true} in place of the address until the customer
+                        // is identified, so the field names tell masked apart from absent. Cast
+                        // because a scalar here would make array_keys() raise a TypeError, an Error
+                        // that would escape the catch below as a 500 out of a logging line.
+                        'address_fields' => array_keys((array)($data['address'] ?? $data['Address'] ?? [])),
+                        'quote_postcode_set' => (bool)($shippingAddress && $shippingAddress->getPostcode()),
+                        'quote_country_set' => (bool)($shippingAddress && $shippingAddress->getCountryId()),
+                    ],
+                ]
+            );
         } catch (\Exception $exception) {
             $this->logManager->debug('Failed to update customer in Qliro quote ' . $quote->getId());
             return $this->dataHelper->sendPreparedPayload(

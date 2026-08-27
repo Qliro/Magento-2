@@ -14,7 +14,7 @@
 
 ### Changed
 
-- A customer payload that changed nothing logs the address field names it carried instead of a "has address" flag. Qliro sends `{"isMasked": true}` in place of the address, which made the flag read as true while there was nothing to apply (PLIN-376)
+- The `updateCustomer` log line now reports whether the quote ended up with a postcode and a country, and it is written on every call rather than only when nothing was applied. `CustomerConverter::convert()` returns true for a new email on its own, so a payload whose address was masked reported as applied while the quote still had nothing to rate shipping on, and the old line stayed silent in exactly that case. Field names only, never values, since the payload carries personal data (PLIN-376)
 
 ## [1.7.17] - 2026-08-26
 
