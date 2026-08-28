@@ -151,6 +151,9 @@ define([
     var unmatchCount = 0;
     var orderUpdatedBound = false;
     var lockDeferred = false;
+    var sawMismatch = false;
+    var refreshInFlight = false;
+    var refreshQueued = false;
 
     /**
      * window.q1 is created by Qliro's own script, loaded by the snippet on this page, and nothing
@@ -218,9 +221,24 @@ define([
             return;
         }
 
+        sawMismatch = false;
         clearTimeout(unlockWatchdog);
         unlockWatchdog = setTimeout(function() {
-            unlockCheckout('no matching order update within ' + UNLOCK_WATCHDOG_MS + 'ms');
+            unlockWatchdog = null;
+
+            // The dangling lock this watchdog exists for is the refresh that produces no order
+            // update at all. An order that did arrive and disagreed with the store is the opposite
+            // case: unlocking on it would let the customer pay a total we already know is wrong,
+            // and silently, since the message only shows on the fourth mismatch. So the iframe
+            // stays locked and says why.
+            if (sawMismatch) {
+                qliroDebug('Order updates arrived and none matched, keeping the checkout locked');
+                showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
+
+                return;
+            }
+
+            unlockCheckout('no order update within ' + UNLOCK_WATCHDOG_MS + 'ms');
         }, UNLOCK_WATCHDOG_MS);
     }
 
@@ -253,8 +271,10 @@ define([
 
             if (Math.abs(order.totalPrice - expectedTotalPrice) < 0.005) {
                 unmatchCount = 0;
+                sawMismatch = false;
                 unlockCheckout('totals match');
             } else {
+                sawMismatch = true;
                 unmatchCount++;
 
                 if (unmatchCount > 3) {
@@ -265,7 +285,25 @@ define([
         });
     }
 
+    /**
+     * Run at most one quote update at a time, and one more after it if anything asked while it was
+     * in flight.
+     *
+     * onCustomerInfoChanged fires per masked-address payload, and nothing here knows whether Qliro
+     * debounces it. Without this guard every keystroke that reaches it would take its own lock, its
+     * own round trip and its own watchdog, and they would interleave: an early response setting
+     * expectedTotalPrice after a later one, a watchdog armed for an update that has already been
+     * superseded. The trailing run is what keeps the last state from being dropped.
+     */
     function refreshCart() {
+        if (refreshInFlight) {
+            refreshQueued = true;
+            qliroDebug('Quote update already in flight, queued one to follow it');
+
+            return;
+        }
+
+        refreshInFlight = true;
         lockCheckout();
 
         sendUpdateQuote()
@@ -274,14 +312,25 @@ define([
                     expectedTotalPrice = data && data.order ? data.order.totalPrice : null;
                     bindOrderUpdated();
                     armUnlockWatchdog();
+                    settleRefresh();
                 },
                 function(response, state, reason) {
                     var data = response.responseJSON || {};
 
                     unlockCheckout('quote update failed');
                     showErrorMessage(data.error || reason);
+                    settleRefresh();
                 }
             );
+    }
+
+    function settleRefresh() {
+        refreshInFlight = false;
+
+        if (refreshQueued) {
+            refreshQueued = false;
+            refreshCart();
+        }
     }
 
     return {
