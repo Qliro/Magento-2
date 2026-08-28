@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.7.19] - 2026-08-31
+
+### Fixed
+
+- The discount line now carries the VAT of the discount in a store whose catalog prices exclude tax and whose tax is calculated after the discount, which is Magento's own default. `Magento/Tax/Model/Calculation/UnitBaseCalculator.php` hardcodes `discount_tax_compensation_amount` to 0 in that configuration and hands the discount over as an ex VAT figure, while the tax it charges does drop with the discount. The module read the missing compensation as "no VAT on this discount" and sent the same number on both price fields with `VatRate: 0`, so the Qliro order total stood above Magento's grand total by exactly the VAT of the discount, 2.50 on a 10.00 discount at 25 percent, and that is what the customer paid. The VAT now comes from the totals Magento already collected: the inc VAT subtotal and shipping are taxed before the discount and `tax_amount` is taxed after it, so their difference is the discount's VAT to the öre, also for a cart mixing several VAT rates and for a rule that discounts the shipping as well. Grossing the discount up with the cart's average rate was the alternative and it is only exact for a single rate cart (PLIN-360)
+- Nothing changes in the three configurations that were already right: prices including tax with tax after the discount still takes the VAT part Magento states, and tax calculated before the discount still sends no VAT at all, because there the VAT does not move with the discount (PLIN-360)
+
+### Changed
+
+- The inc and ex VAT amounts of the discount line, and the VAT rate that describes them, are resolved in one place, `Model/QliroOrder/DiscountAmountResolver.php`, for the checkout and for order management alike. It replaces the `getDiscountExclVat()` and `calculateVatRate()` copies that both `AppliedRulesHandler` classes carried (PLIN-360)
+
 ## [1.7.18] - 2026-08-27
 
 ### Fixed

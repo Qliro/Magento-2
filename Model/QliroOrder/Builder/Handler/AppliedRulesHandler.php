@@ -10,22 +10,24 @@ use Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 
 final class AppliedRulesHandler implements OrderItemHandlerInterface
 {
     private const DISCOUNT_REFERENCE_PREFIX = 'DSC';
     private const DEFAULT_DISCOUNT_REFERENCE = 'DSC_QUOTE_DISCOUNT';
-    private const EPSILON = 0.0001;
 
     /**
      * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param QliroHelper $qliroHelper
      * @param ManagerInterface $eventManager
+     * @param DiscountAmountResolver $discountAmountResolver
      */
     public function __construct(
         private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
         private readonly QliroHelper                    $qliroHelper,
-        private readonly ManagerInterface               $eventManager
+        private readonly ManagerInterface               $eventManager,
+        private readonly DiscountAmountResolver         $discountAmountResolver
     )
     {
     }
@@ -43,14 +45,15 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             ? $quote->getBillingAddress()
             : $quote->getShippingAddress();
 
-        $discountInclVat = abs((float)$address->getDiscountAmount());
-
-        if ($discountInclVat <= self::EPSILON) {
+        if (abs((float)$address->getDiscountAmount()) <= DiscountAmountResolver::EPSILON) {
             return $orderItems;
         }
 
-        $discountExclVat = $this->getDiscountExclVat($quote, $discountInclVat);
-        $vatRate = $this->calculateVatRate($discountInclVat, $discountExclVat);
+        [$discountInclVat, $discountExclVat] = $this->discountAmountResolver->resolve(
+            $address,
+            (int)$quote->getStoreId()
+        );
+        $vatRate = $this->discountAmountResolver->getVatRate($discountInclVat, $discountExclVat);
         $merchantReference = $this->getMerchantReference($quote);
 
         /** @var QliroOrderItemInterface $qliroOrderItem */
@@ -105,43 +108,5 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             self::DISCOUNT_REFERENCE_PREFIX,
             str_replace(',', '_', $ruleIds)
         );
-    }
-
-    /**
-     * Calculates the discount amount excluding VAT based on the given discount including VAT and the tax compensation amount.
-     *
-     * @param Quote $quote The quote containing address information for determining tax compensation.
-     * @param float $discountInclVat The discount amount including VAT.
-     * @return float The discount amount excluding VAT.
-     */
-    private function getDiscountExclVat(Quote $quote, float $discountInclVat): float
-    {
-        $address = $quote->isVirtual()
-            ? $quote->getBillingAddress()
-            : $quote->getShippingAddress();
-
-        $discountTax = abs((float)$address->getDiscountTaxCompensationAmount());
-
-        if ($discountTax <= self::EPSILON || $discountTax >= $discountInclVat) {
-            return $discountInclVat;
-        }
-
-        return $discountInclVat - $discountTax;
-    }
-
-    /**
-     * Calculates the VAT rate based on the provided discount amounts inclusive and exclusive of VAT.
-     *
-     * @param float $discountInclVat The discount amount inclusive of VAT.
-     * @param float $discountExclVat The discount amount exclusive of VAT.
-     * @return float The calculated VAT rate as a percentage.
-     */
-    private function calculateVatRate(float $discountInclVat, float $discountExclVat): float
-    {
-        if ($discountExclVat <= self::EPSILON) {
-            return 0.0;
-        }
-
-        return round((($discountInclVat - $discountExclVat) / $discountExclVat) * 100, 2);
     }
 }
