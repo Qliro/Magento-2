@@ -6,7 +6,7 @@
 ### Changed
 
 - The order view shows the payment method name Qliro sent instead of the raw method code, falling back to the code when no name was stored. The admin view keeps the code in its own row for support. Qliro keeps adding method codes, the six `QLIROPAYLATER_*` ones from the Ironman rollout among them, and `QLIROPAYLATER_INVOICE30` is not something a merchant can read (PLIN-374)
-- The method rows in the order view are escaped on output, they were printed raw (PLIN-374)
+- Every value the order view prints is escaped on output. The method rows were printed raw, and so were the Qliro order id, the Qliro reference and the warning text, in both the admin and the frontend template. All of them come from the payment's additional information, which is filled from what Qliro sends, so leaving half of them raw only made it look deliberate (PLIN-374)
 
 ### Added
 
