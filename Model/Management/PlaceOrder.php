@@ -574,6 +574,10 @@ class PlaceOrder extends AbstractManagement
         $payment = $this->getQuote()->getPayment();
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_QLIRO_ORDER_ID, $link->getQliroOrderId());
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_REFERENCE, $link->getReference());
+        $payment->setAdditionalInformation(
+            Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT,
+            true
+        );
 
         if ($paymentMethod) {
             $payment->setAdditionalInformation(

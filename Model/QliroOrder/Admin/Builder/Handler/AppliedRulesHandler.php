@@ -6,6 +6,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler;
 
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
+use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
@@ -45,7 +46,8 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
         [$discountInclVat, $discountExclVat] = $this->discountAmountResolver->resolve(
             $order,
             $this->getLineVatRates($order),
-            (int)$order->getStoreId()
+            (int)$order->getStoreId(),
+            $this->reservationCarriesDiscountVat($order)
         );
         $vatRate = $this->discountAmountResolver->getVatRate($discountInclVat, $discountExclVat);
         $merchantReference = $this->getMerchantReference($order);
@@ -71,6 +73,29 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
         $orderItems[] = $qliroOrderItem;
 
         return $orderItems;
+    }
+
+    /**
+     * Whether the reservation this capture has to match carries the VAT of the discount
+     *
+     * Stamped on the payment when the module places the order. An order placed before 1.7.18 has no
+     * stamp and was reserved with the discount VAT free, and Qliro refuses a capture whose lines
+     * disagree with the reservation, so that line has to go out the way it went out then.
+     *
+     * @param Order $order
+     * @return bool
+     */
+    private function reservationCarriesDiscountVat(Order $order): bool
+    {
+        $payment = $order->getPayment();
+
+        if ($payment === null) {
+            return false;
+        }
+
+        return (bool)$payment->getAdditionalInformation(
+            Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT
+        );
     }
 
     /**

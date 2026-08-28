@@ -51,10 +51,18 @@ class DiscountAmountResolver
      * @param DataObject $totals Quote address or order, both carry the same total fields
      * @param float[] $lineVatRates The VAT rates of the lines the discount is spread over
      * @param int|null $storeId
+     * @param bool $mayCarryDiscountVat False reproduces the line as it was sent before 1.7.18, see
+     *                                  the branch below. The checkout builds the reservation, so it
+     *                                  always says true; a capture has to match the reservation it
+     *                                  was given
      * @return float[]
      */
-    public function resolve(DataObject $totals, array $lineVatRates, ?int $storeId = null): array
-    {
+    public function resolve(
+        DataObject $totals,
+        array $lineVatRates,
+        ?int $storeId = null,
+        bool $mayCarryDiscountVat = true
+    ): array {
         $discount = $this->round(abs((float)$totals->getData('discount_amount')));
         $compensation = abs((float)$totals->getData('discount_tax_compensation_amount'));
 
@@ -67,6 +75,14 @@ class DiscountAmountResolver
         // Prices include tax without the compensation, or tax calculated before the discount: the
         // VAT does not move with the discount, so the line carries none
         if ($this->taxConfig->priceIncludesTax($storeId) || !$this->taxConfig->applyTaxAfterDiscount($storeId)) {
+            return [$discount, $discount];
+        }
+
+        // A capture whose reservation was made before 1.7.18 has to reproduce the line that was
+        // reserved, VAT free. Qliro refuses a capture whose lines disagree with the reservation
+        // (INVALID_ITEM), so grossing up here would leave the order uncapturable rather than merely
+        // over-charged, which is what the reservation already is
+        if (!$mayCarryDiscountVat) {
             return [$discount, $discount];
         }
 

@@ -9,12 +9,14 @@ namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Admin\Builder\Handler;
 
 use Magento\Framework\DataObject;
 use Magento\Sales\Model\Order;
+use Magento\Sales\Model\Order\Payment;
 use Magento\Tax\Model\Config as TaxConfig;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
@@ -97,6 +99,41 @@ class AppliedRulesHandlerTest extends TestCase
     }
 
     /**
+     * An order placed before 1.7.18 was reserved with the discount VAT free, and Qliro refuses a
+     * capture whose lines disagree with the reservation, so the line goes out the way it went out
+     * then. The over-charge it was reserved with stays, an uncapturable order would be worse.
+     */
+    public function testReproducesTheReservedLineForAnOrderPlacedBeforeTheGrossUp(): void
+    {
+        $this->handler = $this->buildHandler(priceIncludesTax: false, applyTaxAfterDiscount: true);
+
+        $discountLine = $this->buildDiscountLine(
+            ['tax_amount' => '22.5000'],
+            reservationCarriesDiscountVat: false
+        );
+
+        self::assertSame(-10.0, $discountLine->getPricePerItemIncVat());
+        self::assertSame(-10.0, $discountLine->getPricePerItemExVat());
+        self::assertSame(0.0, $discountLine->getVatRate());
+    }
+
+    /**
+     * The stamp only gates the configuration the gross-up applies to. Where Magento states the VAT
+     * part outright the reservation already carried it, on 1.7.17 as much as now.
+     */
+    public function testTheStampDoesNotChangeAStatedVatPart(): void
+    {
+        $discountLine = $this->buildDiscountLine(
+            ['discount_amount' => '-0.7200', 'discount_tax_compensation_amount' => '0.1400'],
+            reservationCarriesDiscountVat: false
+        );
+
+        self::assertSame(-0.72, $discountLine->getPricePerItemIncVat());
+        self::assertSame(-0.58, $discountLine->getPricePerItemExVat());
+        self::assertSame(24.14, $discountLine->getVatRate());
+    }
+
+    /**
      * Only the first capture carries the order level lines, the rest would double them.
      */
     public function testSkipsAnOrderThatIsNotOnItsFirstCapture(): void
@@ -152,9 +189,11 @@ class AppliedRulesHandlerTest extends TestCase
     /**
      * @param array<string, string> $totals
      */
-    private function buildDiscountLine(array $totals): QliroOrderItemInterface
-    {
-        $orderItems = $this->handler->handle([], $this->buildOrder($totals));
+    private function buildDiscountLine(
+        array $totals,
+        bool $reservationCarriesDiscountVat = true
+    ): QliroOrderItemInterface {
+        $orderItems = $this->handler->handle([], $this->buildOrder($totals, $reservationCarriesDiscountVat));
 
         self::assertCount(1, $orderItems);
 
@@ -168,14 +207,22 @@ class AppliedRulesHandlerTest extends TestCase
      *
      * @param array<string, string> $totals
      */
-    private function buildOrder(array $totals): Order&MockObject
+    private function buildOrder(array $totals, bool $reservationCarriesDiscountVat = true): Order&MockObject
     {
+        $payment = $this->createMock(Payment::class);
+        $payment->method('getAdditionalInformation')->willReturnCallback(
+            static fn($key = null) => $key === Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT
+                ? $reservationCarriesDiscountVat
+                : null
+        );
+
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getAllItems'])
+            ->onlyMethods(['getAllItems', 'getPayment'])
             ->getMock();
 
         $order->method('getAllItems')->willReturn([new DataObject(['tax_percent' => 25.0])]);
+        $order->method('getPayment')->willReturn($payment);
         $order->setData($totals + [
             'first_capture_flag' => true,
             'applied_rule_ids' => '10',

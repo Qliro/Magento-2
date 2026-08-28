@@ -196,6 +196,27 @@ class DiscountAmountResolverTest extends TestCase
     }
 
     /**
+     * A capture whose reservation predates the gross-up has to reproduce the line that was reserved.
+     * Qliro refuses a capture whose lines disagree with the reservation, so the amount stands even
+     * though it is the over-charge this class exists to stop.
+     */
+    public function testReproducesTheVatFreeLineWhenTheReservationHasNoDiscountVat(): void
+    {
+        $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
+
+        $totals = $this->buildTotals(
+            discount: -10.0,
+            compensation: 0.0,
+            subtotal: 100.0,
+            subtotalInclTax: 125.0,
+            taxAmount: 22.5
+        );
+
+        self::assertSame([12.5, 10.0], $resolver->resolve($totals, [25.0], 1));
+        self::assertSame([10.0, 10.0], $resolver->resolve($totals, [25.0], 1, false));
+    }
+
+    /**
      * @dataProvider taxBeforeDiscountProvider
      */
     public function testSendsNoVatWhenTaxWasCalculatedBeforeTheDiscount(bool $priceIncludesTax): void
