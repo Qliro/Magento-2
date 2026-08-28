@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\QliroOrder;
 
 use Magento\Framework\DataObject;
 use Magento\Tax\Model\Config as TaxConfig;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 
 /**
  * Owns the three price fields of the discount line sent to Qliro, for the checkout and for order
@@ -30,20 +31,29 @@ class DiscountAmountResolver
     private const PRECISION = 2;
 
     /**
-     * @param TaxConfig $taxConfig
+     * One öre of slack on the VAT ceiling, every total it is derived from is rounded on its own
      */
-    public function __construct(private readonly TaxConfig $taxConfig)
-    {
+    private const TOLERANCE = 0.01;
+
+    /**
+     * @param TaxConfig $taxConfig
+     * @param LogManager $logManager
+     */
+    public function __construct(
+        private readonly TaxConfig  $taxConfig,
+        private readonly LogManager $logManager
+    ) {
     }
 
     /**
      * Resolve the discount amounts, both returned positive and rounded, as [inc VAT, ex VAT]
      *
      * @param DataObject $totals Quote address or order, both carry the same total fields
+     * @param float[] $lineVatRates The VAT rates of the lines the discount is spread over
      * @param int|null $storeId
      * @return float[]
      */
-    public function resolve(DataObject $totals, ?int $storeId = null): array
+    public function resolve(DataObject $totals, array $lineVatRates, ?int $storeId = null): array
     {
         $discount = $this->round(abs((float)$totals->getData('discount_amount')));
         $compensation = abs((float)$totals->getData('discount_tax_compensation_amount'));
@@ -63,7 +73,7 @@ class DiscountAmountResolver
         // Prices exclude tax and tax follows the discount, Magento's own default: the discount is an
         // ex VAT amount and the VAT drops with it, so the line has to carry that VAT back or Qliro
         // charges the customer more than Magento's grand total
-        return [$this->round($discount + $this->getDiscountVat($totals, $discount)), $discount];
+        return [$this->round($discount + $this->getDiscountVat($totals, $discount, $lineVatRates)), $discount];
     }
 
     /**
@@ -92,22 +102,71 @@ class DiscountAmountResolver
      *
      * @param DataObject $totals
      * @param float $discount
+     * @param float[] $lineVatRates
      * @return float
      */
-    private function getDiscountVat(DataObject $totals, float $discount): float
+    private function getDiscountVat(DataObject $totals, float $discount, array $lineVatRates): float
     {
         $vatOnLines = (float)$totals->getData('subtotal_incl_tax') - (float)$totals->getData('subtotal')
             + (float)$totals->getData('shipping_incl_tax') - (float)$totals->getData('shipping_amount');
 
         $vat = $this->round($vatOnLines - (float)$totals->getData('tax_amount'));
 
-        // A rate at or above 100 percent is not a tax setup, it is broken totals. Sending no VAT
-        // undercharges, grossing up on nonsense overcharges
-        if ($vat <= self::EPSILON || $vat >= $discount) {
+        if ($vat <= self::EPSILON) {
+            return 0.0;
+        }
+
+        $ceiling = $this->getVatCeiling($totals, $discount, $lineVatRates);
+
+        // Another total collector taxing something these totals do not account for is the way this
+        // difference stops describing the discount. Sending it anyway would charge the customer
+        // more than Magento asked, so the line goes out without VAT and the store is diagnosable
+        if ($vat > $ceiling) {
+            $this->logManager->warning(
+                'Discount VAT discarded, it is more than the cart\'s own VAT rates allow',
+                [
+                    'extra' => [
+                        'discount' => $discount,
+                        'derived_vat' => $vat,
+                        'ceiling' => $ceiling,
+                        'line_vat_rates' => $lineVatRates,
+                    ],
+                ]
+            );
+
             return 0.0;
         }
 
         return $vat;
+    }
+
+    /**
+     * The most VAT this discount could have taken away
+     *
+     * A discount is spread over the lines, so its own rate cannot beat the highest rate among them.
+     * The rates the lines carry come from the caller, and the two the totals imply are added to
+     * them, so a store where Magento left no tax percent on the items still gets a ceiling rather
+     * than losing the VAT altogether.
+     *
+     * @param DataObject $totals
+     * @param float $discount
+     * @param float[] $lineVatRates
+     * @return float
+     */
+    private function getVatCeiling(DataObject $totals, float $discount, array $lineVatRates): float
+    {
+        $rates = array_map(static fn($rate): float => abs((float)$rate), $lineVatRates);
+
+        $rates[] = $this->getVatRate(
+            (float)$totals->getData('subtotal_incl_tax'),
+            (float)$totals->getData('subtotal')
+        );
+        $rates[] = $this->getVatRate(
+            (float)$totals->getData('shipping_incl_tax'),
+            (float)$totals->getData('shipping_amount')
+        );
+
+        return $this->round($discount * max($rates) / 100) + self::TOLERANCE;
     }
 
     /**

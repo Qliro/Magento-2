@@ -16,6 +16,7 @@ use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 use Qliro\QliroOne\Model\QliroOrder\Item;
@@ -134,6 +135,7 @@ class AppliedRulesHandlerTest extends TestCase
         $quote = $this->createMock(Quote::class);
         $quote->method('isVirtual')->willReturn(true);
         $quote->method('getStoreId')->willReturn(1);
+        $quote->method('getAllItems')->willReturn([new DataObject(['tax_percent' => 25.0])]);
         $quote->method('getBillingAddress')->willReturn($this->buildAddress([
             'discount_amount' => '-0.7200',
             'discount_tax_compensation_amount' => '0.1400',
@@ -177,7 +179,7 @@ class AppliedRulesHandlerTest extends TestCase
             $itemFactory,
             $qliroHelper,
             $this->eventManager,
-            new DiscountAmountResolver($taxConfig)
+            new DiscountAmountResolver($taxConfig, $this->createMock(LogManager::class))
         );
     }
 
@@ -200,12 +202,13 @@ class AppliedRulesHandlerTest extends TestCase
     {
         $quote = $this->getMockBuilder(Quote::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['isVirtual', 'getShippingAddress', 'getStoreId'])
+            ->onlyMethods(['isVirtual', 'getShippingAddress', 'getStoreId', 'getAllItems'])
             ->addMethods(['getAppliedRuleIds'])
             ->getMock();
         $quote->method('isVirtual')->willReturn(false);
         $quote->method('getStoreId')->willReturn(1);
         $quote->method('getShippingAddress')->willReturn($this->buildAddress($totals));
+        $quote->method('getAllItems')->willReturn([new DataObject(['tax_percent' => 25.0])]);
         $quote->method('getAppliedRuleIds')->willReturn('10');
 
         return $quote;

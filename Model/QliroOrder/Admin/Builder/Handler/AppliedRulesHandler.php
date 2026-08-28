@@ -44,6 +44,7 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
 
         [$discountInclVat, $discountExclVat] = $this->discountAmountResolver->resolve(
             $order,
+            $this->getLineVatRates($order),
             (int)$order->getStoreId()
         );
         $vatRate = $this->discountAmountResolver->getVatRate($discountInclVat, $discountExclVat);
@@ -70,6 +71,22 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
         $orderItems[] = $qliroOrderItem;
 
         return $orderItems;
+    }
+
+    /**
+     * The VAT rates of the lines the discount is spread over, so the resolver can tell a discount
+     * VAT the order could have produced from one it could not. An upper bound is all it needs, so
+     * the children of a configurable or a bundle are left in.
+     *
+     * @param Order $order
+     * @return float[]
+     */
+    private function getLineVatRates(Order $order): array
+    {
+        return array_map(
+            static fn($item): float => (float)$item->getTaxPercent(),
+            $order->getAllItems()
+        );
     }
 
     /**

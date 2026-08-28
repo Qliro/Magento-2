@@ -9,7 +9,9 @@ namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder;
 
 use Magento\Framework\DataObject;
 use Magento\Tax\Model\Config as TaxConfig;
+use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 
 /**
@@ -17,6 +19,13 @@ use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
  */
 class DiscountAmountResolverTest extends TestCase
 {
+    private LogManager&MockObject $logManager;
+
+    protected function setUp(): void
+    {
+        $this->logManager = $this->createMock(LogManager::class);
+    }
+
     /**
      * Prices include tax and tax follows the discount, the Nordic setup. Magento states the VAT
      * part of the discount, so it is simply taken off.
@@ -27,7 +36,7 @@ class DiscountAmountResolverTest extends TestCase
 
         $totals = $this->buildTotals(discount: -0.72, compensation: 0.14, subtotal: 14.4, subtotalInclTax: 18.0);
 
-        self::assertSame([0.72, 0.58], $resolver->resolve($totals, 1));
+        self::assertSame([0.72, 0.58], $resolver->resolve($totals, [25.0], 1));
     }
 
     /**
@@ -48,7 +57,7 @@ class DiscountAmountResolverTest extends TestCase
             taxAmount: 22.5
         );
 
-        self::assertSame([12.5, 10.0], $resolver->resolve($totals, 1));
+        self::assertSame([12.5, 10.0], $resolver->resolve($totals, [25.0], 1));
     }
 
     /**
@@ -69,7 +78,7 @@ class DiscountAmountResolverTest extends TestCase
             taxAmount: 34.75
         );
 
-        [$inclVat] = $resolver->resolve($totals, 1);
+        [$inclVat] = $resolver->resolve($totals, [25.0], 1);
 
         $grandTotal = 100.0 + 49.0 + 34.75 - 10.0;
 
@@ -96,7 +105,94 @@ class DiscountAmountResolverTest extends TestCase
             taxAmount: 25.2
         );
 
-        self::assertSame([17.8, 15.0], $resolver->resolve($totals, 1));
+        self::assertSame([17.8, 15.0], $resolver->resolve($totals, [25.0], 1));
+    }
+
+    /**
+     * A discount that lands entirely on the higher taxed half of a mixed rate cart carries that
+     * higher rate, well above the cart's average. The rates the lines carry are what tells this
+     * apart from totals that no longer describe the discount.
+     */
+    public function testAllowsADiscountTakenAtTheHighestRateInAMixedRateCart(): void
+    {
+        $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
+
+        // 100.00 at 25 percent and 100.00 at 6 percent, the whole 10.00 off the 25 percent half
+        $totals = $this->buildTotals(
+            discount: -10.0,
+            compensation: 0.0,
+            subtotal: 200.0,
+            subtotalInclTax: 231.0,
+            taxAmount: 28.5
+        );
+
+        self::assertSame([12.5, 10.0], $resolver->resolve($totals, [25.0, 6.0], 1));
+    }
+
+    /**
+     * The same cart with no rates on the lines falls back to the ceiling the totals imply, which
+     * is the cart's average. It undercharges rather than overcharges, and it says so in the log.
+     */
+    public function testFallsBackToTheAverageRateCeilingWhenTheLinesCarryNoRates(): void
+    {
+        $this->logManager->expects(self::once())->method('warning');
+
+        $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
+
+        $totals = $this->buildTotals(
+            discount: -10.0,
+            compensation: 0.0,
+            subtotal: 200.0,
+            subtotalInclTax: 231.0,
+            taxAmount: 28.5
+        );
+
+        self::assertSame([10.0, 10.0], $resolver->resolve($totals, [], 1));
+    }
+
+    /**
+     * A single rate cart whose items carry no tax percent still gets its VAT, because the rate the
+     * subtotals imply is the real one there.
+     */
+    public function testUsesTheRateTheSubtotalsImplyWhenTheItemsCarryNone(): void
+    {
+        $this->logManager->expects(self::never())->method('warning');
+
+        $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
+
+        $totals = $this->buildTotals(
+            discount: -10.0,
+            compensation: 0.0,
+            subtotal: 100.0,
+            subtotalInclTax: 125.0,
+            taxAmount: 22.5
+        );
+
+        self::assertSame([12.5, 10.0], $resolver->resolve($totals, [0.0], 1));
+    }
+
+    /**
+     * Another total collector taxing something the subtotals do not account for is how this
+     * difference stops describing the discount. Sending it would charge the customer more than
+     * Magento asked, so the VAT is dropped and the store is diagnosable from the log.
+     */
+    public function testDiscardsAVatBeyondWhatTheCartsRatesAllow(): void
+    {
+        $this->logManager->expects(self::once())
+            ->method('warning')
+            ->with(self::stringContains('Discount VAT discarded'), self::anything());
+
+        $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
+
+        $totals = $this->buildTotals(
+            discount: -10.0,
+            compensation: 0.0,
+            subtotal: 100.0,
+            subtotalInclTax: 125.0,
+            taxAmount: 0.0
+        );
+
+        self::assertSame([10.0, 10.0], $resolver->resolve($totals, [25.0], 1));
     }
 
     /**
@@ -114,7 +210,7 @@ class DiscountAmountResolverTest extends TestCase
             taxAmount: 25.0
         );
 
-        self::assertSame([10.0, 10.0], $resolver->resolve($totals, 1));
+        self::assertSame([10.0, 10.0], $resolver->resolve($totals, [25.0], 1));
     }
 
     /**
@@ -129,10 +225,12 @@ class DiscountAmountResolverTest extends TestCase
     }
 
     /**
-     * A cart without VAT has no VAT to put on the discount either.
+     * A cart without VAT has no VAT to put on the discount either, and nothing worth logging.
      */
     public function testKeepsTheAmountWhenTheCartCarriesNoVat(): void
     {
+        $this->logManager->expects(self::never())->method('warning');
+
         $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
 
         $totals = $this->buildTotals(
@@ -142,7 +240,7 @@ class DiscountAmountResolverTest extends TestCase
             subtotalInclTax: 100.0
         );
 
-        self::assertSame([10.0, 10.0], $resolver->resolve($totals, 1));
+        self::assertSame([10.0, 10.0], $resolver->resolve($totals, [0.0], 1));
     }
 
     /**
@@ -155,26 +253,7 @@ class DiscountAmountResolverTest extends TestCase
 
         $totals = $this->buildTotals(discount: -10.0, compensation: 12.0, subtotal: 100.0, subtotalInclTax: 125.0);
 
-        self::assertSame([10.0, 10.0], $resolver->resolve($totals, 1));
-    }
-
-    /**
-     * Totals that make the discount out to carry as much VAT as it is worth are broken, not a tax
-     * setup. Grossing up on them would charge the customer more than Magento ever asked for.
-     */
-    public function testRefusesAVatThatIsNotSmallerThanTheDiscount(): void
-    {
-        $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
-
-        $totals = $this->buildTotals(
-            discount: -10.0,
-            compensation: 0.0,
-            subtotal: 100.0,
-            subtotalInclTax: 125.0,
-            taxAmount: 0.0
-        );
-
-        self::assertSame([10.0, 10.0], $resolver->resolve($totals, 1));
+        self::assertSame([10.0, 10.0], $resolver->resolve($totals, [25.0], 1));
     }
 
     /**
@@ -182,9 +261,14 @@ class DiscountAmountResolverTest extends TestCase
      */
     public function testKeepsTheAmountWhenTheTotalsAreMissing(): void
     {
+        $this->logManager->expects(self::never())->method('warning');
+
         $resolver = $this->buildResolver(priceIncludesTax: false, applyTaxAfterDiscount: true);
 
-        self::assertSame([10.0, 10.0], $resolver->resolve(new DataObject(['discount_amount' => -10.0]), 1));
+        self::assertSame(
+            [10.0, 10.0],
+            $resolver->resolve(new DataObject(['discount_amount' => -10.0]), [25.0], 1)
+        );
     }
 
     /**
@@ -216,7 +300,7 @@ class DiscountAmountResolverTest extends TestCase
         $taxConfig->method('priceIncludesTax')->willReturn($priceIncludesTax);
         $taxConfig->method('applyTaxAfterDiscount')->willReturn($applyTaxAfterDiscount);
 
-        return new DiscountAmountResolver($taxConfig);
+        return new DiscountAmountResolver($taxConfig, $this->logManager);
     }
 
     /**

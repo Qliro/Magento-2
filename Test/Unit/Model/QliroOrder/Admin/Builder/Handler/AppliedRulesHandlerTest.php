@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Admin\Builder\Handler;
 
+use Magento\Framework\DataObject;
 use Magento\Sales\Model\Order;
 use Magento\Tax\Model\Config as TaxConfig;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -14,6 +15,7 @@ use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 use Qliro\QliroOne\Model\QliroOrder\Item;
@@ -140,7 +142,11 @@ class AppliedRulesHandlerTest extends TestCase
         $taxConfig->method('priceIncludesTax')->willReturn($priceIncludesTax);
         $taxConfig->method('applyTaxAfterDiscount')->willReturn($applyTaxAfterDiscount);
 
-        return new AppliedRulesHandler($itemFactory, $qliroHelper, new DiscountAmountResolver($taxConfig));
+        return new AppliedRulesHandler(
+            $itemFactory,
+            $qliroHelper,
+            new DiscountAmountResolver($taxConfig, $this->createMock(LogManager::class))
+        );
     }
 
     /**
@@ -166,9 +172,10 @@ class AppliedRulesHandlerTest extends TestCase
     {
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods([])
+            ->onlyMethods(['getAllItems'])
             ->getMock();
 
+        $order->method('getAllItems')->willReturn([new DataObject(['tax_percent' => 25.0])]);
         $order->setData($totals + [
             'first_capture_flag' => true,
             'applied_rule_ids' => '10',
