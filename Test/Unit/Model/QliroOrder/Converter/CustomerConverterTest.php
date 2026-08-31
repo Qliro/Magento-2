@@ -98,6 +98,14 @@ class CustomerConverterTest extends TestCase
     /**
      * The email alone still counts as applied, even when no address came with it.
      */
+    /**
+     * A new email alone counts as applied, and deliberately so: the email is part of the Qliro
+     * order, so it justifies pushing the quote again. What it must NOT be read as is "the address
+     * arrived". Qliro masks the address until the customer is identified, so this is the payload a
+     * store gets first, and a log line that keyed off this flag reported the quote as updated while
+     * it still had no postcode to rate shipping on, which sent one investigation the wrong way
+     * (PLIN-376).
+     */
     public function testAppliesEmailWithoutAddress(): void
     {
         $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);

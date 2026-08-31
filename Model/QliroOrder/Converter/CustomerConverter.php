@@ -43,7 +43,12 @@ class CustomerConverter
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
      * @param \Magento\Quote\Model\Quote $quote
-     * @return bool Whether anything from the payload was applied to the quote
+     * @return bool Whether ANYTHING from the payload was applied, the email included. It is not a
+     *              statement about the address: Qliro masks that until the customer is identified,
+     *              and a payload carrying only a new email returns true with the quote still
+     *              lacking a postcode. Callers use this to decide whether the quote is worth
+     *              pushing to Qliro again, which the email does justify, so do not read it as
+     *              "the address arrived" (PLIN-376).
      */
     public function convert($qliroCustomer, Quote $quote)
     {
