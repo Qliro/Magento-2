@@ -6,23 +6,26 @@ namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler;
 
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
+use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 
 final class AppliedRulesHandler implements OrderItemHandlerInterface
 {
     private const DISCOUNT_REFERENCE_PREFIX = 'DSC';
     private const DEFAULT_DISCOUNT_REFERENCE = 'DSC_ORDER_DISCOUNT';
-    private const EPSILON = 0.0001;
 
     /**
      * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param QliroHelper $qliroHelper
+     * @param DiscountAmountResolver $discountAmountResolver
      */
     public function __construct(
         private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        private readonly QliroHelper                    $qliroHelper
+        private readonly QliroHelper                    $qliroHelper,
+        private readonly DiscountAmountResolver         $discountAmountResolver
     )
     {
     }
@@ -36,14 +39,17 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             return $orderItems;
         }
 
-        $discountInclVat = abs((float)$order->getDiscountAmount());
-
-        if ($discountInclVat <= self::EPSILON) {
+        if (abs((float)$order->getDiscountAmount()) <= DiscountAmountResolver::EPSILON) {
             return $orderItems;
         }
 
-        $discountExclVat = $this->getDiscountExclVat($order, $discountInclVat);
-        $vatRate = $this->calculateVatRate($discountInclVat, $discountExclVat);
+        [$discountInclVat, $discountExclVat] = $this->discountAmountResolver->resolve(
+            $order,
+            $this->getLineVatRates($order),
+            (int)$order->getStoreId(),
+            $this->reservationCarriesDiscountVat($order)
+        );
+        $vatRate = $this->discountAmountResolver->getVatRate($discountInclVat, $discountExclVat);
         $merchantReference = $this->getMerchantReference($order);
 
         /** @var QliroOrderItemInterface $qliroOrderItem */
@@ -70,6 +76,45 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
     }
 
     /**
+     * Whether the reservation this capture has to match carries the VAT of the discount
+     *
+     * Stamped on the payment when the module places the order. An order placed before 1.7.18 has no
+     * stamp and was reserved with the discount VAT free, and Qliro refuses a capture whose lines
+     * disagree with the reservation, so that line has to go out the way it went out then.
+     *
+     * @param Order $order
+     * @return bool
+     */
+    private function reservationCarriesDiscountVat(Order $order): bool
+    {
+        $payment = $order->getPayment();
+
+        if ($payment === null) {
+            return false;
+        }
+
+        return (bool)$payment->getAdditionalInformation(
+            Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT
+        );
+    }
+
+    /**
+     * The VAT rates of the lines the discount is spread over, so the resolver can tell a discount
+     * VAT the order could have produced from one it could not. An upper bound is all it needs, so
+     * the children of a configurable or a bundle are left in.
+     *
+     * @param Order $order
+     * @return float[]
+     */
+    private function getLineVatRates(Order $order): array
+    {
+        return array_map(
+            static fn($item): float => (float)$item->getTaxPercent(),
+            $order->getAllItems()
+        );
+    }
+
+    /**
      * Generates a merchant reference based on the discount rules applied to the given order.
      *
      * @param Order $order The order object containing the applied discount rule IDs.
@@ -88,39 +133,5 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             self::DISCOUNT_REFERENCE_PREFIX,
             str_replace(',', '_', $ruleIds)
         );
-    }
-
-    /**
-     * Calculates the discount amount excluding VAT based on the provided order and the discount including VAT.
-     *
-     * @param Order $order The order object containing details about the applied discounts.
-     * @param float $discountInclVat The discount amount including VAT.
-     * @return float The discount amount excluding VAT.
-     */
-    private function getDiscountExclVat(Order $order, float $discountInclVat): float
-    {
-        $discountTax = abs((float)$order->getDiscountTaxCompensationAmount());
-
-        if ($discountTax <= self::EPSILON || $discountTax >= $discountInclVat) {
-            return $discountInclVat;
-        }
-
-        return $discountInclVat - $discountTax;
-    }
-
-    /**
-     * Calculates the VAT rate based on the given discount amounts inclusive and exclusive of VAT.
-     *
-     * @param float $discountInclVat The discount amount inclusive of VAT.
-     * @param float $discountExclVat The discount amount exclusive of VAT.
-     * @return float The calculated VAT rate as a percentage.
-     */
-    private function calculateVatRate(float $discountInclVat, float $discountExclVat): float
-    {
-        if ($discountExclVat <= self::EPSILON) {
-            return 0.0;
-        }
-
-        return round((($discountInclVat - $discountExclVat) / $discountExclVat) * 100, 2);
     }
 }

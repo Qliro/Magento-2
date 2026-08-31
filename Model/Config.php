@@ -64,6 +64,13 @@ class Config
     const QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME = 'qliro_payment_method_name';
     const QLIROONE_ADDITIONAL_INFO_SHIPPING_PROPERTIES = 'qliro_payment_shipping_properties';
 
+    /**
+     * Whether the reservation this order was placed against carries the VAT of the discount on its
+     * discount line. Absent on every order placed before 1.7.18, whose reservation carries the
+     * discount without VAT, and whose capture has to reproduce that or Qliro sees a changed line
+     */
+    const QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT = 'qliro_discount_carries_vat';
+
     const CONFIG_FEE_AMOUNT = 'fee';
     const CONFIG_FEE_TITLE = 'description';
 

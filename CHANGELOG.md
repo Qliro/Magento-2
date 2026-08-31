@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.7.19] - 2026-08-31
+
+### Fixed
+
+- The discount line now carries the VAT of the discount in a store whose catalog prices exclude tax and whose tax is calculated after the discount, which is Magento's own default. `Magento/Tax/Model/Calculation/UnitBaseCalculator.php` hardcodes `discount_tax_compensation_amount` to 0 in that configuration and hands the discount over as an ex VAT figure, while the tax it charges does drop with the discount. The module read the missing compensation as "no VAT on this discount" and sent the same number on both price fields with `VatRate: 0`, so the Qliro order total stood above Magento's grand total by exactly the VAT of the discount, 2.50 on a 10.00 discount at 25 percent, and that is what the customer paid. The VAT now comes from the totals Magento already collected: the inc VAT subtotal and shipping are taxed before the discount and `tax_amount` is taxed after it, so their difference is the discount's VAT to the öre, also for a cart mixing several VAT rates and for a rule that discounts the shipping as well. Grossing the discount up with the cart's average rate was the alternative and it is only exact for a single rate cart (PLIN-360)
+- Nothing changes in the three configurations that were already right: prices including tax with tax after the discount still takes the VAT part Magento states, and tax calculated before the discount still sends no VAT at all, because there the VAT does not move with the discount (PLIN-360)
+- The shipping line of a capture carries the shipping VAT the checkout reserved. `ShippingFeeHandler` built it from `shipping_amount + shipping_tax_amount`, and `shipping_tax_amount` is the tax after the discount, while the checkout sends the shipping method at `shipping_incl_tax`, the tax before it. A rule that also discounts the shipping therefore left the capture short by the VAT the discount took off the shipping, and with the discount line now adding that VAT back it would have been subtracted twice. The line is built from `shipping_incl_tax`, falling back to the old sum on an order that has none (PLIN-360)
+
+### Changed
+
+- The inc and ex VAT amounts of the discount line, and the VAT rate that describes them, are resolved in one place, `Model/QliroOrder/DiscountAmountResolver.php`, for the checkout and for order management alike. It replaces the `getDiscountExclVat()` and `calculateVatRate()` copies that both `AppliedRulesHandler` classes carried (PLIN-360)
+- A discount VAT larger than the cart's own VAT rates could produce is dropped rather than sent, and the store says so in `qliroone.log` with the amounts it was derived from. The difference the VAT is read out of describes the discount only while the lines and the shipping are the only things carrying tax, so another total collector taxing something the subtotals do not account for would push it either way, and the overcharging way is the one the customer feels. The ceiling is the highest rate among the order lines, with the rates the subtotals and the shipping imply added to it, so a store where Magento left no tax percent on the items still gets a ceiling rather than losing the VAT (PLIN-360)
+- The discount VAT is added back only for an order whose reservation carries it. Qliro rejects a capture whose lines disagree with the reservation, `INVALID_ITEM`, and rejects it terminally, so an order reserved before this release would have become uncapturable rather than merely over-charged: its reservation holds the discount VAT free and its capture would have asked for 2.50 less on a 10.00 discount at 25 percent. The module now stamps `qliro_discount_carries_vat` on the payment when it places an order, and a capture without that stamp reproduces the line the reservation was built with. Orders open at upgrade time keep the over-charge they were reserved with, which is the only figure Qliro will accept for them, and they capture (PLIN-360)
+
 ## [1.7.18] - 2026-08-27
 
 ### Fixed

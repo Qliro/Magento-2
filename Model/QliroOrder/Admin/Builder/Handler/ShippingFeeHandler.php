@@ -60,8 +60,8 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
         $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
         $merchantReference = $paymentAdditionalInfo[self::MERCHANT_REFERENCE_CODE_FIELD] ?? false;
 
-        $inclTax = (float)$order->getShippingAmount() + $order->getShippingTaxAmount();
         $exclTax = (float)$order->getShippingAmount();
+        $inclTax = $this->getShippingInclTax($order, $exclTax);
 
         $formattedInclAmount = $this->qliroHelper->formatPrice($inclTax);
         $formattedExclAmount = $this->qliroHelper->formatPrice($exclTax);
@@ -82,5 +82,27 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
         }
 
         return $orderItems;
+    }
+
+    /**
+     * The shipping price inc VAT, taxed before any discount, which is what the checkout reserved
+     *
+     * `shipping_tax_amount` is the tax after the discount, so a rule that discounts shipping made
+     * this line, and with it the capture, short by the VAT the discount took off the shipping. The
+     * discount line adds that VAT back, so taking it off here as well subtracted it twice.
+     *
+     * @param \Magento\Sales\Model\Order $order
+     * @param float $exclTax
+     * @return float
+     */
+    private function getShippingInclTax($order, $exclTax)
+    {
+        $inclTax = $order->getShippingInclTax();
+
+        if ($inclTax === null) {
+            return $exclTax + (float)$order->getShippingTaxAmount();
+        }
+
+        return (float)$inclTax;
     }
 }
