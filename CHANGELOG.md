@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.7.20] - 2026-09-01
+
+### Fixed
+
+- The address the store presets to rate shipping no longer survives on the quote. With Preset Shipping Address enabled and no address from Qliro yet, `CreateRequestBuilder` fills the quote shipping address from Store Information so a carrier has something to rate. The cleanup that was supposed to drop it afterwards, `clearInstance()`, clears no data on a quote address: `_clearData()` is an empty stub on `Magento\Framework\Model\AbstractModel` and the model does not override it, so the `save()` after it only wrote the placeholder again. What the buyer's own address did not overwrite then stayed on the order, and a guest order shipped with the store name printed on its company line. The placeholder is now put back to the values the quote held before it, right after the rates are collected (PLIN-389)
+- The company and the telephone are no longer part of that placeholder at all. No carrier rates on either, and both are read elsewhere as the buyer's own: the company decides the juridical type sent to Qliro, so a private buyer could be announced as a company, and the phone is sent as the customer's mobile number. Only the street, city, postcode, region and country a rate needs are preset (PLIN-389)
+- Only guests were affected, which is what the merchant saw as a customer group difference. A logged-in customer arrives with a postcode on the quote, so the placeholder was never applied to them, and an address they own keeps its company (PLIN-389)
+
+### Added
+
+- Unit tests for `CreateRequestBuilder::create()`, pinning that the carriers are still rated on the preset address, that the quote gets its own values back afterwards, and that the store name and phone never reach it. Unit tests for `CustomerBuilder`, pinning the juridical type a buyer with and without a company is sent as (PLIN-389)
+
 ## [1.7.19] - 2026-08-31
 
 ### Fixed

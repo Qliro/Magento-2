@@ -212,14 +212,17 @@ class CreateRequestBuilder
         $createRequest->setOrderItems($orderItems);
         $presetAddress = $this->qliroConfig->presetAddress();
         $shippingAddress = $this->quote->getShippingAddress();
+        $addressBeforePreset = [];
         if ($presetAddress && empty($shippingAddress->getPostcode())) {
             $this->logManager->debug('Starting to set fake address as don\'t have real one yet');
             /* set a fake address since we don't have the real one yet */
             $storeInfo = $this->information->getStoreInformationObject($this->quote->getStore());
             if (!empty($storeInfo)) {
-                $shippingAddress->addData([
-                    'company' => $storeInfo->getData('name'),
-                    'telephone' => $storeInfo->getData('phone'),
+                /*
+                 * Only what a carrier rates on. The company and the phone were in here too, and
+                 * the store name printed as the buyer's company on the order.
+                 */
+                $presetData = [
                     'street' => sprintf(
                         "%s\n%s",
                         $storeInfo->getData('street_line1'),
@@ -230,15 +233,25 @@ class CreateRequestBuilder
                     'region_id' => $storeInfo->getData('region_id'),
                     'country_id' => $storeInfo->getData('country_id'),
                     'region' => $storeInfo->getData('region'),
-                ]);
+                ];
+                $addressBeforePreset = array_replace(
+                    array_fill_keys(array_keys($presetData), null),
+                    array_intersect_key($shippingAddress->getData(), $presetData)
+                );
+                $shippingAddress->addData($presetData);
             }
         }
         $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
         $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
         $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
         $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();
-        if (!empty($storeInfo)) {
-            $shippingAddress->clearInstance()->save();
+        if (!empty($addressBeforePreset)) {
+            /*
+             * The placeholder existed to rate shipping and nothing else, so the quote gets its
+             * own values back. clearInstance() stood here and cleared nothing: its _clearData()
+             * is an empty stub on this model, so the save() only wrote the placeholder again.
+             */
+            $shippingAddress->addData($addressBeforePreset)->save();
         }
         $createRequest->setAvailableShippingMethods($availableShippingMethods);
 
