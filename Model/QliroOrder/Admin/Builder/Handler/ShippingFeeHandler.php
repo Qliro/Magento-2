@@ -10,6 +10,7 @@ use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
  * Shipping Fee Handler class for order items builder
@@ -29,18 +30,26 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
     private $qliroHelper;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\LineVatRate
+     */
+    private $lineVatRate;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param \Qliro\QliroOne\Helper\Data $qliroHelper
+     * @param \Qliro\QliroOne\Model\QliroOrder\LineVatRate $lineVatRate
      */
     public function __construct(
         QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        QliroHelper $qliroHelper
+        QliroHelper $qliroHelper,
+        LineVatRate $lineVatRate
     ) {
 
         $this->qliroOrderItemFactory = $qliroOrderItemFactory;
         $this->qliroHelper = $qliroHelper;
+        $this->lineVatRate = $lineVatRate;
     }
 
     /**
@@ -63,8 +72,8 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
         $exclTax = (float)$order->getShippingAmount();
         $inclTax = $this->getShippingInclTax($order, $exclTax);
 
-        $formattedInclAmount = $this->qliroHelper->formatPrice($inclTax);
-        $formattedExclAmount = $this->qliroHelper->formatPrice($exclTax);
+        $formattedInclAmount = (float)$this->qliroHelper->formatPrice($inclTax);
+        $formattedExclAmount = (float)$this->qliroHelper->formatPrice($exclTax);
 
         if ($merchantReference) {
             /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $qliroOrderItem */
@@ -76,6 +85,7 @@ class ShippingFeeHandler implements OrderItemHandlerInterface
             $qliroOrderItem->setQuantity(1);
             $qliroOrderItem->setPricePerItemIncVat($formattedInclAmount);
             $qliroOrderItem->setPricePerItemExVat($formattedExclAmount);
+            $qliroOrderItem->setVatRate($this->lineVatRate->fromPrices($inclTax, $exclTax));
             $qliroOrderItem->setMetadata(['qliro' => 'checkout']);
 
             $orderItems[] = $qliroOrderItem;

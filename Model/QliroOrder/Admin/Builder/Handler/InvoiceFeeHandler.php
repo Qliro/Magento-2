@@ -10,6 +10,7 @@ use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
  * Invoice Fee Handler class for order items builder
@@ -30,18 +31,26 @@ class InvoiceFeeHandler implements OrderItemHandlerInterface
     private $qliroHelper;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\LineVatRate
+     */
+    private $lineVatRate;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param \Qliro\QliroOne\Helper\Data $qliroHelper
+     * @param \Qliro\QliroOne\Model\QliroOrder\LineVatRate $lineVatRate
      */
     public function __construct(
         QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        QliroHelper $qliroHelper
+        QliroHelper $qliroHelper,
+        LineVatRate $lineVatRate
     ) {
 
         $this->qliroOrderItemFactory = $qliroOrderItemFactory;
         $this->qliroHelper = $qliroHelper;
+        $this->lineVatRate = $lineVatRate;
     }
 
     /**
@@ -59,18 +68,46 @@ class InvoiceFeeHandler implements OrderItemHandlerInterface
         $qlirooneFees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
         if (is_array($qlirooneFees)) {
             foreach ($qlirooneFees as $qlirooneFee) {
+                $priceIncVat = (float)$this->qliroHelper->formatPrice($qlirooneFee['PricePerItemIncVat']);
+                $priceExVat = (float)$this->qliroHelper->formatPrice($qlirooneFee['PricePerItemExVat']);
+
                 $qliroOrderItem = $this->qliroOrderItemFactory->create();
                 $qliroOrderItem->setMerchantReference($qlirooneFee['MerchantReference']);
                 $qliroOrderItem->setDescription($qlirooneFee['Description']);
                 $qliroOrderItem->setType($qlirooneFee['Type']);
                 $qliroOrderItem->setQuantity($qlirooneFee['Quantity']);
-                $qliroOrderItem->setPricePerItemIncVat($qlirooneFee['PricePerItemIncVat']);
-                $qliroOrderItem->setPricePerItemExVat($qlirooneFee['PricePerItemExVat']);
+                $qliroOrderItem->setPricePerItemIncVat($priceIncVat);
+                $qliroOrderItem->setPricePerItemExVat($priceExVat);
+                $qliroOrderItem->setVatRate($this->getVatRate($qlirooneFee));
                 $qliroOrderItem->setMetadata(['qliro' => 'checkout']);
                 $orderItems[] = $qliroOrderItem;
             }
         }
 
         return $orderItems;
+    }
+
+    /**
+     * The rate Qliro reserved the fee with, and failing that the one its amounts imply
+     *
+     * The fee is Qliro's own line, taken from the checkout response and kept on the payment, so the
+     * rate it came with is the one the reservation holds and the capture has to agree with. An older
+     * order stored before the fee carried a rate has none, and there the amounts are all there is.
+     *
+     * @param array $qlirooneFee
+     * @return float
+     */
+    private function getVatRate(array $qlirooneFee): float
+    {
+        $vatRate = round((float)($qlirooneFee['VatRate'] ?? 0), 2);
+
+        if ($vatRate > 0) {
+            return $vatRate;
+        }
+
+        return $this->lineVatRate->fromPrices(
+            (float)$qlirooneFee['PricePerItemIncVat'],
+            (float)$qlirooneFee['PricePerItemExVat']
+        );
     }
 }

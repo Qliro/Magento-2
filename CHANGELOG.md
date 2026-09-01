@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.20] - 2026-09-01
+
+### Fixed
+
+- The shipping line and the invoice fee line of a capture state their VAT rate. `ShippingFeeHandler` and `InvoiceFeeHandler` set the two price fields and never called `setVatRate()`, so both lines left with the `Item` default of 0 while the product and discount lines in the same payload carried a rate. Qliro's invoice then stated no VAT on the shipping and the fee, and a finance user reconciling a capture against the Magento order found VAT missing on exactly those two rows. The rate is derived from the amounts the line carries, taken before they are rounded for sending, and a line that genuinely carries no VAT still states 0. Reading it off the rounded figures instead would state a rate no jurisdiction charges: a shipping price of 4.79 taxed at 25 percent is 5.9875, goes out as 5.99, and 5.99 over 4.79 reads back as 25.05 (PLIN-361)
+- The invoice fee line rounds both of its amounts to two decimals. It sent `PricePerItemIncVat` and `PricePerItemExVat` exactly as they were stored on the payment, and the Qliro API refuses more than two decimal places with `SYSTEM_ERROR`, "Input must have no more than two decimal places", which is what took the checkout down in GitHub issue #122. The fee comes from Qliro's own checkout response so in practice it is öre exact already, and the rounding is what keeps it that way (PLIN-361)
+
+### Changed
+
+- The invoice fee line states the rate Qliro reserved the fee with when it has one, and the rate its amounts imply otherwise. The fee is Qliro's own line, taken from the checkout response and kept on the payment, so its own rate is the one the reservation holds; an order stored before the fee carried a rate has none and the amounts are all there is (PLIN-361)
+- Deriving a line's VAT rate from the two amounts it carries lives in one place, `Model/QliroOrder/LineVatRate.php`, shared by the two handlers above and by `DiscountAmountResolver`, which held the same expression. The rate itself is capped at two decimals there, for the same reason the amounts are (PLIN-361)
+- The amounts on both lines are unchanged, apart from the rounding above, so a capture still matches the reservation it was given. `VatRate` describes the amounts rather than setting them, and Qliro's `INVALID_ITEM` refusal is about changed SKUs, prices and quantities, which is why this needs none of the stamping PLIN-360 had to add (PLIN-361)
+
 ## [1.7.19] - 2026-08-31
 
 ### Fixed

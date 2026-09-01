@@ -16,6 +16,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler;
 use Qliro\QliroOne\Model\QliroOrder\Item;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
  * @see \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler
@@ -35,7 +36,7 @@ class ShippingFeeHandlerTest extends TestCase
         $qliroHelper->method('formatPrice')
             ->willReturnCallback(static fn($value): string => number_format((float)$value, 2, '.', ''));
 
-        $this->handler = new ShippingFeeHandler($itemFactory, $qliroHelper);
+        $this->handler = new ShippingFeeHandler($itemFactory, $qliroHelper, new LineVatRate());
     }
 
     /**
@@ -51,6 +52,7 @@ class ShippingFeeHandlerTest extends TestCase
 
         self::assertSame(62.5, (float)$line->getPricePerItemIncVat());
         self::assertSame(50.0, (float)$line->getPricePerItemExVat());
+        self::assertSame(25.0, $line->getVatRate());
     }
 
     /**
@@ -69,6 +71,7 @@ class ShippingFeeHandlerTest extends TestCase
 
         self::assertSame(62.5, (float)$line->getPricePerItemIncVat());
         self::assertSame(50.0, (float)$line->getPricePerItemExVat());
+        self::assertSame(25.0, $line->getVatRate());
     }
 
     /**
@@ -84,6 +87,69 @@ class ShippingFeeHandlerTest extends TestCase
         );
 
         self::assertSame(62.5, (float)$line->getPricePerItemIncVat());
+    }
+
+    /**
+     * The rate describes the amounts the line is sent with, so it is taken from them rather than
+     * from a shipping tax rate looked up elsewhere, and it carries no more than two decimals: the
+     * Qliro API refuses `Input must have no more than two decimal places`, GitHub issue #122.
+     */
+    public function testStatesARateWithTwoDecimalsThatTheAmountsProduce(): void
+    {
+        $line = $this->buildShippingLine(
+            shippingAmount: 29.0,
+            shippingInclTax: 36.0,
+            shippingTaxAmount: 7.0
+        );
+
+        self::assertSame(24.14, $line->getVatRate());
+    }
+
+    /**
+     * The rate comes from the amounts before they are rounded for sending. Deriving it from the
+     * rounded figures would state 25.05 on a shipping price of 4.79 taxed at 25 percent, a rate no
+     * jurisdiction charges, because 5.9875 goes out as 5.99.
+     */
+    public function testStatesTheRateTheAmountsHoldBeforeTheyAreRounded(): void
+    {
+        $line = $this->buildShippingLine(
+            shippingAmount: 4.79,
+            shippingInclTax: 5.9875,
+            shippingTaxAmount: 1.1975
+        );
+
+        self::assertSame(5.99, (float)$line->getPricePerItemIncVat());
+        self::assertSame(4.79, (float)$line->getPricePerItemExVat());
+        self::assertSame(25.0, $line->getVatRate());
+    }
+
+    /**
+     * Free shipping carries no VAT, and a rate on a line of zero would state one it does not hold.
+     */
+    public function testStatesNoRateOnShippingThatCostsNothing(): void
+    {
+        $line = $this->buildShippingLine(
+            shippingAmount: 0.0,
+            shippingInclTax: 0.0,
+            shippingTaxAmount: 0.0
+        );
+
+        self::assertSame(0.0, $line->getVatRate());
+    }
+
+    /**
+     * A store that charges no tax on shipping sends the same amount on both fields, and 0 is the
+     * rate that describes it.
+     */
+    public function testStatesNoRateOnUntaxedShipping(): void
+    {
+        $line = $this->buildShippingLine(
+            shippingAmount: 50.0,
+            shippingInclTax: 50.0,
+            shippingTaxAmount: 0.0
+        );
+
+        self::assertSame(0.0, $line->getVatRate());
     }
 
     /**

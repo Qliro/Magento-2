@@ -38,10 +38,12 @@ class DiscountAmountResolver
     /**
      * @param TaxConfig $taxConfig
      * @param LogManager $logManager
+     * @param LineVatRate $lineVatRate
      */
     public function __construct(
-        private readonly TaxConfig  $taxConfig,
-        private readonly LogManager $logManager
+        private readonly TaxConfig   $taxConfig,
+        private readonly LogManager  $logManager,
+        private readonly LineVatRate $lineVatRate
     ) {
     }
 
@@ -101,11 +103,7 @@ class DiscountAmountResolver
      */
     public function getVatRate(float $discountInclVat, float $discountExclVat): float
     {
-        if ($discountExclVat <= self::EPSILON || $discountInclVat <= $discountExclVat) {
-            return 0.0;
-        }
-
-        return $this->round(($discountInclVat / $discountExclVat - 1) * 100);
+        return $this->lineVatRate->fromPrices($discountInclVat, $discountExclVat);
     }
 
     /**

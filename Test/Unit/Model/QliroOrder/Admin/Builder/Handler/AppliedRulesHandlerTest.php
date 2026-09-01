@@ -20,6 +20,7 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 
 /**
@@ -182,7 +183,7 @@ class AppliedRulesHandlerTest extends TestCase
         return new AppliedRulesHandler(
             $itemFactory,
             $qliroHelper,
-            new DiscountAmountResolver($taxConfig, $this->createMock(LogManager::class))
+            new DiscountAmountResolver($taxConfig, $this->createMock(LogManager::class), new LineVatRate())
         );
     }
 
