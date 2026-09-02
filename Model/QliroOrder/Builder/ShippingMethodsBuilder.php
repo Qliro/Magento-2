@@ -126,7 +126,8 @@ class ShippingMethodsBuilder
         $addressBeforePreset = $this->applyPresetAddress();
 
         // In a finally because a carrier that throws would otherwise leave the store's own
-        // address on the quote, which is the defect the restore exists for.
+        // address on the quote, which is the defect the restore exists for. The totals collected
+        // against the placeholder are left as they stand, the next collect corrects them.
         try {
             $this->quote->setTotalsCollectedFlag(false);
             $this->quote->collectTotals();
