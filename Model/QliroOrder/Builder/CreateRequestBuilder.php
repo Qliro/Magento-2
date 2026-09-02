@@ -250,6 +250,7 @@ class CreateRequestBuilder
              * The placeholder existed to rate shipping and nothing else, so the quote gets its
              * own values back. clearInstance() stood here and cleared nothing: its _clearData()
              * is an empty stub on this model, so the save() only wrote the placeholder again.
+             * The totals collected against it are left to the next collect to correct.
              */
             $shippingAddress->addData($addressBeforePreset)->save();
         }
