@@ -7,8 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Controller\Qliro;
 
-use Magento\Checkout\Model\Session as CheckoutSession;
-use Magento\Checkout\Model\Type\Onepage;
 use Magento\Customer\Api\AccountManagementInterface;
 use Magento\Customer\Api\CustomerRepositoryInterface;
 use Magento\Customer\Model\Session as CustomerSession;
@@ -20,6 +18,7 @@ use Magento\Framework\Controller\Result\Redirect;
 use Magento\Framework\Controller\Result\RedirectFactory;
 use Magento\Framework\Data\Form\FormKey\Validator;
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\ObjectManagerInterface;
 use Magento\Framework\Registry;
 use Magento\Framework\Translate\InlineInterface;
@@ -28,6 +27,7 @@ use Magento\Framework\View\Result\LayoutFactory as ResultLayoutFactory;
 use Magento\Framework\View\Result\Page;
 use Magento\Framework\View\Result\PageFactory;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -48,6 +48,7 @@ class SuccessTest extends TestCase
 
     private ManagerInterface&MockObject $eventManager;
     private Agent&MockObject $quoteAgent;
+    private OrderRepositoryInterface&MockObject $orderRepository;
     private Order&MockObject $order;
 
     protected function setUp(): void
@@ -55,6 +56,8 @@ class SuccessTest extends TestCase
         $this->eventManager = $this->createMock(ManagerInterface::class);
         $this->quoteAgent = $this->createMock(Agent::class);
         $this->order = $this->createMock(Order::class);
+        $this->orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $this->orderRepository->method('get')->with(self::ORDER_ID)->willReturn($this->order);
     }
 
     /**
@@ -73,6 +76,25 @@ class SuccessTest extends TestCase
             );
 
         self::assertInstanceOf(Page::class, $controller->execute());
+    }
+
+    /**
+     * An order that cannot be loaded goes out as null, not as an empty order: a listener reading
+     * a placeholder would report a purchase of zero, and null is the absence they all test for.
+     */
+    public function testDispatchesNullWhenTheOrderCannotBeLoaded(): void
+    {
+        $this->orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $this->orderRepository->method('get')->willThrowException(new NoSuchEntityException());
+
+        $this->eventManager->expects(self::once())
+            ->method('dispatch')
+            ->with(
+                'checkout_onepage_controller_success_action',
+                ['order_ids' => [self::ORDER_ID], 'order' => null]
+            );
+
+        $this->controller($this->successSession(false))->execute();
     }
 
     /**
@@ -116,22 +138,13 @@ class SuccessTest extends TestCase
     }
 
     /**
-     * The controller with core's own dependency list mocked out. `getOnepage()` resolves through
-     * the object manager, which is how the checkout session, and with it the order core puts in
-     * the event, is reached.
+     * The controller with core's own dependency list mocked out.
      *
      * @param \Qliro\QliroOne\Model\Success\Session $successSession
      * @return \Qliro\QliroOne\Controller\Qliro\Success
      */
     private function controller(SuccessSession $successSession): Success
     {
-        $checkoutSession = $this->createMock(CheckoutSession::class);
-        $checkoutSession->method('getLastRealOrder')->willReturn($this->order);
-        $onepage = $this->createMock(Onepage::class);
-        $onepage->method('getCheckout')->willReturn($checkoutSession);
-        $objectManager = $this->createMock(ObjectManagerInterface::class);
-        $objectManager->method('get')->with(Onepage::class)->willReturn($onepage);
-
         $redirect = $this->createMock(Redirect::class);
         $redirect->method('setPath')->willReturnSelf();
         $redirectFactory = $this->createMock(RedirectFactory::class);
@@ -139,7 +152,7 @@ class SuccessTest extends TestCase
 
         $context = $this->createMock(Context::class);
         $context->method('getEventManager')->willReturn($this->eventManager);
-        $context->method('getObjectManager')->willReturn($objectManager);
+        $context->method('getObjectManager')->willReturn($this->createMock(ObjectManagerInterface::class));
         $context->method('getResultRedirectFactory')->willReturn($redirectFactory);
 
         $pageFactory = $this->createMock(PageFactory::class);
@@ -161,7 +174,8 @@ class SuccessTest extends TestCase
             $this->createMock(RawFactory::class),
             $this->createMock(JsonFactory::class),
             $this->quoteAgent,
-            $successSession
+            $successSession,
+            $this->orderRepository
         );
     }
 }

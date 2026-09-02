@@ -14,9 +14,20 @@ require __DIR__ . '/../vendor/autoload.php';
  * failed to find the class, so a factory that ships as real code is never shadowed.
  */
 spl_autoload_register(static function (string $class): void {
-    $generated = str_starts_with($class, 'Qliro\\QliroOne\\') || str_starts_with($class, 'Magento\\');
+    if (!str_ends_with($class, 'Factory')) {
+        return;
+    }
 
-    if (!$generated || !str_ends_with($class, 'Factory')) {
+    /*
+     * A generated Magento factory always sits next to the type it builds, so that type is what
+     * says the name is real. Without it any misspelled class ending in Factory would quietly
+     * mock, and a test could pass against an API nothing implements.
+     */
+    $builds = substr($class, 0, -strlen('Factory'));
+    $generated = str_starts_with($class, 'Qliro\\QliroOne\\')
+        || (str_starts_with($class, 'Magento\\') && (class_exists($builds) || interface_exists($builds)));
+
+    if (!$generated) {
         return;
     }
 
