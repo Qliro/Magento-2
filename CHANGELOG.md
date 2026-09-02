@@ -5,12 +5,13 @@
 
 ### Changed
 
-- The order view shows the payment method name Qliro sent instead of the raw method code, falling back to the code when no name was stored. The admin view keeps the code in its own row for support. Qliro keeps adding method codes, the six `QLIROPAYLATER_*` ones from the Ironman rollout among them, and `QLIROPAYLATER_INVOICE30` is not something a merchant can read (PLIN-374)
-- Every value the order view prints is escaped on output. The method rows were printed raw, and so were the Qliro order id, the Qliro reference and the warning text, in both the admin and the frontend template. All of them come from the payment's additional information, which is filled from what Qliro sends, so leaving half of them raw only made it look deliberate (PLIN-374)
+- The admin and the customer order view show the payment method name Qliro sent instead of the raw method code, falling back to the code when no name was stored. The admin keeps the code in its own row for support, and only when it differs from the name. The printed invoice and credit memo are unchanged: that template prints neither, see PLIN-374 follow-up. Qliro keeps adding method codes, the six `QLIROPAYLATER_*` ones from the Ironman rollout among them, and `QLIROPAYLATER_INVOICE30` is not something a merchant can read (PLIN-374)
+- Every value the order view prints is escaped on output. The method rows were printed raw, and so were the Qliro order id and the Qliro reference, in both the admin and the frontend template. All of them come from the payment's additional information, which is filled from what Qliro sends, so leaving half of them raw only made it look deliberate. The warning text is escaped too, though that branch cannot currently render, see PLIN-374 follow-up (PLIN-374)
+- The order view reads the additional-information keys through the `Config` constants the writer uses, instead of repeating the literals (PLIN-374)
 
 ### Added
 
-- Unit tests pinning that a payment method code passes through unchanged, for the six Ironman codes and for a legacy one. The Ironman rollout rests on these needing no code change in the module, so it is now a test rather than an assertion (PLIN-374)
+- Unit tests pinning that a payment method code passes through unchanged, for the six Ironman codes and for a legacy one, and that the name is returned as a string whatever the payload carried. The Ironman rollout rests on these needing no code change in the module, so it is now a test rather than an assertion (PLIN-374)
 
 ## [1.7.19] - 2026-08-31
 

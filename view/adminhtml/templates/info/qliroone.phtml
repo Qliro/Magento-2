@@ -25,8 +25,11 @@
         <th><?php echo $block->escapeHtml(__('Payment Method')); ?>:</th>
         <td><?php echo $block->escapeHtml($block->getQliroMethodName()); ?></td>
     </tr>
-    <tr>
-        <th><?php echo $block->escapeHtml(__('Payment Method Code')); ?>:</th>
-        <td><?php echo $block->escapeHtml($block->getQliroMethod()); ?></td>
-    </tr>
+    <?php /* Only when it adds something: without a stored name the name row already shows the code. */ ?>
+    <?php if ($block->getQliroMethodName() !== (string)$block->getQliroMethod()): ?>
+        <tr>
+            <th><?php echo $block->escapeHtml(__('Payment Method Code')); ?>:</th>
+            <td><?php echo $block->escapeHtml($block->getQliroMethod()); ?></td>
+        </tr>
+    <?php endif; ?>
 </table>

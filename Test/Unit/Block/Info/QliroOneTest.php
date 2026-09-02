@@ -85,6 +85,20 @@ class QliroOneTest extends TestCase
     }
 
     /**
+     * The declared return type has to hold whatever additional_information carries, and it is
+     * filled from a JSON payload the module does not control.
+     */
+    public function testCastsANonStringName(): void
+    {
+        $this->givenAdditionalInformation([
+            'qliro_payment_method_name' => 30,
+            'qliro_payment_method_code' => 'QLIROPAYLATER_INVOICE30',
+        ]);
+
+        self::assertSame('30', $this->block->getQliroMethodName());
+    }
+
+    /**
      * The raw code stays available for support, the admin view shows it in its own row.
      */
     public function testStillExposesTheRawCode(): void
