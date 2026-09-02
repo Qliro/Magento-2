@@ -166,8 +166,9 @@ class CreateRequestBuilderTest extends TestCase
     }
 
     /**
-     * A logged-in customer arrives with an address of their own, and it is not a placeholder to
-     * be cleaned up. This is the customer group difference the merchant reported.
+     * An address already on the quote is the customer's own, not a placeholder to be cleaned up.
+     * The postcode is what decides that, not the customer group: it is a logged-in customer with
+     * a default shipping address in the reported case, and a guest who got that far in another.
      */
     public function testLeavesAnAddressThatAlreadyHasAPostcodeAlone(): void
     {
