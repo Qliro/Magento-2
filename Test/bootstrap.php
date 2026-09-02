@@ -9,10 +9,14 @@ require __DIR__ . '/../vendor/autoload.php';
 
 /**
  * Magento generates its *Factory classes from the DI compiler at runtime, so they do not exist
- * in a plain unit test run and cannot be mocked. Declare the ones our own namespace asks for.
+ * in a plain unit test run and cannot be mocked. Declare the ones our own namespace asks for,
+ * and the Magento ones a constructor we test type hints on. This runs last, after Composer has
+ * failed to find the class, so a factory that ships as real code is never shadowed.
  */
 spl_autoload_register(static function (string $class): void {
-    if (!str_starts_with($class, 'Qliro\\QliroOne\\') || !str_ends_with($class, 'Factory')) {
+    $generated = str_starts_with($class, 'Qliro\\QliroOne\\') || str_starts_with($class, 'Magento\\');
+
+    if (!$generated || !str_ends_with($class, 'Factory')) {
         return;
     }
 

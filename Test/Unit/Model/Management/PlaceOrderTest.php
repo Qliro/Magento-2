@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\Management;
 
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Quote;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Email\Sender\OrderSender;
@@ -47,6 +48,8 @@ class PlaceOrderTest extends TestCase
     private LinkRepositoryInterface&MockObject $linkRepository;
     private ContainerMapper&MockObject $containerMapper;
     private LogManager&MockObject $logManager;
+    private MerchantInterface&MockObject $merchantApi;
+    private OrderRepositoryInterface&MockObject $orderRepository;
     private PlaceOrder $placeOrder;
 
     protected function setUp(): void
@@ -56,6 +59,8 @@ class PlaceOrderTest extends TestCase
         $this->linkRepository = $this->createMock(LinkRepositoryInterface::class);
         $this->containerMapper = $this->createMock(ContainerMapper::class);
         $this->logManager = $this->createMock(LogManager::class);
+        $this->merchantApi = $this->createMock(MerchantInterface::class);
+        $this->orderRepository = $this->createMock(OrderRepositoryInterface::class);
 
         $this->qliroConfig->method('isUseIncrementIdAsReference')->willReturn(false);
         $this->qliroConfig->method('getOrderStatus')->willReturn('processing');
@@ -65,12 +70,12 @@ class PlaceOrderTest extends TestCase
 
         $this->placeOrder = new PlaceOrder(
             $this->qliroConfig,
-            $this->createMock(MerchantInterface::class),
+            $this->merchantApi,
             $this->orderManagementApi,
             $this->createMock(QuoteFromOrderConverter::class),
             $this->linkRepository,
             $this->createMock(CartRepositoryInterface::class),
-            $this->createMock(OrderRepositoryInterface::class),
+            $this->orderRepository,
             $this->containerMapper,
             $this->logManager,
             $this->createMock(OrderPlacer::class),
@@ -144,12 +149,12 @@ class PlaceOrderTest extends TestCase
 
         $placeOrder = new PlaceOrder(
             $this->qliroConfig,
-            $this->createMock(MerchantInterface::class),
+            $this->merchantApi,
             $this->orderManagementApi,
             $this->createMock(QuoteFromOrderConverter::class),
             $this->linkRepository,
             $this->createMock(CartRepositoryInterface::class),
-            $this->createMock(OrderRepositoryInterface::class),
+            $this->orderRepository,
             $this->containerMapper,
             $this->logManager,
             $this->createMock(OrderPlacer::class),
@@ -168,6 +173,25 @@ class PlaceOrderTest extends TestCase
             ->willReturn($this->createMock(AdminTransactionResponseInterface::class));
 
         $placeOrder->applyQliroOrderStatus($order, $this->completedLink('275174114'));
+    }
+
+    /**
+     * PLIN-390: the order can be placed by the checkoutStatus callback while the buyer is still at
+     * Qliro. When they come back, `poll()` has to hand out that order rather than ask Qliro again,
+     * because it is the return value the success page writes its session keys from, and the
+     * tracking on that page has no other way to learn the order.
+     */
+    public function testPollReturnsTheOrderTheCallbackAlreadyPlaced(): void
+    {
+        $quote = $this->createMock(Quote::class);
+        $quote->method('getId')->willReturn(17);
+        $this->linkRepository->method('getByQuoteId')->with(17)->willReturn($this->completedLink());
+
+        $order = $this->createMock(Order::class);
+        $this->orderRepository->method('get')->with(15)->willReturn($order);
+        $this->merchantApi->expects(self::never())->method('getOrder');
+
+        self::assertSame($order, $this->placeOrder->setQuote($quote)->poll());
     }
 
     private function completedLink(string $qliroOrderId = '275174114'): LinkInterface&MockObject

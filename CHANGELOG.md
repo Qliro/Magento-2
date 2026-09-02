@@ -1,6 +1,14 @@
 
 # Change Log
 
+## [1.7.21] - 2026-09-02
+
+### Added
+
+- The success page leaves the order on the checkout session the way Magento's own checkout does: `last_order_id`, `last_real_order_id`, `last_quote_id`, `last_success_quote_id` and `last_order_status`, with the meaning `Magento\Checkout\Model\Type\Onepage::saveOrder()` gives them. The module wrote only its own `success_order_id` and `success_increment_id`, and every analytics extension identifies the order through `getLastRealOrderId()`, so GA4 and Google Ads purchase tracking had nothing to report on a QliroOne store. Reported by a partner whose page views were tracked and whose purchases were not. The keys are written where the module already stores its own success data, `Model/Success/Session.php`, which runs in the buyer's browser for both flows, the poll that places the order and the order the `checkoutStatus` callback placed earlier, and unlike order placement itself it always has a session to write to (PLIN-390)
+- The `checkout_onepage_controller_success_action` event carries the order object next to `order_ids`, matching what core's success page dispatches. An extension reading `$observer->getEvent()->getOrder()` got null. It still fires once per order, a reload of the success page does not repeat it (PLIN-390)
+- A README section on tracking: the success page handle is `checkout_qliro_success`, with the layout snippet that maps a tracking block declared for `checkout_onepage_success` onto it, what the module now provides on that page, and the reason client side tracking undercounts on this checkout, an order can be placed by the `checkoutStatus` callback with no browser present. Merchants who need exact numbers are pointed at GA4 Measurement Protocol and offline conversion import (PLIN-390)
+
 ## [1.7.19] - 2026-08-31
 
 ### Fixed

@@ -115,9 +115,17 @@ class Success extends \Magento\Checkout\Controller\Onepage
         $resultPage = $this->resultPageFactory->create();
 
         if (!$this->successSession->hasSuccessDisplayed()) {
+            /*
+             * The order goes out with the ids because core's own success page sends both, and a
+             * tracking extension that reads the order instead of loading it by id gets null
+             * without it.
+             */
             $this->_eventManager->dispatch(
                 'checkout_onepage_controller_success_action',
-                ['order_ids' => [$this->successSession->getSuccessOrderId()]]
+                [
+                    'order_ids' => [$this->successSession->getSuccessOrderId()],
+                    'order' => $this->getOnepage()->getCheckout()->getLastRealOrder(),
+                ]
             );
             $this->successSession->setSuccessDisplayed();
         }

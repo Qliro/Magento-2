@@ -25,4 +25,49 @@ https://github.com/Qliro/Magento-2/wiki#troubleshooting
 
 ---
 
+## Analytics and purchase tracking
+
+The checkout has its own success page, `checkout/qliro/success`, so its layout handle is
+**`checkout_qliro_success`** and not `checkout_onepage_success`. A tracking extension that declares
+its block in `checkout_onepage_success.xml` renders nothing here until that block is mapped onto
+this handle, in your own module or theme:
+
+```xml
+<!-- view/frontend/layout/checkout_qliro_success.xml -->
+<page xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:noNamespaceSchemaLocation="urn:magento:framework:View/Layout/etc/page_configuration.xsd">
+    <body>
+        <referenceContainer name="content">
+            <block class="Vendor\Tracking\Block\Purchase"
+                   name="vendor.tracking.purchase"
+                   template="Vendor_Tracking::purchase.phtml"
+                   cacheable="false"/>
+        </referenceContainer>
+    </body>
+</page>
+```
+
+`<update handle="checkout_onepage_success"/>` brings every block of the core success page over in
+one line, tracking blocks included, but it also brings `checkout.success` and
+`checkout.registration`, which duplicate what this module's own success block already shows.
+
+On the success page the module provides what core provides:
+
+- the checkout session carries `last_order_id`, `last_real_order_id`, `last_quote_id`,
+  `last_success_quote_id` and `last_order_status` for the placed order, so an extension that
+  identifies the order through `getLastRealOrderId()` works unchanged
+- the `checkout_onepage_controller_success_action` event is dispatched with `order_ids` and
+  `order`, once per order: reloading the success page does not fire it a second time
+
+Magento's own GA4 block needs nothing, it is declared in `Magento_GoogleGtag`'s `default.xml` and
+therefore renders on every page, this one included.
+
+**Client side tracking undercounts on this checkout.** An order can be placed by Qliro's
+`checkoutStatus` callback while the buyer is still in the Qliro iframe, so a buyer who closes the
+tab or never returns from a bank app produces a paid order and no browser event at all. If the
+numbers have to be right, send the purchase server side, GA4 Measurement Protocol from an observer
+on `sales_order_place_after`, and offline conversion import or server side GTM for Google Ads.
+
+---
+
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.
