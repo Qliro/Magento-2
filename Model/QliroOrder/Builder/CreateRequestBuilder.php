@@ -21,7 +21,6 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
-use Magento\Store\Model\Information;
 
 /**
  * QliroOne Order create request builder class
@@ -94,11 +93,6 @@ class CreateRequestBuilder
     private $shippingMethodsBuilder;
 
     /**
-     * @var \Magento\Store\Model\Information
-     */
-    private $information;
-
-    /**
      * @var \Magento\Framework\Event\ManagerInterface
      */
     private $eventManager;
@@ -133,7 +127,6 @@ class CreateRequestBuilder
      * @param \Qliro\QliroOne\Api\GeoIpResolverInterface $geoIpResolver
      * @param \Qliro\QliroOne\Service\Callback\UrlBuilder $callbackUrlBuilder
      * @param \Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder $shippingMethodsBuilder
-     * @param \Magento\Store\Model\Information $information
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
      * @param \Qliro\QliroOne\Model\Management\CountrySelect $countrySelect
      * @param Manager $logManager
@@ -152,7 +145,6 @@ class CreateRequestBuilder
         CallbackUrlBuilder $callbackUrlBuilder,
         ShippingMethodsBuilder $shippingMethodsBuilder,
         ShippingConfigBuilder $shippingConfigBuilder,
-        Information $information,
         ManagerInterface $eventManager,
         CountrySelect $countrySelectManagement,
         Manager $logManager
@@ -169,7 +161,6 @@ class CreateRequestBuilder
         $this->geoIpResolver = $geoIpResolver;
         $this->callbackUrlBuilder = $callbackUrlBuilder;
         $this->shippingMethodsBuilder = $shippingMethodsBuilder;
-        $this->information = $information;
         $this->eventManager = $eventManager;
         $this->shippingConfigBuilder = $shippingConfigBuilder;
         $this->countrySelectManagement = $countrySelectManagement;
@@ -210,50 +201,17 @@ class CreateRequestBuilder
 
         $this->logManager->debug('Starting to set order items to request object');
         $createRequest->setOrderItems($orderItems);
-        $presetAddress = $this->qliroConfig->presetAddress();
+        /*
+         * The preset shipping address lives in ShippingMethodsBuilder, at the one place that
+         * rates. The placeholder has to be there for every rating in the request, not only for
+         * this one, and it must never stay on the quote: what is left on the quote is what the
+         * order is placed with, and the store name reached the buyer's order that way.
+         */
         $shippingAddress = $this->quote->getShippingAddress();
-        $addressBeforePreset = [];
-        if ($presetAddress && empty($shippingAddress->getPostcode())) {
-            $this->logManager->debug('Starting to set fake address as don\'t have real one yet');
-            /* set a fake address since we don't have the real one yet */
-            $storeInfo = $this->information->getStoreInformationObject($this->quote->getStore());
-            if (!empty($storeInfo)) {
-                /*
-                 * Only what a carrier rates on. The company and the phone were in here too, and
-                 * the store name printed as the buyer's company on the order.
-                 */
-                $presetData = [
-                    'street' => sprintf(
-                        "%s\n%s",
-                        $storeInfo->getData('street_line1'),
-                        $storeInfo->getData('street_line2')
-                    ),
-                    'city' => $storeInfo->getData('city'),
-                    'postcode' => str_replace(' ', '', (string)$storeInfo->getData('postcode')),
-                    'region_id' => $storeInfo->getData('region_id'),
-                    'country_id' => $storeInfo->getData('country_id'),
-                    'region' => $storeInfo->getData('region'),
-                ];
-                $addressBeforePreset = array_replace(
-                    array_fill_keys(array_keys($presetData), null),
-                    array_intersect_key($shippingAddress->getData(), $presetData)
-                );
-                $shippingAddress->addData($presetData);
-            }
-        }
         $shippingAddress->setCollectShippingRates(true)->collectShippingRates()->save();
         $this->logManager->debug('Starting to get shipping methods for quote: ' . $this->quote->getId());
         $shippingMethods = $this->shippingMethodsBuilder->setQuote($this->quote)->create();
         $availableShippingMethods = $shippingMethods->getAvailableShippingMethods();
-        if (!empty($addressBeforePreset)) {
-            /*
-             * The placeholder existed to rate shipping and nothing else, so the quote gets its
-             * own values back. clearInstance() stood here and cleared nothing: its _clearData()
-             * is an empty stub on this model, so the save() only wrote the placeholder again.
-             * The totals collected against it are left to the next collect to correct.
-             */
-            $shippingAddress->addData($addressBeforePreset)->save();
-        }
         $createRequest->setAvailableShippingMethods($availableShippingMethods);
 
         $shippingConfig = $this->shippingConfigBuilder->setQuote($this->quote)->create();

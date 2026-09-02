@@ -9,18 +9,17 @@ namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Builder;
 
 use Magento\Customer\Model\Session;
 use Magento\Framework\App\Config\ScopeConfigInterface;
-use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Api\Data\CurrencyInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address;
-use Magento\Store\Model\Information;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory;
+use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\GeoIpResolverInterface;
@@ -39,30 +38,24 @@ use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
 /**
  * @see \Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder::create
  *
- * PLIN-389: with Preset Shipping Address enabled the module fills the quote shipping address from
- * Store Information so a carrier has something to rate before Qliro reports the buyer's address.
- * That placeholder must not survive the call: what it leaves on the quote is what the order is
- * placed with, and a guest order printed the store name on the company line of its shipping address.
+ * PLIN-389: the preset shipping address used to be applied here and was left on the quote, so a
+ * guest order printed the store name on the company line of its shipping address. It belongs to
+ * `ShippingMethodsBuilder` now, at the one place that rates, and this class writes nothing to the
+ * address at all.
  */
 class CreateRequestBuilderTest extends TestCase
 {
     private const COUNTRY = 'NO';
 
     private Config&MockObject $qliroConfig;
-    private Information&MockObject $information;
     private Address&MockObject $shippingAddress;
     private Quote&MockObject $quote;
+    private QliroOrderCreateRequestInterface&MockObject $createRequest;
     private CreateRequestBuilder $builder;
-
-    /**
-     * @var array The address data as it was when the carriers were asked for a rate
-     */
-    private array $addressWhenRated = [];
 
     protected function setUp(): void
     {
         $this->qliroConfig = $this->createMock(Config::class);
-        $this->information = $this->createMock(Information::class);
         $this->shippingAddress = $this->address();
         $this->quote = $this->createMock(Quote::class);
 
@@ -71,13 +64,15 @@ class CreateRequestBuilderTest extends TestCase
         $this->quote->method('getStore')->willReturn($this->createMock(Store::class));
         $this->quote->method('getCurrency')->willReturn($this->createMock(CurrencyInterface::class));
 
-        $createRequest = $this->createMock(QliroOrderCreateRequestInterface::class);
-        $createRequest->method('getCountry')->willReturn(self::COUNTRY);
+        $this->createRequest = $this->createMock(QliroOrderCreateRequestInterface::class);
+        $this->createRequest->method('getCountry')->willReturn(self::COUNTRY);
         $createRequestFactory = $this->createMock(QliroOrderCreateRequestInterfaceFactory::class);
-        $createRequestFactory->method('create')->willReturn($createRequest);
+        $createRequestFactory->method('create')->willReturn($this->createRequest);
 
         $shippingMethods = $this->createMock(UpdateShippingMethodsResponseInterface::class);
-        $shippingMethods->method('getAvailableShippingMethods')->willReturn([]);
+        $shippingMethods->method('getAvailableShippingMethods')->willReturn([
+            $this->createMock(QliroOrderShippingMethodInterface::class),
+        ]);
         $shippingMethodsBuilder = $this->createMock(ShippingMethodsBuilder::class);
         $shippingMethodsBuilder->method('setQuote')->willReturnSelf();
         $shippingMethodsBuilder->method('create')->willReturn($shippingMethods);
@@ -111,7 +106,6 @@ class CreateRequestBuilderTest extends TestCase
             $this->createMock(CallbackUrlBuilder::class),
             $shippingMethodsBuilder,
             $shippingConfigBuilder,
-            $this->information,
             $this->createMock(ManagerInterface::class),
             $this->createMock(CountrySelect::class),
             $this->createMock(LogManager::class)
@@ -119,45 +113,17 @@ class CreateRequestBuilderTest extends TestCase
     }
 
     /**
-     * The placeholder is the store's own address, and the company line of it is the store name.
-     * It is never written to the quote: nothing rates on a company, and it reached the order.
+     * The shipping address is left as the quote holds it, with the preset setting on as well.
+     * Everything the placeholder used to write here reached the order, the store name included.
      */
-    public function testNeverWritesTheStoreNameOrPhoneToTheQuote(): void
+    public function testWritesNothingToTheShippingAddress(): void
     {
-        $this->enablePresetAddress();
+        $this->qliroConfig->method('presetAddress')->willReturn(true);
 
         $this->builder->setQuote($this->quote)->create();
 
-        self::assertArrayNotHasKey('company', $this->addressWhenRated);
-        self::assertArrayNotHasKey('telephone', $this->addressWhenRated);
         self::assertNull($this->shippingAddress->getData('company'));
         self::assertNull($this->shippingAddress->getData('telephone'));
-    }
-
-    /**
-     * The carriers still need something to rate, which is the whole point of the preset address.
-     */
-    public function testRatesShippingOnThePlaceholderAddress(): void
-    {
-        $this->enablePresetAddress();
-
-        $this->builder->setQuote($this->quote)->create();
-
-        self::assertSame('0155', $this->addressWhenRated['postcode']);
-        self::assertSame('Oslo', $this->addressWhenRated['city']);
-        self::assertSame(self::COUNTRY, $this->addressWhenRated['country_id']);
-    }
-
-    /**
-     * Once the rates are collected the placeholder has done its job. It used to stay on the quote,
-     * because the clearInstance() that was meant to drop it clears no data on this model.
-     */
-    public function testGivesTheQuoteItsOwnAddressBackAfterRating(): void
-    {
-        $this->enablePresetAddress();
-
-        $this->builder->setQuote($this->quote)->create();
-
         self::assertNull($this->shippingAddress->getData('street'));
         self::assertNull($this->shippingAddress->getData('city'));
         self::assertNull($this->shippingAddress->getData('postcode'));
@@ -166,60 +132,30 @@ class CreateRequestBuilderTest extends TestCase
     }
 
     /**
-     * An address already on the quote is the customer's own, not a placeholder to be cleaned up.
-     * The postcode is what decides that, not the customer group: it is a logged-in customer with
-     * a default shipping address in the reported case, and a guest who got that far in another.
+     * The country is the one thing the request does put on the quote, and it is the country the
+     * Qliro order was created for.
      */
-    public function testLeavesAnAddressThatAlreadyHasAPostcodeAlone(): void
+    public function testSetsTheRequestCountryOnTheQuote(): void
     {
-        $this->enablePresetAddress();
-        $this->information->expects(self::never())->method('getStoreInformationObject');
-        $this->shippingAddress->addData([
-            'company' => 'Buyer AS',
-            'street' => "Torsrudveien 10",
-            'city' => 'Tranby',
-            'postcode' => '3406',
-        ]);
-
         $this->builder->setQuote($this->quote)->create();
 
-        self::assertSame('Buyer AS', $this->shippingAddress->getData('company'));
-        self::assertSame('3406', $this->shippingAddress->getData('postcode'));
-        self::assertSame('Tranby', $this->shippingAddress->getData('city'));
+        self::assertSame(self::COUNTRY, $this->shippingAddress->getData('country_id'));
     }
 
     /**
-     * With the setting off nothing is preset, and nothing may be cleared either.
+     * The shipping methods the builder collected are what the Qliro order is created with.
      */
-    public function testDoesNotTouchTheAddressWhenThePresetIsDisabled(): void
+    public function testSendsTheCollectedShippingMethods(): void
     {
-        $this->qliroConfig->method('presetAddress')->willReturn(false);
-        $this->information->expects(self::never())->method('getStoreInformationObject');
+        $this->createRequest->expects(self::once())
+            ->method('setAvailableShippingMethods')
+            ->with(self::countOf(1));
 
         $this->builder->setQuote($this->quote)->create();
-
-        self::assertSame([], $this->addressWhenRated);
-    }
-
-    private function enablePresetAddress(): void
-    {
-        $this->qliroConfig->method('presetAddress')->willReturn(true);
-        $this->information->method('getStoreInformationObject')->willReturn(new DataObject([
-            'name' => 'Extra Leker',
-            'phone' => '+4700000000',
-            'street_line1' => 'Storgata 1',
-            'street_line2' => '',
-            'city' => 'Oslo',
-            'postcode' => '01 55',
-            'region_id' => null,
-            'region' => null,
-            'country_id' => self::COUNTRY,
-        ]));
     }
 
     /**
-     * A quote address with its real data handling, only the persistence stubbed out. The rating
-     * call records what the carriers were given, which is what the preset address is there for.
+     * A quote address with its real data handling, only the persistence stubbed out.
      *
      * @return \Magento\Quote\Model\Quote\Address&\PHPUnit\Framework\MockObject\MockObject
      */
@@ -231,14 +167,7 @@ class CreateRequestBuilderTest extends TestCase
             ->getMock();
 
         $address->method('save')->willReturnSelf();
-        $address->method('collectShippingRates')->willReturnCallback(
-            function () use ($address) {
-                $this->addressWhenRated = $address->getData();
-                unset($this->addressWhenRated['collect_shipping_rates']);
-
-                return $address;
-            }
-        );
+        $address->method('collectShippingRates')->willReturnSelf();
 
         return $address;
     }
