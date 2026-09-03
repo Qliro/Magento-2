@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.21] - 2026-09-01
+## [1.7.24] - 2026-09-03
 
 ### Fixed
 
@@ -13,6 +13,14 @@
 - The invoice fee line states the rate Qliro reserved the fee with when it has one, and the rate its amounts imply otherwise. The fee is Qliro's own line, taken from the checkout response and kept on the payment, so its own rate is the one the reservation holds; an order stored before the fee carried a rate has none and the amounts are all there is. A reserved rate of 0 counts as a rate and is sent as it stands, which is why the fallback asks whether the fee carries the field at all rather than whether the rate is above zero: the two differ exactly on a reservation that says 0 while its own amounts imply a rate (PLIN-361)
 - Deriving a line's VAT rate from the two amounts it carries lives in one place, `Model/QliroOrder/LineVatRate.php`, shared by the two handlers above and by `DiscountAmountResolver`, which held the same expression. The rate itself is capped at two decimals there, for the same reason the amounts are. The epsilon below which an amount is nothing at all lives there too: `DiscountAmountResolver::EPSILON` keeps the name the handlers call it by and takes its value from `LineVatRate`, so the two cannot drift apart (PLIN-361)
 - The amounts on both lines are unchanged, apart from the rounding above, so a capture still matches the reservation it was given. `VatRate` describes the amounts rather than setting them, and Qliro's `INVALID_ITEM` refusal is about changed SKUs, prices and quantities, which is why this needs none of the stamping PLIN-360 had to add (PLIN-361)
+
+## [1.7.23] - 2026-09-02
+
+### Added
+
+- The success page leaves the order on the checkout session the way Magento's own checkout does: `last_order_id`, `last_real_order_id`, `last_quote_id`, `last_success_quote_id` and `last_order_status`, with the meaning `Magento\Checkout\Model\Type\Onepage::saveOrder()` gives them. Analytics extensions identify the order through `getLastRealOrderId()`, and on an order the buyer's own browser placed those keys were already there, `Magento\Quote\Model\QuoteManagement::placeOrder()` sets the same five. The gap is the other flow: when the `checkoutStatus` callback places the order while the buyer is still at Qliro, the keys were written in the callback's request, which is not the buyer's session, and the buyer came back to a success page that could not name its own order. The keys are written where the module already stores its success data, `Model/Success/Session.php`, which runs in the browser for both flows (PLIN-390)
+- The `checkout_onepage_controller_success_action` event carries the order object next to `order_ids`, matching what core's success page dispatches. An extension reading `$observer->getEvent()->getOrder()` got null. The order is loaded from the id the success page owns rather than read back from the session, so the two can never describe different orders, and an order that cannot be loaded goes out as null rather than as core's empty order, which a listener would report as a purchase of zero. It still fires once per order, a reload of the success page does not repeat it (PLIN-390)
+- A README section on tracking: the success page handle is `checkout_qliro_success`, with the layout snippet that maps a tracking block declared for `checkout_onepage_success` onto it, what the module now provides on that page, and the reason client side tracking undercounts on this checkout, an order can be placed by the `checkoutStatus` callback with no browser present. Merchants who need exact numbers are pointed at GA4 Measurement Protocol and offline conversion import (PLIN-390)
 
 ## [1.7.19] - 2026-08-31
 
