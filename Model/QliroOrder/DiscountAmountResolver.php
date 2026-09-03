@@ -22,8 +22,11 @@ class DiscountAmountResolver
 {
     /**
      * Below this a discount amount is nothing at all, shared with the handlers that call this
+     *
+     * One definition, in `LineVatRate`, because it says the same thing about the same money and
+     * two copies of it can drift apart. The name stays here, it is what the handlers call.
      */
-    public const EPSILON = 0.0001;
+    public const EPSILON = LineVatRate::EPSILON;
 
     /**
      * Amounts sent to Qliro carry two decimals, and so must the rate that describes them
@@ -38,10 +41,12 @@ class DiscountAmountResolver
     /**
      * @param TaxConfig $taxConfig
      * @param LogManager $logManager
+     * @param LineVatRate $lineVatRate
      */
     public function __construct(
-        private readonly TaxConfig  $taxConfig,
-        private readonly LogManager $logManager
+        private readonly TaxConfig   $taxConfig,
+        private readonly LogManager  $logManager,
+        private readonly LineVatRate $lineVatRate
     ) {
     }
 
@@ -101,11 +106,7 @@ class DiscountAmountResolver
      */
     public function getVatRate(float $discountInclVat, float $discountExclVat): float
     {
-        if ($discountExclVat <= self::EPSILON || $discountInclVat <= $discountExclVat) {
-            return 0.0;
-        }
-
-        return $this->round(($discountInclVat / $discountExclVat - 1) * 100);
+        return $this->lineVatRate->fromPrices($discountInclVat, $discountExclVat);
     }
 
     /**
