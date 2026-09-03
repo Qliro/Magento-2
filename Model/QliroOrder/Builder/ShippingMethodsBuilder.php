@@ -10,6 +10,7 @@ use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address\Rate;
+use Magento\Store\Model\Information;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
@@ -57,6 +58,11 @@ class ShippingMethodsBuilder
     private $logManager;
 
     /**
+     * @var \Magento\Store\Model\Information
+     */
+    private $information;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory
@@ -65,6 +71,7 @@ class ShippingMethodsBuilder
      * @param StoreManagerInterface $storeManager
      * @param Config $qliroConfig
      * @param LogManager|null $logManager
+     * @param Information|null $information
      */
     public function __construct(
         UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory,
@@ -73,6 +80,7 @@ class ShippingMethodsBuilder
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
         ?LogManager $logManager = null,
+        ?Information $information = null,
     ) {
         $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
         $this->shippingMethodBuilder = $shippingMethodBuilder;
@@ -83,6 +91,7 @@ class ShippingMethodsBuilder
         // working. Magento passes null for optional arguments instead of resolving them, so
         // the instance is fetched here rather than left to DI.
         $this->logManager = $logManager ?: ObjectManager::getInstance()->get(LogManager::class);
+        $this->information = $information ?: ObjectManager::getInstance()->get(Information::class);
     }
 
     /**
@@ -114,24 +123,33 @@ class ShippingMethodsBuilder
             return $container;
         }
 
-        $this->quote->setTotalsCollectedFlag(false);
-        $this->quote->collectTotals();
-        $this->quote->getShippingAddress()
-            ->setCollectShippingRates(true)
-            ->collectShippingRates();
+        $addressBeforePreset = $this->applyPresetAddress();
 
-        $collectedShippingMethods = [];
+        // In a finally because a carrier that throws would otherwise leave the store's own
+        // address on the quote, which is the defect the restore exists for. The totals collected
+        // against the placeholder are left as they stand, the next collect corrects them.
+        try {
+            $this->quote->setTotalsCollectedFlag(false);
+            $this->quote->collectTotals();
+            $this->quote->getShippingAddress()
+                ->setCollectShippingRates(true)
+                ->collectShippingRates();
 
-        if ($this->quote->getIsVirtual()) {
-            $container->setAvailableShippingMethods($collectedShippingMethods);
-        } else {
-            $collectedShippingMethods = $this->collectShippingMethods();
-            if (empty($collectedShippingMethods)) {
-                $this->logDecline();
-                $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
-            } else {
+            $collectedShippingMethods = [];
+
+            if ($this->quote->getIsVirtual()) {
                 $container->setAvailableShippingMethods($collectedShippingMethods);
+            } else {
+                $collectedShippingMethods = $this->collectShippingMethods();
+                if (empty($collectedShippingMethods)) {
+                    $this->logDecline();
+                    $container->setDeclineReason(UpdateShippingMethodsResponseInterface::REASON_POSTAL_CODE);
+                } else {
+                    $container->setAvailableShippingMethods($collectedShippingMethods);
+                }
             }
+        } finally {
+            $this->restorePresetAddress($addressBeforePreset);
         }
 
         $this->eventManager->dispatch(
@@ -145,6 +163,77 @@ class ShippingMethodsBuilder
         $this->quote = null;
 
         return $container;
+    }
+
+    /**
+     * Fill the shipping address from Store Information so the carriers have something to rate
+     *
+     * Only with the setting on and no postcode of the buyer's own on the quote, which is a buyer
+     * Qliro has not reported an address for yet. It lives here, at the one place that rates, and
+     * not where the Qliro order is created, because every rating in the request needs it:
+     * `collectShippingRates()` drops the rates it finds first, so one later rating on an empty
+     * address would leave the Qliro order with no methods at all.
+     *
+     * @return array The values to put back afterwards, empty when nothing was preset
+     */
+    private function applyPresetAddress(): array
+    {
+        $address = $this->quote->getShippingAddress();
+
+        if (!$this->qliroConfig->presetAddress() || !empty($address->getPostcode())) {
+            return [];
+        }
+
+        $storeInfo = $this->information->getStoreInformationObject($this->quote->getStore());
+
+        if (empty($storeInfo)) {
+            return [];
+        }
+
+        /*
+         * Only what a carrier rates on. The company and the phone were in here too, and both are
+         * read elsewhere as the buyer's own: the company decides the juridical type sent to Qliro
+         * and the store name printed on the company line of the order's shipping address.
+         */
+        $presetData = [
+            'street' => sprintf(
+                "%s\n%s",
+                $storeInfo->getData('street_line1'),
+                $storeInfo->getData('street_line2')
+            ),
+            'city' => $storeInfo->getData('city'),
+            'postcode' => str_replace(' ', '', (string)$storeInfo->getData('postcode')),
+            'region_id' => $storeInfo->getData('region_id'),
+            'country_id' => $storeInfo->getData('country_id'),
+            'region' => $storeInfo->getData('region'),
+        ];
+
+        $addressBeforePreset = array_replace(
+            array_fill_keys(array_keys($presetData), null),
+            array_intersect_key($address->getData(), $presetData)
+        );
+
+        $address->addData($presetData);
+
+        return $addressBeforePreset;
+    }
+
+    /**
+     * Give the quote back the address values the preset one replaced
+     *
+     * The placeholder is the store's own address and the quote must not keep it: whatever is left
+     * on the quote is what the order is placed with, and the store name reached the buyer's order.
+     *
+     * @param array $addressBeforePreset
+     * @return void
+     */
+    private function restorePresetAddress(array $addressBeforePreset): void
+    {
+        if (empty($addressBeforePreset)) {
+            return;
+        }
+
+        $this->quote->getShippingAddress()->addData($addressBeforePreset);
     }
 
     /**

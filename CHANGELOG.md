@@ -1,6 +1,22 @@
 
 # Change Log
 
+## [1.7.26] - 2026-09-03
+
+### Fixed
+
+- The address the store presets to rate shipping no longer survives on the quote. With Preset Shipping Address enabled and no address from Qliro yet, the quote shipping address is filled from Store Information so a carrier has something to rate. The cleanup that was supposed to drop it afterwards, `clearInstance()`, clears no data on a quote address: `_clearData()` is an empty stub on `Magento\Framework\Model\AbstractModel` and the model does not override it, so the `save()` after it only wrote the placeholder again. What the buyer's own address did not overwrite then stayed on the order, and a guest order shipped with the store name printed on its company line. The placeholder is now put back to the values the quote held before it as soon as the rates are collected (PLIN-389)
+- The company and the telephone are no longer part of that placeholder at all. No carrier rates on either, and both are read elsewhere as the buyer's own: the company decides the juridical type sent to Qliro, so a private buyer could be announced as a company, and the phone is sent as the customer's mobile number. Only the street, city, postcode, region and country a rate needs are preset (PLIN-389)
+- What decides whether the placeholder is applied is an empty postcode on the quote, not the customer group. That is every guest, which is why the merchant saw it as a customer group difference, and it is also a logged-in customer with no default shipping address, so an account can be affected as well. A customer whose own address is on the quote is untouched and keeps its company (PLIN-389)
+
+### Changed
+
+- The preset address is applied and taken back in `ShippingMethodsBuilder`, the one place that rates, instead of once at Qliro order creation. A request rates more than once: `Management\Quote::getLinkFromQuote()` builds the update hash right after creating the order, and `Quote\Address::collectShippingRates()` drops the rates it finds before collecting, so a placeholder that only existed for the create call left every later rating with an empty address, no methods to send and a `REASON_POSTAL_CODE` decline on an update the buyer never asked for. Every rating gets the placeholder now, none of them leaves it behind, and the restore sits in a `finally` so a carrier that throws cannot strand the store's address on the quote either. `CreateRequestBuilder` no longer takes `Magento\Store\Model\Information`, which is a constructor signature change for anything extending it (PLIN-389)
+
+### Added
+
+- Unit tests for `ShippingMethodsBuilder::create()`, pinning that the carriers are rated on the preset address, that a second rating gets it too, that the quote gets its own values back afterwards, that the store name and phone never reach the address, and that an address with a postcode of its own is rated as it stands. Unit tests for `CreateRequestBuilder::create()`, pinning that it writes nothing to the shipping address beyond the country the Qliro order was created for. Unit tests for `CustomerBuilder`, pinning the juridical type a buyer with and without a company is sent as (PLIN-389)
+
 ## [1.7.23] - 2026-09-02
 
 ### Added
