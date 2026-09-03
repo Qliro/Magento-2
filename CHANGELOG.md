@@ -1,6 +1,14 @@
 
 # Change Log
 
+## [1.7.23] - 2026-09-02
+
+### Added
+
+- The success page leaves the order on the checkout session the way Magento's own checkout does: `last_order_id`, `last_real_order_id`, `last_quote_id`, `last_success_quote_id` and `last_order_status`, with the meaning `Magento\Checkout\Model\Type\Onepage::saveOrder()` gives them. Analytics extensions identify the order through `getLastRealOrderId()`, and on an order the buyer's own browser placed those keys were already there, `Magento\Quote\Model\QuoteManagement::placeOrder()` sets the same five. The gap is the other flow: when the `checkoutStatus` callback places the order while the buyer is still at Qliro, the keys were written in the callback's request, which is not the buyer's session, and the buyer came back to a success page that could not name its own order. The keys are written where the module already stores its success data, `Model/Success/Session.php`, which runs in the browser for both flows (PLIN-390)
+- The `checkout_onepage_controller_success_action` event carries the order object next to `order_ids`, matching what core's success page dispatches. An extension reading `$observer->getEvent()->getOrder()` got null. The order is loaded from the id the success page owns rather than read back from the session, so the two can never describe different orders, and an order that cannot be loaded goes out as null rather than as core's empty order, which a listener would report as a purchase of zero. It still fires once per order, a reload of the success page does not repeat it (PLIN-390)
+- A README section on tracking: the success page handle is `checkout_qliro_success`, with the layout snippet that maps a tracking block declared for `checkout_onepage_success` onto it, what the module now provides on that page, and the reason client side tracking undercounts on this checkout, an order can be placed by the `checkoutStatus` callback with no browser present. Merchants who need exact numbers are pointed at GA4 Measurement Protocol and offline conversion import (PLIN-390)
+
 ## [1.7.19] - 2026-08-31
 
 ### Fixed
