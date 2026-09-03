@@ -22,8 +22,11 @@ class DiscountAmountResolver
 {
     /**
      * Below this a discount amount is nothing at all, shared with the handlers that call this
+     *
+     * One definition, in `LineVatRate`, because it says the same thing about the same money and
+     * two copies of it can drift apart. The name stays here, it is what the handlers call.
      */
-    public const EPSILON = 0.0001;
+    public const EPSILON = LineVatRate::EPSILON;
 
     /**
      * Amounts sent to Qliro carry two decimals, and so must the rate that describes them

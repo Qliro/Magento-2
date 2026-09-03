@@ -15,7 +15,7 @@ class LineVatRate
     /**
      * Below this a price is nothing at all, and nothing carries no VAT
      */
-    private const EPSILON = 0.0001;
+    public const EPSILON = 0.0001;
 
     /**
      * Amounts sent to Qliro carry two decimals, and so must the rate that describes them

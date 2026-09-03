@@ -84,6 +84,36 @@ class InvoiceFeeHandlerTest extends TestCase
     }
 
     /**
+     * A reservation that states 0 is stating it, and the capture has to agree with the reservation
+     * rather than with what the amounts on it imply. This is the case that separates asking for
+     * the key from asking whether the rate is above zero.
+     */
+    public function testKeepsAReservedZeroEvenWhenTheAmountsImplyARate(): void
+    {
+        $line = $this->buildFeeLine([
+            'PricePerItemIncVat' => 29.0,
+            'PricePerItemExVat' => 23.2,
+            'VatRate' => 0.0,
+        ]);
+
+        self::assertSame(0.0, $line->getVatRate());
+    }
+
+    /**
+     * A fee whose rate is there but empty is a fee without one, and the amounts are what is left.
+     */
+    public function testDerivesTheRateWhenTheStoredRateIsNull(): void
+    {
+        $line = $this->buildFeeLine([
+            'PricePerItemIncVat' => 29.0,
+            'PricePerItemExVat' => 23.2,
+            'VatRate' => null,
+        ]);
+
+        self::assertSame(25.0, $line->getVatRate());
+    }
+
+    /**
      * The Qliro API refuses `Input must have no more than two decimal places`, GitHub issue #122,
      * so neither the amounts nor the rate that describes them may carry more. The rate is taken
      * from the amounts as stored, before that rounding: a fee of 4.79 taxed at 25 percent is

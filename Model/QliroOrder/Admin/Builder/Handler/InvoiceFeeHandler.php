@@ -94,15 +94,18 @@ class InvoiceFeeHandler implements OrderItemHandlerInterface
      * rate it came with is the one the reservation holds and the capture has to agree with. An older
      * order stored before the fee carried a rate has none, and there the amounts are all there is.
      *
+     * A reserved 0 is a statement and is sent as it stands. Only a fee with no rate on it at all
+     * falls back to the amounts, which is why this asks whether the key is there rather than
+     * whether the rate is above zero: those two differ exactly on the reservation that says 0
+     * while its own amounts imply a rate.
+     *
      * @param array $qlirooneFee
      * @return float
      */
     private function getVatRate(array $qlirooneFee): float
     {
-        $vatRate = round((float)($qlirooneFee['VatRate'] ?? 0), 2);
-
-        if ($vatRate > 0) {
-            return $vatRate;
+        if (array_key_exists('VatRate', $qlirooneFee) && $qlirooneFee['VatRate'] !== null) {
+            return round((float)$qlirooneFee['VatRate'], 2);
         }
 
         return $this->lineVatRate->fromPrices(
