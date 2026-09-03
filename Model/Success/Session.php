@@ -34,6 +34,19 @@ class Session
         $this->checkoutSession->setSuccessIncrementId($order->getIncrementId());
         $this->checkoutSession->setSuccessOrderId($order->getId());
         $this->checkoutSession->setSuccessHasDisplayed(false);
+
+        /*
+         * The keys Magento's own checkout leaves behind, in the same meaning it gives them, since
+         * that is what tracking extensions read to identify the order. Written here rather than
+         * where the order is placed: placement can happen in the checkoutStatus callback, which
+         * has no customer session, while this runs in the buyer's browser for both flows.
+         */
+        $this->checkoutSession
+            ->setLastQuoteId($order->getQuoteId())
+            ->setLastSuccessQuoteId($order->getQuoteId())
+            ->setLastOrderId($order->getId())
+            ->setLastRealOrderId($order->getIncrementId())
+            ->setLastOrderStatus($order->getStatus());
     }
 
     /**
