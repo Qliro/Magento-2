@@ -18,7 +18,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `payment/qliroone/api/capture_on_invoice 0`, otherwise invoicing calls Qliro and fails
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
-- `Test/E2e/seed/seed-qliro-order.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
 
 ## Running
 
@@ -58,4 +58,4 @@ It prints a JSON object with the ids it created, and the global setup keeps it i
 ## Coverage, and what breaks it
 
 Reverting the fee accumulation in `OrderItemsConverter` or the name in `Block/Info/QliroOne`
-turns four of the six tests red, so they are pinned to the behaviour rather than to the markup.
+turns four of the eight tests red, so they are pinned to the behaviour rather than to the markup.
