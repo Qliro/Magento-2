@@ -1,7 +1,13 @@
 
 # Change Log
 
-## [1.7.25] - 2026-09-03
+## [1.7.25] - 2026-09-04
+
+### Fixed
+
+- Every fee line of the fetched Qliro order is booked on the Magento order, not only the last one. `OrderItemsConverter` replaced the whole `qliroone_fees` array on each fee line, so a second one was dropped from the grand total, the invoice, the credit memo and the capture, leaving the Magento order short by its amount. Qliro sends a single `InvoiceFee` line today and payments confirmed a second is contractually possible, so this was reachable rather than theoretical. An order carrying no fee line now stores an empty set instead of leaving a fee from an earlier conversion of the same quote in place (PLIN-374)
+- A recurring order records the payment method of the order rather than of its last payment transaction. `PlaceRecurringOrder` stamped the quote once per transaction and each pass overwrote the previous, so with several transactions the last one in the array won and it can belong to a different PSP (PLIN-324). It also wrote the transaction's `Type`, `Preauthorization` or `Capture`, into the payment method code, which is not a payment method at all. The order level `PaymentMethod` is final after routing has run, so that is what gets stored, falling back to the first transaction that names a method and writing no code at all when the order names none (PLIN-374)
+- The order management `GetOrder` response carries that order level `PaymentMethod`, and `AdminOrder` had no setter for it, so the mapper dropped it before anything could read it. It is mapped now (PLIN-374)
 
 ### Changed
 
