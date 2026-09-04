@@ -17,6 +17,7 @@
 
 ### Added
 
+- A browser end to end suite, `Test/E2e`, run with Playwright against a local Magento with the module installed. It seeds orders through the module's own placement path with a Qliro order fixture in place of the merchant API, so it needs no credentials and no test merchant, then checks what a merchant and a customer see: the method name and the code row on the admin order view, the fallback to the code on an order stored without a name, every fee line in the order totals and in the invoice, and the name on the guest order view. Reverting either fix in this release turns four of the six red. It covers the store side only, the checkout iframe and everything that talks to Qliro still needs a test merchant (PLIN-374)
 - Unit tests pinning that a payment method code passes through unchanged, for the six Ironman codes and for a legacy one, and that the name is returned as a string whatever the payload carried. The Ironman rollout rests on these needing no code change in the module, so it is now a test rather than an assertion (PLIN-374)
 
 ## [1.7.23] - 2026-09-02
