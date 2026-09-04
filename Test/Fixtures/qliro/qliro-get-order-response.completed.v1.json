@@ -1,0 +1,50 @@
+{
+  "OrderId": 5510201,
+  "MerchantReference": "pis-6f1c9f0e5a1b4a52b1a7d0c3e9f2a8d4",
+  "TotalPrice": 44.88,
+  "Currency": "EUR",
+  "Country": "FI",
+  "CustomerCheckoutStatus": "Completed",
+  "PaymentMethod": { "PaymentMethodName": "CREDITCARDS", "PaymentTypeCode": "CREDITCARDS" },
+  "OrderItems": [
+    {
+      "MerchantReference": "SKU-RED-SHIRT",
+      "Description": "Red Shirt",
+      "Quantity": 2,
+      "PricePerItemIncVat": 19.99,
+      "PricePerItemExVat": 15.93,
+      "VatRate": 25.5,
+      "Type": "Product",
+      "PaymentTransactionId": 0
+    },
+    {
+      "MerchantReference": "posti-pickup-1234",
+      "Description": "Posti Parcel Locker: K-Market Kamppi",
+      "Quantity": 1,
+      "PricePerItemIncVat": 4.9,
+      "PricePerItemExVat": 3.92,
+      "Type": "Shipping",
+      "Metadata": {
+        "ShippingMethodMerchantReference": "posti-pickup-1234",
+        "ShippingMethodSecondaryOptionMerchantReference": "1234",
+        "AdditionalShippingProperties": {
+          "ShippingProvider": "posti",
+          "ServiceId": "2103",
+          "Agent": {
+            "Id": "1234",
+            "Name": "K-Market Kamppi",
+            "MapLongitude": 24.93,
+            "MapLatitude": 60.16,
+            "Address1": "Urho Kekkosen katu 1",
+            "ZipCode": "00100",
+            "City": "Helsinki"
+          }
+        }
+      }
+    }
+  ],
+  "IdentityVerification": {},
+  "MerchantProvidedMetadata": [],
+  "FutureField": "tolerated",
+  "_comment": "PricePerItemExVat on the Shipping line sandbox-confirmed 2026-07-08: a real GetOrder response returns it on fee lines too, not just Product. QliroGetOrderItem (QliroMerchantApiClient.cs) doesn't map it — dormant field, no current consumer; flagged in qliro-contract-gaps.md rather than added speculatively."
+}

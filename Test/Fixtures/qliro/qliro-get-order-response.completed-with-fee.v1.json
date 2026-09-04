@@ -1,0 +1,61 @@
+{
+  "OrderId": 5510202,
+  "MerchantReference": "pis-fee-fixture-0001",
+  "TotalPrice": 46.87,
+  "Currency": "EUR",
+  "Country": "FI",
+  "CustomerCheckoutStatus": "Completed",
+  "PaymentMethod": { "PaymentMethodName": "INVOICE", "PaymentTypeCode": "INVOICE" },
+  "OrderItems": [
+    {
+      "MerchantReference": "SKU-RED-SHIRT",
+      "Description": "Red Shirt",
+      "Quantity": 2,
+      "PricePerItemIncVat": 19.99,
+      "PricePerItemExVat": 15.93,
+      "VatRate": 25.5,
+      "Type": "Product",
+      "PaymentTransactionId": 0
+    },
+    {
+      "MerchantReference": "posti-pickup-1234",
+      "Description": "Posti Parcel Locker: K-Market Kamppi",
+      "Quantity": 1,
+      "PricePerItemIncVat": 4.9,
+      "PricePerItemExVat": 3.92,
+      "Type": "Shipping",
+      "Metadata": {
+        "ShippingMethodMerchantReference": "posti-pickup-1234",
+        "ShippingMethodSecondaryOptionMerchantReference": "1234",
+        "AdditionalShippingProperties": {
+          "ShippingProvider": "posti",
+          "ServiceId": "2103",
+          "Agent": {
+            "Id": "1234",
+            "Name": "K-Market Kamppi",
+            "MapLongitude": 24.93,
+            "MapLatitude": 60.16,
+            "Address1": "Urho Kekkosen katu 1",
+            "ZipCode": "00100",
+            "City": "Helsinki"
+          }
+        }
+      }
+    },
+    {
+      "MerchantReference": "qliro-invoice-fee",
+      "Description": "Invoice fee",
+      "Quantity": 1,
+      "PricePerItemIncVat": 1.99,
+      "PricePerItemExVat": 1.59,
+      "VatRate": 25.0,
+      "Type": "Fee",
+      "PaymentTransactionId": 0,
+      "FutureFeeField": "tolerated"
+    }
+  ],
+  "IdentityVerification": {},
+  "MerchantProvidedMetadata": [],
+  "FutureField": "tolerated",
+  "_comment": "PROVISIONAL: Fee line built from GetOrder's documented shape (Type: Fee, per QliroGetOrderItem's Product|Shipping|Discount|Fee|Upsell comment) plus the VatRate field already sandbox-confirmed present on other line types (see qliro-get-order-response.completed.v1.json's _comment). Swap for a captured sandbox payload once a merchant fee is verified live."
+}

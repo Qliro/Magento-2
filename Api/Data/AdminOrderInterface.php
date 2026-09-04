@@ -79,6 +79,11 @@ interface AdminOrderInterface extends ContainerInterface
     public function getPaymentTransactions();
 
     /**
+     * @return \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface
+     */
+    public function getPaymentMethod();
+
+    /**
      * @param int $value
      * @return $this
      */
@@ -155,4 +160,10 @@ interface AdminOrderInterface extends ContainerInterface
      * @return $this
      */
     public function setPaymentTransactions($value);
+
+    /**
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface $value
+     * @return $this
+     */
+    public function setPaymentMethod($value);
 }

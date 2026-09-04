@@ -1,6 +1,28 @@
 
 # Change Log
 
+## [1.7.25] - 2026-09-04
+
+### Fixed
+
+- Every fee line of the fetched Qliro order is booked on the Magento order, not only the last one. `OrderItemsConverter` replaced the whole `qliroone_fees` array on each fee line, so a second one was dropped from the grand total, the invoice, the credit memo and the capture, leaving the Magento order short by its amount. Qliro sends a single `InvoiceFee` line today and payments confirmed a second is contractually possible, so this was reachable rather than theoretical. An order carrying no fee line now stores an empty set instead of leaving a fee from an earlier conversion of the same quote in place (PLIN-374)
+- A recurring order records the payment method of the order rather than of its last payment transaction. `PlaceRecurringOrder` stamped the quote once per transaction and each pass overwrote the previous, so with several transactions the last one in the array won and it can belong to a different PSP (PLIN-324). It also wrote the transaction's `Type`, `Preauthorization` or `Capture`, into the payment method code, which is not a payment method at all. The order level `PaymentMethod` is final after routing has run, so that is what gets stored, falling back to the first transaction that names a method and writing no code at all when the order names none (PLIN-374)
+- The order management `GetOrder` response carries that order level `PaymentMethod`, and `AdminOrder` had no setter for it, so the mapper dropped it before anything could read it. It is mapped now (PLIN-374)
+
+### Changed
+
+- The invoice, the credit memo and the shipment print the payment method, the Qliro order id and the Qliro reference. That template printed a hardcoded `Identification Number: 123` and nothing else, on every Qliro order of every merchant, which is the one document the customer keeps. Magento draws this block as plain lines rather than as the table the order view uses, so it is written that way, and a value the order does not carry is left out instead of printing an empty label (PLIN-374)
+- The admin and the customer order view show `PaymentMethod.PaymentMethodName` instead of `PaymentMethod.PaymentTypeCode`, falling back to the code when no name was stored. The admin keeps the code in its own row for support, and only when it differs from the name. The printed documents get the same name, see the entry above. The name is the product, which is what the Ironman rollout renames: the six `QLIROPAYLATER_*` codes from the ticket arrive there. The type code is the instrument behind it, so it reads `INVOICE` for every pay later product, old and new alike, and on live orders it can be `MASTERCARD` or a bare number such as `704`. Neither field is a human readable label and Qliro sends none, so the identifier is what the order shows. A table of merchant facing wording was written and then dropped on the product team's call: the display names change monthly, `Qliro get now, pay in July` being their example, there is no way to fetch them today, and wording frozen into a release would be wrong within weeks (PLIN-374)
+- Every value the order view prints is escaped on output. The method rows were printed raw, and so were the Qliro order id and the Qliro reference, in both the admin and the frontend template. All of them come from the payment's additional information, which is filled from what Qliro sends, so leaving half of them raw only made it look deliberate. The warning text is escaped too, though that branch cannot currently render, see PLIN-374 follow-up (PLIN-374)
+- The order view reads the additional-information keys through the `Config` constants the writer uses, instead of repeating the literals (PLIN-374)
+
+### Added
+
+- The labels the order view and the printed documents use are in `i18n/en_US.csv`, so a store in another language has something to translate. `Qliro Order Id` and `Qliro Reference` were never there either (PLIN-374)
+- A browser end to end suite, `Test/E2e`, run with Playwright against a local Magento with the module installed. It seeds orders through the module's own placement path, taking the payment method and the fee line shape from those same contract fixtures, with no merchant API in the picture, so it needs no credentials and no test merchant, then checks what a merchant and a customer see: the method name and the code row on the admin order view, the fallback to the code on an order stored without a name, every fee line in the order totals and in the invoice, and the name on the guest order view, and the payment block Magento prints on the invoice. Reverting either fix in this release turns four of the eight red. It covers the store side only, the checkout iframe and everything that talks to Qliro still needs a test merchant (PLIN-374)
+- The `GetOrder` contract fixtures PIS pins from the Qliro sandbox are copied into `Test/Fixtures/qliro`, and the module is tested against them: the payment method of a card order, of an invoice order with a fee line, of an Ironman pay later order and of a `QLIRO_INVOICE` order, the fee line itself, the order level method of an order management response, and that a field the module has no setter for is dropped rather than fatal. Written payloads prove what we imagined, these prove what Qliro sends (PLIN-374)
+- Unit tests pinning that a payment method code passes through unchanged, for the six Ironman codes and for a legacy one, and that the name is returned as a string whatever the payload carried. The Ironman rollout rests on these needing no code change in the module, so it is now a test rather than an assertion (PLIN-374)
+
 ## [1.7.23] - 2026-09-02
 
 ### Added

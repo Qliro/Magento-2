@@ -329,10 +329,7 @@ class PlaceRecurringOrder extends AbstractManagement
                     );
 
                     $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
-                    $paymentTransactions = $qliroOrder->getPaymentTransactions();
-                    foreach ($paymentTransactions as $paymentTransaction) {
-                        $this->addAdditionalInfoToQuote($link, $paymentTransaction);
-                    }
+                    $this->addAdditionalInfoToQuote($link, $qliroOrder);
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
 
@@ -504,10 +501,10 @@ class PlaceRecurringOrder extends AbstractManagement
      * Add information regarding this purchase to Quote, which will transfer to Order
      *
      * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
-     * @param \Qliro\QliroOne\Model\QliroOrder\Admin\OrderPaymentTransaction $paymentTransaction
+     * @param \Qliro\QliroOne\Api\Data\AdminOrderInterface $qliroOrder
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    private function addAdditionalInfoToQuote($link, $paymentTransaction)
+    private function addAdditionalInfoToQuote($link, AdminOrderInterface $qliroOrder)
     {
         $payment = $this->getQuote()->getPayment();
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_QLIRO_ORDER_ID, $link->getQliroOrderId());
@@ -517,17 +514,49 @@ class PlaceRecurringOrder extends AbstractManagement
             true
         );
 
-        if ($paymentTransaction) {
+        $paymentMethod = $qliroOrder->getPaymentMethod();
+
+        if ($paymentMethod) {
             $payment->setAdditionalInformation(
                 Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_CODE,
-                $paymentTransaction->getType()
+                $paymentMethod->getPaymentTypeCode()
             );
 
             $payment->setAdditionalInformation(
                 Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME,
-                $paymentTransaction->getPaymentMethodName()
+                $paymentMethod->getPaymentMethodName()
             );
+
+            return;
         }
+
+        $name = $this->findPaymentMethodNameInTransactions($qliroOrder);
+
+        if ($name !== null) {
+            $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME, $name);
+        }
+    }
+
+    /**
+     * Name of the first transaction that states one, for an order that carries no order level method
+     *
+     * The transaction's own Type is a transaction type, Preauthorization or Capture, not a payment
+     * method, so nothing is written for the code here.
+     *
+     * @param \Qliro\QliroOne\Api\Data\AdminOrderInterface $qliroOrder
+     * @return string|null
+     */
+    private function findPaymentMethodNameInTransactions(AdminOrderInterface $qliroOrder)
+    {
+        foreach ($qliroOrder->getPaymentTransactions() ?? [] as $paymentTransaction) {
+            $name = $paymentTransaction->getPaymentMethodName();
+
+            if ($name !== null && $name !== '') {
+                return $name;
+            }
+        }
+
+        return null;
     }
 
     /**
