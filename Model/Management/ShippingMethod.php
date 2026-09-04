@@ -180,10 +180,11 @@ class ShippingMethod extends AbstractManagement
      * Rate the quote in the store view it belongs to and build the response
      *
      * Qliro calls this back server to server, so the request carries no session, and the callback
-     * URL carries no store code unless the merchant put one in every store's base URL. It resolves
-     * to the default store view, and a quote from any other one would then be priced in another
-     * store's currency and described in another store's language, with any carrier that reads the
-     * current store rather than the rate request rating for another store as well.
+     * URL carries a store code only when `web/url/use_store` is on, which Magento ships off. With
+     * it off the callback resolves to the default store view, and a quote from any other one would
+     * then be priced in another store's currency and described in another store's language, with
+     * any carrier that reads the current store rather than the rate request rating for another
+     * store as well.
      *
      * @param UpdateShippingMethodsNotificationInterface $updateContainer
      * @return \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface
