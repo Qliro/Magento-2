@@ -103,8 +103,9 @@ class ShippingMethodsBuilderTest extends TestCase
     }
 
     /**
-     * The `shippingMethods` callback carries no session and its URL no store code, so it resolves
-     * to the default store view. Reading the currency from there converts a Danish order's
+     * The `shippingMethods` callback carries no session, and its URL carries a store code only
+     * when `web/url/use_store` is on, which Magento ships off, so by default it resolves to the
+     * default store view. Reading the currency from there converts a Danish order's
      * delivery price with the Swedish store's rate, and Qliro charges the number it is given in
      * the currency the order was created with.
      */

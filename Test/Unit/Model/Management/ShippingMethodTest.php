@@ -118,8 +118,9 @@ class ShippingMethodTest extends TestCase
     }
 
     /**
-     * Qliro calls this back server to server, so the request has no session and its URL no store
-     * code, and it lands in the default store view. Rating a quote from another store view there
+     * Qliro calls this back server to server, so the request has no session, and its URL carries a
+     * store code only when `web/url/use_store` is on, which Magento ships off, so by default it
+     * lands in the default store view. Rating a quote from another store view there
      * prices the delivery in the wrong currency and names it in the wrong language, so the quote's
      * own store has to be emulated for the whole build.
      */

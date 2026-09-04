@@ -209,8 +209,9 @@ class ShippingMethodsBuilder
                  $this->shippingMethodBuilder->setQuote($this->quote);
 
                  // The quote's own store and currency, not the ones the request happens to run
-                 // in: the `shippingMethods` callback carries no session and its URL no store
-                 // code, so it resolves to the default store view. The Qliro order is created
+                 // in: the `shippingMethods` callback carries no session, and its URL carries a
+                 // store code only when `web/url/use_store` is on, which Magento ships off, so by
+                 // default it resolves to the default store view. The Qliro order is created
                  // in the quote's currency, CreateRequestBuilder puts getQuoteCurrencyCode() on
                  // it, and a delivery price converted into another one is charged as if it
                  // were that currency.
