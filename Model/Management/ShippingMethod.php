@@ -6,11 +6,15 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\App\Area;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Framework\App\Config\ScopeConfigInterface as ScopeConfig;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Store\Model\App\Emulation;
 use Magento\Store\Model\ScopeInterface;
+use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
@@ -70,6 +74,16 @@ class ShippingMethod extends AbstractManagement
     private $quoteManagement;
 
     /**
+     * @var \Magento\Store\Model\StoreManagerInterface
+     */
+    private $storeManager;
+
+    /**
+     * @var \Magento\Store\Model\App\Emulation
+     */
+    private $storeEmulation;
+
+    /**
      * Inject dependencies
      *
      * @param ShippingMethodsBuilder $shippingMethodsBuilder
@@ -81,6 +95,8 @@ class ShippingMethod extends AbstractManagement
      * @param ManagerInterface $eventManager
      * @param ScopeConfig $scopeConfig
      * @param Quote $quoteManagement
+     * @param StoreManagerInterface|null $storeManager
+     * @param Emulation|null $storeEmulation
      */
     public function __construct(
         ShippingMethodsBuilder $shippingMethodsBuilder,
@@ -91,7 +107,9 @@ class ShippingMethod extends AbstractManagement
         LogManager $logManager,
         ManagerInterface $eventManager,
         ScopeConfig $scopeConfig,
-        Quote $quoteManagement
+        Quote $quoteManagement,
+        ?StoreManagerInterface $storeManager = null,
+        ?Emulation $storeEmulation = null
     ) {
         $this->linkRepository = $linkRepository;
         $this->quoteRepository = $quoteRepository;
@@ -102,6 +120,11 @@ class ShippingMethod extends AbstractManagement
         $this->eventManager = $eventManager;
         $this->scopeConfig = $scopeConfig;
         $this->quoteManagement = $quoteManagement;
+        // Optional so a subclass calling parent::__construct() with the old signature keeps
+        // working. Magento passes null for optional arguments instead of resolving them, so
+        // the instances are fetched here rather than left to DI.
+        $this->storeManager = $storeManager ?: ObjectManager::getInstance()->get(StoreManagerInterface::class);
+        $this->storeEmulation = $storeEmulation ?: ObjectManager::getInstance()->get(Emulation::class);
     }
 
     /**
@@ -124,10 +147,8 @@ class ShippingMethod extends AbstractManagement
 
             try {
                 $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
-                $this->quoteFromShippingMethodsConverter->convert($updateContainer, $this->getQuote());
-                $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
 
-                return $this->shippingMethodsBuilder->setQuote($this->getQuote())->create();
+                return $this->buildInQuoteStore($updateContainer);
             } catch (\Exception $exception) {
                 $this->logManager->critical(
                     $exception,
@@ -152,6 +173,45 @@ class ShippingMethod extends AbstractManagement
             );
 
             return $declineContainer;
+        }
+    }
+
+    /**
+     * Rate the quote in the store view it belongs to and build the response
+     *
+     * Qliro calls this back server to server, so the request carries no session, and the callback
+     * URL carries no store code unless the merchant put one in every store's base URL. It resolves
+     * to the default store view, and a quote from any other one would then be priced in another
+     * store's currency and described in another store's language, with any carrier that reads the
+     * current store rather than the rate request rating for another store as well.
+     *
+     * @param UpdateShippingMethodsNotificationInterface $updateContainer
+     * @return \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface
+     */
+    private function buildInQuoteStore(UpdateShippingMethodsNotificationInterface $updateContainer)
+    {
+        $quoteStoreId = (int)$this->getQuote()->getStoreId();
+        $isEmulated = false;
+
+        // Store 0 is the admin store, which a quote never belongs to, so a quote that states it
+        // states nothing. Emulating it would rate the order against the admin scope.
+        if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->storeManager->getStore()->getId()) {
+            $this->storeEmulation->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
+            // Magento allows a single level of emulation and refuses a nested one silently, so
+            // the store the start actually produced is what decides whether this method owns a
+            // stop. Stopping a refused one would end the emulation its caller is still inside.
+            $isEmulated = $quoteStoreId === (int)$this->storeManager->getStore()->getId();
+        }
+
+        try {
+            $this->quoteFromShippingMethodsConverter->convert($updateContainer, $this->getQuote());
+            $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+
+            return $this->shippingMethodsBuilder->setQuote($this->getQuote())->create();
+        } finally {
+            if ($isEmulated) {
+                $this->storeEmulation->stopEnvironmentEmulation();
+            }
         }
     }
 

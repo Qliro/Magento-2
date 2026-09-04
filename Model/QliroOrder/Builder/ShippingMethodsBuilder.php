@@ -208,10 +208,20 @@ class ShippingMethodsBuilder
 
                  $this->shippingMethodBuilder->setQuote($this->quote);
 
-                 /** @var \Magento\Store\Api\Data\StoreInterface */
-                 $store = $this->storeManager->getStore();
-                 $amountPrice = $store->getBaseCurrency()
-                     ->convert($rate->getPrice(), $store->getCurrentCurrencyCode());
+                 // The quote's own store and currency, not the ones the request happens to run
+                 // in: the `shippingMethods` callback carries no session and its URL no store
+                 // code, so it resolves to the default store view. The Qliro order is created
+                 // in the quote's currency, CreateRequestBuilder puts getQuoteCurrencyCode() on
+                 // it, and a delivery price converted into another one is charged as if it
+                 // were that currency.
+                 // Store, not StoreInterface: the currency getters below live on the model.
+                 /** @var \Magento\Store\Model\Store $store */
+                 $store = $this->storeManager->getStore($this->quote->getStoreId());
+                 // A quote that never collected totals carries no currency code, and converting
+                 // into an empty one throws rather than declines.
+                 $quoteCurrencyCode = $this->quote->getQuoteCurrencyCode()
+                     ?: $store->getDefaultCurrencyCode();
+                 $amountPrice = $store->getBaseCurrency()->convert($rate->getPrice(), $quoteCurrencyCode);
                  $rate->setPrice($amountPrice);
 
                  $this->shippingMethodBuilder->setShippingRate($rate);
