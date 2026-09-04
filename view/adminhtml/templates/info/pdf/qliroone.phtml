@@ -15,8 +15,8 @@
 ?>
 <?= $block->escapeHtml($block->getMethod()->getTitle()) ?>
     {{pdf_row_separator}}
-<?php if ($block->getQliroMethodLabel() !== ''): ?>
-<?= $block->escapeHtml(__('Payment Method: %1', $block->getQliroMethodLabel())) ?>
+<?php if ($block->getQliroMethodName() !== ''): ?>
+<?= $block->escapeHtml(__('Payment Method: %1', $block->getQliroMethodName())) ?>
     {{pdf_row_separator}}
 <?php endif; ?>
 <?php if ($block->getQliroOrderId()): ?>

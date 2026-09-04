@@ -10,23 +10,22 @@ test.describe('admin order view', () => {
     await loginToAdmin(page);
   });
 
-  test('names the payment method, with the raw values alongside it', async ({ page }) => {
+  test('shows the payment method name Qliro sent, with the code alongside it', async ({ page }) => {
     await openAdminOrder(page, seeded.withName.orderId);
 
-    // the merchant reads the wording, support reads the two raw values under it
-    await expect(paymentRow(page, 'Payment Method')).toHaveText(seeded.withName.methodLabel!);
-    await expect(paymentRow(page, 'Qliro Payment Method')).toHaveText(seeded.withName.methodName!);
-    await expect(paymentRow(page, 'Payment Type Code')).toHaveText(seeded.withName.methodCode);
+    // the name is the pay later product, QLIROPAYLATER_INVOICE14, the code the instrument, INVOICE
+    await expect(paymentRow(page, 'Payment Method')).toHaveText(seeded.withName.methodName!);
+    await expect(paymentRow(page, 'Payment Method Code')).toHaveText(seeded.withName.methodCode);
     await expect(paymentBlock(page)).toContainText(String(seeded.withName.qliroOrderId));
     await expect(paymentBlock(page)).toContainText(seeded.withName.reference);
   });
 
-  test('names the method from the type code on an order stored before the name was recorded', async ({ page }) => {
+  test('falls back to the code on an order stored before the name was recorded', async ({ page }) => {
     await openAdminOrder(page, seeded.withoutName.orderId);
 
-    // nothing but the type code was stored, so that is what the wording is resolved from
-    await expect(paymentRow(page, 'Payment Method')).toHaveText(seeded.withoutName.methodLabel!);
-    await expect(paymentRow(page, 'Payment Type Code')).toHaveCount(0);
+    await expect(paymentRow(page, 'Payment Method')).toHaveText(seeded.withoutName.methodCode);
+    // with nothing else to show, the code stands alone rather than being repeated in two rows
+    await expect(paymentRow(page, 'Payment Method Code')).toHaveCount(0);
   });
 
   test('carries every fee line of the Qliro order into the order totals', async ({ page }) => {

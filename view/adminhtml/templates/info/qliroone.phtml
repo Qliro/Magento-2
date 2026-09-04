@@ -23,18 +23,12 @@
     </tr>
     <tr>
         <th><?php echo $block->escapeHtml(__('Payment Method')); ?>:</th>
-        <td><?php echo $block->escapeHtml($block->getQliroMethodLabel()); ?></td>
+        <td><?php echo $block->escapeHtml($block->getQliroMethodName()); ?></td>
     </tr>
-    <?php /* The two raw values, for support, and only where they say something the label does not. */ ?>
-    <?php if ($block->hasQliroMethodLabel()): ?>
+    <?php /* Only when it adds something: without a stored name the name row already shows the code. */ ?>
+    <?php if ($block->getQliroMethodName() !== (string)$block->getQliroMethod()): ?>
         <tr>
-            <th><?php echo $block->escapeHtml(__('Qliro Payment Method')); ?>:</th>
-            <td><?php echo $block->escapeHtml($block->getQliroMethodName()); ?></td>
-        </tr>
-    <?php endif; ?>
-    <?php if ($block->getQliroMethod() && $block->getQliroMethod() !== $block->getQliroMethodName()): ?>
-        <tr>
-            <th><?php echo $block->escapeHtml(__('Payment Type Code')); ?>:</th>
+            <th><?php echo $block->escapeHtml(__('Payment Method Code')); ?>:</th>
             <td><?php echo $block->escapeHtml($block->getQliroMethod()); ?></td>
         </tr>
     <?php endif; ?>
