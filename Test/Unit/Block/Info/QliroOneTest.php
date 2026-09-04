@@ -12,6 +12,7 @@ use Magento\Payment\Model\Info;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Block\Info\QliroOne;
+use Qliro\QliroOne\Model\PaymentMethodLabel;
 
 /**
  * @see \Qliro\QliroOne\Block\Info\QliroOne
@@ -26,7 +27,7 @@ class QliroOneTest extends TestCase
         $this->info = $this->createMock(Info::class);
 
         $context = $this->createMock(Context::class);
-        $this->block = new QliroOne($context, []);
+        $this->block = new QliroOne($context, new PaymentMethodLabel(), []);
         $this->block->setData('info', $this->info);
     }
 
@@ -109,6 +110,36 @@ class QliroOneTest extends TestCase
         ]);
 
         self::assertSame('QLIROPAYLATER_INVOICE30', $this->block->getQliroMethod());
+    }
+
+    /**
+     * What the order view prints: the wording, not the product identifier Qliro sends.
+     */
+    public function testLabelsTheMethodForTheOrderView(): void
+    {
+        $this->givenAdditionalInformation([
+            'qliro_payment_method_name' => 'QLIROPAYLATER_INVOICE30',
+            'qliro_payment_method_code' => 'INVOICE',
+        ]);
+
+        self::assertSame('Invoice, 30 days', $this->block->getQliroMethodLabel());
+        // and the raw name is still worth a row of its own next to it
+        self::assertTrue($this->block->hasQliroMethodLabel());
+    }
+
+    /**
+     * A method the table has no wording for is printed as Qliro named it, and then repeating it
+     * in a second row would add nothing.
+     */
+    public function testPrintsAnUnknownMethodAsQliroNamedIt(): void
+    {
+        $this->givenAdditionalInformation([
+            'qliro_payment_method_name' => 'QLIROPAYLATER_SOMETHING_NEW',
+            'qliro_payment_method_code' => 'INVOICE',
+        ]);
+
+        self::assertSame('QLIROPAYLATER_SOMETHING_NEW', $this->block->getQliroMethodLabel());
+        self::assertFalse($this->block->hasQliroMethodLabel());
     }
 
     private function givenAdditionalInformation(array $values): void

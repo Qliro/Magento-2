@@ -5,7 +5,9 @@
  */
 namespace Qliro\QliroOne\Block\Info;
 
+use Magento\Framework\View\Element\Template\Context;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\PaymentMethodLabel;
 
 class QliroOne extends AbstractInfo
 {
@@ -15,6 +17,25 @@ class QliroOne extends AbstractInfo
      * @var string
      */
     protected $_template = 'Qliro_QliroOne::info/qliroone.phtml';
+
+    /**
+     * @var \Qliro\QliroOne\Model\PaymentMethodLabel
+     */
+    private $paymentMethodLabel;
+
+    /**
+     * @param \Magento\Framework\View\Element\Template\Context $context
+     * @param \Qliro\QliroOne\Model\PaymentMethodLabel $paymentMethodLabel
+     * @param array $data
+     */
+    public function __construct(
+        Context $context,
+        PaymentMethodLabel $paymentMethodLabel,
+        array $data = []
+    ) {
+        parent::__construct($context, $data);
+        $this->paymentMethodLabel = $paymentMethodLabel;
+    }
 
     /**
      * @return string
@@ -63,5 +84,27 @@ class QliroOne extends AbstractInfo
         $name = $this->getInfo()->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME);
 
         return $name !== null && $name !== '' ? (string)$name : (string)$this->getQliroMethod();
+    }
+
+    /**
+     * What the order view prints for the method: wording where the module has it, the name Qliro
+     * sent where it does not
+     *
+     * @return string
+     */
+    public function getQliroMethodLabel()
+    {
+        return $this->paymentMethodLabel->getLabel($this->getQliroMethodName());
+    }
+
+    /**
+     * Whether the raw name says anything the label does not, which is what decides if the order
+     * view repeats it for support
+     *
+     * @return bool
+     */
+    public function hasQliroMethodLabel()
+    {
+        return $this->paymentMethodLabel->isKnown($this->getQliroMethodName());
     }
 }

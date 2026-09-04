@@ -175,4 +175,7 @@ echo json_encode([
     'fixture' => $fixtureName,
     'methodCode' => $methodCode,
     'methodName' => $withName ? $methodName : null,
+    // what the order view is expected to print for it
+    'methodLabel' => $om->get(\Qliro\QliroOne\Model\PaymentMethodLabel::class)
+        ->getLabel($withName ? $methodName : null, $methodCode),
 ], JSON_PRETTY_PRINT) . PHP_EOL;

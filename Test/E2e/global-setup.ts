@@ -14,6 +14,7 @@ export type SeededOrder = {
   fees: number[];
   methodCode: string;
   methodName: string | null;
+  methodLabel: string | null;
 };
 
 /**

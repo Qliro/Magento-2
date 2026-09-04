@@ -18,7 +18,7 @@ function pdfPaymentBlock(orderId: number): string {
 test('the printed payment block names the method', () => {
   const block = pdfPaymentBlock(seeded.withName.orderId);
 
-  expect(block).toContain(`Payment Method: ${seeded.withName.methodName}`);
+  expect(block).toContain(`Payment Method: ${seeded.withName.methodLabel}`);
   expect(block).toContain(`Qliro Order Id: ${seeded.withName.qliroOrderId}`);
   expect(block).toContain(`Qliro Reference: ${seeded.withName.reference}`);
   expect(block).not.toContain('Identification Number');
@@ -27,5 +27,5 @@ test('the printed payment block names the method', () => {
 test('the printed payment block falls back to the code', () => {
   const block = pdfPaymentBlock(seeded.withoutName.orderId);
 
-  expect(block).toContain(`Payment Method: ${seeded.withoutName.methodCode}`);
+  expect(block).toContain(`Payment Method: ${seeded.withoutName.methodLabel}`);
 });
