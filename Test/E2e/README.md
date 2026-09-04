@@ -45,13 +45,19 @@ stand:
 ## What the seeder does
 
 `seed/seed-qliro-order.php` creates the product if it is missing, builds a guest quote, and hands
-`PlaceOrder` a Qliro order fixture, which is the same object the module builds from a `GetOrder`
-response. Flags:
+`PlaceOrder` a Qliro order, which is the same object the module builds from a `GetOrder` response.
+The payment method and the shape of the fee lines come from `Test/Fixtures/qliro`, the contract
+fixtures PIS pins from the Qliro sandbox, so the payload is theirs rather than ours. Flags:
 
-- `--fees=29,10` the fee lines the Qliro order carries, the first one is the `InvoiceFee`
+- `--fixture=external-capture` which fixture the payment method comes from, the default is the
+  Ironman pay later one, `QLIROPAYLATER_INVOICE14` over `INVOICE`
+- `--fees=29,10` the amounts of the fee lines, their shape comes from the fee fixture
 - `--no-name` leave `PaymentMethodName` out, which is what an order placed before the module
   recorded the name looks like
-- `--method=` and `--name=` the payment method the fixture reports
+
+Worth knowing when reading the assertions: `PaymentMethodName` is the product and
+`PaymentTypeCode` the instrument behind it, so the code says `INVOICE` for every pay later
+product. Neither is a display name.
 
 It prints a JSON object with the ids it created, and the global setup keeps it in `.seeded.json`.
 

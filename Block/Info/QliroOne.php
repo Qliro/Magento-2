@@ -50,10 +50,11 @@ class QliroOne extends AbstractInfo
     }
 
     /**
-     * Readable name Qliro sent for the method, falling back to the raw code
+     * The method Qliro names for the order, falling back to the type code
      *
-     * Qliro keeps adding method codes (the QLIROPAYLATER family), and the code alone is not
-     * something a merchant can read.
+     * The name is the product, `QLIRO_INVOICE`, `QLIROPAYLATER_INVOICE30`, and it is what the
+     * Ironman rollout renames. The type code is the instrument behind it, so every pay later
+     * product collapses to `INVOICE` there, and a card order reads `MASTERCARD` or a bare number.
      *
      * @return string
      */

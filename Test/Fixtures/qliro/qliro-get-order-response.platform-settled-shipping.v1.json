@@ -1,0 +1,35 @@
+{
+  "OrderId": 5510203,
+  "MerchantReference": "pis-4b2e7c1a9d3f48e5a6c0b8d2f1e94a37",
+  "TotalPrice": 900.00,
+  "Currency": "SEK",
+  "Country": "SE",
+  "CustomerCheckoutStatus": "Completed",
+  "PaymentMethod": { "PaymentMethodName": "QLIRO_INVOICE", "PaymentTypeCode": "INVOICE" },
+  "OrderItems": [
+    {
+      "MerchantReference": "SKU-COOL-SHIRT",
+      "Description": "Cool Shirt",
+      "Quantity": 1,
+      "PricePerItemIncVat": 837.50,
+      "PricePerItemExVat": 670.00,
+      "VatRate": 25.0,
+      "Type": "Product",
+      "PaymentTransactionId": 0
+    },
+    {
+      "MerchantReference": "flatrate_flatrate",
+      "Description": "Flat Rate - Fixed",
+      "Quantity": 1,
+      "PricePerItemIncVat": 62.50,
+      "PricePerItemExVat": 50.00,
+      "VatRate": 25.0,
+      "Type": "Shipping",
+      "FutureShippingField": "tolerated"
+    }
+  ],
+  "IdentityVerification": {},
+  "MerchantProvidedMetadata": [],
+  "FutureField": "tolerated",
+  "_comment": "D59 (PROVISIONAL — canonical-by-design, pending sandbox re-pin): the shape a completed order takes when the PLATFORM settled shipping, so PIS sent it as its own Type 'Shipping' order line instead of a seeded AvailableShippingMethods entry. The distinguishing property vs qliro-get-order-response.completed.v1.json is the ABSENT Metadata block: Metadata is Qliro's record of a selection the customer made in the widget, and here the customer made none — the line's own MerchantReference carries the platform's method code. Everything downstream (completion-time shipping-price guard, the methodReference echoed to the module) must therefore work off the line itself; see QliroGetOrderSettledShippingTests."
+}

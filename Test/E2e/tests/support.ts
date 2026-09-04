@@ -32,3 +32,11 @@ export async function openAdminOrder(page: Page, orderId: number): Promise<void>
 export function paymentBlock(page: Page) {
   return page.locator('table').filter({ hasText: 'Qliro Order Id' }).first();
 }
+
+/** The value cell of one row of that table, by its label. */
+export function paymentRow(page: Page, label: string) {
+  return paymentBlock(page)
+    .locator('tr')
+    .filter({ has: page.getByText(`${label}:`, { exact: true }) })
+    .locator('td');
+}

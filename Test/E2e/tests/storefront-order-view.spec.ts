@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { paymentBlock, seeded } from './support';
+import { paymentRow, seeded } from './support';
 
 /**
  * The same payment block a customer sees on their order, through the guest order lookup.
@@ -13,8 +13,7 @@ test('the guest order view shows the payment method name', async ({ page }) => {
   await page.fill('#oar_email', 'qliro.e2e@example.com');
   await page.click('#oar-widget-orders-and-returns-form button[type="submit"]');
 
-  const block = paymentBlock(page);
-  await expect(block).toContainText(seeded.withName.methodName!);
-  // the raw code is support's business, not the customer's
-  await expect(block).not.toContainText(seeded.withName.methodCode);
+  await expect(paymentRow(page, 'Payment Method')).toHaveText(seeded.withName.methodName!);
+  // the code row is support's business, the customer only gets the method
+  await expect(paymentRow(page, 'Payment Method Code')).toHaveCount(0);
 });

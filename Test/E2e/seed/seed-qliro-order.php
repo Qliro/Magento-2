@@ -4,8 +4,12 @@
  * the Qliro API, so no merchant credentials are involved and the whole path from the fetched
  * order to the placed Magento order runs for real.
  *
+ * The payment method and the shape of the fee lines come from the contract fixtures in
+ * Test/Fixtures/qliro, which are the payloads PIS pins from the Qliro sandbox, so the order looks
+ * the way a real one does rather than the way we imagine one.
+ *
  * Usage, inside the Magento container:
- *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--method=QLIROPAYLATER_INVOICE30]
+ *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture]
  *
  * Prints one JSON object describing what it created.
  */
@@ -15,15 +19,41 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['no-name', 'fees::', 'method::', 'name::']);
+$options = getopt('', ['no-name', 'fees::', 'fixture::']);
 $withName = !array_key_exists('no-name', $options);
 $fees = array_filter(array_map('floatval', explode(',', (string)($options['fees'] ?? '29,10'))));
-$methodCode = (string)($options['method'] ?? 'QLIROPAYLATER_INVOICE30');
-$methodName = (string)($options['name'] ?? 'Faktura 30 dagar');
+$fixtureName = (string)($options['fixture'] ?? 'external-capture');
 
 $bootstrap = Bootstrap::create(BP, []);
 $om = $bootstrap->getObjectManager();
 $om->get(\Magento\Framework\App\State::class)->setAreaCode('frontend');
+
+/* ------------------------------------------------------- the contract fixtures */
+$modulePath = $om->get(\Magento\Framework\Component\ComponentRegistrar::class)
+    ->getPath(\Magento\Framework\Component\ComponentRegistrar::MODULE, 'Qliro_QliroOne');
+
+$readFixture = static function (string $name) use ($modulePath): array {
+    $path = sprintf('%s/Test/Fixtures/qliro/qliro-get-order-response.%s.v1.json', $modulePath, $name);
+
+    return json_decode((string)file_get_contents($path), true, 512, JSON_THROW_ON_ERROR);
+};
+
+$paymentMethod = $readFixture($fixtureName)['PaymentMethod'];
+$methodCode = (string)($paymentMethod['PaymentTypeCode'] ?? '');
+$methodName = (string)($paymentMethod['PaymentMethodName'] ?? '');
+
+if (!$withName) {
+    unset($paymentMethod['PaymentMethodName']);
+}
+
+// the fee line of the fee fixture, with our own amounts, so the totals are ours but the shape is not
+$feeTemplate = null;
+foreach ($readFixture('completed-with-fee')['OrderItems'] as $item) {
+    if (($item['Type'] ?? '') === 'Fee') {
+        $feeTemplate = $item;
+        break;
+    }
+}
 
 /* ------------------------------------------------------------- the product */
 $sku = 'QLIRO-E2E-PRODUCT';
@@ -94,11 +124,6 @@ $om->get(\Qliro\QliroOne\Api\LinkRepositoryInterface::class)->save($link);
 
 /* ------------------------------------------------------- the Qliro order */
 $shipping = $quote->getShippingAddress();
-$paymentMethod = ['PaymentTypeCode' => $methodCode];
-
-if ($withName) {
-    $paymentMethod['PaymentMethodName'] = $methodName;
-}
 
 $orderItems = [[
     'MerchantReference' => 'flatrate_flatrate', 'Description' => 'Flat Rate', 'Type' => 'Shipping',
@@ -108,12 +133,12 @@ $orderItems = [[
 ]];
 
 foreach ($fees as $index => $amount) {
-    $orderItems[] = [
-        'MerchantReference' => $index === 0 ? 'InvoiceFee' : 'Fee' . ($index + 1),
-        'Description' => $index === 0 ? 'Invoice fee' : 'Fee ' . ($index + 1),
-        'Type' => 'Fee', 'Quantity' => 1,
-        'PricePerItemIncVat' => $amount, 'PricePerItemExVat' => $amount,
-    ];
+    $fee = $feeTemplate;
+    $fee['MerchantReference'] .= $index === 0 ? '' : '-' . ($index + 1);
+    $fee['Description'] .= $index === 0 ? '' : ' ' . ($index + 1);
+    $fee['PricePerItemIncVat'] = $amount;
+    $fee['PricePerItemExVat'] = $amount;
+    $orderItems[] = $fee;
 }
 
 $qliroOrder = $om->get(\Qliro\QliroOne\Model\ContainerMapper::class)->fromArray(
@@ -147,6 +172,7 @@ echo json_encode([
     // what the order has to come to: the quote plus every fee line of the Qliro order
     'expectedGrandTotal' => $expectedGrandTotal,
     'fees' => $fees,
+    'fixture' => $fixtureName,
     'methodCode' => $methodCode,
     'methodName' => $withName ? $methodName : null,
 ], JSON_PRETTY_PRINT) . PHP_EOL;
