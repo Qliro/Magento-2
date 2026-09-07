@@ -8,9 +8,10 @@ define([
         'Magento_Checkout/js/view/payment/default',
         'Qliro_QliroOne/js/model/config',
         'Qliro_QliroOne/js/model/qliro',
-        'Magento_Checkout/js/model/quote'
+        'Magento_Checkout/js/model/quote',
+        'Magento_Customer/js/customer-data'
     ],
-    function ($, Component, config, qliro, quote) {
+    function ($, Component, config, qliro, quote, customerData) {
         'use strict';
 
         return Component.extend({
@@ -21,14 +22,42 @@ define([
             initialize: function () {
                 this._super();
 
+                if (!this.isIframeMode()) {
+                    return this;
+                }
+
                 var self = this;
+
                 this.selectedMethodSubscription = quote.paymentMethod.subscribe(function (method) {
-                    if (self.iframeMounted && (!method || method.method !== self.getCode())) {
+                    if (method && method.method === self.getCode()) {
+                        self.loadSnippet();
+                    } else if (self.iframeMounted) {
                         self.teardownIframe();
                     }
                 });
 
+                if (this.isSelected()) {
+                    this.loadSnippet();
+                }
+                
+                this.cartSubscription = customerData.get('cart').subscribe(function () {
+                    if (self.iframeMounted && self.isSelected()) {
+                        qliro.updateCart();
+                    }
+                });
+
                 return this;
+            },
+
+            /**
+             * Whether Qliro is the currently-selected payment method.
+             *
+             * @returns {boolean}
+             */
+            isSelected: function () {
+                var method = quote.paymentMethod();
+
+                return !!method && method.method === this.getCode();
             },
 
             /** The DOM node the Qliro iframe snippet is mounted into. */
