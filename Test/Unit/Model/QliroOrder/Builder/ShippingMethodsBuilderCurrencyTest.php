@@ -12,6 +12,7 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote as QuoteModel;
 use Magento\Quote\Model\Quote\Address as QuoteAddress;
 use Magento\Quote\Model\Quote\Address\Rate;
+use Magento\Shipping\Model\Config as ShippingConfig;
 use Magento\Store\Model\Information;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
@@ -103,7 +104,8 @@ class ShippingMethodsBuilderCurrencyTest extends TestCase
             $this->storeManager,
             $qliroConfig,
             $this->createMock(LogManager::class),
-            $this->createMock(Information::class)
+            $this->createMock(Information::class),
+            $this->createMock(ShippingConfig::class)
         );
     }
 
