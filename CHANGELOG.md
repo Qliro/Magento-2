@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.24] - 2026-09-03
+## [1.7.27] - 2026-09-08
 
 ### Fixed
 
@@ -13,6 +13,22 @@
 - The invoice fee line states the rate Qliro reserved the fee with when it has one, and the rate its amounts imply otherwise. The fee is Qliro's own line, taken from the checkout response and kept on the payment, so its own rate is the one the reservation holds; an order stored before the fee carried a rate has none and the amounts are all there is. A reserved rate of 0 counts as a rate and is sent as it stands, which is why the fallback asks whether the fee carries the field at all rather than whether the rate is above zero: the two differ exactly on a reservation that says 0 while its own amounts imply a rate (PLIN-361)
 - Deriving a line's VAT rate from the two amounts it carries lives in one place, `Model/QliroOrder/LineVatRate.php`, shared by the two handlers above and by `DiscountAmountResolver`, which held the same expression. The rate itself is capped at two decimals there, for the same reason the amounts are. The epsilon below which an amount is nothing at all lives there too: `DiscountAmountResolver::EPSILON` keeps the name the handlers call it by and takes its value from `LineVatRate`, so the two cannot drift apart (PLIN-361)
 - The amounts on both lines are unchanged, apart from the rounding above, so a capture still matches the reservation it was given. `VatRate` describes the amounts rather than setting them, and Qliro's `INVALID_ITEM` refusal is about changed SKUs, prices and quantities, which is why this needs none of the stamping PLIN-360 had to add (PLIN-361)
+
+## [1.7.26] - 2026-09-03
+
+### Fixed
+
+- The address the store presets to rate shipping no longer survives on the quote. With Preset Shipping Address enabled and no address from Qliro yet, the quote shipping address is filled from Store Information so a carrier has something to rate. The cleanup that was supposed to drop it afterwards, `clearInstance()`, clears no data on a quote address: `_clearData()` is an empty stub on `Magento\Framework\Model\AbstractModel` and the model does not override it, so the `save()` after it only wrote the placeholder again. What the buyer's own address did not overwrite then stayed on the order, and a guest order shipped with the store name printed on its company line. The placeholder is now put back to the values the quote held before it as soon as the rates are collected (PLIN-389)
+- The company and the telephone are no longer part of that placeholder at all. No carrier rates on either, and both are read elsewhere as the buyer's own: the company decides the juridical type sent to Qliro, so a private buyer could be announced as a company, and the phone is sent as the customer's mobile number. Only the street, city, postcode, region and country a rate needs are preset (PLIN-389)
+- What decides whether the placeholder is applied is an empty postcode on the quote, not the customer group. That is every guest, which is why the merchant saw it as a customer group difference, and it is also a logged-in customer with no default shipping address, so an account can be affected as well. A customer whose own address is on the quote is untouched and keeps its company (PLIN-389)
+
+### Changed
+
+- The preset address is applied and taken back in `ShippingMethodsBuilder`, the one place that rates, instead of once at Qliro order creation. A request rates more than once: `Management\Quote::getLinkFromQuote()` builds the update hash right after creating the order, and `Quote\Address::collectShippingRates()` drops the rates it finds before collecting, so a placeholder that only existed for the create call left every later rating with an empty address, no methods to send and a `REASON_POSTAL_CODE` decline on an update the buyer never asked for. Every rating gets the placeholder now, none of them leaves it behind, and the restore sits in a `finally` so a carrier that throws cannot strand the store's address on the quote either. `CreateRequestBuilder` no longer takes `Magento\Store\Model\Information`, which is a constructor signature change for anything extending it (PLIN-389)
+
+### Added
+
+- Unit tests for `ShippingMethodsBuilder::create()`, pinning that the carriers are rated on the preset address, that a second rating gets it too, that the quote gets its own values back afterwards, that the store name and phone never reach the address, and that an address with a postcode of its own is rated as it stands. Unit tests for `CreateRequestBuilder::create()`, pinning that it writes nothing to the shipping address beyond the country the Qliro order was created for. Unit tests for `CustomerBuilder`, pinning the juridical type a buyer with and without a company is sent as (PLIN-389)
 
 ## [1.7.23] - 2026-09-02
 
