@@ -13,6 +13,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
  * @see \Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver
@@ -321,7 +322,7 @@ class DiscountAmountResolverTest extends TestCase
         $taxConfig->method('priceIncludesTax')->willReturn($priceIncludesTax);
         $taxConfig->method('applyTaxAfterDiscount')->willReturn($applyTaxAfterDiscount);
 
-        return new DiscountAmountResolver($taxConfig, $this->logManager);
+        return new DiscountAmountResolver($taxConfig, $this->logManager, new LineVatRate());
     }
 
     /**
