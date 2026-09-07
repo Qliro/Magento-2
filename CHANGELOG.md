@@ -1,6 +1,14 @@
 
 # Change Log
 
+## [1.7.25] - 2026-09-07
+
+### Changed
+
+- A decline that carries a rateable address now says what decided the rating. `logDecline()` in `Model/QliroOrder/Builder/ShippingMethodsBuilder.php` reported the postcode, the country and the number of rates it found, which reads the same whether the postcode really has no delivery or a carrier answered nothing for a reason of its own. It now also carries the store view the quote was rated in, whether the street and the city reached the quote at all, and, only for the notice a rateable address produces, the display and base currency of that store view, the quote's currency and the carriers Magento had to ask. The store view is the important one: without it the only way to tell which store view a request ran in is the language the product names came back in (PLIN-376)
+- The currency pair is there because a third party carrier that reads the display currency while Magento denominates the amount it rates on in the base currency returns nothing wherever the two differ, which is a store view level failure that looked exactly like an unsupported postcode. Whether the street and the city arrived is there because a carrier can require them and rate on nothing without them, and Qliro reports `{"isMasked": true}` in place of the address until the customer has identified. The values themselves stay out of the log, only whether they are set (PLIN-376)
+- The carrier lookup is paid for only on the notice, not on the debug line an address that cannot be rated yet produces, since that one is the normal state of every checkout before identification. The whole scope lookup is wrapped so a failure in it reports itself in the context and leaves the decline alone: a logging line must never be what turns a decline into a critical (PLIN-376)
+
 ## [1.7.23] - 2026-09-02
 
 ### Added

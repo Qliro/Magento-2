@@ -10,6 +10,7 @@ use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address\Rate;
+use Magento\Shipping\Model\Config as ShippingConfig;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory;
@@ -57,6 +58,11 @@ class ShippingMethodsBuilder
     private $logManager;
 
     /**
+     * @var \Magento\Shipping\Model\Config
+     */
+    private $shippingConfig;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory
@@ -65,6 +71,7 @@ class ShippingMethodsBuilder
      * @param StoreManagerInterface $storeManager
      * @param Config $qliroConfig
      * @param LogManager|null $logManager
+     * @param ShippingConfig|null $shippingConfig
      */
     public function __construct(
         UpdateShippingMethodsResponseInterfaceFactory $shippingMethodsResponseFactory,
@@ -73,6 +80,7 @@ class ShippingMethodsBuilder
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
         ?LogManager $logManager = null,
+        ?ShippingConfig $shippingConfig = null,
     ) {
         $this->shippingMethodsResponseFactory = $shippingMethodsResponseFactory;
         $this->shippingMethodBuilder = $shippingMethodBuilder;
@@ -83,6 +91,7 @@ class ShippingMethodsBuilder
         // working. Magento passes null for optional arguments instead of resolving them, so
         // the instance is fetched here rather than left to DI.
         $this->logManager = $logManager ?: ObjectManager::getInstance()->get(LogManager::class);
+        $this->shippingConfig = $shippingConfig ?: ObjectManager::getInstance()->get(ShippingConfig::class);
     }
 
     /**
@@ -160,8 +169,13 @@ class ShippingMethodsBuilder
         $context = [
             'extra' => [
                 'quote_id' => $this->quote->getId(),
+                'store_id' => (int)$this->quote->getStoreId(),
                 'postcode' => $shippingAddress->getPostcode(),
                 'country_id' => $shippingAddress->getCountryId(),
+                // Whether, not what: a carrier can require these and rate on nothing without
+                // them, and the address is the buyer's own.
+                'has_street' => !empty($shippingAddress->getStreetFull()),
+                'has_city' => !empty($shippingAddress->getCity()),
                 'collected_rates' => count($shippingAddress->getAllShippingRates()),
             ],
         ];
@@ -175,7 +189,37 @@ class ShippingMethodsBuilder
             return;
         }
 
+        $context['extra'] += $this->describeRatingScope();
+
         $this->logManager->notice($message, $context);
+    }
+
+    /**
+     * What decided the rating, for a decline that points at the carriers rather than the address
+     *
+     * Only for the notice: a rateable address that produced nothing is answered by the store view
+     * it was rated in, the currencies of that store view and the carriers Magento had to ask. A
+     * carrier reading the display currency while Magento denominates the amount it rates on in the
+     * base currency yields nothing wherever those two differ, and without them in the log that
+     * reads the same as a postal code nobody delivers to.
+     *
+     * @return array
+     */
+    private function describeRatingScope(): array
+    {
+        // A logging line must never be what breaks a decline, so nothing here is allowed to throw.
+        try {
+            $store = $this->storeManager->getStore($this->quote->getStoreId());
+
+            return [
+                'display_currency' => $store->getCurrentCurrencyCode(),
+                'base_currency' => $store->getBaseCurrencyCode(),
+                'quote_currency' => $this->quote->getQuoteCurrencyCode(),
+                'active_carriers' => implode(',', array_keys($this->shippingConfig->getActiveCarriers($store))),
+            ];
+        } catch (\Throwable $exception) {
+            return ['rating_scope_error' => $exception->getMessage()];
+        }
     }
 
     /**
