@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.7.30] - 2026-09-08
+
+### Added
+
+- The `qliroone_log` table is pruned. Every API call and callback writes a row there, request and response payloads included, whatever Debug Mode says, and nothing ever deleted one, so on a busy store the table grew without bound. A new cron job, `qliroone_prune_log`, runs nightly at 03:30 and deletes the rows older than the retention window, and `bin/magento qliroone:log:prune` does the same on demand, with `--days` to run once with a window of its own. Both go through `Service/Log/Pruner.php`, so they cannot drift apart (PLIN-364)
+- The retention window is a merchant setting, Payment Methods, QliroOne Checkout, Debugging, Log Retention (days), 30 days on a fresh install, and 0 keeps every row. The ticket asked for it per store, but a log row carries no store id, so a per store window could only ever be collapsed into one for the whole table; the field is on the default scope instead, where it says what it does. Only an explicit 0 keeps everything, a blanked field means the default, and the field refuses anything but a whole number of days up to 36500 whether it is saved from the admin or with `bin/magento config:set` (PLIN-364)
+- Pruning is opt in for a store that already has log history. Deleting a merchant's payloads cannot be undone, so keeping every row is what the module ships with and what an unreadable setting falls back to. The `KeepExistingLogHistory` data patch opts an installation whose log table is empty into 30 days; one that already holds rows keeps them until the merchant picks a window. The shipped default matters because the code is deployed before `setup:upgrade` runs the patch, and a 30 day default would have let a nightly prune in that window delete the very history the patch exists to save (PLIN-364)
+- The setting is read on the default scope, which is the only scope the field is shown on, and the backend model refuses a website or store view scope outright. `bin/magento config:set --scope=stores` reaches a hidden field and would otherwise save a window that is never read (PLIN-364)
+- The deletion runs in batches of 5000 rows on the indexed `date` column, `LogRecord::deleteOlderThan()`, so a backlog of millions of rows never holds the table for the length of one statement. Each batch is ordered by that column and the row id, so it is the same set of rows on a replica under statement based replication. A run takes at most 200 batches, a million rows, and leaves the rest to the next one, so the nightly job cannot hold a cron worker for hours on a backlog of tens of millions. A run that stopped at that cap says so, in the log line it writes and in the console output, so a backlog that is not worked off yet is not mistaken for a pruned table (PLIN-364)
+
 ## [1.7.27] - 2026-09-08
 
 ### Fixed

@@ -5,5 +5,8 @@
         <job instance="Qliro\QliroOne\Cron\RecurringOrders" method="placeOrders" name="qliroone_recurring_orders">
             <schedule>0 6 * * *</schedule>
         </job>
+        <job instance="Qliro\QliroOne\Cron\PruneLog" method="execute" name="qliroone_prune_log">
+            <schedule>30 3 * * *</schedule>
+        </job>
     </group>
 </config>
