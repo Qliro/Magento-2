@@ -105,7 +105,7 @@ class InvoiceFeeHandler implements OrderItemHandlerInterface
     private function getVatRate(array $qlirooneFee): float
     {
         if (array_key_exists('VatRate', $qlirooneFee) && $qlirooneFee['VatRate'] !== null) {
-            return round((float)$qlirooneFee['VatRate'], 2);
+            return (float)$qlirooneFee['VatRate'];
         }
 
         return $this->lineVatRate->fromPrices(

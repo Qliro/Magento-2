@@ -15,6 +15,7 @@ use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Product\VatRate;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
  * Default product type handler class
@@ -22,19 +23,28 @@ use Qliro\QliroOne\Model\Product\VatRate;
 class DefaultHandler implements TypeHandlerInterface
 {
     /**
+     * @var LineVatRate
+     */
+    private readonly LineVatRate $lineVatRate;
+
+    /**
      * Class constructor
      *
      * @param QliroOrderItemFactory            $qliroOrderItemFactory
      * @param Data                             $qliroHelper
      * @param Config                           $config
      * @param VatRate                          $vatRate
+     * @param LineVatRate|null                 $lineVatRate
      */
     public function __construct(
         private readonly QliroOrderItemFactory $qliroOrderItemFactory,
         private readonly Data                  $qliroHelper,
         private readonly Config                $config,
-        private readonly VatRate               $vatRate
+        private readonly VatRate               $vatRate,
+        ?LineVatRate                           $lineVatRate = null
     ) {
+        // Optional so a store's handler calling parent::__construct() with the old signature keeps working
+        $this->lineVatRate = $lineVatRate ?? new LineVatRate();
     }
 
     /**
@@ -64,8 +74,8 @@ class DefaultHandler implements TypeHandlerInterface
      * Prefer the tax percent Magento already calculated on the quote item (taken from the
      * configurable parent when present, like the discount below). That value uses the real
      * customer address, unlike the store-default tax lookup which can resolve to 0 depending
-     * on tax configuration. Fall back to deriving the rate from the prices being sent (keeps
-     * IncVat/ExVat/VatRate consistent), then to the store calculation as a last resort.
+     * on tax configuration. Fall back to the rate the two prices imply, see `LineVatRate`, then
+     * to the store calculation as a last resort.
      *
      * @param TypeSourceItemInterface $item
      * @param float $incVat
@@ -80,8 +90,10 @@ class DefaultHandler implements TypeHandlerInterface
             return (float)$sourceItem->getTaxPercent();
         }
 
-        if ($exVat > 0 && $incVat > $exVat) {
-            return round(($incVat / $exVat - 1) * 100, 2);
+        $impliedVatRate = $this->lineVatRate->fromPrices($incVat, $exVat);
+
+        if ($impliedVatRate > 0) {
+            return $impliedVatRate;
         }
 
         return $this->vatRate->getVatRateForProduct($item);

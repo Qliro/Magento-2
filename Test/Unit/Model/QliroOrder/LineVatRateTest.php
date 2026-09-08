@@ -49,4 +49,30 @@ class LineVatRateTest extends TestCase
             'an inc vat amount below the ex vat one states none either' => [50.0, 62.5, 0.0],
         ];
     }
+
+    /**
+     * @dataProvider incVatAndRateProvider
+     */
+    public function testDerivesTheExVatAmountFromTheIncVatAmountAndTheRate(
+        float $incVat,
+        float $vatRate,
+        float $expected
+    ): void {
+        self::assertSame($expected, $this->lineVatRate->exVatFromIncVat($incVat, $vatRate));
+    }
+
+    /**
+     * @return array<string, float[]>
+     */
+    public static function incVatAndRateProvider(): array
+    {
+        return [
+            'the swedish rate' => [62.5, 25.0, 50.0],
+            'a refund line, sent negative' => [-125.0, 25.0, -100.0],
+            'no rate leaves the amount as it is' => [-125.0, 0.0, -125.0],
+            'an ex vat amount that does not land on whole ore is cut to two decimals' => [-99.99, 25.0, -79.99],
+            'the reduced rate on an odd amount' => [-99.99, 6.0, -94.33],
+            'the inc vat amount is rounded before it is divided' => [1.065, 6.0, 1.01],
+        ];
+    }
 }
