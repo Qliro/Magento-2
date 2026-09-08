@@ -74,8 +74,10 @@ class DefaultHandler implements TypeHandlerInterface
      * Prefer the tax percent Magento already calculated on the quote item (taken from the
      * configurable parent when present, like the discount below). That value uses the real
      * customer address, unlike the store-default tax lookup which can resolve to 0 depending
-     * on tax configuration. Fall back to the rate the two prices imply, see `LineVatRate`, then
-     * to the store calculation as a last resort.
+     * on tax configuration. An explicit 0 there is a statement, a tax exempt customer, and is
+     * sent as it stands. Without a tax percent the two prices decide, see `LineVatRate`, equal
+     * prices included: they hold no VAT. Only a line with no price at all says nothing about
+     * itself, and there the store calculation is the last resort.
      *
      * @param TypeSourceItemInterface $item
      * @param float $incVat
@@ -85,15 +87,14 @@ class DefaultHandler implements TypeHandlerInterface
     private function resolveVatRate(TypeSourceItemInterface $item, float $incVat, float $exVat): float
     {
         $sourceItem = $item->getParent() ? $item->getParent()->getItem() : $item->getItem();
+        $taxPercent = $sourceItem ? $sourceItem->getTaxPercent() : null;
 
-        if ($sourceItem && (float)$sourceItem->getTaxPercent() > 0) {
-            return (float)$sourceItem->getTaxPercent();
+        if ($taxPercent !== null && $taxPercent !== '') {
+            return (float)$taxPercent;
         }
 
-        $impliedVatRate = $this->lineVatRate->fromPrices($incVat, $exVat);
-
-        if ($impliedVatRate > 0) {
-            return $impliedVatRate;
+        if (abs($exVat) > LineVatRate::EPSILON) {
+            return $this->lineVatRate->fromPrices($incVat, $exVat);
         }
 
         return $this->vatRate->getVatRateForProduct($item);

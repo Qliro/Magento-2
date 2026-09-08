@@ -50,11 +50,32 @@ class DefaultHandlerTest extends TestCase
     }
 
     /**
-     * Prices that imply no VAT say nothing about the product, so the store calculation decides.
+     * A tax exempt customer gets tax_percent 0 from Magento and equal prices. That 0 is a
+     * statement and goes out as it stands, the store rate would put 25 on amounts holding no VAT.
      */
-    public function testFallsBackToTheStoreRateWhenThePricesImplyNone(): void
+    public function testSendsAnExplicitZeroTaxPercentAsItStands(): void
     {
-        $line = $this->buildHandler(12.0)->getQliroOrderItem($this->buildSourceItem(50.0, 50.0, null));
+        $line = $this->buildHandler(25.0)->getQliroOrderItem($this->buildSourceItem(100.0, 100.0, 0.0));
+
+        self::assertSame(0.0, $line->getVatRate());
+    }
+
+    /**
+     * Without a tax percent, equal prices still say the line holds no VAT.
+     */
+    public function testStatesNoVatWhenThePricesHoldNoneAndTheQuoteItemHasNoTaxPercent(): void
+    {
+        $line = $this->buildHandler(25.0)->getQliroOrderItem($this->buildSourceItem(50.0, 50.0, null));
+
+        self::assertSame(0.0, $line->getVatRate());
+    }
+
+    /**
+     * A line with no price at all says nothing about itself, so the store calculation decides.
+     */
+    public function testFallsBackToTheStoreRateWhenThereIsNoPriceToReadARateFrom(): void
+    {
+        $line = $this->buildHandler(12.0)->getQliroOrderItem($this->buildSourceItem(0.0, 0.0, null));
 
         self::assertSame(12.0, $line->getVatRate());
     }
