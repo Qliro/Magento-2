@@ -23,6 +23,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderAddressUpdater;
+use Qliro\QliroOne\Model\Order\OrderFeeSyncer;
 use Qliro\QliroOne\Model\Order\OrderItemsSyncer;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrderShippingMethodSyncer;
@@ -76,6 +77,7 @@ class PlaceOrder
      * @param OrderItemsSyncer $orderItemsSyncer
      * @param OrderShippingMethodSyncer $orderShippingMethodSyncer
      * @param OrderAddressUpdater $orderAddressUpdater
+     * @param OrderFeeSyncer $orderFeeSyncer
      */
     public function __construct(
         private readonly Config $qliroConfig,
@@ -95,7 +97,8 @@ class PlaceOrder
         private readonly OrderStateSetter $orderStateSetter,
         private readonly OrderItemsSyncer $orderItemsSyncer,
         private readonly OrderShippingMethodSyncer $orderShippingMethodSyncer,
-        private readonly OrderAddressUpdater $orderAddressUpdater
+        private readonly OrderAddressUpdater $orderAddressUpdater,
+        private readonly OrderFeeSyncer $orderFeeSyncer
     ) {
     }
 
@@ -204,8 +207,7 @@ class PlaceOrder
             // Update order addresses with the confirmed values from Qliro
             $this->orderAddressUpdater->update($order, $qliroOrder);
 
-            // Sync confirmed quantities and shipping from Qliro — customer may have changed
-            // these inside the iframe after the pending order was placed at page-load time
+            $this->orderFeeSyncer->sync($order, $qliroOrder);
             $this->orderItemsSyncer->sync($order, $qliroOrder);
             $this->orderShippingMethodSyncer->sync($order, $qliroOrder);
 
