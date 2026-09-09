@@ -46,6 +46,30 @@ class CallbackToken
     }
 
     /**
+     * A value that can be compared between two log lines without being readable in either
+     *
+     * @param mixed $value
+     * @return string
+     */
+    private function fingerprint($value): string
+    {
+        if ($value === null || $value === '') {
+            return 'empty';
+        }
+
+        // A claim can be a structure, and two different structures must not both read as empty
+        if (!is_scalar($value)) {
+            $value = \json_encode($value);
+
+            if (!\is_string($value)) {
+                return 'unreadable';
+            }
+        }
+
+        return 'sha256:' . substr(hash('sha256', (string)$value), 0, 8);
+    }
+
+    /**
      * Verifies the validity of a security token.
      *
      * @param string $token The token to be verified.
@@ -71,8 +95,9 @@ class CallbackToken
                 'merchant ID mismatch',
                 [
                     'extra' => [
-                        'request' => $merchant,
-                        'configured' => $this->qliroConfig->getMerchantApiKey()
+                        // Fingerprints, not the keys: this told the log the API key on every mismatch
+                        'request' => $this->fingerprint($merchant),
+                        'configured' => $this->fingerprint($this->qliroConfig->getMerchantApiKey()),
                     ]
                 ]
             );
@@ -88,7 +113,10 @@ class CallbackToken
                 'additional data mismatch',
                 [
                     'extra' => [
-                        'additional_data' => $additionalData,
+                        // A claim of the presented token, so anyone who can post a callback decides
+                        // what this says. A fingerprint still tells the two apart
+                        'request' => $this->fingerprint($additionalData),
+                        'configured' => $this->fingerprint($this->getAdditionalData()),
                     ]
                 ]
             );
@@ -104,7 +132,12 @@ class CallbackToken
                 'expired {expired} seconds ago',
                 [
                     'expired' => time() - $expiresAt,
-                    'extra' => array_merge($payload, ['token' => $token])
+                    // The payload carries the API key as its merchant claim, so it is not logged whole
+                    'extra' => [
+                        'merchant' => $this->fingerprint($merchant),
+                        'expires' => $payload['expires'] ?? null,
+                        'has_additional_data' => $additionalData !== null,
+                    ]
                 ]
             );
 

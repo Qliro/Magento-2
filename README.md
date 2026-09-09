@@ -68,6 +68,55 @@ tab or never returns from a bank app produces a paid order and no browser event 
 numbers have to be right, send the purchase server side, GA4 Measurement Protocol from an observer
 on `sales_order_place_after`, and offline conversion import or server side GTM for Google Ads.
 
+## What the module logs
+
+Every API call and callback is logged to the `qliroone_log` database table and to
+`var/log/qliroone.log`, request and response bodies included. This happens at debug level on every
+request whatever **Debug Mode** is set to: that setting gates other behaviour, not the logging.
+
+Before anything is written, `Model/Logger/Redactor.php` masks it as `[redacted]`:
+
+- **Credentials**, always, by name, by value and inside a url. Any key named like one,
+  `MerchantApiKey`, `MerchantApiSecret`, `Authorization`, a token, a password, or anything
+  containing `secret` or `apikey`, whatever its spelling and however deep in the payload it sits.
+  The API key and secret the store is configured with are masked wherever they appear, whatever the
+  key they were logged under is called. In a url, the user and password before the host, a `token`
+  in the query and a JSON web token anywhere are masked too: the callback token carries the merchant
+  API key in its payload, and with Callback HTTP Auth the url carries the username and password.
+- **Customer data**, always. Email, mobile number, personal identity number, VAT and organization
+  number, date of birth, first and last name, care of, company name, street, postal code and city,
+  under Qliro's spellings and Magento's own, `taxvat`, `dob`, `vat_id` and `company` included, and
+  whether the field holds one value or a list. An email address and a Nordic identity number are
+  masked wherever they appear in free text too.
+- **An identity number**, written with its separator or as twelve digits, always. A ten digit one
+  written without a separator is not masked by pattern: it cannot be told apart from a Qliro order
+  id, and it arrives under a key of its own in every payload the module sends or receives.
+- **An international phone number**, on the lines marked with the `sensitive` tag. That is every
+  exchange with Qliro's APIs, every callback body Qliro posts back and every refusal Qliro
+  explains, which is where a customer record travels.
+
+Card data is not masked, and that is deliberate: Qliro sends only the first six and the last four
+digits of a saved card, `CardBin` and `CardLast4Digits`, which is what PCI DSS permits a merchant to
+retain and what support needs to identify a card. The card token itself is masked.
+
+What stays readable is what a merchant needs in order to investigate: the merchant reference, the
+endpoint and the uri with their order ids, the request method, the status code, the order items, the
+amounts, the country and Qliro's own error codes. Those keep their digits even on a masked line, so
+an order id is never mistaken for an identity number. An exception keeps its class, its file, its
+code and its message and trace, with both masked. One thing to know: a reference written as a date
+and a number, `20260909-0001`, is indistinguishable from an identity number inside a free text
+message and is masked there. The `reference` column of the row carries it unmasked.
+
+The masking runs on the log channel, so it applies to the table and to the files alike, to a payload
+that arrives as an object or as text, and to anything logged from a plugin of your own that uses the
+module's log manager.
+
+**How long rows are kept** is a separate matter from what they hold. It is answered by the log
+retention change, PLIN-364, which adds **Debugging > Log Retention (days)** and a nightly
+`qliroone_prune_log` job to delete the rows behind that window. On a release that does not have that
+setting yet, and on a store that has never set a window, rows are kept until they are deleted by
+hand.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

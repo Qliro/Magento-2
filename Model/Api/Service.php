@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\Api;
 use GuzzleHttp\Exception\ClientException;
 use Psr\Http\Message\ResponseInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Logger\Redactor;
 use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
 use GuzzleHttp\TransferStats;
@@ -189,25 +190,31 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
         $this->duration = 0.0;
         $endpointUri = $this->prepareEndpointUri($endpoint, $storeId);
 
-        $this->logManager->debug(
-            '>>> {method} {endpoint}',
-            [
-                'method' => $method,
-                'endpoint' => $endpoint,
-                'extra' => [
-                    'uri' => $endpointUri,
-                    'body' => $body,
-                ],
-            ]
-        );
+        // Every exchange with Qliro carries a customer record or a credential, so every one is
+        // tagged, the request line included: it holds the same body as the result line and the two
+        // must be masked alike. Added before the try whose finally takes it back, so the pairing
+        // cannot be broken by a statement added inside the try later on
+        $this->logManager->addTag(Redactor::TAG_SENSITIVE);
 
         try {
-            $this->logManager->debug('Sending request to Qliro Uri: ' . $endpointUri);
+            $this->logQuietly(
+                '>>> {method} {endpoint}',
+                [
+                    'method' => $method,
+                    'endpoint' => $endpoint,
+                    'extra' => [
+                        'uri' => $endpointUri,
+                        'body' => $body,
+                    ],
+                ]
+            );
+
+            $this->logQuietly('Sending request to Qliro Uri: ' . $endpointUri);
             $response = $this->client->request($method, $endpointUri, $options);
             $responseData = $this->getResponseData($response);
-            $this->logManager->debug('Received response from Qliro Uri: ' . $endpointUri);
+            $this->logQuietly('Received response from Qliro Uri: ' . $endpointUri);
 
-            $this->logManager->debug(
+            $this->logQuietly(
                 '<<< Result in {duration} seconds',
                 [
                     'duration' => $this->duration,
@@ -215,12 +222,13 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
                         'uri' => $endpointUri,
                         'request' => $body,
                         'status_code' => $response->getStatusCode(),
-                        'response' => print_r($responseData, true),
+                        // The array, not print_r of it: a string hides its keys from the redaction
+                        'response' => $responseData,
                     ]
                 ]
             );
         } catch (\Exception $exception) {
-            $this->logManager->debug('Error response from Qliro Uri: ' . $endpointUri . PHP_EOL . $exception->getMessage());
+            $this->logQuietly('Error response from Qliro Uri: ' . $endpointUri . PHP_EOL . $exception->getMessage());
             $exceptionData = [
                 'exception' => $exception->getMessage(),
                 'uri' => $endpointUri,
@@ -239,12 +247,10 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
                 ]);
             }
 
-            $this->logManager->error(
+            $this->logQuietly(
                 '<<< Exception after {duration} seconds',
-                [
-                    'duration' => $this->duration,
-                    'extra' => $exceptionData
-                ]
+                ['duration' => $this->duration, 'extra' => $exceptionData],
+                'error'
             );
 
             // Carry Qliro's own error code out with the exception. Everything above this line
@@ -259,10 +265,32 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
 
             throw $terminal;
         } finally {
+            $this->logManager->removeTag(Redactor::TAG_SENSITIVE);
             $this->logManager->setMark(null);
         }
 
         return $responseData;
+    }
+
+    /**
+     * Log a line of an API call without letting the logging fail the call
+     *
+     * The catch inside the request below would otherwise report a log handler that cannot write as
+     * a refusal from Qliro, on a request Qliro may have accepted. The log handler applies the same
+     * rule to itself: logging never breaks the business flow
+     *
+     * @param string $message
+     * @param array $context
+     * @param string $level
+     * @return void
+     */
+    private function logQuietly($message, array $context = [], $level = 'debug')
+    {
+        try {
+            $this->logManager->{$level}($message, $context);
+        } catch (\Throwable $exception) {
+            // Nowhere to report this to, the log is what failed
+        }
     }
 
     /**

@@ -27,6 +27,20 @@
         </arguments>
     </type>
 
+    <type name="Qliro\QliroOne\Model\Logger\Redactor">
+        <arguments>
+            <!-- Lazy: reading the configuration must not happen while the log channel is built -->
+            <argument name="secretProvider" xsi:type="object">Qliro\QliroOne\Model\Logger\SecretProvider\Proxy</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\Logger\SecretProvider">
+        <arguments>
+            <argument name="config" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
+            <argument name="storeManager" xsi:type="object">Magento\Store\Model\StoreManagerInterface\Proxy</argument>
+        </arguments>
+    </type>
+
     <type name="Qliro\QliroOne\Model\Logger\Manager">
         <arguments>
             <argument name="psrLogger" xsi:type="object">QliroLogger</argument>
@@ -100,6 +114,8 @@
 
             <argument name="processors" xsi:type="array">
                 <item name="psr_processor" xsi:type="object">Monolog\Processor\PsrLogMessageProcessor</item>
+                <!-- Last, so it also masks what the interpolation above pulled into the message -->
+                <item name="qliroone_redact_processor" xsi:type="object">Qliro\QliroOne\Model\Logger\Processor\Redact</item>
             </argument>
         </arguments>
     </virtualType>
