@@ -91,10 +91,10 @@ readonly class OrderShippingMethodSyncer
             $order->setShippingTaxAmount(    round($taxAmount, 4));
             $order->setBaseShippingTaxAmount(round($taxAmount, 4));
 
-            // Recalculate grand total with updated shipping
             $grandTotal = (float) $order->getSubtotalInclTax()
                 + $confirmedPriceInc
-                + (float) $order->getDiscountAmount(); // discount is stored as negative
+                + (float) $order->getDiscountAmount() // discount is stored as negative
+                + $this->sumQlirooneFee($order);
 
             $order->setGrandTotal(    round($grandTotal, 4));
             $order->setBaseGrandTotal(round($grandTotal, 4));
@@ -109,5 +109,24 @@ readonly class OrderShippingMethodSyncer
             $order->setTaxAmount(    round($itemsTax + $taxAmount, 4));
             $order->setBaseTaxAmount(round($itemsTax + $taxAmount, 4));
         }
+    }
+
+    /**
+     * Sum the Qliro payment fee (incl. tax) currently reflected on the order payment.
+     *
+     * @param Order $order
+     * @return float
+     */
+    private function sumQlirooneFee(Order $order): float
+    {
+        $fees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
+        $total = 0.0;
+        if (is_array($fees)) {
+            foreach ($fees as $fee) {
+                $total += (float) ($fee['PricePerItemIncVat'] ?? 0);
+            }
+        }
+
+        return $total;
     }
 }

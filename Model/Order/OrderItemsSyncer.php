@@ -45,6 +45,7 @@ readonly class OrderItemsSyncer
     public function sync(Order $order, array $qliroOrder): void
     {
         $changed = false;
+        $matched = [];
 
         foreach ($qliroOrder['OrderItems'] ?? [] as $qliroItem) {
             if (($qliroItem['Type'] ?? null) !== 'Product') {
@@ -56,28 +57,19 @@ readonly class OrderItemsSyncer
                 continue;
             }
 
-            // Metadata['quoteItems'] = ['quoteItemId:sku' => 'quoteItemId:sku', ...]
-            $quoteItemRef = null;
-            foreach ($qliroItem['Metadata']['quoteItems'] ?? [] as $ref) {
-                $quoteItemRef = $ref;
-                break;
-            }
-
-            if ($quoteItemRef === null) {
+            $merchantRef = (string) ($qliroItem['MerchantReference'] ?? '');
+            if ($merchantRef === '') {
                 continue;
             }
+            $sku = str_contains($merchantRef, ':')
+                ? substr($merchantRef, strpos($merchantRef, ':') + 1)
+                : $merchantRef;
 
-            // Extract quoteItemId from "quoteItemId:sku"
-            $quoteItemId = str_contains($quoteItemRef, ':') ? (int) explode(':', $quoteItemRef)[0] : null;
-
-            if (!$quoteItemId) {
-                continue;
-            }
-
-            $orderItem = $order->getItemByQuoteItemId($quoteItemId);
+            $orderItem = $this->findOrderItemBySku($order, $sku, $matched);
             if (!$orderItem) {
                 continue;
             }
+            $matched[(int) $orderItem->getId()] = true;
 
             $originalQty = (float) $orderItem->getQtyOrdered();
             if (abs($originalQty - $qliroQty) < 0.0001) {
@@ -101,11 +93,11 @@ readonly class OrderItemsSyncer
 
             $this->logManager->debug('OrderItemsSyncer: adjusted qty', [
                 'extra' => [
-                    'order_id'      => $order->getId(),
-                    'quote_item_id' => $quoteItemId,
-                    'sku'           => $orderItem->getSku(),
-                    'qty_before'    => $originalQty,
-                    'qty_after'     => $qliroQty,
+                    'order_id'       => $order->getId(),
+                    'order_item_id'  => $orderItem->getId(),
+                    'sku'            => $orderItem->getSku(),
+                    'qty_before'     => $originalQty,
+                    'qty_after'      => $qliroQty,
                 ],
             ]);
         }
@@ -147,9 +139,65 @@ readonly class OrderItemsSyncer
         $order->setDiscountAmount(     -round($discountAmount, 4));
         $order->setBaseDiscountAmount( -round($baseDiscountAmount, 4));
 
-        $grandTotal = $subtotalInclTax + (float) $order->getShippingInclTax() - $discountAmount;
+        $feeInclTax = $this->sumQlirooneFee($order);
+
+        $grandTotal = $subtotalInclTax + (float) $order->getShippingInclTax() - $discountAmount + $feeInclTax;
 
         $order->setGrandTotal(    round($grandTotal, 4));
         $order->setBaseGrandTotal(round($grandTotal, 4));
+    }
+
+    /**
+     * Find a not-yet-matched order item by SKU. Prefers top-level items (skips
+     * configurable/bundle children); falls back to a child line's top-level parent.
+     *
+     * @param Order  $order
+     * @param string $sku
+     * @param array  $matched  order_item_id => true for items already claimed this run
+     * @return \Magento\Sales\Model\Order\Item|null
+     */
+    private function findOrderItemBySku(Order $order, string $sku, array $matched): ?\Magento\Sales\Model\Order\Item
+    {
+        foreach ($order->getAllItems() as $item) {
+            if ($item->getParentItemId() || isset($matched[(int) $item->getId()])) {
+                continue;
+            }
+            if ((string) $item->getSku() === $sku) {
+                return $item;
+            }
+        }
+
+        foreach ($order->getAllItems() as $item) {
+            if ((string) $item->getSku() !== $sku) {
+                continue;
+            }
+            $target = $item->getParentItem() ?: $item;
+            if (isset($matched[(int) $target->getId()])) {
+                continue;
+            }
+            return $target;
+        }
+
+        return null;
+    }
+
+    /**
+     * Sum the Qliro payment fee (incl. tax) currently reflected on the order payment.
+     * Mirrors AddFeeToOrder / the invoice + credit-memo fee total collectors.
+     *
+     * @param Order $order
+     * @return float
+     */
+    private function sumQlirooneFee(Order $order): float
+    {
+        $fees = $order->getPayment()->getAdditionalInformation('qliroone_fees');
+        $total = 0.0;
+        if (is_array($fees)) {
+            foreach ($fees as $fee) {
+                $total += (float) ($fee['PricePerItemIncVat'] ?? 0);
+            }
+        }
+
+        return $total;
     }
 }
