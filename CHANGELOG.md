@@ -22,6 +22,15 @@
 - What a log line is found again by stays readable on a masked line: the endpoint, the uri, the request method, the status code, the order ids, the merchant reference and the amounts. The digit scanning the tag turns on would otherwise have taken a ten digit order id out of the endpoint and left nothing to correlate the line with (PLIN-365)
 - The README says what the module logs, what is masked and how long rows are kept (PLIN-365)
 
+## [1.7.36] - 2026-09-10
+
+### Added
+
+- `qliroone_log` is pruned. Every API call and callback writes a row there, payloads included, whatever Debug Mode says, and nothing ever deleted one. A nightly cron job, `qliroone_prune_log`, and `bin/magento qliroone:log:prune` both delete the rows behind the retention window (PLIN-364)
+- The window is a merchant setting, Debugging > Log Retention (days). The module ships with 0, keep everything, and a data patch opts an installation with an empty log table into 30 days. Deleting payloads cannot be undone and the code is deployed before `setup:upgrade` runs, so the safe state is the shipped one (PLIN-364)
+- The setting lives on the default scope only, and is refused on any other: a log row carries no store id, so one window covers the table. The ticket asked for it per store, which such a table cannot honour (PLIN-364)
+- Deletion runs in batches of 5000 rows on the indexed `date` column, at most 200 batches per run, ordered by `date, id` so a replica deletes the same rows. A run that stopped at the cap says so, in the log and in the console (PLIN-364)
+
 ## [1.7.35] - 2026-09-10
 
 ### Fixed

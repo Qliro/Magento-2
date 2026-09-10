@@ -51,6 +51,10 @@ class Config
     const QLIROONE_TERMS_URL = 'merchant/terms_url';
     const QLIROONE_INTEGRITY_POLICY_URL = 'merchant/integrity_policy_url';
 
+    const XML_PATH_LOG_RETENTION_DAYS = 'payment/qliroone/debugging/log_retention_days';
+    const FRESH_INSTALL_LOG_RETENTION_DAYS = 30;
+    const MAX_LOG_RETENTION_DAYS = 36500;
+
     const QLIROONE_XDEBUG_SESSION_FLAG_NAME = 'callback/xdebug_session_flag_name';
     const QLIROONE_REDIRECT_CALLBACKS = 'callback/redirect_callbacks';
     const QLIROONE_CALLBACK_URI = 'callback/callback_uri';
@@ -466,6 +470,41 @@ class Config
     public function getCallbackHttpAuthPassword()
     {
         return (string)$this->adapter->getConfigData(self::QLIROONE_HTTP_AUTH_PASSWORD);
+    }
+
+    /**
+     * How many days of qliroone_log rows are kept, 0 keeps every row
+     *
+     * Read on the default scope, the only one the field lives on. A value that is no window at all
+     * keeps every row: deleting a merchant's payloads cannot be undone, growth can.
+     *
+     * @return int
+     */
+    public function getLogRetentionDays(): int
+    {
+        $days = $this->parseLogRetentionDays($this->config->getValue(
+            self::XML_PATH_LOG_RETENTION_DAYS,
+            ScopeConfigInterface::SCOPE_TYPE_DEFAULT
+        ));
+
+        return $days ?? 0;
+    }
+
+    /**
+     * The one reading of the retention field, for the config, the admin form and the console alike
+     *
+     * @param mixed $value
+     * @return int|null Days, 0 keeps every row, null when the value is no window at all
+     */
+    public function parseLogRetentionDays($value): ?int
+    {
+        $days = trim((string)$value);
+
+        if (!ctype_digit($days) || (int)$days > self::MAX_LOG_RETENTION_DAYS) {
+            return null;
+        }
+
+        return (int)$days;
     }
 
     /**

@@ -112,11 +112,32 @@ The masking runs on the log channel, so it applies to the table and to the files
 that arrives as an object or as text, and to anything logged from a plugin of your own that uses the
 module's log manager.
 
-**How long rows are kept** is a separate matter from what they hold. It is answered by the log
-retention change, PLIN-364, which adds **Debugging > Log Retention (days)** and a nightly
-`qliroone_prune_log` job to delete the rows behind that window. On a release that does not have that
-setting yet, and on a store that has never set a window, rows are kept until they are deleted by
-hand.
+**How long rows are kept** is a separate matter from what they hold, and it is the next section.
+
+## Log retention
+
+The module logs every API call and callback, payloads included, to the `qliroone_log` table, whatever
+Debug Mode says. The nightly cron job `qliroone_prune_log` deletes the rows older than **Stores >
+Configuration > Sales > Payment Methods > QliroOne Checkout > Debugging > Log Retention (days)**, 30 days
+on a fresh install. Set it to 0 to keep every row.
+
+**Upgrading from a version before 1.7.30:** an installation whose log table already holds rows keeps every
+row, so nothing is deleted until you choose a window. Set the retention to 30, or to whatever the store
+needs, to start pruning.
+
+The setting lives on the default scope only. A log row carries no store id, so one window covers the
+whole table, and a window saved on a website or a store view is refused rather than silently ignored.
+
+The same pruning runs on demand:
+
+```
+bin/magento qliroone:log:prune            # the configured retention
+bin/magento qliroone:log:prune --days=7   # this run only, the setting is untouched
+```
+
+Rows are deleted in batches of 5000, and a single run stops after 200 of them, so the job is safe to run
+while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
+and a run that stopped at that cap says so rather than looking like a finished one.
 
 ---
 
