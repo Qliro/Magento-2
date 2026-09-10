@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.34] - 2026-09-10
+
+### Fixed
+
+- The `shippingMethods` callback rates and prices the quote in the store view the quote belongs to. Qliro calls it back server to server, so the request carries no session, and whether it also loses the store view depends on `web/url/use_store`: the callback URL carries a store code only when that is on, and Magento ships it off, so by default the callback resolves to the default store view. A quote from any other store view was therefore built there: the delivery price was converted into the default store's currency while the Qliro order was created in the quote's currency, so the number Qliro charged was a Swedish figure spent as Danish kroner, the method names came out in the default store's language, and any carrier reading the current store rather than the rate request rated for the wrong store as well. `Model/Management/ShippingMethod.php` now emulates the quote's store around the whole build. Magento allows a single level of emulation and refuses a nested one silently, so the emulation is stopped only when the start actually moved the current store, otherwise a callback running inside someone else's emulation would end it early (PLIN-376)
+- The shipping rate is converted into the quote's own currency rather than the current store's. `CreateRequestBuilder` states the quote's `getQuoteCurrencyCode()` as the order's currency and the order lines are priced in it, so the delivery line has to agree. A quote that never collected totals carries no currency code, and `Magento\Directory\Model\Currency::convert()` throws on an empty one rather than declining, so the quote's store default stands in for it (PLIN-376)
+
+### Changed
+
+- A decline that carries a rateable address now says what decided the rating. `logDecline()` in `Model/QliroOrder/Builder/ShippingMethodsBuilder.php` reported the postcode, the country and the number of rates it found, which reads the same whether the postcode really has no delivery or a carrier answered nothing for a reason of its own. It now also carries the store view the quote was rated in, whether the street and the city reached the quote at all, and, only for the notice a rateable address produces, the display and base currency of that store view, the quote's currency and the carriers Magento had to ask. The store view is the important one: without it the only way to tell which store view a request ran in is the language the product names came back in (PLIN-376)
+- The currency pair is there because a third party carrier that reads the display currency while Magento denominates the amount it rates on in the base currency returns nothing wherever the two differ, which is a store view level failure that looked exactly like an unsupported postcode. Whether the street and the city arrived is there because a carrier can require them and rate on nothing without them, and Qliro reports `{"isMasked": true}` in place of the address until the customer has identified. The values themselves stay out of the log, only whether they are set (PLIN-376)
+- The carrier lookup is paid for only on the notice, not on the debug line an address that cannot be rated yet produces, since that one is the normal state of every checkout before identification. The whole scope lookup is wrapped so a failure in it reports itself in the context and leaves the decline alone: a logging line must never be what turns a decline into a critical (PLIN-376)
+
 ## [1.7.32] - 2026-09-10
 
 ### Fixed
