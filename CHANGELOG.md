@@ -1,6 +1,24 @@
 
 # Change Log
 
+## [1.7.35] - 2026-09-10
+
+### Fixed
+
+- The two unused checkout builders, `FeeBuilder` and `ShippingOrderItemBuilder`, stated no VAT rate at all, and `FeeBuilder` had the two amounts the wrong way round, the inc VAT amount on the ex VAT field and the ex VAT amount on the inc VAT field. Nothing in the module wires either builder up, they are kept because a public class may be wired up by a store on its own. Both now state the rate the line is taxed with, asked from Magento's tax calculation for the fee tax class and the shipping tax class, because the fee model and the tax helper hand over amounts they have already rounded and a rate read off those would state one no jurisdiction charges, 5.99 over 4.79 reads back as 25.05 (PLIN-362)
+- `Fee::getQlirooneFeeExclTax()` returned the inc VAT amount unchanged when the fee is configured without tax. It runs the inc VAT amount through the tax calculation a second time to take the VAT off, and told that pass the amount excludes tax, so the calculation had nothing to take off. The second pass is now told the amount includes tax whatever the setting says, which it does by then. `FeeBuilder` is the only caller (PLIN-362)
+
+### Changed
+
+- The order line rounds itself. `Item::setPricePerItemIncVat()`, `setPricePerItemExVat()` and `setVatRate()` round to the two decimals the Qliro API accepts, so a value with more decimals cannot leave the module whichever builder produced the line, and a new builder cannot repeat the outage from GitHub issue #122 by forgetting to. The builders that already round keep doing so, the line is the last line of defence, not the first (PLIN-362)
+- `Model/QliroOrder/LineVatRate.php` is the one owner of the precision, the rate derivation and now the reverse derivation too: `exVatFromIncVat()` gives the ex VAT amount a refund line has to carry for its inc VAT amount and rate, with the inc VAT amount rounded first so the ex VAT amount matches the one that is sent. `DefaultHandler` and `AddItemsToInvoiceBuilder` use the class instead of their own arithmetic, which was the same expression written out twice more, and `DiscountAmountResolver`, `InvoiceFeeHandler` and `AddItemsToInvoiceBuilder` take the precision from it rather than carrying their own `2` (PLIN-362)
+- `DefaultHandler` still prefers the tax percent Magento calculated on the quote item and still falls back to the store calculation as a last resort. In between, the rate it reads off the two prices is read before they are rounded, the way `ShippingFeeHandler` has read it since 1.7.27, so the same prices give the same rate on the reservation and on the capture (PLIN-362)
+- A product line for a tax exempt customer states 0, not the store rate. `DefaultHandler` took a tax percent of 0 on the quote item, which is what Magento writes for a customer group or destination without VAT, as no tax percent at all, then took the 0 the equal prices imply as no rate either, and asked the store calculation, which answered with the product's own class rate. The line went out as 100.00 / 100.00 / 25, a rate on amounts that hold no VAT. An explicit 0 is now a statement and equal prices state 0 too; only a line with no price at all still asks the store (PLIN-362)
+
+### Added
+
+- Unit tests for the `Item` guard, the `LineVatRate` reverse derivation, `DefaultHandler` and the two builders above. The new `LineVatRate` argument of `DefaultHandler` is optional, so a store's own product type handler calling the parent constructor with the old signature keeps working, and so is the tax calculation `ShippingOrderItemBuilder` now takes (PLIN-362)
+
 ## [1.7.34] - 2026-09-10
 
 ### Fixed

@@ -15,6 +15,7 @@ use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Product\VatRate;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
  * Default product type handler class
@@ -22,19 +23,28 @@ use Qliro\QliroOne\Model\Product\VatRate;
 class DefaultHandler implements TypeHandlerInterface
 {
     /**
+     * @var LineVatRate
+     */
+    private readonly LineVatRate $lineVatRate;
+
+    /**
      * Class constructor
      *
      * @param QliroOrderItemFactory            $qliroOrderItemFactory
      * @param Data                             $qliroHelper
      * @param Config                           $config
      * @param VatRate                          $vatRate
+     * @param LineVatRate|null                 $lineVatRate
      */
     public function __construct(
         private readonly QliroOrderItemFactory $qliroOrderItemFactory,
         private readonly Data                  $qliroHelper,
         private readonly Config                $config,
-        private readonly VatRate               $vatRate
+        private readonly VatRate               $vatRate,
+        ?LineVatRate                           $lineVatRate = null
     ) {
+        // Optional so a store's handler calling parent::__construct() with the old signature keeps working
+        $this->lineVatRate = $lineVatRate ?? new LineVatRate();
     }
 
     /**
@@ -64,8 +74,10 @@ class DefaultHandler implements TypeHandlerInterface
      * Prefer the tax percent Magento already calculated on the quote item (taken from the
      * configurable parent when present, like the discount below). That value uses the real
      * customer address, unlike the store-default tax lookup which can resolve to 0 depending
-     * on tax configuration. Fall back to deriving the rate from the prices being sent (keeps
-     * IncVat/ExVat/VatRate consistent), then to the store calculation as a last resort.
+     * on tax configuration. An explicit 0 there is a statement, a tax exempt customer, and is
+     * sent as it stands. Without a tax percent the two prices decide, see `LineVatRate`, equal
+     * prices included: they hold no VAT. Only a line with no price at all says nothing about
+     * itself, and there the store calculation is the last resort.
      *
      * @param TypeSourceItemInterface $item
      * @param float $incVat
@@ -75,13 +87,14 @@ class DefaultHandler implements TypeHandlerInterface
     private function resolveVatRate(TypeSourceItemInterface $item, float $incVat, float $exVat): float
     {
         $sourceItem = $item->getParent() ? $item->getParent()->getItem() : $item->getItem();
+        $taxPercent = $sourceItem ? $sourceItem->getTaxPercent() : null;
 
-        if ($sourceItem && (float)$sourceItem->getTaxPercent() > 0) {
-            return (float)$sourceItem->getTaxPercent();
+        if ($taxPercent !== null && $taxPercent !== '') {
+            return (float)$taxPercent;
         }
 
-        if ($exVat > 0 && $incVat > $exVat) {
-            return round(($incVat / $exVat - 1) * 100, 2);
+        if (abs($exVat) > LineVatRate::EPSILON) {
+            return $this->lineVatRate->fromPrices($incVat, $exVat);
         }
 
         return $this->vatRate->getVatRateForProduct($item);

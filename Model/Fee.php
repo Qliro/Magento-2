@@ -191,9 +191,27 @@ class Fee
     public function getQlirooneFeeExclTax(\Magento\Quote\Model\Quote $quote)
     {
         $price = $this->getQlirooneFeeInclTax($quote);
-        $price = $this->getCalcTaxPrice($quote, $price, 0);
+        // The amount is inc VAT by now whatever the fee setting says, or the second pass returns it as it is
+        $price = $this->getCalcTaxPrice($quote, $price, 0, true);
 
         return $price;
+    }
+
+    /**
+     * The VAT rate the fee is taxed with, for the customer and store of the quote
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @return float
+     */
+    public function getQlirooneFeeVatRate(\Magento\Quote\Model\Quote $quote): float
+    {
+        $storeId = $quote->getStoreId();
+
+        return (float)$this->taxCalculation->getCalculatedRate(
+            $this->config->getFeeTaxClass($storeId),
+            $quote->getCustomerId(),
+            $storeId
+        );
     }
 
     /**
