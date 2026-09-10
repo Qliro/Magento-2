@@ -77,7 +77,8 @@ class FeeBuilder
     /**
      * Create a QliroOne order fee container
      *
-     * Is this class used?
+     * Nothing in the module references this builder, it is kept because removing a public class
+     * breaks anyone who wired it up themselves.
      *
      * @return \Qliro\QliroOne\Api\Data\QliroOrderItemInterface
      */
@@ -90,13 +91,15 @@ class FeeBuilder
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $container */
         $container = $this->qliroOrderItemFactory->create();
 
-        $priceExVat = $this->fee->getQlirooneFeeInclTax($this->quote);
-        $priceIncVat = $this->fee->getQlirooneFeeExclTax($this->quote);
+        $priceIncVat = $this->fee->getQlirooneFeeInclTax($this->quote);
+        $priceExVat = $this->fee->getQlirooneFeeExclTax($this->quote);
 
         $container->setMerchantReference($this->qliroConfig->getFeeMerchantReference());
         $container->setDescription($this->qliroConfig->getFeeMerchantReference());
         $container->setPricePerItemIncVat($priceIncVat);
         $container->setPricePerItemExVat($priceExVat);
+        // The fee model rounds both amounts, so the rate is asked for rather than read off them
+        $container->setVatRate($this->fee->getQlirooneFeeVatRate($this->quote));
         $container->setQuantity(1);
         $container->setType(QliroOrderItemInterface::TYPE_FEE);
 

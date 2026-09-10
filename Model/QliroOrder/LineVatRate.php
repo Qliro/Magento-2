@@ -19,8 +19,10 @@ class LineVatRate
 
     /**
      * Amounts sent to Qliro carry two decimals, and so must the rate that describes them
+     *
+     * `Item` rounds every amount and rate to this on the way in, so no builder can send more.
      */
-    private const PRECISION = 2;
+    public const PRECISION = 2;
 
     /**
      * Derive the rate from the amounts the line carries, before they are rounded for sending
@@ -47,5 +49,19 @@ class LineVatRate
         }
 
         return round(($incVat / $exVat - 1) * 100, self::PRECISION);
+    }
+
+    /**
+     * Derive the ex VAT amount from the inc VAT amount and the rate the line states
+     *
+     * The inc VAT amount is rounded first, the ex VAT amount has to match the one that is sent.
+     *
+     * @param float $incVat
+     * @param float $vatRate
+     * @return float
+     */
+    public function exVatFromIncVat(float $incVat, float $vatRate): float
+    {
+        return round(round($incVat, self::PRECISION) / (1 + $vatRate / 100), self::PRECISION);
     }
 }

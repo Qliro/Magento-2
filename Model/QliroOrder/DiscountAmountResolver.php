@@ -29,11 +29,6 @@ class DiscountAmountResolver
     public const EPSILON = LineVatRate::EPSILON;
 
     /**
-     * Amounts sent to Qliro carry two decimals, and so must the rate that describes them
-     */
-    private const PRECISION = 2;
-
-    /**
      * One öre of slack on the VAT ceiling, every total it is derived from is rounded on its own
      */
     private const TOLERANCE = 0.01;
@@ -192,6 +187,6 @@ class DiscountAmountResolver
      */
     private function round(float $value): float
     {
-        return round($value, self::PRECISION);
+        return round($value, LineVatRate::PRECISION);
     }
 }
