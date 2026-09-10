@@ -52,6 +52,10 @@ class Config
     const QLIROONE_INTEGRITY_POLICY_URL = 'merchant/integrity_policy_url';
 
     const QLIROONE_XDEBUG_SESSION_FLAG_NAME = 'callback/xdebug_session_flag_name';
+    const QLIROONE_CALLBACK_TOKEN_LIFETIME_DAYS = 'callback/token_lifetime_days';
+    const DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS = 365;
+    const MAX_CALLBACK_TOKEN_LIFETIME_DAYS = 1095;
+
     const QLIROONE_REDIRECT_CALLBACKS = 'callback/redirect_callbacks';
     const QLIROONE_CALLBACK_URI = 'callback/callback_uri';
     const QLIROONE_ENABLE_HTTP_AUTH = 'callback/enable_http_auth';
@@ -466,6 +470,25 @@ class Config
     public function getCallbackHttpAuthPassword()
     {
         return (string)$this->adapter->getConfigData(self::QLIROONE_HTTP_AUTH_PASSWORD);
+    }
+
+    /**
+     * How many days a newly minted callback token is valid for
+     *
+     * A token already registered with Qliro keeps the lifetime it was minted with, so changing
+     * this cannot break a callback that is already out there.
+     *
+     * @return int
+     */
+    public function getCallbackTokenLifetimeDays(): int
+    {
+        $days = trim((string)$this->adapter->getConfigData(self::QLIROONE_CALLBACK_TOKEN_LIFETIME_DAYS));
+
+        if (!ctype_digit($days) || (int)$days < 1) {
+            return self::DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS;
+        }
+
+        return min((int)$days, self::MAX_CALLBACK_TOKEN_LIFETIME_DAYS);
     }
 
     /**

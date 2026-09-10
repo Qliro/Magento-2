@@ -68,6 +68,38 @@ tab or never returns from a bank app produces a paid order and no browser event 
 numbers have to be right, send the purchase server side, GA4 Measurement Protocol from an observer
 on `sales_order_place_after`, and offline conversion import or server side GTM for Google Ads.
 
+## Callback security
+
+Qliro pushes order and transaction updates to callback urls this module registers on the order when
+it is created. Each url carries a token this module signed with the store's API secret, and every
+callback controller refuses a request whose token does not verify.
+
+The token expires. **Stores > Configuration > Sales > Payment Methods > QliroOne Checkout >
+Notification Callbacks > Callback Token Lifetime (days)** decides how long a newly minted one lasts,
+365 by default and 1095 at most.
+
+**Set it before you go live, to outlast your order lifecycle.** The url Qliro pushes to is the one
+registered when the order was created, so it has to still be valid when the last capture or refund of
+that order settles. A store that captures on shipment and takes returns for a year needs more than a
+year: a refund pushed to a url whose token has run out is refused, and that transaction never syncs
+back to the order. The default suits a store whose orders are done within a year; a store with a
+longer return or warranty window should raise it, up to the 1095 days the field allows. If a callback
+is ever refused for this reason the module logs a warning naming the configured lifetime, so the
+symptom points at the setting.
+
+Changing the setting is safe at any time: the expiry is written into each token, so a callback url
+already registered with Qliro keeps the lifetime it was given, and a shorter window applies only to
+orders created after the change. Tokens issued before this feature existed carry the old three year
+expiry and keep working until it passes.
+
+**On upgrade** nothing changes for the orders you have already placed: their callback urls carry the
+expiry they were minted with, three years for anything from before this release, and the check reads
+it from the token rather than from the setting. Orders placed after the upgrade get the new default,
+so this is the moment to decide whether a year covers your returns.
+
+The token the checkout page uses for its own ajax calls is a different one: it lasts two hours, is
+bound to the quote, and is not affected by this setting.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

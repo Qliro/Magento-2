@@ -1,6 +1,26 @@
 
 # Change Log
 
+## [1.7.33] - 2026-09-10
+
+### Fixed
+
+- A callback endpoint answers a malformed token with a refusal rather than a server error. The token is a query parameter of an endpoint open to the internet, so `?token[]=x` reached `explode()` as an array and returned a 500, and an absent one raised a deprecation. Anything that is not a non-empty string is refused before it is read, and a throwable from decoding is a refusal too (PLIN-366)
+- A store that is active with no API credentials configured no longer accepts every token. The signature was computed with an empty key, which anyone can compute, and the merchant claim was compared against an empty configured key, which an empty claim matches, so every callback token was forgeable while the store was mid setup. There is nothing to verify against, so nothing verifies (PLIN-366)
+- The callback token's signature is compared with `hash_equals()`. `Model/Security/Jwt.php` compared it with `!=`, which returns on the first byte that differs and so reports, in the time it takes, how much of a forged signature was right. The same operator compares two numeric looking strings as numbers, so a signature of `0` and one of `0e12` were equal to it, and an HMAC is raw bytes that can take either shape. The algorithm named in the token header must also be one this module signs with, and a header naming `none` or `RS256`, or naming nothing at all, is refused before any signature is computed. The verifier is told which algorithm to expect rather than reading it out of the token, so a header cannot talk the check into one of the other supported algorithms either (PLIN-366)
+- A failed token check no longer writes the merchant API key, the presented merchant id or the token itself into the log. The mismatch line logged the configured key next to the presented one, and the expiry line logged the whole decoded payload plus the token, on an endpoint anyone on the internet can post to. Both lines now carry a fingerprint of each value, which still tells an operator whether the two differ (PLIN-366)
+
+### Changed
+
+- The callback token expires on a schedule a merchant can defend. It was minted with a three year lifetime, which is not an expiry so much as the absence of one: a url leaked from a create request stayed replayable for the life of the integration. The lifetime is now **Payment Methods > QliroOne Checkout > Notification Callbacks > Callback Token Lifetime (days)**, 365 by default and 1095 at most (PLIN-366)
+- Changing that setting cannot break a callback already registered with Qliro. Each token carries the expiry it was minted with and the check reads it from there, never from the configuration, so the setting only decides the life of tokens minted after it changes. A token minted with the old three year expiry keeps working until it runs out, which is also why the upgrade needs no data patch to protect existing orders: they are already protected by the tokens they carry, and the new default applies to every store's future orders alike. The window has to outlast the time between placing an order and its last capture or refund, because those push to the url the order was created with, which is why the default is a year rather than a day and why a refused expired token is logged as a warning naming the configured lifetime. A store whose returns or warranties run longer than a year should raise it before going live, and the README says so: a refund pushed to a url whose token has run out is refused and never syncs back (PLIN-366)
+- `Jwt::decode()` verifies against `HS256` unless a caller names another algorithm, where before it took the algorithm out of the token being checked. Everything this module has ever minted is `HS256`, so no token in the wild is affected, but the class is public: a store or an extension calling `decode()` on an `HS384` or `HS512` token of its own has to pass that algorithm as the new fourth argument. Passing `null` there keeps the old behaviour of trusting the token's own header, which is what this release exists to stop relying on (PLIN-366)
+- The checkout token keeps its own two hour life and its own words. It runs through the same class, so without that the routine case of a customer leaving a tab open would have logged a warning about a refused callback, naming a setting that has nothing to do with it (PLIN-366)
+
+### Added
+
+- Unit tests for the token: a token the module signed, a payload rewritten under a valid signature, a signature tampered in each of the shapes a loose comparison would have accepted, `none` and the other unsupported algorithms, a token signed with another secret, a malformed one, an expired one, one issued for another merchant, that a failed check writes neither key nor token, that the lifetime is the configured one, and that a token minted with the old three year expiry is still accepted (PLIN-366)
+
 ## [1.7.27] - 2026-09-08
 
 ### Fixed
