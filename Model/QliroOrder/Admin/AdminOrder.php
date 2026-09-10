@@ -79,6 +79,11 @@ class AdminOrder implements AdminOrderInterface
     private $paymentTransactions;
 
     /**
+     * @var \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface
+     */
+    private $paymentMethod;
+
+    /**
      * Getter.
      *
      * @return int
@@ -347,6 +352,27 @@ class AdminOrder implements AdminOrderInterface
     public function setPaymentTransactions($paymentTransactions)
     {
         $this->paymentTransactions = $paymentTransactions;
+
+        return $this;
+    }
+
+    /**
+     * Getter.
+     *
+     * @return \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface
+     */
+    public function getPaymentMethod()
+    {
+        return $this->paymentMethod;
+    }
+
+    /**
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface $paymentMethod
+     * @return AdminOrder
+     */
+    public function setPaymentMethod($paymentMethod)
+    {
+        $this->paymentMethod = $paymentMethod;
 
         return $this;
     }
