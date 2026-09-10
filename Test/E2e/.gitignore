@@ -1,0 +1,5 @@
+node_modules/
+test-results/
+playwright-report/
+.seeded.json
+package-lock.json

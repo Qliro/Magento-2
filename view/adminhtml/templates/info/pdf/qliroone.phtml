@@ -6,6 +6,23 @@
 /**
  * @var $block \Qliro\QliroOne\Block\Info\QliroOne
  */
+
+/**
+ * Printed on the invoice, the credit memo and the shipment. Magento splits this on the row
+ * separator and draws each part as a line, so it has to be plain text rather than the table the
+ * order view uses. It printed a hardcoded "Identification Number: 123" and nothing else.
+ */
 ?>
-<?php echo $block->escapeHtml(__('Identification Number: %1', 123)) ?>
+<?= $block->escapeHtml($block->getMethod()->getTitle()) ?>
     {{pdf_row_separator}}
+<?php if ($block->getQliroMethodName() !== ''): ?>
+<?= $block->escapeHtml(__('Payment Method: %1', $block->getQliroMethodName())) ?>
+    {{pdf_row_separator}}
+<?php endif; ?>
+<?php if ($block->getQliroOrderId()): ?>
+<?= $block->escapeHtml(__('Qliro Order Id: %1', $block->getQliroOrderId())) ?>
+    {{pdf_row_separator}}
+<?php endif; ?>
+<?php if ($block->getQliroReference()): ?>
+<?= $block->escapeHtml(__('Qliro Reference: %1', $block->getQliroReference())) ?>
+<?php endif; ?>
