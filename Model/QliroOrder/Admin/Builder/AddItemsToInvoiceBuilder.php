@@ -17,6 +17,7 @@ use Qliro\QliroOne\Api\Data\AdminAdditionsInterface;
 use Qliro\QliroOne\Api\Data\AdminAdditionsInterfaceFactory;
 use \Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
+use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 class AddItemsToInvoiceBuilder
 {
@@ -48,7 +49,8 @@ class AddItemsToInvoiceBuilder
         private readonly Manager $logManager,
         private readonly Config $qliroConfig,
         private readonly AdminAdditionsInterfaceFactory $adminAdditionsFactory,
-        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory
+        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
+        private readonly LineVatRate $lineVatRate
     )
     {
 
@@ -210,9 +212,9 @@ class AddItemsToInvoiceBuilder
         $creditMemo = $this->payment->getCreditmemo();
 
         $amount = $amount ?? (float)$creditMemo->getGrandTotal();
-        $priceIncVat = round(-abs($amount), 2);
+        $priceIncVat = -abs($amount);
         $vatRate = $vatRate ?? $this->getCreditMemoVatRate($creditMemo);
-        $priceExVat = round($priceIncVat / (1 + ($vatRate / 100)), 2);
+        $priceExVat = $this->lineVatRate->exVatFromIncVat($priceIncVat, $vatRate);
 
         /** @var QliroOrderItemInterface $orderItems */
         $orderItems = $this->qliroOrderItemFactory->create();
@@ -223,7 +225,7 @@ class AddItemsToInvoiceBuilder
             ->setQuantity(1)
             ->setPricePerItemIncVat($priceIncVat)
             ->setPricePerItemExVat($priceExVat)
-            ->setVatRate(round($vatRate, 2))
+            ->setVatRate($vatRate)
             ->setDescription('Refund')
             ->setMetadata(['qliro' => 'checkout']);
 
@@ -266,7 +268,7 @@ class AddItemsToInvoiceBuilder
             $taxPercent = $creditMemoItem->getOrderItem()->getTaxPercent();
 
             if ($taxPercent !== null) {
-                $rates[] = round((float)$taxPercent, 2);
+                $rates[] = round((float)$taxPercent, LineVatRate::PRECISION);
             }
         }
 

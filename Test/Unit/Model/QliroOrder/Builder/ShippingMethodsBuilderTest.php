@@ -11,6 +11,7 @@ use Magento\Framework\DataObject;
 use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address;
+use Magento\Shipping\Model\Config as ShippingConfig;
 use Magento\Store\Model\Information;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
@@ -74,7 +75,8 @@ class ShippingMethodsBuilderTest extends TestCase
             $this->createMock(StoreManagerInterface::class),
             $this->qliroConfig,
             $this->createMock(LogManager::class),
-            $this->information
+            $this->information,
+            $this->createMock(ShippingConfig::class)
         );
     }
 
