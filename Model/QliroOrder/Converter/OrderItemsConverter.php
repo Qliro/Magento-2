@@ -79,6 +79,7 @@ class OrderItemsConverter
         }
 
         $shippingMerchantRef = '';
+        $qliroFees = [];
         foreach ($qliroOrderItems as $index => $orderItem) {
             switch ($orderItem->getType()) {
                 case QliroOrderItemInterface::TYPE_PRODUCT:
@@ -94,14 +95,14 @@ class OrderItemsConverter
                     break;
 
                 case QliroOrderItemInterface::TYPE_FEE:
-                    $qliroFee = $this->containerMapper->toArray($orderItem);
-                    $quote->getPayment()->setAdditionalInformation(
-                        "qliroone_fees",
-                        [$index => $qliroFee]
-                    );
+                    // Every fee line, not just the last: the assignment used to replace the whole
+                    // array, so a second one was dropped from the totals and from the capture
+                    $qliroFees[$index] = $this->containerMapper->toArray($orderItem);
                     break;
             }
         }
+
+        $quote->getPayment()->setAdditionalInformation('qliroone_fees', $qliroFees);
 
         if (!$quote->isVirtual() && $shippingCode && $shippingMerchantRef) {
             $this->applyShippingMethod($shippingCode, $quote, $shippingMerchantRef);
