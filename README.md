@@ -103,9 +103,10 @@ What stays readable is what a merchant needs in order to investigate: the mercha
 endpoint and the uri with their order ids, the request method, the status code, the order items, the
 amounts, the country and Qliro's own error codes. Those keep their digits even on a masked line, so
 an order id is never mistaken for an identity number. An exception keeps its class, its file, its
-code and its message and trace, with both masked. One thing to know: a reference written as a date
-and a number, `20260909-0001`, is indistinguishable from an identity number inside a free text
-message and is masked there. The `reference` column of the row carries it unmasked.
+code and its message and trace, with both masked. A merchant reference written as a date and a
+counter, `20260909-0001`, has the shape of an identity number, so the reference of the line being
+written is held out of the patterns by value: it stays readable wherever it appears in that line,
+while any other value of that shape is still masked.
 
 The masking runs on the log channel, so it applies to the table and to the files alike, to a payload
 that arrives as an object or as text, and to anything logged from a plugin of your own that uses the

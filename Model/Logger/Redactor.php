@@ -212,6 +212,24 @@ class Redactor
     private const MAX_DEPTH = 12;
 
     /**
+     * Below this a merchant reference is too short to be worth protecting from the patterns
+     */
+    private const MIN_REFERENCE_LENGTH = 6;
+
+    /**
+     * Stands in for the merchant reference while the patterns run, and is put back after
+     */
+    private const REFERENCE_PLACEHOLDER = "\x02qliro-reference\x03";
+
+    /**
+     * The merchant reference of the line being masked, which is not personal data and is the one
+     * thing every line is correlated by
+     *
+     * @var string
+     */
+    private string $reference = '';
+
+    /**
      * @param SecretProvider|null $secretProvider Masks the store's own credentials by value too
      */
     public function __construct(
@@ -229,7 +247,23 @@ class Redactor
     public function redactContext(array $context, ?bool $sensitive = null): array
     {
         $sensitive = $sensitive ?? $this->isSensitive($context['tags'] ?? '');
+        $previousReference = $this->reference;
+        $this->reference = $this->readReference($context['reference'] ?? null) ?: $previousReference;
 
+        try {
+            return $this->walk($context, $sensitive);
+        } finally {
+            $this->reference = $previousReference;
+        }
+    }
+
+    /**
+     * @param array $context
+     * @param bool $sensitive
+     * @return array
+     */
+    private function walk(array $context, bool $sensitive): array
+    {
         foreach ($context as $key => $value) {
             // The reference and the tags are the module's own bookkeeping, not payload
             if ($key === 'tags' || $key === 'reference' || $key === 'process_id' || $key === 'mark') {
@@ -249,9 +283,29 @@ class Redactor
      * @param bool $sensitive
      * @return string
      */
-    public function redactMessage(string $message, bool $sensitive = false): string
+    public function redactMessage(string $message, bool $sensitive = false, $reference = null): string
     {
-        return $this->redactString($message, $sensitive);
+        $previousReference = $this->reference;
+        $this->reference = $this->readReference($reference) ?: $previousReference;
+
+        try {
+            return $this->redactString($message, $sensitive);
+        } finally {
+            $this->reference = $previousReference;
+        }
+    }
+
+    /**
+     * A merchant reference worth protecting from the patterns, or nothing
+     *
+     * @param mixed $reference
+     * @return string
+     */
+    private function readReference($reference): string
+    {
+        $reference = is_scalar($reference) ? trim((string)$reference) : '';
+
+        return strlen($reference) >= self::MIN_REFERENCE_LENGTH ? $reference : '';
     }
 
     /**
@@ -405,14 +459,23 @@ class Redactor
             return $value;
         }
 
+        // A merchant reference is a date and a counter on many stores, `20260909-0001`, which is
+        // the shape of an identity number and nothing else can tell the two apart. The reference
+        // of this very line is known, so it is held out of the patterns and put back after
+        $protected = $this->reference !== '' && str_contains($value, $this->reference);
+
+        if ($protected) {
+            $value = str_replace($this->reference, self::REFERENCE_PLACEHOLDER, $value);
+        }
+
         $value = $this->replace(self::IDENTITY_PATTERN, $value);
         $value = $this->replace(self::BARE_IDENTITY_PATTERN, $value);
 
-        if (!$sensitive) {
-            return $value;
+        if ($sensitive) {
+            $value = $this->replace(self::PHONE_PATTERN, $value);
         }
 
-        return $this->replace(self::PHONE_PATTERN, $value);
+        return $protected ? str_replace(self::REFERENCE_PLACEHOLDER, $this->reference, $value) : $value;
     }
 
     /**

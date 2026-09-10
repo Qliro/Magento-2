@@ -108,6 +108,21 @@ class RedactTest extends TestCase
     }
 
     /**
+     * The message is masked with the line's own reference held out of it, the same as the context,
+     * so an interpolated merchant reference is not mistaken for an identity number.
+     */
+    public function testKeepsTheReferenceInTheMessageToo(): void
+    {
+        $processed = (new Redact(new Redactor()))([
+            'message' => 'placing order 20260909-0001 for 19850101-1234',
+            'context' => ['reference' => '20260909-0001', 'tags' => Redactor::TAG_SENSITIVE],
+        ]);
+
+        self::assertStringContainsString('order 20260909-0001', $processed['message']);
+        self::assertStringNotContainsString('19850101-1234', $processed['message']);
+    }
+
+    /**
      * A line with nothing to hide passes through unchanged, tags and all.
      */
     public function testLeavesALineWithNothingToHide(): void

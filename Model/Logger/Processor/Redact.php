@@ -52,7 +52,11 @@ class Redact
             $sensitive = $this->redactor->isSensitive($record->context['tags'] ?? '');
 
             return $record->with(
-                message: $this->redactor->redactMessage($record->message, $sensitive),
+                message: $this->redactor->redactMessage(
+                    $record->message,
+                    $sensitive,
+                    $record->context['reference'] ?? null
+                ),
                 context: $this->redactor->redactContext($record->context, $sensitive),
                 extra: $this->redactor->redactContext($record->extra, $sensitive)
             );
@@ -61,7 +65,11 @@ class Redact
         $context = (array)($record['context'] ?? []);
         $sensitive = $this->redactor->isSensitive($context['tags'] ?? '');
 
-        $record['message'] = $this->redactor->redactMessage((string)($record['message'] ?? ''), $sensitive);
+        $record['message'] = $this->redactor->redactMessage(
+            (string)($record['message'] ?? ''),
+            $sensitive,
+            $context['reference'] ?? null
+        );
         $record['context'] = $this->redactor->redactContext($context, $sensitive);
         $record['extra'] = $this->redactor->redactContext((array)($record['extra'] ?? []), $sensitive);
 

@@ -453,6 +453,58 @@ class RedactorTest extends TestCase
     }
 
     /**
+     * A merchant reference is a date and a counter on many stores, which is the shape of an
+     * identity number. The reference of the line is known, so it survives the patterns while
+     * anything else of that shape does not.
+     */
+    public function testKeepsTheMerchantReferenceOfTheLine(): void
+    {
+        $context = $this->redactor->redactContext([
+            'tags' => Redactor::TAG_SENSITIVE,
+            'reference' => '20260909-0001',
+            'extra' => [
+                'body' => [
+                    'MerchantReference' => '20260909-0001',
+                    'Comment' => 'order 20260909-0001 for customer 19850101-1234',
+                ],
+            ],
+        ]);
+
+        $body = $context['extra']['body'];
+
+        self::assertSame('20260909-0001', $body['MerchantReference']);
+        self::assertStringContainsString('order 20260909-0001', $body['Comment']);
+        self::assertStringNotContainsString('19850101-1234', $body['Comment'], 'the identity number survived');
+    }
+
+    /**
+     * Another line's reference is not this line's, so it is masked like any other value of that
+     * shape: the exemption is for the reference the line is correlated by, not for the format.
+     */
+    public function testDoesNotKeepAReferenceThisLineIsNotAbout(): void
+    {
+        $context = $this->redactor->redactContext([
+            'reference' => '20260909-0001',
+            'extra' => ['body' => ['Comment' => 'see also 19850101-1234']],
+        ]);
+
+        self::assertStringNotContainsString('19850101-1234', $context['extra']['body']['Comment']);
+    }
+
+    /**
+     * A reference too short to be one is not held out: a single digit would exempt every digit.
+     */
+    public function testDoesNotKeepAReferenceTooShortToBeOne(): void
+    {
+        $context = $this->redactor->redactContext([
+            'reference' => '7',
+            'extra' => ['body' => ['Comment' => 'customer 19850101-1234']],
+        ]);
+
+        self::assertStringNotContainsString('19850101-1234', $context['extra']['body']['Comment']);
+    }
+
+    /**
      * A callback url gives the credentials away without naming them: the HTTP auth user and
      * password sit before the host, and the token is a JWT whose payload is the merchant API key
      * in base64, which no masking by key name and no masking by value can see.
