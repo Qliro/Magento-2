@@ -68,6 +68,31 @@ tab or never returns from a bank app produces a paid order and no browser event 
 numbers have to be right, send the purchase server side, GA4 Measurement Protocol from an observer
 on `sales_order_place_after`, and offline conversion import or server side GTM for Google Ads.
 
+## Log retention
+
+The module logs every API call and callback, payloads included, to the `qliroone_log` table, whatever
+Debug Mode says. The nightly cron job `qliroone_prune_log` deletes the rows older than **Stores >
+Configuration > Sales > Payment Methods > QliroOne Checkout > Debugging > Log Retention (days)**, 30 days
+on a fresh install. Set it to 0 to keep every row.
+
+**Upgrading from a version before 1.7.30:** an installation whose log table already holds rows keeps every
+row, so nothing is deleted until you choose a window. Set the retention to 30, or to whatever the store
+needs, to start pruning.
+
+The setting lives on the default scope only. A log row carries no store id, so one window covers the
+whole table, and a window saved on a website or a store view is refused rather than silently ignored.
+
+The same pruning runs on demand:
+
+```
+bin/magento qliroone:log:prune            # the configured retention
+bin/magento qliroone:log:prune --days=7   # this run only, the setting is untouched
+```
+
+Rows are deleted in batches of 5000, and a single run stops after 200 of them, so the job is safe to run
+while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
+and a run that stopped at that cap says so rather than looking like a finished one.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

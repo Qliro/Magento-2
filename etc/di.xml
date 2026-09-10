@@ -16,6 +16,7 @@
                 <item name="qliroOneLock" xsi:type="object">Qliro\QliroOne\Console\LockCommand</item>
                 <item name="qliroOneUnlock" xsi:type="object">Qliro\QliroOne\Console\UnlockCommand</item>
                 <item name="qliroOneCreateMerchantPayment" xsi:type="object">Qliro\QliroOne\Console\CreateMerchantPaymentCommand</item>
+                <item name="qliroOnePruneLog" xsi:type="object">Qliro\QliroOne\Console\PruneLogCommand</item>
             </argument>
         </arguments>
     </type>
@@ -256,6 +257,13 @@
             <argument name="handlers" xsi:type="array">
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
             </argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Console\PruneLogCommand">
+        <arguments>
+            <!-- Every bin/magento call builds the command list, these are only built when this one runs -->
+            <argument name="pruner" xsi:type="object">Qliro\QliroOne\Service\Log\Pruner\Proxy</argument>
+            <argument name="qliroConfig" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
         </arguments>
     </type>
 </config>
