@@ -68,6 +68,77 @@ tab or never returns from a bank app produces a paid order and no browser event 
 numbers have to be right, send the purchase server side, GA4 Measurement Protocol from an observer
 on `sales_order_place_after`, and offline conversion import or server side GTM for Google Ads.
 
+## What the module logs
+
+Every API call and callback is logged to the `qliroone_log` database table and to
+`var/log/qliroone.log`, request and response bodies included. This happens at debug level on every
+request whatever **Debug Mode** is set to: that setting gates other behaviour, not the logging.
+
+Before anything is written, `Model/Logger/Redactor.php` masks it as `[redacted]`:
+
+- **Credentials**, always, by name, by value and inside a url. Any key named like one,
+  `MerchantApiKey`, `MerchantApiSecret`, `Authorization`, a token, a password, or anything
+  containing `secret` or `apikey`, whatever its spelling and however deep in the payload it sits.
+  The API key and secret the store is configured with are masked wherever they appear, whatever the
+  key they were logged under is called. In a url, the user and password before the host, a `token`
+  in the query and a JSON web token anywhere are masked too: the callback token carries the merchant
+  API key in its payload, and with Callback HTTP Auth the url carries the username and password.
+- **Customer data**, always. Email, mobile number, personal identity number, VAT and organization
+  number, date of birth, first and last name, care of, company name, street, postal code and city,
+  under Qliro's spellings and Magento's own, `taxvat`, `dob`, `vat_id` and `company` included, and
+  whether the field holds one value or a list. An email address and a Nordic identity number are
+  masked wherever they appear in free text too.
+- **An identity number**, written with its separator or as twelve digits, always. A ten digit one
+  written without a separator is not masked by pattern: it cannot be told apart from a Qliro order
+  id, and it arrives under a key of its own in every payload the module sends or receives.
+- **An international phone number**, on the lines marked with the `sensitive` tag. That is every
+  exchange with Qliro's APIs, every callback body Qliro posts back and every refusal Qliro
+  explains, which is where a customer record travels.
+
+Card data is not masked, and that is deliberate: Qliro sends only the first six and the last four
+digits of a saved card, `CardBin` and `CardLast4Digits`, which is what PCI DSS permits a merchant to
+retain and what support needs to identify a card. The card token itself is masked.
+
+What stays readable is what a merchant needs in order to investigate: the merchant reference, the
+endpoint and the uri with their order ids, the request method, the status code, the order items, the
+amounts, the country and Qliro's own error codes. Those keep their digits even on a masked line, so
+an order id is never mistaken for an identity number. An exception keeps its class, its file, its
+code and its message and trace, with both masked. A merchant reference written as a date and a
+counter, `20260909-0001`, has the shape of an identity number, so the reference of the line being
+written is held out of the patterns by value: it stays readable wherever it appears in that line,
+while any other value of that shape is still masked.
+
+The masking runs on the log channel, so it applies to the table and to the files alike, to a payload
+that arrives as an object or as text, and to anything logged from a plugin of your own that uses the
+module's log manager.
+
+**How long rows are kept** is a separate matter from what they hold, and it is the next section.
+
+## Log retention
+
+The module logs every API call and callback, payloads included, to the `qliroone_log` table, whatever
+Debug Mode says. The nightly cron job `qliroone_prune_log` deletes the rows older than **Stores >
+Configuration > Sales > Payment Methods > QliroOne Checkout > Debugging > Log Retention (days)**, 30 days
+on a fresh install. Set it to 0 to keep every row.
+
+**Upgrading from a version before 1.7.30:** an installation whose log table already holds rows keeps every
+row, so nothing is deleted until you choose a window. Set the retention to 30, or to whatever the store
+needs, to start pruning.
+
+The setting lives on the default scope only. A log row carries no store id, so one window covers the
+whole table, and a window saved on a website or a store view is refused rather than silently ignored.
+
+The same pruning runs on demand:
+
+```
+bin/magento qliroone:log:prune            # the configured retention
+bin/magento qliroone:log:prune --days=7   # this run only, the setting is untouched
+```
+
+Rows are deleted in batches of 5000, and a single run stops after 200 of them, so the job is safe to run
+while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
+and a run that stopped at that cap says so rather than looking like a finished one.
+
 ## Callback security
 
 Qliro pushes order and transaction updates to callback urls this module registers on the order when

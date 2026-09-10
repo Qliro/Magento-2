@@ -343,6 +343,40 @@ class CallbackTokenTest extends TestCase
     }
 
     /**
+     * The same value gives the same fingerprint, which is what makes two of them comparable at
+     * all: without that the mismatch line would say nothing an operator can act on.
+     */
+    public function testTheFingerprintOfTheSameValueMatches(): void
+    {
+        $first = $this->buildToken(30, 'live-someone-else')->getToken();
+        self::assertFalse($this->buildToken()->verifyToken($first));
+        $a = $this->logged[0]['context']['extra']['configured'];
+
+        $this->logged = [];
+        $second = $this->buildToken(30, 'live-someone-else-again')->getToken();
+        self::assertFalse($this->buildToken()->verifyToken($second));
+
+        self::assertSame($a, $this->logged[0]['context']['extra']['configured']);
+        self::assertNotSame($a, $this->logged[0]['context']['extra']['request']);
+    }
+
+    /**
+     * The additional data of a presented token is content whoever sent it chose, so the mismatch
+     * line carries a fingerprint of it rather than the claim.
+     */
+    public function testTheAdditionalDataMismatchLineCarriesNoClaim(): void
+    {
+        $token = $this->buildAjaxToken(2, 'whatever-the-caller-sent')->getToken();
+
+        self::assertFalse($this->buildAjaxToken(2, '4711')->verifyToken($token));
+        self::assertSame('additional data mismatch', $this->logged[0]['message']);
+
+        $written = (string)json_encode($this->logged);
+        self::assertStringNotContainsString('whatever-the-caller-sent', $written);
+        self::assertStringStartsWith('sha256:', $this->logged[0]['context']['extra']['request']);
+    }
+
+    /**
      * A token minted before this release, with the three year expiry, is still accepted: the
      * lifetime is written into each token, so shortening the setting cannot invalidate a callback
      * url already registered with Qliro.

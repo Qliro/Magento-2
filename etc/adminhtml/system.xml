@@ -331,6 +331,12 @@
                 </group>
                 <group id="debugging" type="text" sortOrder="90" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
                     <label>Debugging</label>
+                    <field id="log_retention_days" translate="label comment" type="text" sortOrder="5" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                        <label>Log Retention (days)</label>
+                        <validate>required-entry validate-digits validate-zero-or-greater</validate>
+                        <backend_model>Qliro\QliroOne\Model\System\Config\Backend\LogRetentionDays</backend_model>
+                        <comment>Rows in the qliroone_log table older than this many days are deleted nightly by the qliroone_prune_log cron job, and on demand by bin/magento qliroone:log:prune. 0 keeps every row, and so does the system value. A log row carries no store id, so one setting covers the whole table.</comment>
+                    </field>
                     <group id="download" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" translate="label">
                         <label>Download Logs</label>
                         <field id="download_logs" translate="label" type="button" sortOrder="10" showInDefault="1" showInWebsite="0" showInStore="0">

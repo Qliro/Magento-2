@@ -23,6 +23,7 @@ use Qliro\QliroOne\Model\Api\Service;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Logger\Redactor;
 use Magento\Framework\DataObject\IdentityGeneratorInterface;
 
 /**
@@ -350,6 +351,25 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     private function handleExceptions(\Exception $exception)
+    {
+        // Qliro's refusal quotes the request back and the exception message carries the response
+        // body, so every line this method writes is a payload. The tag covers all of them, and the
+        // finally takes it back on the way out, which is always by a throw
+        $this->logManager->addTag(Redactor::TAG_SENSITIVE);
+
+        try {
+            $this->handleExceptionsUntagged($exception);
+        } finally {
+            $this->logManager->removeTag(Redactor::TAG_SENSITIVE);
+        }
+    }
+
+    /**
+     * @param \Exception $exception
+     * @return void
+     * @throws \Exception
+     */
+    private function handleExceptionsUntagged(\Exception $exception)
     {
         // Service wraps every API failure in a TerminalException, so the RequestException branch
         // below can only be reached by a caller that hands us a raw Guzzle exception. Read the

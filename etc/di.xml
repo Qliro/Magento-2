@@ -16,6 +16,7 @@
                 <item name="qliroOneLock" xsi:type="object">Qliro\QliroOne\Console\LockCommand</item>
                 <item name="qliroOneUnlock" xsi:type="object">Qliro\QliroOne\Console\UnlockCommand</item>
                 <item name="qliroOneCreateMerchantPayment" xsi:type="object">Qliro\QliroOne\Console\CreateMerchantPaymentCommand</item>
+                <item name="qliroOnePruneLog" xsi:type="object">Qliro\QliroOne\Console\PruneLogCommand</item>
             </argument>
         </arguments>
     </type>
@@ -24,6 +25,20 @@
         <arguments>
             <argument name="adapter" xsi:type="object">QliroOneAdapter</argument>
             <argument name="formatter" xsi:type="object">Qliro\QliroOne\Model\Logger\Formatter</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\Logger\Redactor">
+        <arguments>
+            <!-- Lazy: reading the configuration must not happen while the log channel is built -->
+            <argument name="secretProvider" xsi:type="object">Qliro\QliroOne\Model\Logger\SecretProvider\Proxy</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\Logger\SecretProvider">
+        <arguments>
+            <argument name="config" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
+            <argument name="storeManager" xsi:type="object">Magento\Store\Model\StoreManagerInterface\Proxy</argument>
         </arguments>
     </type>
 
@@ -100,6 +115,8 @@
 
             <argument name="processors" xsi:type="array">
                 <item name="psr_processor" xsi:type="object">Monolog\Processor\PsrLogMessageProcessor</item>
+                <!-- Last, so it also masks what the interpolation above pulled into the message -->
+                <item name="qliroone_redact_processor" xsi:type="object">Qliro\QliroOne\Model\Logger\Processor\Redact</item>
             </argument>
         </arguments>
     </virtualType>
@@ -256,6 +273,13 @@
             <argument name="handlers" xsi:type="array">
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
             </argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Console\PruneLogCommand">
+        <arguments>
+            <!-- Every bin/magento call builds the command list, these are only built when this one runs -->
+            <argument name="pruner" xsi:type="object">Qliro\QliroOne\Service\Log\Pruner\Proxy</argument>
+            <argument name="qliroConfig" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
         </arguments>
     </type>
 </config>

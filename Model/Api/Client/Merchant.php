@@ -19,6 +19,7 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Logger\Redactor;
 
 /**
  * Merchant API client class
@@ -90,8 +91,6 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
      */
     public function createOrder(QliroOrderCreateRequestInterface $qliroOrderCreateRequest)
     {
-        $this->logManager->addTag('sensitive');
-
         $qliroOrderId = null;
         $payload = $this->containerMapper->toArray($qliroOrderCreateRequest);
 
@@ -99,11 +98,8 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
             $response = $this->service->post('checkout/merchantapi/orders', $payload);
             $qliroOrderId = $response['OrderId'] ?? null;
         } catch (\Exception $exception) {
-            $this->logManager->removeTag('sensitive');
             $this->handleExceptions($exception);
         }
-
-        $this->logManager->removeTag('sensitive');
 
         return $qliroOrderId;
     }
@@ -117,8 +113,6 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
      */
     public function getOrder($qliroOrderId)
     {
-        $this->logManager->addTag('sensitive');
-
         /** @var QliroOrderInterface $qliroOrder */
         $qliroOrder = $this->qliroOrderFactory->create();
 
@@ -126,11 +120,8 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
             $response = $this->service->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => $qliroOrderId]);
             $this->containerMapper->fromArray($response, $qliroOrder);
         } catch (\Exception $exception) {
-            $this->logManager->removeTag('sensitive');
             $this->handleExceptions($exception);
         }
-
-        $this->logManager->removeTag('sensitive');
 
         return $qliroOrder;
     }
@@ -145,19 +136,14 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
      */
     public function updateOrder($qliroOrderId, QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest)
     {
-        $this->logManager->addTag('sensitive');
-
         $payload = $this->containerMapper->toArray($qliroOrderUpdateRequest);
         $payload['OrderId'] = $qliroOrderId;
 
         try {
             $response = $this->service->put('checkout/merchantapi/orders/{OrderId}', $payload);
         } catch (\Exception $exception) {
-            $this->logManager->removeTag('sensitive');
             $this->handleExceptions($exception);
         }
-
-        $this->logManager->removeTag('sensitive');
 
         return $qliroOrderId;
     }
@@ -169,6 +155,25 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     private function handleExceptions(\Exception $exception)
+    {
+        // Qliro's refusal quotes the request back and the exception message carries the response
+        // body, so every line this method writes is a payload. The tag covers all of them, and the
+        // finally takes it back on the way out, which is always by a throw
+        $this->logManager->addTag(Redactor::TAG_SENSITIVE);
+
+        try {
+            $this->handleExceptionsUntagged($exception);
+        } finally {
+            $this->logManager->removeTag(Redactor::TAG_SENSITIVE);
+        }
+    }
+
+    /**
+     * @param \Exception $exception
+     * @return void
+     * @throws \Exception
+     */
+    private function handleExceptionsUntagged(\Exception $exception)
     {
         if ($exception instanceof RequestException) {
             $data = $this->json->unserialize($exception->getResponse()->getBody());
