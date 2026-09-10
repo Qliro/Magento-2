@@ -506,10 +506,13 @@ class Quote extends AbstractManagement
     {
         $request = $this->updateRequestBuilder->setQuote($quote)->create();
         $data = $this->containerMapper->toArray($request);
-        sort($data);
+
+        // Sorted for the hash only: sort() reindexes, and the log needs the keys to mask by them
+        $sorted = $data;
+        sort($sorted);
 
         try {
-            $serializedData = $this->json->serialize($data);
+            $serializedData = $this->json->serialize($sorted);
         } catch (\InvalidArgumentException $exception) {
             $serializedData = null;
         }
@@ -518,7 +521,8 @@ class Quote extends AbstractManagement
 
         $this->logManager->debug(
             sprintf('generateUpdateHash: %s', $hash),
-            ['extra' => var_export($data, true)]
+            // The array, not var_export of it: as text its keys are invisible to the redaction
+            ['extra' => ['request' => $data]]
         );     // @todo: remove
 
         return $hash;

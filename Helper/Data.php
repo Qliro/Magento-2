@@ -16,6 +16,7 @@ use Magento\Framework\Stdlib\DateTime\DateTime;
 use Qliro\QliroOne\Api\Data\ContainerInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Logger\Redactor;
 use Magento\Framework\HTTP\PhpEnvironment\RemoteAddress;
 
 /**
@@ -115,14 +116,22 @@ class Data extends AbstractHelper
             $data['exception'] = $exception->getMessage();
         }
 
-        $this->logManager->debug(
-            '<<< JSON payload has been received and processed.',
-            [
-                'extra' => [
-                    'payload' => $data,
-                ],
-            ]
-        );
+        // Qliro posts the customer record back to us, so the body is tagged like an outbound one.
+        // Set here rather than above, so work that throws cannot leave the tag on the whole request
+        $this->logManager->addTag(Redactor::TAG_SENSITIVE);
+
+        try {
+            $this->logManager->debug(
+                '<<< JSON payload has been received and processed.',
+                [
+                    'extra' => [
+                        'payload' => $data,
+                    ],
+                ]
+            );
+        } finally {
+            $this->logManager->removeTag(Redactor::TAG_SENSITIVE);
+        }
 
         $this->logManager->setMark(null);
 
@@ -165,7 +174,13 @@ class Data extends AbstractHelper
             $data['payload'] = $payload;
         }
 
-        $this->logManager->debug('>>> Payload was prepared and sent in JSON response.', ['extra' => $data]);
+        $this->logManager->addTag(Redactor::TAG_SENSITIVE);
+
+        try {
+            $this->logManager->debug('>>> Payload was prepared and sent in JSON response.', ['extra' => $data]);
+        } finally {
+            $this->logManager->removeTag(Redactor::TAG_SENSITIVE);
+        }
 
         $this->logManager->setMark(null);
         $resultJson->setData($payload);

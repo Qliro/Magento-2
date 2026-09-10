@@ -41,6 +41,13 @@ class Manager
     private $tags = [];
 
     /**
+     * How many scopes hold each tag, so a scope that ends does not take a tag an outer one holds
+     *
+     * @var int[]
+     */
+    private $tagDepths = [];
+
+    /**
      * @var \Qliro\QliroOne\Model\ResourceModel\LogRecord
      */
     private $logResource;
@@ -227,6 +234,7 @@ class Manager
      */
     public function addTag($tag)
     {
+        $this->tagDepths[$tag] = ($this->tagDepths[$tag] ?? 0) + 1;
         $this->tags[] = $tag;
         $this->tags = array_unique($this->tags);
     }
@@ -238,6 +246,15 @@ class Manager
      */
     public function removeTag($tag)
     {
+        $depth = ($this->tagDepths[$tag] ?? 0) - 1;
+
+        if ($depth > 0) {
+            $this->tagDepths[$tag] = $depth;
+
+            return;
+        }
+
+        unset($this->tagDepths[$tag]);
         $this->tags = array_diff($this->tags, [$tag]);
     }
 
@@ -247,6 +264,7 @@ class Manager
     public function clearTags()
     {
         $this->tags = [];
+        $this->tagDepths = [];
     }
 
     /**
