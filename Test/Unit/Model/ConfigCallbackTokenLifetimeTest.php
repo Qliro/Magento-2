@@ -50,7 +50,8 @@ class ConfigCallbackTokenLifetimeTest extends TestCase
     public static function storedValueProvider(): array
     {
         return [
-            'the default' => ['365', 365],
+            'the shipped default' => ['1095', 1095],
+            'a year' => ['365', 365],
             'a short window' => ['30', 30],
             'stray whitespace' => [' 30 ', 30],
             'the longest window' => ['1095', Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS],

@@ -155,7 +155,8 @@ class CallbackTokenTest extends TestCase
     public static function lifetimeProvider(): array
     {
         return [
-            'the default' => [365, 365],
+            'the shipped default' => [Config::DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS, 1095],
+            'a year' => [365, 365],
             'a short window' => [30, 30],
             'the longest window' => [Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS, Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS],
         ];

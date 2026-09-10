@@ -53,7 +53,7 @@ class Config
 
     const QLIROONE_XDEBUG_SESSION_FLAG_NAME = 'callback/xdebug_session_flag_name';
     const QLIROONE_CALLBACK_TOKEN_LIFETIME_DAYS = 'callback/token_lifetime_days';
-    const DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS = 365;
+    const DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS = 1095;
     const MAX_CALLBACK_TOKEN_LIFETIME_DAYS = 1095;
 
     const QLIROONE_REDIRECT_CALLBACKS = 'callback/redirect_callbacks';
