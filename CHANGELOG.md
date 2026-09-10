@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.25] - 2026-09-04
+## [1.7.32] - 2026-09-10
 
 ### Fixed
 
@@ -22,6 +22,35 @@
 - A browser end to end suite, `Test/E2e`, run with Playwright against a local Magento with the module installed. It seeds orders through the module's own placement path, taking the payment method and the fee line shape from those same contract fixtures, with no merchant API in the picture, so it needs no credentials and no test merchant, then checks what a merchant and a customer see: the method name and the code row on the admin order view, the fallback to the code on an order stored without a name, every fee line in the order totals and in the invoice, and the name on the guest order view, and the payment block Magento prints on the invoice. Reverting either fix in this release turns four of the eight red. It covers the store side only, the checkout iframe and everything that talks to Qliro still needs a test merchant (PLIN-374)
 - The `GetOrder` contract fixtures PIS pins from the Qliro sandbox are copied into `Test/Fixtures/qliro`, and the module is tested against them: the payment method of a card order, of an invoice order with a fee line, of an Ironman pay later order and of a `QLIRO_INVOICE` order, the fee line itself, the order level method of an order management response, and that a field the module has no setter for is dropped rather than fatal. Written payloads prove what we imagined, these prove what Qliro sends (PLIN-374)
 - Unit tests pinning that a payment method code passes through unchanged, for the six Ironman codes and for a legacy one, and that the name is returned as a string whatever the payload carried. The Ironman rollout rests on these needing no code change in the module, so it is now a test rather than an assertion (PLIN-374)
+
+## [1.7.27] - 2026-09-08
+
+### Fixed
+
+- The shipping line and the invoice fee line of a capture state their VAT rate. `ShippingFeeHandler` and `InvoiceFeeHandler` set the two price fields and never called `setVatRate()`, so both lines left with the `Item` default of 0 while the product and discount lines in the same payload carried a rate. Qliro's invoice then stated no VAT on the shipping and the fee, and a finance user reconciling a capture against the Magento order found VAT missing on exactly those two rows. The capture payload now describes its own lines: the rate is derived from the amounts the line carries, taken before they are rounded for sending, and a line that genuinely carries no VAT still states 0. Reading it off the rounded figures instead would state a rate no jurisdiction charges: a shipping price of 4.79 taxed at 25 percent is 5.9875, goes out as 5.99, and 5.99 over 4.79 reads back as 25.05. The invoice a finance user reads still will not show that rate, which review confirmed on the payments side: nothing there reads `VatRate` from a capture, the V2 endpoint accepts the field but its mapper drops it before any validation or storage, and the invoice derives VAT from reservation-time data, with the invoicing adapter sent a null rate by design. The same review found why the rate disappears from the stored item after a capture, which is the payments side rebuilding the item without copying the stored rate and then writing it back. The missing VAT report is therefore a reservation-time fix, tracked on its own, and this release is not being claimed as the fix for it (PLIN-361)
+- The invoice fee line rounds both of its amounts to two decimals. It sent `PricePerItemIncVat` and `PricePerItemExVat` exactly as they were stored on the payment, and the Qliro API refuses more than two decimal places with `SYSTEM_ERROR`, "Input must have no more than two decimal places", which is what took the checkout down in GitHub issue #122. The fee comes from Qliro's own checkout response so in practice it is öre exact already, and the rounding is what keeps it that way (PLIN-361)
+
+### Changed
+
+- The invoice fee line states the rate Qliro reserved the fee with when it has one, and the rate its amounts imply otherwise. The fee is Qliro's own line, taken from the checkout response and kept on the payment, so its own rate is the one the reservation holds; an order stored before the fee carried a rate has none and the amounts are all there is. A reserved rate of 0 counts as a rate and is sent as it stands, which is why the fallback asks whether the fee carries the field at all rather than whether the rate is above zero: the two differ exactly on a reservation that says 0 while its own amounts imply a rate (PLIN-361)
+- Deriving a line's VAT rate from the two amounts it carries lives in one place, `Model/QliroOrder/LineVatRate.php`, shared by the two handlers above and by `DiscountAmountResolver`, which held the same expression. The rate itself is capped at two decimals there, for the same reason the amounts are. The epsilon below which an amount is nothing at all lives there too: `DiscountAmountResolver::EPSILON` keeps the name the handlers call it by and takes its value from `LineVatRate`, so the two cannot drift apart (PLIN-361)
+- The amounts on both lines are unchanged, apart from the rounding above, so a capture still matches the reservation it was given. `VatRate` describes the amounts rather than setting them, and Qliro's `INVALID_ITEM` refusal is about changed SKUs, prices and quantities, which is why this needs none of the stamping PLIN-360 had to add (PLIN-361)
+
+## [1.7.26] - 2026-09-03
+
+### Fixed
+
+- The address the store presets to rate shipping no longer survives on the quote. With Preset Shipping Address enabled and no address from Qliro yet, the quote shipping address is filled from Store Information so a carrier has something to rate. The cleanup that was supposed to drop it afterwards, `clearInstance()`, clears no data on a quote address: `_clearData()` is an empty stub on `Magento\Framework\Model\AbstractModel` and the model does not override it, so the `save()` after it only wrote the placeholder again. What the buyer's own address did not overwrite then stayed on the order, and a guest order shipped with the store name printed on its company line. The placeholder is now put back to the values the quote held before it as soon as the rates are collected (PLIN-389)
+- The company and the telephone are no longer part of that placeholder at all. No carrier rates on either, and both are read elsewhere as the buyer's own: the company decides the juridical type sent to Qliro, so a private buyer could be announced as a company, and the phone is sent as the customer's mobile number. Only the street, city, postcode, region and country a rate needs are preset (PLIN-389)
+- What decides whether the placeholder is applied is an empty postcode on the quote, not the customer group. That is every guest, which is why the merchant saw it as a customer group difference, and it is also a logged-in customer with no default shipping address, so an account can be affected as well. A customer whose own address is on the quote is untouched and keeps its company (PLIN-389)
+
+### Changed
+
+- The preset address is applied and taken back in `ShippingMethodsBuilder`, the one place that rates, instead of once at Qliro order creation. A request rates more than once: `Management\Quote::getLinkFromQuote()` builds the update hash right after creating the order, and `Quote\Address::collectShippingRates()` drops the rates it finds before collecting, so a placeholder that only existed for the create call left every later rating with an empty address, no methods to send and a `REASON_POSTAL_CODE` decline on an update the buyer never asked for. Every rating gets the placeholder now, none of them leaves it behind, and the restore sits in a `finally` so a carrier that throws cannot strand the store's address on the quote either. `CreateRequestBuilder` no longer takes `Magento\Store\Model\Information`, which is a constructor signature change for anything extending it (PLIN-389)
+
+### Added
+
+- Unit tests for `ShippingMethodsBuilder::create()`, pinning that the carriers are rated on the preset address, that a second rating gets it too, that the quote gets its own values back afterwards, that the store name and phone never reach the address, and that an address with a postcode of its own is rated as it stands. Unit tests for `CreateRequestBuilder::create()`, pinning that it writes nothing to the shipping address beyond the country the Qliro order was created for. Unit tests for `CustomerBuilder`, pinning the juridical type a buyer with and without a company is sent as (PLIN-389)
 
 ## [1.7.23] - 2026-09-02
 
