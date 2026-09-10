@@ -11,6 +11,9 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 
 /**
  * QliroOne order item class
+ *
+ * The amounts and the rate are rounded here, on the way in, so no builder can send a value with
+ * more decimals than Qliro accepts, GitHub issue #122.
  */
 class Item implements QliroOrderItemInterface
 {
@@ -125,7 +128,7 @@ class Item implements QliroOrderItemInterface
      */
     public function setPricePerItemIncVat(float $value): static
     {
-        $this->pricePerItemIncVat = $value;
+        $this->pricePerItemIncVat = round($value, LineVatRate::PRECISION);
 
         return $this;
     }
@@ -143,7 +146,7 @@ class Item implements QliroOrderItemInterface
      */
     public function setPricePerItemExVat(float $value): static
     {
-        $this->pricePerItemExVat = $value;
+        $this->pricePerItemExVat = round($value, LineVatRate::PRECISION);
 
         return $this;
     }
@@ -161,7 +164,7 @@ class Item implements QliroOrderItemInterface
      */
     public function setVatRate(float $value): static
     {
-        $this->vatRate = $value;
+        $this->vatRate = round($value, LineVatRate::PRECISION);
 
         return $this;
     }
