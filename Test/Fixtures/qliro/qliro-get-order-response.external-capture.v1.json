@@ -1,0 +1,41 @@
+{
+  "_comment": "GetOrder for an order whose reservation was captured OUTSIDE PIS (ERP/Merchant Portal). Canonical-by-design, not sandbox-pinned: the PaymentTransactions shape (PaymentTransactionId/Type/Status/Amount) is evidenced by legacy payment-app's captureErrorHandler.js consuming exactly these fields in production (Type=='Capture' && Amount match), plus adminapi v2 swagger. Re-pin from a real sandbox GetOrder after an external capture when D23-style wire-proof reaches this path.",
+  "OrderId": 5510203,
+  "MerchantReference": "pis-external-capture-0001",
+  "TotalPrice": 39.98,
+  "Currency": "EUR",
+  "Country": "FI",
+  "CustomerCheckoutStatus": "Completed",
+  "PaymentMethod": { "PaymentMethodName": "QLIROPAYLATER_INVOICE14", "PaymentTypeCode": "INVOICE" },
+  "PaymentTransactions": [
+    {
+      "PaymentTransactionId": 9200450,
+      "Type": "Preauthorization",
+      "Status": "Success",
+      "Amount": 39.98,
+      "Currency": "EUR",
+      "Timestamp": "2026-07-15T09:12:44.000+00:00"
+    },
+    {
+      "PaymentTransactionId": 9200451,
+      "Type": "Capture",
+      "Status": "Success",
+      "Amount": 39.98,
+      "Currency": "EUR",
+      "Timestamp": "2026-07-16T08:03:10.000+00:00",
+      "PaymentMethodName": "QLIROPAYLATER_INVOICE14"
+    }
+  ],
+  "OrderItems": [
+    {
+      "MerchantReference": "SKU-RED-SHIRT",
+      "Description": "Red Shirt",
+      "Quantity": 2,
+      "PricePerItemIncVat": 19.99,
+      "PricePerItemExVat": 15.93,
+      "VatRate": 25.5,
+      "Type": "Product",
+      "PaymentTransactionId": 9200451
+    }
+  ]
+}

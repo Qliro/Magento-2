@@ -9,20 +9,27 @@
 ?>
 <div class="order-payment-method-name"><?php echo $block->escapeHtml($block->getMethod()->getTitle()); ?>
     <?php if ($block->showWarning()): ?>
-        <span style="color:red;"><?php echo $block->getWarningText(); ?></span>
+        <span style="color:red;"><?php echo $block->escapeHtml($block->getWarningText()); ?></span>
     <?php endif; ?>
 </div>
 <table class="data-table admin__table-secondary">
     <tr>
         <th><?php echo $block->escapeHtml(__('Qliro Order Id')); ?>:</th>
-        <td><?php echo $block->getQliroOrderId(); ?></td>
+        <td><?php echo $block->escapeHtml($block->getQliroOrderId()); ?></td>
     </tr>
     <tr>
         <th><?php echo $block->escapeHtml(__('Qliro Reference')); ?>:</th>
-        <td><?php echo $block->getQliroReference(); ?></td>
+        <td><?php echo $block->escapeHtml($block->getQliroReference()); ?></td>
     </tr>
     <tr>
         <th><?php echo $block->escapeHtml(__('Payment Method')); ?>:</th>
-        <td><?php echo $block->getQliroMethod(); ?></td>
+        <td><?php echo $block->escapeHtml($block->getQliroMethodName()); ?></td>
     </tr>
+    <?php /* Only when it adds something: without a stored name the name row already shows the code. */ ?>
+    <?php if ($block->getQliroMethodName() !== (string)$block->getQliroMethod()): ?>
+        <tr>
+            <th><?php echo $block->escapeHtml(__('Payment Method Code')); ?>:</th>
+            <td><?php echo $block->escapeHtml($block->getQliroMethod()); ?></td>
+        </tr>
+    <?php endif; ?>
 </table>
