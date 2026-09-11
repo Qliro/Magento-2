@@ -139,6 +139,40 @@ Rows are deleted in batches of 5000, and a single run stops after 200 of them, s
 while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
 and a run that stopped at that cap says so rather than looking like a finished one.
 
+## Callback security
+
+Qliro pushes order and transaction updates to callback urls this module registers on the order when
+it is created. Each url carries a token this module signed with the store's API secret, and every
+callback controller refuses a request whose token does not verify.
+
+The token expires. **Stores > Configuration > Sales > Payment Methods > QliroOne Checkout >
+Notification Callbacks > Callback Token Lifetime (days)** decides how long a newly minted one lasts,
+1 to 1095 days, and 1095 by default.
+
+**Shorten it to match your order lifecycle.** The url Qliro pushes to is the one registered when the
+order was created, so it has to still be valid when the last capture or refund of that order settles.
+The default is three years, the length of the Swedish right of complaint, so that no store is caught
+out by it. If your orders are done sooner, set it shorter: that is the whole point of the setting.
+
+What an expired token costs, so the choice is an informed one: the callback is refused, the capture
+or the refund is never confirmed on the Magento order, an order that was held awaiting capture
+confirmation stays held, a queued sequential refund stops advancing, and nothing reconciles any of it
+afterwards, because the module does not poll Qliro for status. A refusal for this reason is logged as
+a warning naming the setting, so the symptom points at the cause.
+
+Changing the setting is safe at any time: the expiry is written into each token, so a callback url
+already registered with Qliro keeps the lifetime it was given, and a shorter window applies only to
+orders created after the change. Tokens issued before this feature existed carry the old three year
+expiry and keep working until it passes.
+
+**On upgrade** nothing changes for the orders you have already placed: their callback urls carry the
+expiry they were minted with, three years for anything from before this release, and the check reads
+it from the token rather than from the setting. Orders placed after the upgrade get the new default,
+so this is the moment to decide whether a year covers your returns.
+
+The token the checkout page uses for its own ajax calls is a different one: it lasts two hours, is
+bound to the quote, and is not affected by this setting.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

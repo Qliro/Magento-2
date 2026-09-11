@@ -31,11 +31,39 @@ class AjaxToken extends CallbackToken
     }
 
     /**
+     * The checkout token lives as long as a checkout does, not as long as a callback url
+     *
      * @inerhitDoc
      */
-    public function getExpirationTimestamp(): int
+    protected function getLifetimeSeconds(): int
     {
-        return strtotime('+2 hour');
+        return 2 * 3600;
+    }
+
+    /**
+     * A checkout tab left open past two hours is a customer, not a misconfiguration
+     *
+     * @inerhitDoc
+     */
+    protected function getExpiryLogLevel(): string
+    {
+        return 'debug';
+    }
+
+    /**
+     * @inerhitDoc
+     */
+    protected function getExpiryMessage(): string
+    {
+        return 'checkout token expired {expired} seconds ago, the request was refused';
+    }
+
+    /**
+     * @inerhitDoc
+     */
+    protected function describeLifetime(): string
+    {
+        return '2 hours, the fixed lifetime of a checkout token';
     }
 
     /**
