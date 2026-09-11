@@ -7,10 +7,12 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\Security;
 
+use Magento\Framework\Serialize\Serializer\Json;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Security\CallbackToken;
+use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Security\Jwt;
 
 /**
@@ -22,110 +24,454 @@ class CallbackTokenTest extends TestCase
     private const API_SECRET = 'c20ad4d76fe97759aa27a0c99bff6710';
 
     /**
-     * A callback whose token names another merchant used to write both API keys into the log, the
-     * store's own included, under key names no masking recognises. The line now carries
-     * fingerprints, which still tell an operator whether the two differ.
+     * @var array<int, array{level: string, message: string, context: array}>
      */
-    public function testTheMerchantMismatchLineCarriesNoApiKey(): void
+    private array $logged = [];
+
+    /**
+     * The token this store issues is the token this store accepts.
+     */
+    public function testAcceptsTheTokenItIssued(): void
     {
-        $logged = [];
-        $token = $this->verifyWith(['merchant' => 'live-someone-else'], $logged);
+        $token = $this->buildToken();
 
-        self::assertFalse($token);
-        self::assertSame('merchant ID mismatch', $logged[0]['message']);
-
-        $written = json_encode($logged[0]['context']);
-        self::assertStringNotContainsString(self::API_KEY, $written);
-        self::assertStringNotContainsString('live-someone-else', $written);
-        self::assertStringNotContainsString(self::API_SECRET, $written);
-
-        $extra = $logged[0]['context']['extra'];
-        self::assertStringStartsWith('sha256:', $extra['configured']);
-        self::assertStringStartsWith('sha256:', $extra['request']);
-        self::assertNotSame($extra['configured'], $extra['request']);
+        self::assertTrue($this->buildToken()->verifyToken($token->getToken()));
     }
 
     /**
-     * An expired token used to be logged with its whole payload, and the payload's merchant claim
-     * is the store's own API key.
+     * The token is a query parameter of an endpoint anyone can post to, so it is whatever the
+     * caller sent. Nothing that is not a token is read as one: a 500 tells a prober that the
+     * shape mattered, and a refusal tells them nothing.
+     *
+     * @dataProvider notATokenProvider
      */
-    public function testTheExpiredLineCarriesNoApiKey(): void
+    public function testRefusesAnythingThatIsNotAToken(mixed $token): void
     {
-        $logged = [];
-        $token = $this->verifyWith(
-            [
-                'merchant' => self::API_KEY,
-                'expires' => '2020-01-01 00:00:00',
-                'additional_data' => null,
-            ],
-            $logged
+        self::assertFalse($this->buildToken()->verifyToken($token));
+    }
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function notATokenProvider(): array
+    {
+        return [
+            'an array, as `?token[]=x` arrives' => [['x']],
+            'nothing' => [null],
+            'the empty string' => [''],
+            'a number' => [42],
+            'an object' => [(object)['token' => 'x']],
+            'one segment' => ['nonsense'],
+            'two segments' => ['a.b'],
+            'segments that are not base64' => ['@.@.@'],
+            'a head that is not an object' => ['NQ.NQ.NQ'],
+        ];
+    }
+
+    /**
+     * A token whose payload was rewritten no longer carries our signature.
+     */
+    public function testRefusesATamperedToken(): void
+    {
+        $callbackToken = $this->buildToken();
+        [$head, , $signature] = explode('.', $callbackToken->getToken());
+        $forged = (string)json_encode(['merchant' => self::API_KEY, 'expires' => '2099-01-01 00:00:00']);
+        $forgedBody = str_replace('=', '', strtr(base64_encode($forged), '+/', '-_'));
+
+        self::assertFalse($callbackToken->verifyToken($head . '.' . $forgedBody . '.' . $signature));
+    }
+
+    /**
+     * A token that has run out is refused, and the line says so loudly enough for a merchant to
+     * find it: an expired callback token means Qliro pushed to a url that outlived it.
+     */
+    public function testRefusesAnExpiredTokenAndWarnsAboutIt(): void
+    {
+        $expired = $this->buildToken(-1)->getToken();
+
+        self::assertFalse($this->buildToken()->verifyToken($expired));
+        self::assertSame('warning', $this->logged[0]['level']);
+        self::assertStringContainsString('expired', $this->logged[0]['message']);
+    }
+
+    /**
+     * A token issued for another merchant is refused.
+     */
+    public function testRefusesATokenIssuedForAnotherMerchant(): void
+    {
+        $other = $this->buildToken(30, 'live-someone-else');
+
+        self::assertFalse($this->buildToken()->verifyToken($other->getToken()));
+        self::assertSame('merchant ID mismatch', $this->logged[0]['message']);
+    }
+
+    /**
+     * Nothing a caller could use is written when a check fails: not the configured merchant key,
+     * not the presented one, and not the token itself.
+     *
+     * @dataProvider failingTokenProvider
+     */
+    public function testAFailedCheckLeaksNothing(int $days, string $merchant): void
+    {
+        $token = $this->buildToken($days, $merchant)->getToken();
+
+        self::assertFalse($this->buildToken()->verifyToken($token));
+
+        $written = (string)json_encode($this->logged);
+
+        self::assertStringNotContainsString(self::API_KEY, $written, 'the configured key is readable');
+        self::assertStringNotContainsString(self::API_SECRET, $written, 'the secret is readable');
+        self::assertStringNotContainsString($merchant, $written, 'the presented merchant is readable');
+        self::assertStringNotContainsString($token, $written, 'the token is readable');
+        self::assertStringNotContainsString(explode('.', $token)[2], $written, 'the signature is readable');
+    }
+
+    /**
+     * @return array<string, array{int, string}>
+     */
+    public static function failingTokenProvider(): array
+    {
+        return [
+            'another merchant' => [30, 'live-someone-else'],
+            'expired' => [-1, self::API_KEY],
+        ];
+    }
+
+    /**
+     * The lifetime is the merchant's setting, and the token says so.
+     *
+     * @dataProvider lifetimeProvider
+     */
+    public function testMintsATokenThatLastsTheConfiguredNumberOfDays(int $configured, int $expected): void
+    {
+        $expiresAt = $this->buildToken($configured)->getExpirationTimestamp();
+
+        self::assertEqualsWithDelta(time() + $expected * 86400, $expiresAt, 60);
+    }
+
+    /**
+     * @return array<string, array{int, int}>
+     */
+    public static function lifetimeProvider(): array
+    {
+        return [
+            'the shipped default' => [Config::DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS, 1095],
+            'a year' => [365, 365],
+            'a short window' => [30, 30],
+            'the longest window' => [Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS, Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS],
+        ];
+    }
+
+    /**
+     * A token whose header names another algorithm is refused, whatever it is signed with: the
+     * header is written by whoever sent the token, so it does not get to choose the check.
+     */
+    public function testRefusesATokenThatNamesAnotherAlgorithm(): void
+    {
+        $jwt = new Jwt(new Json());
+        $token = $jwt->encode(
+            ['merchant' => self::API_KEY, 'expires' => date('Y-m-d H:i:s', strtotime('+1 day'))],
+            self::API_SECRET,
+            'HS512'
         );
 
-        self::assertFalse($token);
-        self::assertStringContainsString('expired', $logged[0]['message']);
-
-        $written = json_encode($logged[0]['context']);
-        self::assertStringNotContainsString(self::API_KEY, $written);
-        self::assertSame('2020-01-01 00:00:00', $logged[0]['context']['extra']['expires']);
-        self::assertStringStartsWith('sha256:', $logged[0]['context']['extra']['merchant']);
+        self::assertFalse($this->buildToken()->verifyToken($token));
     }
 
     /**
-     * The additional data of a presented token is content anyone who can post a callback decides,
-     * so it is not written out either.
+     * A checkout token that ran out is a customer with a tab open, not a misconfiguration, so it
+     * is not reported as one: the warning about a refused callback belongs to the callback token.
+     */
+    public function testAnExpiredCheckoutTokenIsNotReportedAsARefusedCallback(): void
+    {
+        $expired = $this->buildAjaxToken(-1)->getToken();
+
+        self::assertFalse($this->buildAjaxToken()->verifyToken($expired));
+        self::assertSame('debug', $this->logged[0]['level']);
+        self::assertStringContainsString('checkout token expired', $this->logged[0]['message']);
+        self::assertStringNotContainsString('days', (string)json_encode($this->logged[0]['context']));
+    }
+
+    /**
+     * The checkout token lasts two hours whatever the callback setting says. Built plain, without
+     * the double the other checkout cases use, so this asserts the class and not the double.
+     */
+    public function testTheCheckoutTokenKeepsItsOwnLifetime(): void
+    {
+        $token = new AjaxToken(new Jwt(new Json()), $this->config(365), $this->logManager());
+
+        self::assertEqualsWithDelta(time() + 7200, $token->getExpirationTimestamp(), 60);
+    }
+
+    /**
+     * The binding between a checkout token and its quote is the quote id itself, not a shortened
+     * hash of it: two ids that agree in the first bytes of a digest must not stand in for one
+     * another, and a claim of null must not satisfy a check expecting a quote.
+     *
+     * @dataProvider mismatchedQuoteProvider
+     */
+    public function testACheckoutTokenIsBoundToItsOwnQuote(?string $minted, ?string $expected): void
+    {
+        $token = $this->buildAjaxToken(2, $minted)->getToken();
+
+        self::assertFalse($this->buildAjaxToken(2, $expected)->verifyToken($token));
+        self::assertSame('additional data mismatch', $this->logged[0]['message']);
+    }
+
+    /**
+     * @return array<string, array{?string, ?string}>
+     */
+    public static function mismatchedQuoteProvider(): array
+    {
+        return [
+            'another quote' => ['4711', '4712'],
+            'no quote against a quote' => [null, '4711'],
+            'a quote against no quote' => ['4711', null],
+        ];
+    }
+
+    /**
+     * The same quote is the same quote.
+     */
+    public function testACheckoutTokenVerifiesAgainstItsOwnQuote(): void
+    {
+        $token = $this->buildAjaxToken(2, '4711')->getToken();
+
+        self::assertTrue($this->buildAjaxToken(2, '4711')->verifyToken($token));
+    }
+
+    /**
+     * A signed token with no readable expiry is refused for that reason, rather than reported as
+     * having expired half a lifetime ago, which would send a merchant to the wrong setting. A
+     * claim of the wrong type is one of these: reading it as a date is a fatal, and on a callback
+     * endpoint a fatal is a 500 where a refusal belongs.
+     *
+     * @dataProvider unreadableExpiryProvider
+     */
+    public function testRefusesATokenWithNoReadableExpiry(mixed $expires): void
+    {
+        $token = (new Jwt(new Json()))->encode(
+            ['merchant' => self::API_KEY, 'expires' => $expires, 'additional_data' => null],
+            self::API_SECRET
+        );
+
+        self::assertFalse($this->buildToken()->verifyToken($token));
+        self::assertStringContainsString('no expiry that can be read', $this->logged[0]['message']);
+        self::assertArrayNotHasKey('expired', $this->logged[0]['context']);
+    }
+
+    /**
+     * @return array<string, array{mixed}>
+     */
+    public static function unreadableExpiryProvider(): array
+    {
+        return [
+            'not a date' => ['not a date'],
+            'a number' => [1757500000],
+            'an array' => [['2026-12-31 00:00:00']],
+            'nothing at all' => [null],
+        ];
+    }
+
+    /**
+     * A store that is active with no credentials configured signs with an empty key, which anyone
+     * can do, and holds an empty merchant key, which an empty claim matches. Nothing to verify
+     * against means nothing verifies, rather than everything verifying.
+     *
+     * @dataProvider missingCredentialProvider
+     */
+    public function testRefusesEveryTokenWhenTheStoreHasNoCredentials(string $key, string $secret): void
+    {
+        $forged = (new Jwt(new Json()))->encode(
+            ['merchant' => $key, 'expires' => date('Y-m-d H:i:s', strtotime('+1 day')), 'additional_data' => null],
+            $secret
+        );
+
+        $config = $this->createMock(Config::class);
+        $config->method('getMerchantApiKey')->willReturn($key);
+        $config->method('getMerchantApiSecret')->willReturn($secret);
+        $config->method('getCallbackTokenLifetimeDays')->willReturn(365);
+
+        $token = new CallbackToken(new Jwt(new Json()), $config, $this->logManager());
+
+        self::assertFalse($token->verifyToken($forged));
+        self::assertStringContainsString('no API credentials', $this->logged[0]['message']);
+        self::assertSame('debug', $this->logged[0]['level'], 'an anonymous caller can repeat this at will');
+    }
+
+    /**
+     * @return array<string, array{string, string}>
+     */
+    public static function missingCredentialProvider(): array
+    {
+        return [
+            'nothing configured at all' => ['', ''],
+            'a key but no secret' => [self::API_KEY, ''],
+            'a secret but no key' => ['', self::API_SECRET],
+        ];
+    }
+
+    /**
+     * A token that did not verify leaves a trace. Without one, rotating the API secret stops every
+     * registered callback at once and there is nothing in the log to say why.
+     */
+    public function testATokenThatDidNotVerifyIsLogged(): void
+    {
+        $token = (new Jwt(new Json()))->encode(
+            ['merchant' => self::API_KEY, 'expires' => date('Y-m-d H:i:s', strtotime('+1 day'))],
+            'the-secret-this-store-used-to-have'
+        );
+
+        self::assertFalse($this->buildToken()->verifyToken($token));
+        self::assertSame('debug', $this->logged[0]['level']);
+        self::assertStringContainsString('did not verify', $this->logged[0]['message']);
+        self::assertStringNotContainsString($token, (string)json_encode($this->logged));
+    }
+
+    /**
+     * A merchant claim that is not a string is not this store's key.
+     */
+    public function testRefusesAMerchantClaimThatIsNotAString(): void
+    {
+        $token = (new Jwt(new Json()))->encode(
+            ['merchant' => ['x'], 'expires' => date('Y-m-d H:i:s', strtotime('+1 day'))],
+            self::API_SECRET
+        );
+
+        self::assertFalse($this->buildToken()->verifyToken($token));
+        self::assertSame('merchant ID mismatch', $this->logged[0]['message']);
+    }
+
+    /**
+     * The same value gives the same fingerprint, which is what makes two of them comparable at
+     * all: without that the mismatch line would say nothing an operator can act on.
+     */
+    public function testTheFingerprintOfTheSameValueMatches(): void
+    {
+        $first = $this->buildToken(30, 'live-someone-else')->getToken();
+        self::assertFalse($this->buildToken()->verifyToken($first));
+        $a = $this->logged[0]['context']['extra']['configured'];
+
+        $this->logged = [];
+        $second = $this->buildToken(30, 'live-someone-else-again')->getToken();
+        self::assertFalse($this->buildToken()->verifyToken($second));
+
+        self::assertSame($a, $this->logged[0]['context']['extra']['configured']);
+        self::assertNotSame($a, $this->logged[0]['context']['extra']['request']);
+    }
+
+    /**
+     * The additional data of a presented token is content whoever sent it chose, so the mismatch
+     * line carries a fingerprint of it rather than the claim.
      */
     public function testTheAdditionalDataMismatchLineCarriesNoClaim(): void
     {
-        $logged = [];
-        $token = $this->verifyWith(
-            ['merchant' => self::API_KEY, 'additional_data' => 'whatever-the-caller-sent'],
-            $logged
-        );
+        $token = $this->buildAjaxToken(2, 'whatever-the-caller-sent')->getToken();
 
-        self::assertFalse($token);
-        self::assertSame('additional data mismatch', $logged[0]['message']);
-        self::assertStringNotContainsString(
-            'whatever-the-caller-sent',
-            (string)json_encode($logged[0]['context'])
-        );
-        self::assertStringStartsWith('sha256:', $logged[0]['context']['extra']['request']);
+        self::assertFalse($this->buildAjaxToken(2, '4711')->verifyToken($token));
+        self::assertSame('additional data mismatch', $this->logged[0]['message']);
+
+        $written = (string)json_encode($this->logged);
+        self::assertStringNotContainsString('whatever-the-caller-sent', $written);
+        self::assertStringStartsWith('sha256:', $this->logged[0]['context']['extra']['request']);
     }
 
     /**
-     * The same key gives the same fingerprint, which is what makes the two comparable at all.
+     * A token minted before this release, with the three year expiry, is still accepted: the
+     * lifetime is written into each token, so shortening the setting cannot invalidate a callback
+     * url already registered with Qliro.
      */
-    public function testTheFingerprintOfTheSameKeyMatches(): void
+    public function testStillAcceptsATokenMintedWithTheOldThreeYearExpiry(): void
     {
-        $logged = [];
-        $this->verifyWith(['merchant' => 'live-someone-else'], $logged);
-        $first = $logged[0]['context']['extra']['configured'];
+        $legacy = (new Jwt(new Json()))->encode(
+            [
+                'merchant' => self::API_KEY,
+                'expires' => date('Y-m-d H:i:s', strtotime('+3 years')),
+                'additional_data' => null,
+            ],
+            self::API_SECRET
+        );
 
-        $logged = [];
-        $this->verifyWith(['merchant' => 'live-someone-else-again'], $logged);
-
-        self::assertSame($first, $logged[0]['context']['extra']['configured']);
+        self::assertTrue($this->buildToken(30)->verifyToken($legacy));
     }
 
     /**
-     * @param array $payload What the token decodes to
-     * @param array $logged Filled with the lines the manager was asked to write
-     * @return bool
+     * @param int $lifetimeDays
+     * @param string $merchantKey
+     * @return CallbackToken
      */
-    private function verifyWith(array $payload, array &$logged): bool
+    private function buildToken(int $lifetimeDays = 365, string $merchantKey = self::API_KEY): CallbackToken
     {
-        $jwt = $this->createMock(Jwt::class);
-        $jwt->method('decode')->willReturn($payload);
+        return new CallbackToken(new Jwt(new Json()), $this->config($lifetimeDays, $merchantKey), $this->logManager());
+    }
 
+    /**
+     * @param int $hoursFromNow Negative for a token that has already run out
+     * @param string|null $quoteId What the token is bound to
+     * @return AjaxToken
+     */
+    private function buildAjaxToken(int $hoursFromNow = 2, ?string $quoteId = null): AjaxToken
+    {
+        $token = new class (new Jwt(new Json()), $this->config(365), $this->logManager(), $hoursFromNow, $quoteId) extends AjaxToken {
+            public function __construct(
+                Jwt $jwt,
+                Config $config,
+                LogManager $logManager,
+                private int $hours,
+                private ?string $quoteId
+            ) {
+                parent::__construct($jwt, $config, $logManager);
+            }
+
+            // The two hour lifetime is what the class fixes; the test needs one that has passed
+            protected function getLifetimeSeconds(): int
+            {
+                return $this->hours * 3600;
+            }
+
+            // Set through a quote in production, which a unit test has no use for
+            public function getAdditionalData(): ?string
+            {
+                return $this->quoteId;
+            }
+        };
+
+        return $token;
+    }
+
+    /**
+     * @param int $lifetimeDays
+     * @param string $merchantKey
+     * @return Config
+     */
+    private function config(int $lifetimeDays, string $merchantKey = self::API_KEY): Config
+    {
         $config = $this->createMock(Config::class);
-        $config->method('getMerchantApiKey')->willReturn(self::API_KEY);
+        $config->method('getMerchantApiKey')->willReturn($merchantKey);
         $config->method('getMerchantApiSecret')->willReturn(self::API_SECRET);
+        $config->method('getCallbackTokenLifetimeDays')->willReturn($lifetimeDays);
 
+        return $config;
+    }
+
+    /**
+     * @return LogManager
+     */
+    private function logManager(): LogManager
+    {
         $logManager = $this->createMock(LogManager::class);
-        $logManager->method('debug')
-            ->willReturnCallback(function ($message, array $context = []) use (&$logged): void {
-                $logged[] = ['message' => $message, 'context' => $context];
+        $logManager->method('log')
+            ->willReturnCallback(function ($level, $message, array $context = []): void {
+                $this->logged[] = ['level' => (string)$level, 'message' => (string)$message, 'context' => $context];
             });
 
-        return (new CallbackToken($jwt, $config, $logManager))->verifyToken('a.b.c');
+        foreach (['debug', 'warning', 'info', 'error'] as $level) {
+            $logManager->method($level)
+                ->willReturnCallback(function ($message, array $context = []) use ($level): void {
+                    $this->logged[] = ['level' => $level, 'message' => (string)$message, 'context' => $context];
+                });
+        }
+
+        return $logManager;
     }
 }

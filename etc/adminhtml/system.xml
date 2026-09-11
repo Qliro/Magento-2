@@ -230,6 +230,12 @@
                         </depends>
                     </field>
 
+                    <field id="token_lifetime_days" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                        <label>Callback Token Lifetime (days)</label>
+                        <validate>required-entry validate-digits validate-digits-range digits-range-1-1095</validate>
+                        <comment><![CDATA[How long a callback URL registered with Qliro stays valid, 1 to 1095 days. It has to outlast the time between placing an order and its last capture or refund, because those push to the URL registered when the order was created: an expired token means the capture or refund is never confirmed on the order, and nothing reconciles it later. 1095 by default, the length of the Swedish right of complaint. Shorten it if your orders settle sooner. Changing this affects orders created from now on; a callback already registered with Qliro keeps the lifetime it was given.]]></comment>
+                    </field>
+
                     <field id="redirect_callbacks" translate="label" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Redirect Callbacks</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>

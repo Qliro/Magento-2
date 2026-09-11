@@ -48,6 +48,7 @@
                     <integrity_policy_url/>
                 </merchant>
                 <callback>
+                    <token_lifetime_days>1095</token_lifetime_days>
                     <redirect_callbacks>0</redirect_callbacks>
                     <callback_uri />
                     <login_http_notifications>0</login_http_notifications>
