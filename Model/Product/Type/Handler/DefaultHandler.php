@@ -15,6 +15,7 @@ use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Product\VatRate;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
@@ -28,6 +29,11 @@ class DefaultHandler implements TypeHandlerInterface
     private readonly LineVatRate $lineVatRate;
 
     /**
+     * @var LineReference
+     */
+    private readonly LineReference $lineReference;
+
+    /**
      * Class constructor
      *
      * @param QliroOrderItemFactory            $qliroOrderItemFactory
@@ -35,16 +41,19 @@ class DefaultHandler implements TypeHandlerInterface
      * @param Config                           $config
      * @param VatRate                          $vatRate
      * @param LineVatRate|null                 $lineVatRate
+     * @param LineReference|null               $lineReference
      */
     public function __construct(
         private readonly QliroOrderItemFactory $qliroOrderItemFactory,
         private readonly Data                  $qliroHelper,
         private readonly Config                $config,
         private readonly VatRate               $vatRate,
-        ?LineVatRate                           $lineVatRate = null
+        ?LineVatRate                           $lineVatRate = null,
+        ?LineReference                         $lineReference = null
     ) {
         // Optional so a store's handler calling parent::__construct() with the old signature keeps working
         $this->lineVatRate = $lineVatRate ?? new LineVatRate();
+        $this->lineReference = $lineReference ?? new LineReference();
     }
 
     /**
@@ -56,7 +65,7 @@ class DefaultHandler implements TypeHandlerInterface
         $pricePerItemExVat = $this->preparePrice($item, false);
 
         $qliroOrderItem = $this->qliroOrderItemFactory->create();
-        $qliroOrderItem->setMerchantReference($item->getSku());
+        $qliroOrderItem->setMerchantReference($this->prepareMerchantReference($item));
         $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_PRODUCT);
         $qliroOrderItem->setQuantity($this->prepareQuantity($item));
         $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
@@ -115,11 +124,14 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
+     * The reference carries the cart item id because the sku alone does not tell two lines apart:
+     * a cart may hold one sku on several lines, and Qliro merges lines that share a reference
+     *
      * @inheirtDoc
      */
     public function prepareMerchantReference(TypeSourceItemInterface $item)
     {
-        return sprintf('%s:%s', $item->getId(), $item->getSku());
+        return $this->lineReference->forItem($item->getId(), $item->getSku());
     }
 
     /**

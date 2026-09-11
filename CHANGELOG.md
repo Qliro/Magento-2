@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.40] - 2026-09-11
+
+### Fixed
+
+- A cart holding one sku on more than one line no longer stops at the last step of the checkout. `Model/Product/Type/Handler/DefaultHandler.php` has labelled every order line with the sku alone since 1.7.0, and Qliro identifies a line by that label: it merged two lines carrying the same one into a single line of the summed quantity. The validate callback then compared the cart against the Qliro order, saw 25 against 50 and declined the purchase, which is the right call on a total it cannot verify and the wrong number to be comparing. The label carries the cart item id again, the format the module used before 1.7.0 and the one the line metadata has carried all along, so two lines of one sku stay two lines. Reported by Skyltexperten, where it stopped 11 of the 12 checkouts that reached the payment step over four days, and where the buyer had usually identified with a personal identity number before the refusal (PLIN-408)
+- The same cart failed the comparison even when Qliro kept the two lines apart, because the lines were priced differently. `Model/QliroOrder/Builder/ValidateOrderBuilder.php` indexes both sides by the label, so the second line of a sku replaced the first on each side, and the surviving pair was compared across lines: 19.75 against 20.08 on a cart of two lines priced 24.69 and 25.10. A label that stands for two lines now ends the comparison and says so in the log, naming the label and the side it came from. The module keeps the label unique per line, so this is a store's own line builder or a third party, and the amounts of whichever line the index dropped were never checked (PLIN-408)
+- A credit memo line is matched to its order line by the whole label rather than by the sku, `Model/QliroOrder/Builder/CreditMemoItemsBuilder.php`, so two lines of one sku each take their own refunded quantity instead of both taking the first one's. A line that is not a product is no longer also looked up as one. Nothing in the module wires this builder up, it is kept because a store may wire it up on its own (PLIN-408)
+
+### Changed
+
+- An order the module places is stamped with the format its reservation was built in, `qliro_line_reference_carries_item_id` on the payment. Qliro refuses a capture whose lines disagree with the reservation, and refuses it terminally, so an order placed before this release would have become uncapturable rather than merely mislabelled: its reservation holds the bare sku and its capture would have asked for a line Qliro has never seen. `InvoiceShipmentsBuilder`, `ShipmentShipmentsBuilder` and `CreditMemoItemsBuilder` put their product lines back into the shape the order was reserved with when the stamp is absent, so orders open at upgrade time still capture and refund (PLIN-408)
+- A checkout already open when the store upgrades relabels itself on its next quote update, which the checkout sends whenever the cart, the address or the delivery method moves. Until it does, its Qliro order holds the old labels and the validate callback declines the purchase rather than comparing a cart against lines it cannot find, which is the same refusal as any other disagreement and is cleared by the update (PLIN-408)
+- The label, its two formats and the stamp live in one class, `Model/QliroOrder/LineReference.php`, rather than a `sprintf()` in the handler and an `explode()` in each place that reads one back. A sku may hold the separator itself, so the cart item id is everything before the first one and the sku is the rest (PLIN-408)
 ## [1.7.38] - 2026-09-10
 
 ### Fixed

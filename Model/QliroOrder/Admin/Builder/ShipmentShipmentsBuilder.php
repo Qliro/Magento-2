@@ -10,6 +10,7 @@ use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory;
 
 /**
@@ -48,23 +49,32 @@ class ShipmentShipmentsBuilder
     private $orderSourceProvider;
 
     /**
+     * @var LineReference
+     */
+    private $lineReference;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
      * @param \Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory $qliroShipmentFactory
      * @param OrderSourceProvider $orderSourceProvider
      * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
+     * @param LineReference|null $lineReference
      */
     public function __construct(
         TypePoolHandler $typeResolver,
         QliroShipmentInterfaceFactory $qliroShipmentFactory,
         OrderSourceProvider $orderSourceProvider,
-        $handlers = []
+        $handlers = [],
+        ?LineReference $lineReference = null
     ) {
         $this->typeResolver = $typeResolver;
         $this->qliroShipmentFactory = $qliroShipmentFactory;
         $this->orderSourceProvider = $orderSourceProvider;
         $this->handlers = $handlers;
+        // Optional so a store constructing this builder with the old signature keeps working
+        $this->lineReference = $lineReference ?? new LineReference();
     }
 
     /**
@@ -147,6 +157,8 @@ class ShipmentShipmentsBuilder
                 $shipmentOrderItems = $handler->handle($shipmentOrderItems, $this->order);
             }
         }
+
+        $shipmentOrderItems = $this->lineReference->alignWithReservation($shipmentOrderItems, $this->order);
 
         $this->orderSourceProvider->setOrder(null);
         $this->order = null;

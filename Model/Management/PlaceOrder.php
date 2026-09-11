@@ -578,6 +578,10 @@ class PlaceOrder extends AbstractManagement
             Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT,
             true
         );
+        $payment->setAdditionalInformation(
+            Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID,
+            true
+        );
 
         if ($paymentMethod) {
             $payment->setAdditionalInformation(

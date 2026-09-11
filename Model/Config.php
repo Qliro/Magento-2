@@ -79,6 +79,14 @@ class Config
      */
     const QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT = 'qliro_discount_carries_vat';
 
+    /**
+     * Whether the reservation this order was placed against carries the quote item id in the
+     * merchant reference of its product lines. Absent on every order placed before 1.7.40, whose
+     * reservation carries the bare sku, and whose capture has to reproduce that or Qliro sees a
+     * changed line
+     */
+    const QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID = 'qliro_line_reference_carries_item_id';
+
     const CONFIG_FEE_AMOUNT = 'fee';
     const CONFIG_FEE_TITLE = 'description';
 
