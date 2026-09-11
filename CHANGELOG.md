@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.39] - 2026-09-11
+
+### Fixed
+
+- The validate callback no longer declines orders a Multi Source Inventory store can ship. It asked the legacy stock registry, which reads `cataloginventory_stock_item`, and on an MSI store that is not what Magento sells from (PLIN-406, GitHub issue #50)
+- The stock check counts the quantity in the cart. It read the in-stock flag alone, so a cart of ten against a stock of one passed it (PLIN-406)
+- The `OutOfStock` flag sent to Ingrid comes from the same reading as the callback, so the two cannot disagree. It came from the same legacy stock row (PLIN-406)
+
+### Changed
+
+- Stock is read in one place, `Qliro\QliroOne\Api\StockAvailabilityInterface`: MSI when the inventory modules are enabled, the legacy stock registry when they are not. The inventory modules stay optional, `composer.json` requires none of them (PLIN-406)
+- A cart is read the way Magento reads it when it takes the stock for an order, `Model/Stock/QuoteLines.php`: a line with children is answered by its children, a child counts for its own quantity times its parent's, and the same sku on two lines is one quantity (PLIN-406)
+- A type that keeps no quantity of its own, a bundle, a configurable or a grouped product, is not refused on stock, and neither is a cart that has already become an order. An inventory that cannot be read lets the line through and logs why, because Magento checks the stock again for real when it places the order (PLIN-406)
 ## [1.7.38] - 2026-09-10
 
 ### Fixed
