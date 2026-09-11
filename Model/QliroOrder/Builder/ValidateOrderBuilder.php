@@ -271,7 +271,9 @@ class ValidateOrderBuilder
         // Gather order items converted from quote and hash them for faster search
         foreach ($quoteItems as $quoteItem) {
             if (!in_array($quoteItem->getType(), $skipTypes)) {
-                $hashedQuoteItems[$quoteItem->getMerchantReference()] = $quoteItem;
+                if (!$this->hashLine($hashedQuoteItems, $quoteItem, 'cart')) {
+                    return false;
+                }
             }
         }
 
@@ -284,7 +286,10 @@ class ValidateOrderBuilder
         foreach ($qliroOrderItems as $qliroOrderItem) {
             if (!in_array($qliroOrderItem->getType(), $skipTypes)) {
                 $hash = $qliroOrderItem->getMerchantReference();
-                $hashedQliroItems[$hash] = $qliroOrderItem;
+
+                if (!$this->hashLine($hashedQliroItems, $qliroOrderItem, 'Qliro order')) {
+                    return false;
+                }
 
                 if (!isset($hashedQuoteItems[$hash])) {
                     $this->logValidateError('compareQuoteAndQliroOrderItems','hashedQuoteItems failed');
@@ -312,6 +317,39 @@ class ValidateOrderBuilder
                 }
             }
         }
+
+        return true;
+    }
+
+    /**
+     * Index a line by its merchant reference, refusing a reference that stands for two lines
+     *
+     * The comparison below can only tell the two sides apart by this reference, and Qliro merges
+     * lines that share one and sums their quantity, so a repeated reference has to end the
+     * comparison: whichever line the index kept, the amounts of the other one went unchecked and
+     * accepting them is what this callback exists to prevent. The module keeps the reference
+     * unique per cart line, so this is a store's own line builder or a third party (PLIN-408).
+     *
+     * @param QliroOrderItemInterface[] $index
+     * @param QliroOrderItemInterface $item
+     * @param string $side
+     * @return bool
+     */
+    private function hashLine(array &$index, QliroOrderItemInterface $item, string $side): bool
+    {
+        $reference = $item->getMerchantReference();
+
+        if (isset($index[$reference])) {
+            $this->logValidateError(
+                'compareQuoteAndQliroOrderItems',
+                'merchant reference stands for more than one line',
+                ['side' => $side, 'merchant_reference' => $reference]
+            );
+
+            return false;
+        }
+
+        $index[$reference] = $item;
 
         return true;
     }
