@@ -22,6 +22,7 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Product\Type\Handler\DefaultHandler;
 use Qliro\QliroOne\Model\Product\VatRate;
 use Qliro\QliroOne\Model\QliroOrder\Item;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
@@ -82,6 +83,43 @@ class DefaultHandlerTest extends TestCase
         $line = $this->buildHandler(12.0)->getQliroOrderItem($this->buildSourceItem(0.0, 0.0, null));
 
         self::assertSame(12.0, $line->getVatRate());
+    }
+
+    /**
+     * Qliro identifies a line by its merchant reference: it merges two lines carrying the same one
+     * and sums their quantity, so the sku alone cannot stand for a line (PLIN-408).
+     */
+    public function testTheLineReferenceCarriesTheCartItemId(): void
+    {
+        $line = $this->buildHandler()->getQliroOrderItem($this->buildSourceItem(5.99, 4.79, 25.0));
+
+        self::assertSame('7:sku-1', $line->getMerchantReference());
+    }
+
+    /**
+     * The cart shape that blocked the checkout: one sku on two lines, which reached Qliro as one
+     * line of the summed quantity and then failed the validate callback's own comparison.
+     */
+    public function testTwoLinesOfTheSameSkuGetTheirOwnReference(): void
+    {
+        $handler = $this->buildHandler();
+
+        $first = $handler->getQliroOrderItem($this->buildSourceItem(14.25, 11.4, 25.0, itemId: 518, sku: 'Kanalplast'));
+        $second = $handler->getQliroOrderItem($this->buildSourceItem(14.25, 11.4, 25.0, itemId: 519, sku: 'Kanalplast'));
+
+        self::assertSame('518:Kanalplast', $first->getMerchantReference());
+        self::assertSame('519:Kanalplast', $second->getMerchantReference());
+        self::assertNotSame($first->getMerchantReference(), $second->getMerchantReference());
+    }
+
+    /**
+     * The metadata key the module resolves a line back to a cart item by keeps its format.
+     */
+    public function testTheMetadataStillNamesTheCartItem(): void
+    {
+        $line = $this->buildHandler()->getQliroOrderItem($this->buildSourceItem(5.99, 4.79, 25.0));
+
+        self::assertSame(['7:sku-1' => '7:sku-1'], $line->getMetadata()['quoteItems']);
     }
 
     /**
@@ -173,6 +211,7 @@ class DefaultHandlerTest extends TestCase
             $config,
             $vatRate,
             new LineVatRate(),
+            new LineReference(),
             $stockAvailability
         );
     }
@@ -183,7 +222,9 @@ class DefaultHandlerTest extends TestCase
         ?float $taxPercent,
         float $qty = 1.0,
         int $productWebsiteId = 5,
-        ?object $sourceItem = null
+        ?object $sourceItem = null,
+        int $itemId = 7,
+        string $sku = 'sku-1'
     ): TypeSourceItemInterface {
         $quoteItem = $this->getMockBuilder(QuoteItem::class)
             ->disableOriginalConstructor()
@@ -214,8 +255,8 @@ class DefaultHandlerTest extends TestCase
         $product->method('getWeight')->willReturn(1.0);
 
         $item = $this->createMock(TypeSourceItemInterface::class);
-        $item->method('getId')->willReturn(7);
-        $item->method('getSku')->willReturn('sku-1');
+        $item->method('getId')->willReturn($itemId);
+        $item->method('getSku')->willReturn($sku);
         $item->method('getType')->willReturn('simple');
         $item->method('getName')->willReturn('Product');
         $item->method('getQty')->willReturn($qty);

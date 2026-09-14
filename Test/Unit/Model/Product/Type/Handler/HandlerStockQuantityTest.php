@@ -22,6 +22,7 @@ use Qliro\QliroOne\Model\Product\Type\Handler\BundleHandler;
 use Qliro\QliroOne\Model\Product\Type\Handler\ConfigurableHandler;
 use Qliro\QliroOne\Model\Product\VatRate;
 use Qliro\QliroOne\Model\QliroOrder\Item;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 /**
@@ -141,6 +142,7 @@ class HandlerStockQuantityTest extends TestCase
             $config,
             $this->createMock(VatRate::class),
             new LineVatRate(),
+            new LineReference(),
             $stockAvailability
         );
     }
