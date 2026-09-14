@@ -100,7 +100,7 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
      *
      * The reference carries the cart item id, so two lines of the same sku each find their own
      * credit memo line instead of both taking the quantity of the first one. A reference from
-     * before 1.7.40 carries the sku alone and still resolves by sku (PLIN-408).
+     * before 1.7.42 carries the sku alone and still resolves by sku (PLIN-408).
      *
      * @param string $reference
      * @return CreditmemoItemInterface|null

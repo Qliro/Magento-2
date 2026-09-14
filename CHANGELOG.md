@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.40] - 2026-09-11
+## [1.7.42] - 2026-09-14
 
 ### Fixed
 
@@ -14,6 +14,17 @@
 - An order the module places is stamped with the format its reservation was built in, `qliro_line_reference_carries_item_id` on the payment. Qliro refuses a capture whose lines disagree with the reservation, and refuses it terminally, so an order placed before this release would have become uncapturable rather than merely mislabelled: its reservation holds the bare sku and its capture would have asked for a line Qliro has never seen. `InvoiceShipmentsBuilder`, `ShipmentShipmentsBuilder` and `CreditMemoItemsBuilder` put their product lines back into the shape the order was reserved with when the stamp is absent, so orders open at upgrade time still capture and refund (PLIN-408)
 - A checkout already open when the store upgrades relabels itself on its next quote update, which the checkout sends whenever the cart, the address or the delivery method moves. Until it does, its Qliro order holds the old labels and the validate callback declines the purchase rather than comparing a cart against lines it cannot find, which is the same refusal as any other disagreement and is cleared by the update (PLIN-408)
 - The label, its two formats and the stamp live in one class, `Model/QliroOrder/LineReference.php`, rather than a `sprintf()` in the handler and an `explode()` in each place that reads one back. A sku may hold the separator itself, so the cart item id is everything before the first one and the sku is the rest (PLIN-408)
+## [1.7.41] - 2026-09-14
+
+### Added
+
+- Unit tests for the builders that decide what a buyer is charged, so a change in the amounts is caught before it reaches a merchant. Nothing a store installs changes in this release (PLIN-367)
+- The order lines a cart is sent as, `OrderItemsBuilder` through the type pool `etc/di.xml` wires: a simple line carries the cart's two amounts and the rate Magento calculated, a configurable is one line priced and counted from its parent rather than two, a bundle priced from its children sends the bundle line at zero, a line no handler claims or that lost its merchant reference is left out, and the builder releases the cart it built from. The pool the tests build is checked against `etc/di.xml`, so the two cannot drift apart (PLIN-367)
+- The delivery options, `ShippingMethodBuilder`: the option the cart has selected is sent with the totals the cart collected for it, every other option is priced from its own rate taxed for the address, and both amounts carry the two decimals Qliro accepts (PLIN-367)
+- The capture, `InvoiceShipmentsBuilder`: a partial invoice carries the quantity being invoiced now, a configurable is captured at its parent's quantity, a child whose parent is not in the invoice is left out, an invoice that captures nothing sends no shipment, and only the first invoice of an order is marked as the first capture, which is what the shipping and fee handlers read (PLIN-367)
+- The refund, `AddItemsToInvoiceBuilder`: one negative line against the capture, at the credit memo's total and the rate its lines are taxed with, no rate at all when the memo mixes rates, the rate read only from the lines actually refunded, and a refund spread over several captures carrying each share and each rate (PLIN-367)
+- The update a changed cart is pushed with, `UpdateRequestBuilder`: the lines and the delivery options both reach the update, and a store with no delivery integration sends no delivery configuration (PLIN-367)
+
 ## [1.7.38] - 2026-09-10
 
 ### Fixed

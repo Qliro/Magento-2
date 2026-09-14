@@ -81,7 +81,7 @@ class Config
 
     /**
      * Whether the reservation this order was placed against carries the quote item id in the
-     * merchant reference of its product lines. Absent on every order placed before 1.7.40, whose
+     * merchant reference of its product lines. Absent on every order placed before 1.7.42, whose
      * reservation carries the bare sku, and whose capture has to reproduce that or Qliro sees a
      * changed line
      */

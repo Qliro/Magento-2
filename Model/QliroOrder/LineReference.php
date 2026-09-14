@@ -72,7 +72,7 @@ class LineReference
     /**
      * Split a reference into its item id and its sku, or null when it carries no id
      *
-     * A sku may hold a separator of its own, and a reference from before 1.7.40 is a bare sku, so
+     * A sku may hold a separator of its own, and a reference from before 1.7.42 is a bare sku, so
      * a leading part is only read as an id when it is one: a cart item id is digits and nothing
      * else. `AB:12` is therefore a sku whole, and `519:AB:12` is that sku on cart line 519.
      *
@@ -93,7 +93,7 @@ class LineReference
     /**
      * Whether the reservation of the given order was built with the item id in its references
      *
-     * Stamped on the payment when the module places the order. An order placed before 1.7.40 has
+     * Stamped on the payment when the module places the order. An order placed before 1.7.42 has
      * no stamp and was reserved with the bare sku, and Qliro refuses a capture whose lines
      * disagree with the reservation, so its lines have to go out the way they went out then.
      *
