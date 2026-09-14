@@ -7,8 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Builder;
 
-use Magento\CatalogInventory\Api\Data\StockItemInterface;
-use Magento\CatalogInventory\Api\StockRegistryInterface;
 use Magento\Catalog\Model\Product;
 use Magento\Quote\Model\CustomerManagement;
 use Magento\Quote\Model\Quote;
@@ -18,12 +16,14 @@ use Magento\Quote\Model\SubmitQuoteValidator;
 use Magento\Store\Model\Store;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
+use Qliro\QliroOne\Api\StockAvailabilityInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Notification\ValidateOrderResponse;
+use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Item;
@@ -111,11 +111,11 @@ class ValidateOrderBuilderReferenceTest extends TestCase
         $responseFactory->method('create')
             ->willReturnCallback(static fn(): ValidateOrderResponse => new ValidateOrderResponse());
 
-        $stockItem = $this->createMock(StockItemInterface::class);
-        $stockItem->method('getIsInStock')->willReturn(true);
-
-        $stockRegistry = $this->createMock(StockRegistryInterface::class);
-        $stockRegistry->method('getStockItem')->willReturn($stockItem);
+        // Stock is not what these cases are about, so every line the cart holds is salable
+        $stockAvailability = $this->createMock(StockAvailabilityInterface::class);
+        $stockAvailability->method('areSalable')->willReturnCallback(
+            static fn(array $lines): array => array_fill_keys(array_keys($lines), true)
+        );
 
         $orderItemsBuilder = $this->createMock(OrderItemsBuilder::class);
         $orderItemsBuilder->method('setQuote')->willReturnSelf();
@@ -126,7 +126,8 @@ class ValidateOrderBuilderReferenceTest extends TestCase
 
         $builder = new ValidateOrderBuilder(
             $responseFactory,
-            $stockRegistry,
+            $stockAvailability,
+            new QuoteLines(),
             $orderItemsBuilder,
             $this->createMock(LogManager::class),
             $this->createMock(SubmitQuoteValidator::class),
@@ -148,9 +149,15 @@ class ValidateOrderBuilderReferenceTest extends TestCase
         $product->method('getId')->willReturn(108);
         $product->method('getStore')->willReturn($store);
 
-        $quoteItem = $this->createMock(QuoteItem::class);
+        $quoteItem = $this->getMockBuilder(QuoteItem::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getProduct', 'getSku', 'getTotalQty', 'getProductType', 'getChildren'])
+            ->getMock();
         $quoteItem->method('getProduct')->willReturn($product);
         $quoteItem->method('getSku')->willReturn('Kanalplast');
+        $quoteItem->method('getTotalQty')->willReturn(50.0);
+        $quoteItem->method('getProductType')->willReturn('simple');
+        $quoteItem->method('getChildren')->willReturn([]);
 
         $address = $this->createMock(Address::class);
         $address->method('getShippingMethod')->willReturn('flatrate_flatrate');
@@ -160,6 +167,9 @@ class ValidateOrderBuilderReferenceTest extends TestCase
         $quote->method('isVirtual')->willReturn(false);
         $quote->method('getShippingAddress')->willReturn($address);
         $quote->method('getAllVisibleItems')->willReturn([$quoteItem]);
+        $quote->method('getAllItems')->willReturn([$quoteItem]);
+        $quote->method('getIsActive')->willReturn(true);
+        $quote->method('getStore')->willReturn($store);
 
         return $quote;
     }

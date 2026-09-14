@@ -173,6 +173,27 @@ so this is the moment to decide whether a year covers your returns.
 The token the checkout page uses for its own ajax calls is a different one: it lasts two hours, is
 bound to the quote, and is not affected by this setting.
 
+## Stock
+
+The module asks the same inventory Magento asks. On a store with the Multi Source Inventory modules
+installed, a line is judged by the salability of its sku in the stock of the website's sales channel,
+for the quantity in the cart, the way MSI judges it when it takes the stock for an order. On a store
+without them, the answer comes from `cataloginventory_stock_item` as before, which keeps a single scope
+for the whole installation whatever the website. Nothing needs configuring, and the inventory modules are
+not required: the module ships no dependency on them and reads the store.
+
+Two things are decided this way: whether the validate callback declines an order for stock, and the
+`OutOfStock` flag the module sends Ingrid on each order line. Both read the cart the same way, so they
+cannot disagree: a line with children is answered by its children, a child counts for its own quantity
+times its parent's, and the same sku on two lines is one quantity.
+
+A bundle, a configurable or a grouped product keeps no quantity of its own. Its stock row reads as a
+quantity of nothing and Magento never asks it, so neither does the module: the children carry the stock
+and are checked in its place. If the inventory cannot be read at all, the line is let through and the
+reason is logged, however often it happens: Magento checks the stock again for real when it places the
+order, so an unreadable inventory costs nothing here, while refusing on it would decline every order the
+store has. Watch the log for `Could not read stock` if a store's inventory needs looking at.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

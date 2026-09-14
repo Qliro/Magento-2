@@ -6,7 +6,6 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
-use Magento\CatalogInventory\Api\StockRegistryInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Validator\Exception;
 use Magento\Quote\Api\Data\CartInterface;
@@ -15,6 +14,8 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
+use Qliro\QliroOne\Api\StockAvailabilityInterface;
+use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
 use \Qliro\QliroOne\Model\Config;
@@ -38,7 +39,8 @@ class ValidateOrderBuilder
      * Inject dependencies
      *
      * @param ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory
-     * @param StockRegistryInterface $stockRegistry
+     * @param StockAvailabilityInterface $stockAvailability
+     * @param QuoteLines $quoteLines
      * @param OrderItemsBuilder $orderItemsBuilder
      * @param LogManager $logManager
      * @param SubmitQuoteValidator $submitQuoteValidator
@@ -47,7 +49,8 @@ class ValidateOrderBuilder
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
-        private StockRegistryInterface $stockRegistry,
+        private StockAvailabilityInterface $stockAvailability,
+        private QuoteLines $quoteLines,
         private OrderItemsBuilder $orderItemsBuilder,
         private LogManager $logManager,
         private SubmitQuoteValidator $submitQuoteValidator,
@@ -221,29 +224,36 @@ class ValidateOrderBuilder
     }
 
     /**
-     * Check if any items are out of stock
+     * Check whether every line can be sold in the quantity the cart asks for
      *
      * @return bool
      */
     private function checkItemsInStock()
     {
-        /** @var \Magento\Quote\Model\Quote\Item $quoteItem */
-        foreach ($this->quote->getAllVisibleItems() as $quoteItem) {
-            $this->logManager->debug('Getting stock for product id: ' . $quoteItem->getProduct()->getId());
-            $stockItem = $this->stockRegistry->getStockItem(
-                $quoteItem->getProduct()->getId(),
-                $quoteItem->getProduct()->getStore()->getWebsiteId()
+        /*
+         * A cart that has already become an order has taken its own stock, and an inventory that
+         * counts reservations counts that against it. A validate callback sent again after the
+         * order was placed would be refused on the stock the order itself is holding.
+         */
+        if (!$this->quote->getIsActive()) {
+            return true;
+        }
+
+        $lines = $this->quoteLines->fromQuote($this->quote);
+        $websiteId = (int)$this->quote->getStore()->getWebsiteId();
+
+        foreach ($this->stockAvailability->areSalable($lines, $websiteId) as $sku => $isSalable) {
+            if ($isSalable) {
+                continue;
+            }
+
+            $this->logValidateError(
+                'checkItemsInStock',
+                'not enough stock',
+                ['sku' => $sku, 'qty' => $lines[$sku]['qty'] ?? null]
             );
 
-            if (!$stockItem->getIsInStock()) {
-                $this->logManager->debug('Product id is out of stock: ' . $quoteItem->getProduct()->getId());
-                $this->logValidateError(
-                    'checkItemsInStock',
-                    'not enough stock',
-                    ['sku' => $quoteItem->getSku()]
-                );
-                return false;
-            }
+            return false;
         }
 
         return true;
