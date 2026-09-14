@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.39] - 2026-09-11
+## [1.7.43] - 2026-09-14
 
 ### Fixed
 
@@ -14,6 +14,17 @@
 - Stock is read in one place, `Qliro\QliroOne\Api\StockAvailabilityInterface`: MSI when the inventory modules are enabled, the legacy stock registry when they are not. The inventory modules stay optional, `composer.json` requires none of them (PLIN-406)
 - A cart is read the way Magento reads it when it takes the stock for an order, `Model/Stock/QuoteLines.php`: a line with children is answered by its children, a child counts for its own quantity times its parent's, and the same sku on two lines is one quantity (PLIN-406)
 - A type that keeps no quantity of its own, a bundle, a configurable or a grouped product, is not refused on stock, and neither is a cart that has already become an order. An inventory that cannot be read lets the line through and logs why, because Magento checks the stock again for real when it places the order (PLIN-406)
+## [1.7.41] - 2026-09-14
+
+### Added
+
+- Unit tests for the builders that decide what a buyer is charged, so a change in the amounts is caught before it reaches a merchant. Nothing a store installs changes in this release (PLIN-367)
+- The order lines a cart is sent as, `OrderItemsBuilder` through the type pool `etc/di.xml` wires: a simple line carries the cart's two amounts and the rate Magento calculated, a configurable is one line priced and counted from its parent rather than two, a bundle priced from its children sends the bundle line at zero, a line no handler claims or that lost its merchant reference is left out, and the builder releases the cart it built from. The pool the tests build is checked against `etc/di.xml`, so the two cannot drift apart (PLIN-367)
+- The delivery options, `ShippingMethodBuilder`: the option the cart has selected is sent with the totals the cart collected for it, every other option is priced from its own rate taxed for the address, and both amounts carry the two decimals Qliro accepts (PLIN-367)
+- The capture, `InvoiceShipmentsBuilder`: a partial invoice carries the quantity being invoiced now, a configurable is captured at its parent's quantity, a child whose parent is not in the invoice is left out, an invoice that captures nothing sends no shipment, and only the first invoice of an order is marked as the first capture, which is what the shipping and fee handlers read (PLIN-367)
+- The refund, `AddItemsToInvoiceBuilder`: one negative line against the capture, at the credit memo's total and the rate its lines are taxed with, no rate at all when the memo mixes rates, the rate read only from the lines actually refunded, and a refund spread over several captures carrying each share and each rate (PLIN-367)
+- The update a changed cart is pushed with, `UpdateRequestBuilder`: the lines and the delivery options both reach the update, and a store with no delivery integration sends no delivery configuration (PLIN-367)
+
 ## [1.7.38] - 2026-09-10
 
 ### Fixed
