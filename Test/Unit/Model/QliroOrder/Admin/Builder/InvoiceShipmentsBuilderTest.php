@@ -321,10 +321,17 @@ class InvoiceShipmentsBuilderTest extends TestCase
 
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getItemById', 'getInvoiceCollection', 'getStoreId'])
+            ->onlyMethods(['getItemById', 'getInvoiceCollection', 'getStoreId', 'getPayment'])
             ->addMethods(['setFirstCaptureFlag'])
             ->getMock();
 
+        // The builder asks the payment which reference format the reservation was built with
+        $payment = $this->createMock(Payment::class);
+        $payment->method('getAdditionalInformation')->willReturnCallback(
+            static fn($key = null) => $key === Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID
+        );
+
+        $order->method('getPayment')->willReturn($payment);
         $order->method('getStoreId')->willReturn(1);
         $order->method('getInvoiceCollection')->willReturn($invoices);
         $order->method('getItemById')->willReturnCallback(
