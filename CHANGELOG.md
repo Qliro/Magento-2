@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.7.44] - 2026-09-15
+
+### Fixed
+
+- The organisation number no longer reaches the order printed in front of the company name. Qliro sends a business buyer's company as one string, `964969124 Gloppen Kommune`, and `AddressConverter` wrote it to the quote address as it stood, so the billing and the shipping address of the order both carried the number as part of the name. The number is now taken off the front of the name and written to `vat_id`, the field Magento keeps an organisation number in, and only where the name really starts with it, digit by digit and whatever separators either side spells it with, so a name Qliro sends on its own is left untouched. A name that is nothing but the number is kept as it is rather than emptied, because an empty company would announce the buyer to Qliro as a private person on the next order update (PLIN-417)
+- The buyer's own identity number is never written to `vat_id`. Qliro carries the organisation number in the customer's `PersonalNumber`, which for everybody else is their personal identity number, so the number is only read as a company's where the address carries a company name. That is the same rule `CustomerBuilder` already sends the juridical type by (PLIN-417)
+- A company the identified buyer does not have is cleared from the quote address. The converter writes no null, so nothing could take a company off a quote once it was on one: a buyer who starts the checkout as a company and completes it as themselves kept it, and so does a quote that took the store name from the shipping placeholder of a release before 1.7.26, which is the order a merchant reported with `Batterigiganten AB` on the shipping address of a private customer. Only an address that carries a postcode is read this way, because Qliro masks the address, the company with it, until the buyer is identified, and an empty company name there says nothing about the buyer (PLIN-417)
+
+### Added
+
+- `Model/QliroOrder/Customer` accepts `VatNumber`, and it is preferred over `PersonalNumber` as the organisation number wherever Qliro fills it. The field is in the payload and empty today, and `ContainerMapper` drops any key the container has no setter for, so the module would have thrown it away the day the checkout starts sending the two apart. Both numbers are tried when the company name is split, because the one that answers for the order is not always the one the name was glued to: a `VatNumber` carries the country prefix, a name carries the bare number. It is on the container and not on `QliroOrderCustomerInterface`, so nothing implementing that interface has to change (PLIN-417)
+- Unit tests for `AddressConverter`, pinning the number split off the company name and into `vat_id`, the separators either side can carry, a company name Qliro sends without the number, a name that is only the number, `VatNumber` winning over `PersonalNumber`, a private buyer's identity number never reaching `vat_id`, the company cleared for an identified buyer who has none, and the company kept while the buyer is not identified yet (PLIN-417)
+
 ## [1.7.43] - 2026-09-14
 
 ### Fixed
