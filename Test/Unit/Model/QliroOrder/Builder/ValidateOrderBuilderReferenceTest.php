@@ -25,6 +25,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Notification\ValidateOrderResponse;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 
@@ -132,7 +133,8 @@ class ValidateOrderBuilderReferenceTest extends TestCase
             $this->createMock(LogManager::class),
             $this->createMock(SubmitQuoteValidator::class),
             $this->createMock(CustomerManagement::class),
-            $config
+            $config,
+            new LineQuantity()
         );
 
         return $builder

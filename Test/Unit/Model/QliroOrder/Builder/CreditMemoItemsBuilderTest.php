@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Builder;
 
 use Magento\Framework\Event\ManagerInterface;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Item as QuoteItem;
 use Magento\Sales\Model\Order;
@@ -100,6 +101,23 @@ class CreditMemoItemsBuilderTest extends TestCase
         );
 
         self::assertSame([], $lines);
+    }
+
+    /**
+     * Qliro carries a whole quantity only, so a refund of half a metre is refused rather than
+     * truncated: the `(int)` cast this replaced refunded 1.5 as 1 and kept the rest of the
+     * buyer's money.
+     */
+    public function testRefusesToRefundAPartOfAnItem(): void
+    {
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessageMatches('/CABLE-5MM/');
+
+        $this->build(
+            [$this->buildLine('518:CABLE-5MM', 25.0)],
+            [$this->buildCreditMemoItem('CABLE-5MM', 518, 1.5)],
+            true
+        );
     }
 
     /**

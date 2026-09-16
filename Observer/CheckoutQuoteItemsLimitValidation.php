@@ -13,9 +13,10 @@ use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Qliro\QliroOne\Model\Quote\ItemsLimitValidator;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 
 /**
- * Class responsible for validating the quote items limit at checkout
+ * Class responsible for refusing a cart Qliro cannot take, before the checkout page is rendered
  */
 class CheckoutQuoteItemsLimitValidation implements ObserverInterface
 {
@@ -27,13 +28,15 @@ class CheckoutQuoteItemsLimitValidation implements ObserverInterface
      * @param MessageManager                 $messageManager
      * @param RedirectInterface              $redirect
      * @param ActionFlag                     $actionFlag
+     * @param WholeQuantityValidator         $wholeQuantityValidator
      */
     public function __construct(
-        private readonly CheckoutSession     $checkoutSession,
-        private readonly ItemsLimitValidator $itemsLimitValidator,
-        private readonly MessageManager      $messageManager,
-        private readonly RedirectInterface   $redirect,
-        private readonly ActionFlag          $actionFlag
+        private readonly CheckoutSession        $checkoutSession,
+        private readonly ItemsLimitValidator    $itemsLimitValidator,
+        private readonly MessageManager         $messageManager,
+        private readonly RedirectInterface      $redirect,
+        private readonly ActionFlag             $actionFlag,
+        private readonly WholeQuantityValidator $wholeQuantityValidator
     ) {
     }
 
@@ -54,6 +57,7 @@ class CheckoutQuoteItemsLimitValidation implements ObserverInterface
 
         try {
             $this->itemsLimitValidator->validateQuoteItemsLimit($quote);
+            $this->wholeQuantityValidator->validateWholeQuantities($quote);
         } catch (LocalizedException $e) {
             $this->messageManager->addErrorMessage($e->getMessage());
             $this->actionFlag->set('', ActionInterface::FLAG_NO_DISPATCH, true);

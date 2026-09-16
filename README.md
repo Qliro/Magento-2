@@ -194,6 +194,21 @@ reason is logged, however often it happens: Magento checks the stock again for r
 order, so an unreadable inventory costs nothing here, while refusing on it would decline every order the
 store has. Watch the log for `Could not read stock` if a store's inventory needs looking at.
 
+## Quantity
+
+Qliro carries the quantity of an order line as a whole number, so a store selling by weight or length
+cannot take half a metre of cable through this payment method. A cart holding a part of an item is
+refused with a message naming the line, at the checkout page and again when the order is placed, and
+the buyer can change the quantity or pay another way. It is not truncated: half a metre sent as none
+would be a line Qliro never charges for, and two and a half sent as two would charge for less than the
+cart holds, with Magento recording the whole of it either way.
+
+A product configured with `is_qty_decimal`, or with a `qty_increments` that is not a whole number, is
+what produces such a cart. An order that already holds one, placed before this release or through the
+admin or the API, is refused at the capture and at the shipment for the same reason, naming the line,
+and has to be settled outside Magento. The refund the module sends is a single line for the amount of
+the credit memo and carries no quantity, so it is unaffected.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.
