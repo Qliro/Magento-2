@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.7.45] - 2026-09-16
+
+### Fixed
+
+- A call to Qliro that is never answered no longer holds the checkout open. `Model/Api/Service` was handed a bare `GuzzleHttp\Client` with no configuration, and Guzzle's own defaults are no connect timeout and no request timeout, so the client waited for as long as the connection stayed open. Every checkout render, quote update and shipping change goes through it inside the customer's own request, so one unanswered connection held a PHP worker until the web server killed it, and the customer watched a spinner until then. Every call now carries both timeouts (PLIN-363)
+
+### Added
+
+- **Payment Methods > QliroOne Checkout > API Timeouts**, four fields in seconds, per store view: the connect and the request timeout for the checkout calls, defaulting to 5 and 15, and the same pair for the order management calls, defaulting to 5 and 60. The checkout pair is short because a customer is waiting for it. The order management pair is longer because nobody is waiting in front of a capture, a refund or a cancellation, and abandoning one Qliro has already accepted is worse than waiting for the answer. Both accept 1 to 300 seconds, and a field left empty or holding anything that is not a whole number of seconds falls back to its default rather than to no timeout at all, because 0 is what Guzzle reads as an unlimited wait (PLIN-363)
+- The two kinds of call are told apart in `etc/di.xml`: `Model/Api/Client/OrderManagement` is given a `Service` configured with the order management profile, everything else keeps the checkout one. `Service` takes the profile as a new last constructor argument, which defaults to the checkout, so anything constructing it by hand keeps working and gets the shorter pair (PLIN-363)
+- Unit tests for the new settings and for the calls that carry them: the fall back to the default rather than to no timeout, the cap at 300 seconds, each call type reading its own fields, the values read for the store the call is made for, and a timed out call surfacing as the `TerminalException` the checkout controllers already answer with a customer facing message rather than as a fatal (PLIN-363)
+
 ## [1.7.43] - 2026-09-14
 
 ### Fixed

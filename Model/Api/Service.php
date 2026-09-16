@@ -61,23 +61,31 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     private $duration;
 
     /**
+     * @var string Which set of timeouts this instance calls with, see Config::API_PROFILE_*
+     */
+    private $timeoutProfile;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\Config $config
      * @param \GuzzleHttp\Client $client
      * @param \Magento\Framework\Serialize\Serializer\Json $json
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param string $timeoutProfile Which set of timeouts to call with, see Config::API_PROFILE_*
      */
     public function __construct(
         Config $config,
         Client $client,
         Json $json,
-        Manager $logManager
+        Manager $logManager,
+        $timeoutProfile = Config::API_PROFILE_CHECKOUT
     ) {
         $this->config = $config;
         $this->client = $client;
         $this->json = $json;
         $this->logManager = $logManager;
+        $this->timeoutProfile = $timeoutProfile;
     }
 
     /**
@@ -186,6 +194,18 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
 
         $options[RequestOptions::HEADERS] = $headers;
         $options[RequestOptions::ON_STATS] = [$this, 'receiveStats'];
+
+        // Guzzle waits forever by default, and this call sits inside the customer's own request:
+        // one unanswered connection held a PHP worker until the web server killed it. Read per
+        // call, because the store decides them and the store is only known here.
+        $options[RequestOptions::CONNECT_TIMEOUT] = $this->config->getApiConnectTimeout(
+            $this->timeoutProfile,
+            $storeId
+        );
+        $options[RequestOptions::TIMEOUT] = $this->config->getApiRequestTimeout(
+            $this->timeoutProfile,
+            $storeId
+        );
 
         $this->duration = 0.0;
         $endpointUri = $this->prepareEndpointUri($endpoint, $storeId);

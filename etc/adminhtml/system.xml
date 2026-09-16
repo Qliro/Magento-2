@@ -146,6 +146,40 @@
                     </field>
                 </group>
 
+                <group id="timeouts" translate="label comment" type="text" sortOrder="45" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
+
+                    <label>API Timeouts</label>
+
+                    <comment><![CDATA[<p>How long a call to Qliro may take, in seconds. Without these the checkout waits for as long as the connection stays open, which holds a PHP worker and leaves the customer looking at a spinner.</p><p>An empty field, or anything that is not a whole number of seconds, falls back to the shipped default rather than to no timeout at all. The highest accepted value is 300.</p>]]></comment>
+
+                    <field id="checkout_connect" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Checkout Connect Timeout</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds to wait for the connection to Qliro while a customer is in the checkout. Default 5.</comment>
+                    </field>
+
+                    <field id="checkout_request" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Checkout Request Timeout</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds a whole checkout call to Qliro may take. Default 15.</comment>
+                    </field>
+
+                    <field id="order_management_connect" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Order Management Connect Timeout</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds to wait for the connection to Qliro when capturing, refunding or cancelling. Default 5.</comment>
+                    </field>
+
+                    <field id="order_management_request" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Order Management Request Timeout</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds a whole capture, refund or cancellation may take. Nobody is waiting in front of these, and abandoning one that Qliro has already accepted is worse than waiting, so this is the longer of the two. Default 60.</comment>
+                    </field>
+                </group>
+
                 <group id="styling" translate="label comment" type="text" sortOrder="50" showInDefault="1" showInWebsite="1" showInStore="1">
                     <depends>
                         <field id="active">1</field>

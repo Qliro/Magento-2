@@ -39,6 +39,20 @@ class Config
     const QLIROONE_MERCHANT_API_SECRET = 'qliro_api/merchant_api_secret';
     const QLIROONE_PRESET_ADDRESS = 'qliro_api/preset_address';
 
+    const API_PROFILE_CHECKOUT = 'checkout';
+    const API_PROFILE_ORDER_MANAGEMENT = 'order_management';
+
+    const QLIROONE_CHECKOUT_CONNECT_TIMEOUT = 'timeouts/checkout_connect';
+    const QLIROONE_CHECKOUT_REQUEST_TIMEOUT = 'timeouts/checkout_request';
+    const QLIROONE_ORDER_MANAGEMENT_CONNECT_TIMEOUT = 'timeouts/order_management_connect';
+    const QLIROONE_ORDER_MANAGEMENT_REQUEST_TIMEOUT = 'timeouts/order_management_request';
+
+    const DEFAULT_CHECKOUT_CONNECT_TIMEOUT = 5;
+    const DEFAULT_CHECKOUT_REQUEST_TIMEOUT = 15;
+    const DEFAULT_ORDER_MANAGEMENT_CONNECT_TIMEOUT = 5;
+    const DEFAULT_ORDER_MANAGEMENT_REQUEST_TIMEOUT = 60;
+    const MAX_API_TIMEOUT = 300;
+
     const QLIROONE_STYLING_BACKGROUND = 'styling/background_color';
     const QLIROONE_STYLING_PRIMARY = 'styling/primary_color';
     const QLIROONE_STYLING_CALL_TO_ACTION = 'styling/call_to_action_color';
@@ -356,6 +370,80 @@ class Config
     public function getMerchantApiSecret($storeId = null)
     {
         return (string)$this->adapter->getConfigData(self::QLIROONE_MERCHANT_API_SECRET, $storeId);
+    }
+
+    /**
+     * Seconds to wait for the connection to Qliro to be established, per call type
+     *
+     * @param string $profile
+     * @param int|null $storeId
+     * @return int
+     */
+    public function getApiConnectTimeout($profile = self::API_PROFILE_CHECKOUT, $storeId = null): int
+    {
+        if ($profile === self::API_PROFILE_ORDER_MANAGEMENT) {
+            return $this->readTimeout(
+                self::QLIROONE_ORDER_MANAGEMENT_CONNECT_TIMEOUT,
+                self::DEFAULT_ORDER_MANAGEMENT_CONNECT_TIMEOUT,
+                $storeId
+            );
+        }
+
+        return $this->readTimeout(
+            self::QLIROONE_CHECKOUT_CONNECT_TIMEOUT,
+            self::DEFAULT_CHECKOUT_CONNECT_TIMEOUT,
+            $storeId
+        );
+    }
+
+    /**
+     * Seconds a whole call to Qliro may take, per call type
+     *
+     * The checkout waits in front of a customer and the order management calls do not, which is
+     * the only reason the two are configured apart.
+     *
+     * @param string $profile
+     * @param int|null $storeId
+     * @return int
+     */
+    public function getApiRequestTimeout($profile = self::API_PROFILE_CHECKOUT, $storeId = null): int
+    {
+        if ($profile === self::API_PROFILE_ORDER_MANAGEMENT) {
+            return $this->readTimeout(
+                self::QLIROONE_ORDER_MANAGEMENT_REQUEST_TIMEOUT,
+                self::DEFAULT_ORDER_MANAGEMENT_REQUEST_TIMEOUT,
+                $storeId
+            );
+        }
+
+        return $this->readTimeout(
+            self::QLIROONE_CHECKOUT_REQUEST_TIMEOUT,
+            self::DEFAULT_CHECKOUT_REQUEST_TIMEOUT,
+            $storeId
+        );
+    }
+
+    /**
+     * Read one timeout field, falling back to its default rather than to no timeout at all
+     *
+     * Guzzle reads 0 as "wait forever", which is the state this setting exists to end, so a field
+     * left empty, cleared or filled with anything that is not a positive whole number of seconds
+     * is the default, not an unlimited wait.
+     *
+     * @param string $path
+     * @param int $default
+     * @param int|null $storeId
+     * @return int
+     */
+    private function readTimeout($path, $default, $storeId = null): int
+    {
+        $seconds = trim((string)$this->adapter->getConfigData($path, $storeId));
+
+        if (!ctype_digit($seconds) || (int)$seconds < 1) {
+            return $default;
+        }
+
+        return min((int)$seconds, self::MAX_API_TIMEOUT);
     }
 
     /**

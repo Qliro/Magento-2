@@ -139,6 +139,40 @@ Rows are deleted in batches of 5000, and a single run stops after 200 of them, s
 while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
 and a run that stopped at that cap says so rather than looking like a finished one.
 
+## API timeouts
+
+Every call to Qliro carries a connect timeout and a request timeout, in seconds, set under **Stores >
+Configuration > Sales > Payment Methods > QliroOne Checkout > API Timeouts**. Before 1.7.45 the HTTP
+client ran with Guzzle's defaults, which are neither, so a connection Qliro never answered held a PHP
+worker until the web server killed it and the customer watched a spinner for as long as that took.
+
+Two pairs, because the two kinds of call want different answers:
+
+| Setting | Default | Applies to |
+| --- | --- | --- |
+| Checkout Connect Timeout | 5 | Checkout render, quote update, shipping change |
+| Checkout Request Timeout | 15 | The same calls, whole call |
+| Order Management Connect Timeout | 5 | Capture, refund, cancel, shipment |
+| Order Management Request Timeout | 60 | The same calls, whole call |
+
+The checkout pair is short because a customer is waiting: a store that would rather show an error than a
+spinner can cut it further. The order management pair is longer because nobody is waiting in front of it
+and abandoning a capture Qliro has already accepted is worse than waiting for the answer.
+
+The request timeout covers the whole call, connecting included, so a request timeout shorter than the
+connect timeout is the one that decides: the connect never gets the window it was given. Setting the
+request timeout to the longest a call may take and the connect timeout to a few seconds is the useful
+shape.
+
+Both are per store view, and both accept 1 to 300 seconds. A field left empty, or holding anything that is
+not a whole number of seconds, falls back to the default rather than to no timeout: 0 means "wait forever"
+to Guzzle, which is the state these settings exist to end.
+
+A call that runs out of time fails the way a refused call already does, as a `TerminalException`, so the
+checkout answers the customer with its own message and the order management screens report the failure.
+It is logged with the same `>>>` and `<<<` lines as any other call, so a store that times out often is
+visible in `qliroone_log` rather than only in the web server's error log.
+
 ## Callback security
 
 Qliro pushes order and transaction updates to callback urls this module registers on the order when
