@@ -230,10 +230,29 @@ class CreateRequestBuilder
             if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
                 $createRequest->setEnforcedJuridicalType($customerInfo->getJuridicalType());
             }
+
+            /*
+             * Qliro reads this at the top level of the create request, next to
+             * EnforcedJuridicalType, and not as a member of CustomerInformation. The per field
+             * Lock* flags on the customer block are the ones that live there. Left unset in every
+             * other mode, and ContainerMapper drops a null, so the payload does not change.
+             */
+            if ($this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
+                $createRequest->setLockCustomerInformation(true);
+            }
         }
 
-        $this->quote->getBillingAddress()->setCountryId($createRequest->getCountry());
-        $this->quote->getShippingAddress()->setCountryId($createRequest->getCountry());
+        /*
+         * getCountry() answers from the country selector, GeoIP and the store default, never from
+         * the quote. In the iframe mode the buyer already entered a country in the native checkout
+         * and the rates were collected for it, so overwriting it here would move the order to
+         * another country and invalidate both the chosen delivery method and the tax.
+         */
+        if (!$this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
+            $this->quote->getBillingAddress()->setCountryId($createRequest->getCountry());
+            $this->quote->getShippingAddress()->setCountryId($createRequest->getCountry());
+        }
+
         $this->quote->save();
 
         $this->eventManager->dispatch(
@@ -324,6 +343,23 @@ class CreateRequestBuilder
      */
     private function getCountry()
     {
+        /*
+         * In the iframe mode the buyer entered an address in the native checkout, the carriers
+         * rated it, and that address reaches Qliro locked. The order has to be created for its
+         * country: anything else hands Qliro a locked address of one country under the rules and
+         * payment methods of another, with no field for the buyer to correct it in.
+         */
+        if ($this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
+            $address = $this->quote->getIsVirtual()
+                ? $this->quote->getBillingAddress()
+                : $this->quote->getShippingAddress();
+            $quoteCountry = $address ? $address->getCountryId() : null;
+
+            if (!empty($quoteCountry)) {
+                return $quoteCountry;
+            }
+        }
+
         $countryCode = null;
         $countrySelectorEnabled = $this->countrySelectManagement->isEnabled();
         $countrySelectorValue = $this->countrySelectManagement->getSelectedCountry();

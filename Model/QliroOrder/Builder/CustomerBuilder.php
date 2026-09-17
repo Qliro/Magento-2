@@ -85,11 +85,21 @@ class CustomerBuilder
             return $qliroOrderCustomer;
         }
 
+        // The native checkout already collected these in the iframe mode, so the buyer does not
+        // retype them in the iframe and cannot move the order to another address behind our back.
+        $lockData = $this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId());
+
         try {
             if ($address = $this->getAddress()) {
                 $qliroOrderCustomerAddress = $this->customerAddressBuilder->setAddress($address)->create();
                 $qliroOrderCustomer->setAddress($qliroOrderCustomerAddress);
-                $qliroOrderCustomer->setLockCustomerAddress(false);
+                // Only an address the buyer can actually be held to. A virtual cart takes the
+                // billing address, which the native checkout collects inside the payment step,
+                // so at the moment Qliro is picked it can still be empty, and locking an empty
+                // address leaves the buyer with no field to type one into anywhere.
+                $qliroOrderCustomer->setLockCustomerAddress(
+                    $lockData && $this->isAddressComplete($qliroOrderCustomerAddress)
+                );
                 $qliroOrderCustomer->setJuridicalType(
                     $qliroOrderCustomerAddress->getCompanyName() ? QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY
                         : QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL
@@ -103,11 +113,15 @@ class CustomerBuilder
 
         if ($email = $this->getEmail()) {
             $qliroOrderCustomer->setEmail($email);
-            $qliroOrderCustomer->setLockCustomerEmail((bool)$this->customer);
+            // A logged in buyer's email was already locked before the iframe mode existed
+            $qliroOrderCustomer->setLockCustomerEmail($lockData || (bool)$this->customer);
         }
 
         if ($mobileNumber = $this->getMobileNumber()) {
             $qliroOrderCustomer->setMobileNumber($mobileNumber);
+            // Left editable on purpose, in the iframe mode too. This is the quote's telephone,
+            // which Magento never checks is a mobile, and Qliro identifies the buyer by sending
+            // an sms to it. Locking a landline would end the checkout with no way forward.
             $qliroOrderCustomer->setLockCustomerMobileNumber(false);
         }
 
@@ -115,6 +129,23 @@ class CustomerBuilder
         $this->quote = null;
 
         return $qliroOrderCustomer;
+    }
+
+    /**
+     * Whether the address carries the parts an order can be delivered and invoiced against
+     *
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $address
+     * @return bool
+     */
+    private function isAddressComplete($address)
+    {
+        foreach (['getStreet', 'getPostalCode', 'getCity'] as $getter) {
+            if (trim((string)$address->$getter()) === '') {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

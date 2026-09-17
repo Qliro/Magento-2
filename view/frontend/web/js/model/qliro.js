@@ -336,6 +336,8 @@ define([
     return {
         updateCart: refreshCart,
 
+        debug: qliroDebug,
+
         onCheckoutLoaded: function() {
             qliroSuccessDebug('onCheckoutLoaded', window.q1);
 

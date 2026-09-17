@@ -132,6 +132,14 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     private $enforcedJuridicalType;
 
     /**
+     * Top level of the create request, next to EnforcedJuridicalType, not a member of
+     * CustomerInformation. Qliro reads it only here.
+     *
+     * @var bool|null
+     */
+    private $lockCustomerInformation;
+
+    /**
      * @var string
      */
     private $availableShippingMethods;
@@ -651,6 +659,26 @@ class CreateRequest implements QliroOrderCreateRequestInterface
     public function setEnforcedJuridicalType($enforcedJuridicalType)
     {
         $this->enforcedJuridicalType = $enforcedJuridicalType;
+
+        return $this;
+    }
+
+    /**
+     * Getter.
+     * @return bool|null
+     */
+    public function getLockCustomerInformation()
+    {
+        return $this->lockCustomerInformation;
+    }
+
+    /**
+     * @param bool $lockCustomerInformation
+     * @return CreateRequest
+     */
+    public function setLockCustomerInformation($lockCustomerInformation)
+    {
+        $this->lockCustomerInformation = $lockCustomerInformation;
 
         return $this;
     }
