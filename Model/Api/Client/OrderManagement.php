@@ -83,15 +83,20 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      * Get admin QliroOne order by its Qliro Order ID
      *
      * @param int $qliroOrderId
+     * @param int|null $storeId
      * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
-    public function getOrder($qliroOrderId)
+    public function getOrder($qliroOrderId, $storeId = null)
     {
         $container = null;
 
         try {
-            $response = $this->service->get('checkout/adminapi/v2/orders/{OrderId}', ['OrderId' => $qliroOrderId]);
+            $response = $this->service->get(
+                'checkout/adminapi/v2/orders/{OrderId}',
+                ['OrderId' => $qliroOrderId],
+                $storeId
+            );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderInterface $container */
             $container = $this->containerMapper->fromArray($response, AdminOrderInterface::class);

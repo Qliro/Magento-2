@@ -28,6 +28,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequ
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
+use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
 /**
  * QliroOne management class
  */
@@ -99,6 +100,11 @@ class Payment extends AbstractManagement
     private $sequentialRefundProcessor;
 
     /**
+     * @var ReservationFormat
+     */
+    private $reservationFormat;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -114,6 +120,7 @@ class Payment extends AbstractManagement
      * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
      * @param CaptureRefundAllocator $captureRefundAllocator
      * @param SequentialRefundProcessor $sequentialRefundProcessor
+     * @param ReservationFormat $reservationFormat
      */
     public function __construct(
         Config $qliroConfig,
@@ -128,7 +135,8 @@ class Payment extends AbstractManagement
         ShipmentMarkItemsAsShippedRequestBuilder $shipmentMarkItemsAsShippedRequestBuilder,
         AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder,
         CaptureRefundAllocator $captureRefundAllocator,
-        SequentialRefundProcessor $sequentialRefundProcessor
+        SequentialRefundProcessor $sequentialRefundProcessor,
+        ReservationFormat $reservationFormat
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -143,6 +151,7 @@ class Payment extends AbstractManagement
         $this->addItemsToInvoiceBuilder = $addItemsToInvoiceBuilder;
         $this->captureRefundAllocator = $captureRefundAllocator;
         $this->sequentialRefundProcessor = $sequentialRefundProcessor;
+        $this->reservationFormat = $reservationFormat;
     }
 
     /**
@@ -230,6 +239,8 @@ class Payment extends AbstractManagement
 
             return;
         }
+
+        $this->reservationFormat->stamp($order, $link->getQliroOrderId());
 
         $this->invoiceMarkItemsAsShippedRequestBuilder->setPayment($payment);
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
@@ -515,6 +526,8 @@ class Payment extends AbstractManagement
 
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
+
+        $this->reservationFormat->stamp($order, $link->getQliroOrderId());
 
         $this->shipmentMarkItemsAsShippedRequestBuilder->setShipment($shipment);
         $request = $this->shipmentMarkItemsAsShippedRequestBuilder->create();

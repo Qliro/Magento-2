@@ -23,10 +23,11 @@ interface OrderManagementInterface
      * Get QliroOne order by its Qliro Order ID
      *
      * @param int $qliroOrderId
+     * @param int|null $storeId
      * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
-    public function getOrder($qliroOrderId);
+    public function getOrder($qliroOrderId, $storeId = null);
 
     /**
      * Send a "Mark items as shipped" request
