@@ -18,6 +18,7 @@ use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\ResourceModel\Link\Collection;
 use Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory;
 use Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory;
+use Magento\Framework\Stdlib\DateTime\DateTime;
 
 /**
  * Link repository class
@@ -63,12 +64,14 @@ class Repository implements LinkRepositoryInterface
      * @param \Qliro\QliroOne\Api\Data\LinkInterfaceFactory $linkFactory
      * @param \Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory $searchResultFactory
      * @param \Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory $collectionFactory
+     * @param \Magento\Framework\Stdlib\DateTime\DateTime $dateTime
      */
     public function __construct(
         LinkResourceModel $linkResourceModel,
         LinkInterfaceFactory $linkFactory,
         LinkSearchResultInterfaceFactory $searchResultFactory,
-        CollectionFactory $collectionFactory
+        CollectionFactory $collectionFactory,
+        private readonly DateTime $dateTime
     ) {
         $this->linkResourceModel = $linkResourceModel;
         $this->linkFactory = $linkFactory;
@@ -339,8 +342,27 @@ class Repository implements LinkRepositoryInterface
     public function unlock(int $quoteId): LinkInterface
     {
         $link = $this->getByQuoteId($quoteId);
-        if ($link->getIsLocked()) {
+
+        // The validation mark goes with the lock: a payment that ended without an order leaves the
+        // customer in the checkout, and the delivery they pick next has to reach the quote.
+        if ($link->getIsLocked() || $link->getValidatedAt() !== null) {
             $link->setIsLocked(false);
+            $link->setValidatedAt(null);
+            $this->save($link);
+        }
+
+        return $link;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function markValidated(int $quoteId): LinkInterface
+    {
+        $link = $this->getByQuoteId($quoteId);
+
+        if ($link->getValidatedAt() === null) {
+            $link->setValidatedAt($this->dateTime->gmtDate());
             $this->save($link);
         }
 

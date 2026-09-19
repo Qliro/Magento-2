@@ -12,7 +12,10 @@ use Magento\Quote\Model\CustomerManagement;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address;
 use Magento\Quote\Model\Quote\Item as QuoteItem;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\SubmitQuoteValidator;
+use Magento\Store\Model\App\Emulation as StoreEmulation;
+use Magento\Store\Model\StoreManagerInterface;
 use Magento\Store\Model\Store;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
@@ -132,7 +135,10 @@ class ValidateOrderBuilderReferenceTest extends TestCase
             $this->createMock(LogManager::class),
             $this->createMock(SubmitQuoteValidator::class),
             $this->createMock(CustomerManagement::class),
-            $config
+            $config,
+            $this->createMock(CartRepositoryInterface::class),
+            $this->createMock(StoreManagerInterface::class),
+            $this->createMock(StoreEmulation::class)
         );
 
         return $builder

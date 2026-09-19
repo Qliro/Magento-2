@@ -94,7 +94,10 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
 
         try {
             $link = $this->linkRepository->getByQuoteId($quote->getId());
-            if ($link->getIsLocked()) {
+            // Only after Qliro validated the order, not while the payment is merely in
+            // progress: Qliro sends its final delivery choice during identity verification,
+            // and refusing it left the quote without a shipping method to validate against.
+            if ($link->getValidatedAt() !== null) {
                 return $this->dataHelper->sendPreparedPayload(
                     [
                         'status' => 'LOCKED',

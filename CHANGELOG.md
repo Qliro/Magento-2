@@ -1,6 +1,12 @@
 
 # Change Log
 
+## [1.7.44] - 2026-09-20
+
+### Fixed
+- An order the buyer had completed could be declined with `ShippingIsNotSupportedForPostalCode`. Qliro sends its final delivery choice while the payment is already in progress, and the two AJAX endpoints that carry it refused everything once the quote was locked, so the choice never reached the quote and the validation callback then found no shipping method to validate against. The refusal now starts where it was meant to, at the validation Qliro performs before placing the order, and not at the payment the buyer has only begun. The link carries `validated_at` for that, and it is cleared together with the lock, so a payment that ended without an order leaves the buyer free to pick a delivery again
+- The validation callback no longer declines a quote that lost the delivery the buyer picked. Qliro states its selection in the validation request, and the quote can be without it for reasons that are not the buyer's: the rates were collected again under an address that arrived later and dropped the code, or the update carrying it was refused. The selection is applied to the quote when the carriers still offer it, rated in the quote's own store view, and the decline is left for the case where they do not
+
 ## [1.7.43] - 2026-09-14
 
 ### Fixed

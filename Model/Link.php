@@ -154,6 +154,16 @@ class Link extends AbstractModel implements LinkInterface
     }
 
     /**
+     * @inheritDoc
+     */
+    public function getValidatedAt(): ?string
+    {
+        $value = $this->getData(self::FIELD_VALIDATED_AT);
+
+        return $value === null ? null : (string)$value;
+    }
+
+    /**
      * @inheritdoc
      */
     public function setIsActive($value)
@@ -271,6 +281,15 @@ class Link extends AbstractModel implements LinkInterface
     public function setIsLocked(bool $value): LinkInterface
     {
         $this->setData(self::FIELD_IS_LOCKED, $value);
+        return $this;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function setValidatedAt(?string $value): LinkInterface
+    {
+        $this->setData(self::FIELD_VALIDATED_AT, $value);
         return $this;
     }
 }

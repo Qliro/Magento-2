@@ -357,9 +357,24 @@ class QliroOrder extends AbstractManagement
                 $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
                 $this->quoteFromValidateConverter->convert($validateContainer, $this->getQuote());
 
-                return $this->validateOrderBuilder->setQuote($this->getQuote())->setValidationRequest(
+                $response = $this->validateOrderBuilder->setQuote($this->getQuote())->setValidationRequest(
                     $validateContainer
                 )->create();
+
+                if (!$response->getDeclineReason()) {
+                    // The order is on its way to payment from here, so the quote must stop moving.
+                    // A failure to write the mark must not turn an approved order into a declined
+                    // one, which is what letting it reach the catch below would do.
+                    try {
+                        $this->linkRepository->markValidated((int)$link->getQuoteId());
+                    } catch (\Exception $exception) {
+                        $this->logManager->warning(
+                            'Could not mark the link as validated: ' . $exception->getMessage()
+                        );
+                    }
+                }
+
+                return $response;
             } catch (\Exception $exception) {
                 $this->logManager->critical(
                     $exception,

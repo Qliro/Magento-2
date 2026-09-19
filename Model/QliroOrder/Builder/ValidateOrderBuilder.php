@@ -6,8 +6,10 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
+use Magento\Framework\App\Area;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Validator\Exception;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\SubmitQuoteValidator;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
@@ -18,6 +20,8 @@ use Qliro\QliroOne\Api\StockAvailabilityInterface;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
+use Magento\Store\Model\App\Emulation as StoreEmulation;
+use Magento\Store\Model\StoreManagerInterface;
 use \Qliro\QliroOne\Model\Config;
 
 /**
@@ -46,6 +50,9 @@ class ValidateOrderBuilder
      * @param SubmitQuoteValidator $submitQuoteValidator
      * @param CustomerManagement $customerManagement
      * @param Config $config
+     * @param CartRepositoryInterface $quoteRepository
+     * @param StoreManagerInterface $storeManager
+     * @param StoreEmulation $storeEmulation
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -55,7 +62,10 @@ class ValidateOrderBuilder
         private LogManager $logManager,
         private SubmitQuoteValidator $submitQuoteValidator,
         private CustomerManagement $customerManagement,
-        private Config $config
+        private Config $config,
+        private CartRepositoryInterface $quoteRepository,
+        private StoreManagerInterface $storeManager,
+        private StoreEmulation $storeEmulation
     ) {
     }
 
@@ -83,6 +93,86 @@ class ValidateOrderBuilder
         $this->validationRequest = $validationRequest;
 
         return $this;
+    }
+
+    /**
+     * Put the delivery Qliro validates against on the quote, when the quote has lost it
+     *
+     * Qliro is the authority on what the buyer picked, and the quote can be missing that choice
+     * for reasons that are not the buyer's: the rates were collected again under an address that
+     * arrived later and dropped the code, or the update carrying it was refused while the quote
+     * was closed for changes. Declining there fails a checkout the buyer completed, so the choice
+     * is applied here instead, and only stands if the carriers still offer it.
+     *
+     * @return bool Whether the quote now carries the method Qliro selected
+     */
+    private function applySelectedShippingMethod(): bool
+    {
+        $code = $this->validationRequest->getSelectedShippingMethod();
+
+        if (empty($code)) {
+            return false;
+        }
+
+        $quoteStoreId = (int)$this->quote->getStoreId();
+        $isEmulated = false;
+
+        // Rated in the quote's own store view, for the same reason the shipping methods callback
+        // is: a carrier that reads the current store would otherwise price this in another
+        // store's currency and refuse the code the buyer was offered (PLIN-376).
+        if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->storeManager->getStore()->getId()) {
+            $this->storeEmulation->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
+            $isEmulated = $quoteStoreId === (int)$this->storeManager->getStore()->getId();
+        }
+
+        try {
+            $shippingAddress = $this->quote->getShippingAddress();
+            $shippingAddress->setCollectShippingRates(true);
+            $shippingAddress->collectShippingRates();
+
+            $isOffered = false;
+
+            foreach ($shippingAddress->getAllShippingRates() as $rate) {
+                if ($rate->getCode() === $code) {
+                    $isOffered = true;
+
+                    break;
+                }
+            }
+
+            if (!$isOffered) {
+                $this->logManager->debug(
+                    'CALLBACK:VALIDATE: the method Qliro selected is not among the rates',
+                    ['extra' => ['quote_id' => $this->quote->getId(), 'qliro_method' => $code]]
+                );
+
+                return false;
+            }
+
+            $shippingAddress->setShippingMethod($code);
+            $this->quote->setTotalsCollectedFlag(false);
+            $this->quote->collectTotals();
+            $this->quoteRepository->save($this->quote);
+
+            $this->logManager->debug(
+                'CALLBACK:VALIDATE: applied the method Qliro selected to the quote',
+                ['extra' => ['quote_id' => $this->quote->getId(), 'qliro_method' => $code]]
+            );
+
+            return $shippingAddress->getShippingMethod() === $code;
+        } catch (\Exception $exception) {
+            // A decline is the honest answer when the quote cannot be brought in line, and it is
+            // the answer the caller gives anyway when this returns false.
+            $this->logManager->debug(
+                'CALLBACK:VALIDATE: could not apply the method Qliro selected: ' . $exception->getMessage()
+            );
+
+            return false;
+        } finally {
+            if ($isEmulated) {
+                $this->storeEmulation->stopEnvironmentEmulation();
+            }
+        }
     }
 
     /**
@@ -122,7 +212,10 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
         }
 
-        if (!$this->quote->isVirtual() && !$this->quote->getShippingAddress()->getShippingMethod()) {
+        if (!$this->quote->isVirtual()
+            && !$this->quote->getShippingAddress()->getShippingMethod()
+            && !$this->applySelectedShippingMethod()
+        ) {
             $method = $this->quote->getShippingAddress()->getShippingMethod();
             $this->quote = null;
             $this->validationRequest = null;
