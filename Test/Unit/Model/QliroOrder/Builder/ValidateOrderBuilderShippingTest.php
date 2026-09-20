@@ -47,6 +47,15 @@ class ValidateOrderBuilderShippingTest extends TestCase
         return $this->appliedMethod;
     }
 
+    /** @var float What the carriers price the applied method at */
+    private float $quotePrice = 0.0;
+
+    /** Read by the address double */
+    public function quoteShippingPrice(): float
+    {
+        return $this->quotePrice;
+    }
+
     /** Written by the address double */
     public function recordAppliedMethod(?string $code): void
     {
@@ -75,6 +84,18 @@ class ValidateOrderBuilderShippingTest extends TestCase
         self::assertFalse($this->quoteSaved);
     }
 
+    /**
+     * The buyer pays Qliro's total, so a delivery the store prices differently is not accepted.
+     */
+    public function testDeclinesWhenTheStorePricesTheMethodDifferently(): void
+    {
+        $response = $this->validate('dhl_pickup_A', ['dhl_pickup_A'], 49.0, 0.0);
+
+        self::assertSame(ValidateOrderResponseInterface::REASON_SHIPPING, $response->getDeclineReason());
+        self::assertNull($this->appliedMethod, 'the method was left on the quote after a mismatch');
+        self::assertFalse($this->quoteSaved, 'the quote was saved although the prices disagreed');
+    }
+
     public function testDeclinesWhenQliroStatesNoSelection(): void
     {
         $response = $this->validate(null, ['dhl_pickup_A']);
@@ -88,8 +109,13 @@ class ValidateOrderBuilderShippingTest extends TestCase
      * @param string[] $offeredRates The codes the carriers return for the quote address
      * @return ValidateOrderResponseInterface
      */
-    private function validate(?string $selectedMethod, array $offeredRates): ValidateOrderResponseInterface
-    {
+    private function validate(
+        ?string $selectedMethod,
+        array $offeredRates,
+        float $quotePrice = 0.0,
+        float $qliroPrice = 0.0
+    ): ValidateOrderResponseInterface {
+        $this->quotePrice = $quotePrice;
         $responseFactory = $this->createMock(ValidateOrderResponseInterfaceFactory::class);
         $responseFactory->method('create')->willReturnCallback(
             static fn(): ValidateOrderResponseInterface => new ValidateOrderResponse()
@@ -128,7 +154,11 @@ class ValidateOrderBuilderShippingTest extends TestCase
 
         $request = $this->createMock(ValidateOrderNotificationInterface::class);
         $request->method('getSelectedShippingMethod')->willReturn($selectedMethod);
-        $request->method('getOrderItems')->willReturn([]);
+        $shippingLine = $this->createMock(\Qliro\QliroOne\Api\Data\QliroOrderItemInterface::class);
+        $shippingLine->method('getType')->willReturn(\Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING);
+        $shippingLine->method('getQuantity')->willReturn(1.0);
+        $shippingLine->method('getPricePerItemIncVat')->willReturn($qliroPrice);
+        $request->method('getOrderItems')->willReturn([$shippingLine]);
 
         $builder->setQuote($this->buildQuote($offeredRates));
         $builder->setValidationRequest($request);
@@ -183,6 +213,11 @@ class ValidateOrderBuilderShippingTest extends TestCase
                 $this->test->recordAppliedMethod($code);
 
                 return $this;
+            }
+
+            public function getShippingInclTax(): float
+            {
+                return $this->test->quoteShippingPrice();
             }
         };
 

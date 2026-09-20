@@ -21,6 +21,8 @@ use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
+use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Model\Management\QliroOrder;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder;
@@ -39,6 +41,9 @@ class QliroOrderTest extends TestCase
     private QuoteManagement&MockObject $quoteManagement;
     private QuoteFromOrderConverter&MockObject $quoteFromOrderConverter;
     private MerchantInterface&MockObject $merchantApi;
+    private LinkRepositoryInterface&MockObject $linkRepository;
+    private CartRepositoryInterface&MockObject $quoteRepository;
+    private ValidateOrderBuilder&MockObject $validateOrderBuilder;
     private QliroOrder $management;
 
     protected function setUp(): void
@@ -51,6 +56,17 @@ class QliroOrderTest extends TestCase
         $link->method('getQliroOrderId')->willReturn(self::QLIRO_ORDER_ID);
         $link->method('getQuoteId')->willReturn(282629);
         $link->method('getOrderId')->willReturn(null);
+
+        $this->linkRepository = $this->createMock(LinkRepositoryInterface::class);
+        $this->linkRepository->method('getByQliroOrderId')->willReturn($link);
+
+        $this->quoteRepository = $this->createMock(CartRepositoryInterface::class);
+        $this->quoteRepository->method('get')
+            ->willReturn($this->createMock(\Magento\Quote\Model\Quote::class));
+
+        $this->validateOrderBuilder = $this->createMock(ValidateOrderBuilder::class);
+        $this->validateOrderBuilder->method('setQuote')->willReturnSelf();
+        $this->validateOrderBuilder->method('setValidationRequest')->willReturnSelf();
 
         $this->quoteManagement->method('setQuote')->willReturnSelf();
         $this->quoteManagement->method('getLinkFromQuote')->willReturn($link);
@@ -68,11 +84,11 @@ class QliroOrderTest extends TestCase
             $this->merchantApi,
             $this->createMock(OrderManagementInterface::class),
             $this->createMock(UpdateRequestBuilder::class),
-            $this->createMock(ValidateOrderBuilder::class),
+            $this->validateOrderBuilder,
             $this->createMock(QuoteFromValidateConverter::class),
             $this->quoteFromOrderConverter,
-            $this->createMock(LinkRepositoryInterface::class),
-            $this->createMock(CartRepositoryInterface::class),
+            $this->linkRepository,
+            $this->quoteRepository,
             $this->createMock(OrderRepositoryInterface::class),
             $this->createMock(ContainerMapper::class),
             $this->createMock(LogManager::class),
@@ -136,5 +152,59 @@ class QliroOrderTest extends TestCase
         $this->management->get();
 
         self::assertSame(['recalculate', 'update'], $calls);
+    }
+
+    /**
+     * The mark is what closes the quote to further changes, and it belongs to the validation that
+     * approved the order, not to the payment the buyer has only begun.
+     */
+    public function testMarksTheLinkValidatedWhenTheOrderIsApproved(): void
+    {
+        $response = $this->createMock(ValidateOrderResponseInterface::class);
+        $response->method('getDeclineReason')->willReturn(null);
+        $this->validateOrderBuilder->method('create')->willReturn($response);
+
+        $this->linkRepository->expects(self::once())->method('markValidated')->with(282629);
+
+        self::assertSame($response, $this->management->validate($this->buildValidationRequest()));
+    }
+
+    /**
+     * A declined order leaves the quote open: the buyer is still in the checkout and the delivery
+     * they pick next has to reach it.
+     */
+    public function testDoesNotMarkTheLinkValidatedWhenTheOrderIsDeclined(): void
+    {
+        $response = $this->createMock(ValidateOrderResponseInterface::class);
+        $response->method('getDeclineReason')
+            ->willReturn(ValidateOrderResponseInterface::REASON_SHIPPING);
+        $this->validateOrderBuilder->method('create')->willReturn($response);
+
+        $this->linkRepository->expects(self::never())->method('markValidated');
+
+        self::assertSame($response, $this->management->validate($this->buildValidationRequest()));
+    }
+
+    /**
+     * A failure to write the mark must not turn an approved order into a declined one.
+     */
+    public function testApprovesEvenWhenTheMarkCannotBeWritten(): void
+    {
+        $response = $this->createMock(ValidateOrderResponseInterface::class);
+        $response->method('getDeclineReason')->willReturn(null);
+        $this->validateOrderBuilder->method('create')->willReturn($response);
+
+        $this->linkRepository->method('markValidated')
+            ->willThrowException(new \RuntimeException('the row was gone'));
+
+        self::assertSame($response, $this->management->validate($this->buildValidationRequest()));
+    }
+
+    private function buildValidationRequest(): ValidateOrderNotificationInterface&MockObject
+    {
+        $request = $this->createMock(ValidateOrderNotificationInterface::class);
+        $request->method('getOrderId')->willReturn(self::QLIRO_ORDER_ID);
+
+        return $request;
     }
 }

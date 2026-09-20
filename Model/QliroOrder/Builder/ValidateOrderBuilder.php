@@ -7,6 +7,7 @@
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\App\Area;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Validator\Exception;
 use Magento\Quote\Api\CartRepositoryInterface;
@@ -40,6 +41,21 @@ class ValidateOrderBuilder
     private $quote;
 
     /**
+     * @var CartRepositoryInterface
+     */
+    private $quoteRepository;
+
+    /**
+     * @var StoreManagerInterface
+     */
+    private $storeManager;
+
+    /**
+     * @var StoreEmulation
+     */
+    private $storeEmulation;
+
+    /**
      * Inject dependencies
      *
      * @param ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory
@@ -63,11 +79,18 @@ class ValidateOrderBuilder
         private SubmitQuoteValidator $submitQuoteValidator,
         private CustomerManagement $customerManagement,
         private Config $config,
-        private CartRepositoryInterface $quoteRepository,
-        private StoreManagerInterface $storeManager,
-        private StoreEmulation $storeEmulation
+        ?CartRepositoryInterface $quoteRepository = null,
+        ?StoreManagerInterface $storeManager = null,
+        ?StoreEmulation $storeEmulation = null
     ) {
+        // Optional so a subclass calling parent::__construct() with the old signature keeps
+        // working. Magento passes null for optional arguments instead of resolving them, so
+        // the instances are fetched here rather than left to DI.
+        $this->quoteRepository = $quoteRepository ?: ObjectManager::getInstance()->get(CartRepositoryInterface::class);
+        $this->storeManager = $storeManager ?: ObjectManager::getInstance()->get(StoreManagerInterface::class);
+        $this->storeEmulation = $storeEmulation ?: ObjectManager::getInstance()->get(StoreEmulation::class);
     }
+
 
     /**
      * Set quote for data extraction
@@ -152,6 +175,31 @@ class ValidateOrderBuilder
             $shippingAddress->setShippingMethod($code);
             $this->quote->setTotalsCollectedFlag(false);
             $this->quote->collectTotals();
+
+            // The buyer pays Qliro's total, so the store may only accept the order when its own
+            // price for that delivery agrees. The line comparison above skips shipping lines, so
+            // without this a re-rating under a later address could place an order for more than
+            // was charged. Nothing is saved when they disagree.
+            $qliroPrice = $this->getQliroShippingPrice();
+            $quotePrice = (float)$shippingAddress->getShippingInclTax();
+
+            if (\abs($quotePrice - $qliroPrice) >= 0.005) {
+                $this->logManager->debug(
+                    'CALLBACK:VALIDATE: the store prices that method differently than Qliro',
+                    [
+                        'extra' => [
+                            'quote_id' => $this->quote->getId(),
+                            'qliro_method' => $code,
+                            'quote_price' => $quotePrice,
+                            'qliro_price' => $qliroPrice,
+                        ],
+                    ]
+                );
+                $shippingAddress->setShippingMethod(null);
+
+                return false;
+            }
+
             $this->quoteRepository->save($this->quote);
 
             $this->logManager->debug(
@@ -173,6 +221,24 @@ class ValidateOrderBuilder
                 $this->storeEmulation->stopEnvironmentEmulation();
             }
         }
+    }
+
+    /**
+     * What Qliro charges the buyer for delivery on this order, VAT included
+     *
+     * @return float
+     */
+    private function getQliroShippingPrice(): float
+    {
+        $total = 0.0;
+
+        foreach ($this->validationRequest->getOrderItems() as $item) {
+            if ($item->getType() === QliroOrderItemInterface::TYPE_SHIPPING) {
+                $total += $item->getPricePerItemIncVat() * $item->getQuantity();
+            }
+        }
+
+        return $total;
     }
 
     /**

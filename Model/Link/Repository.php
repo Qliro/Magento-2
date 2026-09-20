@@ -18,6 +18,7 @@ use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\ResourceModel\Link\Collection;
 use Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory;
 use Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Stdlib\DateTime\DateTime;
 
 /**
@@ -58,6 +59,11 @@ class Repository implements LinkRepositoryInterface
     private $collectionFactory;
 
     /**
+     * @var \Magento\Framework\Stdlib\DateTime\DateTime
+     */
+    private $dateTime;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\ResourceModel\Link $linkResourceModel
@@ -71,12 +77,16 @@ class Repository implements LinkRepositoryInterface
         LinkInterfaceFactory $linkFactory,
         LinkSearchResultInterfaceFactory $searchResultFactory,
         CollectionFactory $collectionFactory,
-        private readonly DateTime $dateTime
+        ?DateTime $dateTime = null
     ) {
         $this->linkResourceModel = $linkResourceModel;
         $this->linkFactory = $linkFactory;
         $this->searchResultFactory = $searchResultFactory;
         $this->collectionFactory = $collectionFactory;
+        // Optional so a subclass calling parent::__construct() with the old signature keeps
+        // working. Magento passes null for optional arguments instead of resolving them, so
+        // the instance is fetched here rather than left to DI.
+        $this->dateTime = $dateTime ?: ObjectManager::getInstance()->get(DateTime::class);
     }
 
     /**
