@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
+use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustment;
 use Qliro\QliroOne\Model\Product\Type\QuoteSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
 use Qliro\QliroOne\Model\ContainerMapper;
@@ -95,6 +96,13 @@ class OrderItemsConverter
                     break;
 
                 case QliroOrderItemInterface::TYPE_FEE:
+                    // A fee line the module sent itself is not one of Qliro's: the rounding line
+                    // states an amount the store's total already holds, and taking it for a Qliro
+                    // fee would add it to the order a second time
+                    if ($orderItem->getMerchantReference() === RoundingAdjustment::MERCHANT_REFERENCE) {
+                        break;
+                    }
+
                     // Every fee line, not just the last: the assignment used to replace the whole
                     // array, so a second one was dropped from the totals and from the capture
                     $qliroFees[$index] = $this->containerMapper->toArray($orderItem);

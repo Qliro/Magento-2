@@ -22,6 +22,7 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
@@ -118,6 +119,11 @@ class PlaceRecurringOrder extends AbstractManagement
     protected $order;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp|null
+     */
+    private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -137,6 +143,7 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param RecurringDataService $recurringDataService
      * @param \Magento\Quote\Api\CartManagementInterface $cartManagementInterface
      * @param \Magento\Sales\Model\Order $order
+     * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      */
     public function __construct(
         Config $qliroConfig,
@@ -155,7 +162,8 @@ class PlaceRecurringOrder extends AbstractManagement
         Payment $paymentManagement,
         RecurringDataService $recurringDataService,
         \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
-        \Magento\Sales\Model\Order $order
+        \Magento\Sales\Model\Order $order,
+        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -174,6 +182,8 @@ class PlaceRecurringOrder extends AbstractManagement
         $this->recurringDataService = $recurringDataService;
         $this->cartManagementInterface = $cartManagementInterface;
         $this->order = $order;
+        // Optional so a store constructing this class with the old signature keeps working
+        $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
     }
 
     /**
@@ -516,6 +526,10 @@ class PlaceRecurringOrder extends AbstractManagement
         $payment->setAdditionalInformation(
             Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID,
             true
+        );
+        $this->roundingAdjustmentStamp?->record(
+            $this->getQuote(),
+            $qliroOrder->getOrderItemActions() ?? []
         );
 
         $paymentMethod = $qliroOrder->getPaymentMethod();
