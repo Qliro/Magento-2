@@ -1,6 +1,12 @@
 
 # Change Log
 
+## [1.7.44] - 2026-09-21
+
+### Fixed
+
+- The Magento shipping step no longer shows above the QliroOne widget on the checkout page. It was hidden by a mixin that empties the shipping component's template only when the configured checkout URL matches the address in the browser character for character, so a query string, a fragment, or a link without the trailing slash left the native address form, the shipping rate list and its "Next" button on the page. A buyer who used them could set a delivery the Qliro checkout never offered and be declined when Qliro validated the order, and most buyers stopped at that broken step without scrolling down to the real one. The component is now emptied by the checkout layout, which follows the page and not the address that reached it, and the mixin compares host and path instead of the whole address. The component itself still loads, so shipping rates are collected as before
+
 ## [1.7.43] - 2026-09-14
 
 ### Fixed
