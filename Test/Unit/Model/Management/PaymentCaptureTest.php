@@ -60,28 +60,67 @@ class PaymentCaptureTest extends TestCase
     /** @var array<int, \ArrayObject> */
     private array $builtRows = [];
 
+    /** @var array<int, array<string, mixed>> the lines the shipment request is built with */
+    private array $shipmentLines = [];
+
+    private int $shipmentBuildCount = 0;
+
     protected function setUp(): void
     {
         $this->savedStatuses = [];
         $this->orderComments = [];
         $this->appliedTransactionId = null;
         $this->builtRows = [];
+        $this->shipmentLines = [['OrderItems' => []]];
+        $this->shipmentBuildCount = 0;
     }
 
     // ---- the reservation format ---------------------------------------------------------------
 
     /**
      * An order placed before 1.7.42 does not say which format its reservation holds, and a capture
-     * that gets it wrong is refused for good. The format is settled before the request is built,
-     * because the builder is what reads it back off the payment.
+     * that gets it wrong is refused for good. The builder reads the format back off the payment,
+     * so a request built before the stamp landed is built again after it.
      */
-    public function testTheShipmentCaptureSettlesTheReservationFormatFirst(): void
+    public function testTheShipmentCaptureRebuildsTheRequestOnceTheFormatIsSettled(): void
     {
         $capture = $this->buildCapture();
         $this->reservationFormat->expects(self::once())
             ->method('stamp')
-            ->with($this->order, self::QLIRO_ORDER_ID);
+            ->with($this->order, self::QLIRO_ORDER_ID)
+            ->willReturn(true);
         $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertSame(2, $this->shipmentBuildCount);
+    }
+
+    /**
+     * An order that already carries the stamp changes nothing, so the request it was built with
+     * stands and the second build is not paid for.
+     */
+    public function testTheShipmentCaptureBuildsOneRequestWhenNothingIsStamped(): void
+    {
+        $capture = $this->buildCapture();
+        $this->reservationFormat->method('stamp')->willReturn(false);
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertSame(1, $this->shipmentBuildCount);
+    }
+
+    /**
+     * A shipment of items Qliro is not told about sends nothing, and an extra call to Qliro for
+     * the format of a request that is never sent is a call nobody asked for.
+     */
+    public function testAShipmentWithNothingToSendNeverReadsTheReservation(): void
+    {
+        $capture = $this->buildCapture();
+        $this->shipmentLines = [];
+        $this->reservationFormat->expects(self::never())->method('stamp');
+        $this->orderManagementApi->expects(self::never())->method('markItemsAsShipped');
 
         $capture->captureByShipment($this->buildShipment());
     }
@@ -418,11 +457,17 @@ class PaymentCaptureTest extends TestCase
         $linkRepository->method('getByOrderId')->willReturn($link);
 
         $request = $this->createMock(AdminMarkItemsAsShippedRequestInterface::class);
-        $request->method('getShipments')->willReturn([['OrderItems' => []]]);
+        $request->method('getShipments')->willReturnCallback(fn () => $this->shipmentLines);
 
         $shipmentBuilder = $this->createMock(ShipmentMarkItemsAsShippedRequestBuilder::class);
         $shipmentBuilder->method('setShipment')->willReturnSelf();
-        $shipmentBuilder->method('create')->willReturn($request);
+        $shipmentBuilder->method('create')->willReturnCallback(
+            function () use ($request) {
+                $this->shipmentBuildCount++;
+
+                return $request;
+            }
+        );
 
         $invoiceBuilder = $this->createMock(InvoiceMarkItemsAsShippedRequestBuilder::class);
         $invoiceBuilder->method('setPayment')->willReturnSelf();

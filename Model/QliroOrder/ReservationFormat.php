@@ -62,14 +62,14 @@ class ReservationFormat
      *
      * @param Order $order
      * @param int $qliroOrderId
-     * @return void
+     * @return bool whether a stamp was written, so a caller can rebuild what it built unstamped
      */
     public function stamp(Order $order, $qliroOrderId)
     {
         $payment = $order->getPayment();
 
         if ($payment === null) {
-            return;
+            return false;
         }
 
         $stamp = $payment->getAdditionalInformation(
@@ -77,7 +77,7 @@ class ReservationFormat
         );
 
         if ($stamp !== null) {
-            return;
+            return false;
         }
 
         $carriesItemId = $this->readFromReservation($order, $qliroOrderId);
@@ -86,13 +86,15 @@ class ReservationFormat
         // read the way an unstamped order is read today and the next capture asks again, which is
         // better than stamping it on a guess Qliro would refuse terminally
         if ($carriesItemId === null) {
-            return;
+            return false;
         }
 
         $payment->setAdditionalInformation(
             Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID,
             $carriesItemId
         );
+
+        return true;
     }
 
     /**
@@ -106,9 +108,10 @@ class ReservationFormat
     {
         try {
             $qliroOrder = $this->orderManagementApi->getOrder($qliroOrderId, $order->getStoreId());
-        } catch (\Exception $exception) {
-            // The capture goes to the same API and reports its own failure, so this one only says
-            // why the format is unknown and leaves the capture to decide
+        } catch (\Throwable $exception) {
+            // Throwable, not Exception: a line Qliro sends with no MerchantReference makes the
+            // mapper pass null to a string typed setter, and that TypeError has to leave the
+            // format unknown like any other unreadable answer
             $this->logManager->warning(
                 'The Qliro order could not be read, the format of its line references is unknown',
                 [

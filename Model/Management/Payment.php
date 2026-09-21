@@ -527,13 +527,19 @@ class Payment extends AbstractManagement
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
 
-        $this->reservationFormat->stamp($order, $link->getQliroOrderId());
-
         $this->shipmentMarkItemsAsShippedRequestBuilder->setShipment($shipment);
         $request = $this->shipmentMarkItemsAsShippedRequestBuilder->create();
 
         if (count($request->getShipments()) == 0) {
             return;
+        }
+
+        // Read after that return, so a shipment with nothing to send does not pay for the read.
+        // The stamp decides the format the builder writes, so the request is built again once it
+        // lands, and the builder forgets its shipment on every create
+        if ($this->reservationFormat->stamp($order, $link->getQliroOrderId())) {
+            $this->shipmentMarkItemsAsShippedRequestBuilder->setShipment($shipment);
+            $request = $this->shipmentMarkItemsAsShippedRequestBuilder->create();
         }
 
         $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);

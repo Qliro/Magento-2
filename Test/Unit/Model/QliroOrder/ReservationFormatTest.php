@@ -71,7 +71,9 @@ class ReservationFormatTest extends TestCase
 
         $this->expectReservation(['519:Kanalplast', 'unifaun']);
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        self::assertTrue(
+            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID)
+        );
     }
 
     /**
@@ -118,7 +120,28 @@ class ReservationFormatTest extends TestCase
 
         $this->orderManagementApi->method('getOrder')->willThrowException(new \RuntimeException('down'));
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        self::assertFalse(
+            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID)
+        );
+    }
+
+    /**
+     * A Qliro line that carries no MerchantReference makes the mapper pass null to a string typed
+     * setter. That is a TypeError rather than an Exception, and an unreadable answer must leave
+     * the format unknown instead of taking the capture down with it.
+     */
+    public function testAMapperTypeErrorLeavesTheOrderUnstamped(): void
+    {
+        $payment = $this->buildPayment(null);
+        $payment->expects(self::never())->method('setAdditionalInformation');
+
+        $this->orderManagementApi->method('getOrder')->willThrowException(
+            new \TypeError('setMerchantReference(): Argument #1 ($merchantReference) must be of type string, null given')
+        );
+
+        self::assertFalse(
+            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID)
+        );
     }
 
     /**

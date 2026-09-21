@@ -106,7 +106,7 @@ class CreateMerchantPayment extends AbstractManagement
             $qliroOrderId = $merchantPaymentResponse->getOrderId();
             $paymentTransactions = $merchantPaymentResponse->getPaymentTransactions();
             $state = $paymentTransactions[0]->getStatus();
-            $qliroOrder = $this->qliroOrderManagement->getOrder($qliroOrderId);
+            $qliroOrder = $this->qliroOrderManagement->getOrder($qliroOrderId, (int)$quote->getStoreId());
             
             $link = $this->linkFactory->create();
             $link->setQuoteSnapshot('merchantPayment');// A real Quote Snapshot is not needed here but the value is required
