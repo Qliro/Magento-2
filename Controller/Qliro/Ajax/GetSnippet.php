@@ -11,13 +11,11 @@ use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ResponseInterface;
 use Magento\Framework\Controller\ResultInterface;
-use Magento\Framework\Exception\NoSuchEntityException;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
-use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\Management\HtmlSnippet;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
 /**
@@ -37,20 +35,18 @@ class GetSnippet extends \Magento\Framework\App\Action\Action
      * @param Config $qliroConfig
      * @param Data $dataHelper
      * @param AjaxToken $ajaxToken
-     * @param ManagementInterface $qliroManagement
+     * @param HtmlSnippet $htmlSnippet
      * @param Session $checkoutSession
      * @param Manager $logManager
-     * @param LinkRepositoryInterface $linkRepository
      */
     public function __construct(
         Context $context,
         private readonly Config $qliroConfig,
         private readonly Data $dataHelper,
         private readonly AjaxToken $ajaxToken,
-        private readonly ManagementInterface $qliroManagement,
+        private readonly HtmlSnippet $htmlSnippet,
         private readonly Session $checkoutSession,
-        private readonly Manager $logManager,
-        private readonly LinkRepositoryInterface $linkRepository
+        private readonly Manager $logManager
     ) {
         parent::__construct($context);
     }
@@ -85,19 +81,9 @@ class GetSnippet extends \Magento\Framework\App\Action\Action
         }
 
         try {
-            /*
-             * The widget locks the link when the buyer starts paying and unlocks it when that ends.
-             * A buyer who walks away in between leaves it locked, and in the redirect mode opening
-             * the Qliro page cleared it. Nothing else would here, and a locked link refuses every
-             * later change to the cart.
-             */
-            $this->linkRepository->unlock((int)$quote->getId());
-        } catch (NoSuchEntityException $exception) {
-            // No link for this quote yet, so there is nothing to unlock
-        }
-
-        try {
-            $snippet = (string)$this->qliroManagement->setQuote($quote)->getQliroOrder()->getOrderHtmlSnippet();
+            // The same fetch the checkout page makes, including the unlock of a link the buyer
+            // left locked by walking out of the widget mid payment
+            $snippet = $this->htmlSnippet->setQuote($quote)->fetch();
         } catch (AlreadyPlacedException $exception) {
             /*
              * The buyer has paid and come back to the checkout, with the Back button or a reopened

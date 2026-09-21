@@ -113,7 +113,7 @@ define([
              * @returns {Boolean}
              */
             isIframeMode: function () {
-                return config.paymentMethodRenderMode === 'iframe';
+                return qliro.isIframeMode();
             },
 
             /**
@@ -172,7 +172,7 @@ define([
 
                 this.iframeLoading = true;
                 this.isIframeBusy(true);
-                this.registerQliroCallbacks();
+                qliro.registerCallbacks();
 
                 $.ajax({
                     url: config.getSnippetUrl + '?token=' + encodeURIComponent(config.securityToken),
@@ -300,25 +300,13 @@ define([
                 window.q1Ready = function () {};
                 window.q1 = null;
 
+                // The handlers that were bound to that widget go with it, so the next one binds
+                // its own instead of being left with none.
+                qliro.forgetCheckout();
+
                 this.iframeMounted = false;
                 this.iframeLoading = false;
                 this.snippetHtml = null;
-            },
-
-            /**
-             * Hand the Qliro widget the same handlers the standalone checkout page uses.
-             */
-            registerQliroCallbacks: function () {
-                window.q1Ready = function (q1) {
-                    q1.onCheckoutLoaded(qliro.onCheckoutLoaded);
-                    q1.onCustomerInfoChanged(qliro.onCustomerInfoChanged);
-                    q1.onPaymentDeclined(qliro.onPaymentDeclined);
-                    q1.onPaymentMethodChanged(qliro.onPaymentMethodChanged);
-                    q1.onPaymentProcess(qliro.onPaymentProcessStart, qliro.onPaymentProcessEnd);
-                    q1.onSessionExpired(qliro.onSessionExpired);
-                    q1.onShippingMethodChanged(qliro.onShippingMethodChanged);
-                    q1.onShippingPriceChanged(qliro.onShippingPriceChanged);
-                };
             },
 
             redirectToQliroCheckout: function () {

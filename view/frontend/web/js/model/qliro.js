@@ -59,6 +59,10 @@ define([
         });
     }
 
+    function isIframeMode() {
+        return config.paymentMethodRenderMode === 'iframe';
+    }
+
     function qliroDebug(caption, data) {
         if (config.isDebug) {
             console.log(caption, data);
@@ -333,10 +337,12 @@ define([
         }
     }
 
-    return {
+    var qliroModel = {
         updateCart: refreshCart,
 
         debug: qliroDebug,
+
+        isIframeMode: isIframeMode,
 
         onCheckoutLoaded: function() {
             qliroSuccessDebug('onCheckoutLoaded', window.q1);
@@ -358,7 +364,10 @@ define([
                 function(data) {
                     qliroSuccessDebug('onCustomerInfoChanged', data);
 
-                    if (syncShippingAddress(data && data.address)) {
+                    // The native checkout owns the address in the iframe mode: it collected it,
+                    // the carriers rated it and Qliro was handed it locked, so an address coming
+                    // back from Qliro must not replace it.
+                    if (!isIframeMode() && syncShippingAddress(data && data.address)) {
                         return;
                     }
 
@@ -455,6 +464,44 @@ define([
                 }
             );
         }
-    }
+    };
+
+    /**
+     * Hand the Qliro widget its handlers. The standalone checkout page and the iframe in the
+     * native payment step register the same set, so it is registered in one place.
+     */
+    qliroModel.registerCallbacks = function() {
+        window.q1Ready = function(q1) {
+            q1.onCheckoutLoaded(qliroModel.onCheckoutLoaded);
+            q1.onCustomerInfoChanged(qliroModel.onCustomerInfoChanged);
+            q1.onPaymentDeclined(qliroModel.onPaymentDeclined);
+            q1.onPaymentMethodChanged(qliroModel.onPaymentMethodChanged);
+            q1.onPaymentProcess(qliroModel.onPaymentProcessStart, qliroModel.onPaymentProcessEnd);
+            q1.onSessionExpired(qliroModel.onSessionExpired);
+            q1.onShippingMethodChanged(qliroModel.onShippingMethodChanged);
+            q1.onShippingPriceChanged(qliroModel.onShippingPriceChanged);
+        };
+    };
+
+    /**
+     * Forget the widget that has just been taken off the page. What is bound above belongs to that
+     * instance of window.q1, so the next one has to be bound again: without this its order updates
+     * reach nothing and every quote update sits locked until the watchdog releases it.
+     *
+     * A quote update already in flight is left to settle on its own, only the one queued behind it
+     * is dropped, because it was asked for by a widget that is no longer on the page.
+     */
+    qliroModel.forgetCheckout = function() {
+        clearTimeout(unlockWatchdog);
+        unlockWatchdog = null;
+        orderUpdatedBound = false;
+        lockDeferred = false;
+        expectedTotalPrice = null;
+        unmatchCount = 0;
+        sawMismatch = false;
+        refreshQueued = false;
+    };
+
+    return qliroModel;
 });
 

@@ -232,9 +232,6 @@ A buyer who has already paid and comes back to the checkout, with the Back butto
 tab, is sent to the pending page that waits for their Magento order, which is what the standalone
 checkout does too.
 
-A store that renders the Ingrid widget inside the Qliro iframe needs `https://*.ingrid.com` in its
-content security policy, which `etc/csp_whitelist.xml` already carries.
-
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

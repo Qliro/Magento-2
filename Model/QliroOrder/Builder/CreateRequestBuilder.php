@@ -224,21 +224,17 @@ class CreateRequestBuilder
             ->setCustomer($this->session->isLoggedIn() ? $this->quote->getCustomer() : null)
             ->create();
 
-        if ($customerInfo->getEmail()) {
+        /*
+         * The iframe mode sends the block without an email too. Magento does not put a guest's
+         * email on the quote until the order is paid for, so gating on it left every guest
+         * without the address and the locks that hold them to what the native checkout collected.
+         * Qliro leaves Email out of the payload when there is none.
+         */
+        if ($customerInfo->getEmail() || $this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
             $createRequest->setCustomerInformation($customerInfo);
 
             if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
                 $createRequest->setEnforcedJuridicalType($customerInfo->getJuridicalType());
-            }
-
-            /*
-             * Qliro reads this at the top level of the create request, next to
-             * EnforcedJuridicalType, and not as a member of CustomerInformation. The per field
-             * Lock* flags on the customer block are the ones that live there. Left unset in every
-             * other mode, and ContainerMapper drops a null, so the payload does not change.
-             */
-            if ($this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
-                $createRequest->setLockCustomerInformation(true);
             }
         }
 

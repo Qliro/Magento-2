@@ -38,10 +38,11 @@ use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
 /**
  * @see \Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder::create
  *
- * PLIN-419: two things the iframe mode changes about the create request. Qliro is told to lock the
- * customer block, at the top level of the request where it reads the flag. And the country the
- * buyer entered in the native checkout stays on the quote, because getCountry() answers from the
- * country selector, GeoIP and the store default and has never looked at the quote.
+ * PLIN-419: two things the iframe mode changes about the create request. The customer block is
+ * sent whether or not the quote carries an email, because Magento gives a guest one only once the
+ * order is paid for. And the country the buyer entered in the native checkout stays on the quote,
+ * because getCountry() answers from the country selector, GeoIP and the store default and has
+ * never looked at the quote.
  */
 class CreateRequestBuilderIframeTest extends TestCase
 {
@@ -49,6 +50,7 @@ class CreateRequestBuilderIframeTest extends TestCase
     private const BUYER_COUNTRY = 'DK';
 
     private Config&MockObject $qliroConfig;
+    private Customer $customer;
     private Address&MockObject $shippingAddress;
     private Address&MockObject $billingAddress;
     private Quote&MockObject $quote;
@@ -93,13 +95,13 @@ class CreateRequestBuilderIframeTest extends TestCase
         $shippingConfigBuilder->method('setQuote')->willReturnSelf();
 
         // An identified buyer, so the request reaches the branch that carries the customer block
-        $customer = new Customer();
-        $customer->setEmail('alex@example.com');
+        $this->customer = new Customer();
+        $this->customer->setEmail('alex@example.com');
 
         $customerBuilder = $this->createMock(CustomerBuilder::class);
         $customerBuilder->method('setQuote')->willReturnSelf();
         $customerBuilder->method('setCustomer')->willReturnSelf();
-        $customerBuilder->method('create')->willReturn($customer);
+        $customerBuilder->method('create')->willReturn($this->customer);
 
         $storeManager = $this->createMock(StoreManagerInterface::class);
         $storeManager->method('getStore')->willReturn($this->createMock(Store::class));
@@ -129,14 +131,17 @@ class CreateRequestBuilderIframeTest extends TestCase
     }
 
     /**
-     * Qliro reads the flag at the top level of the create request. Nested in CustomerInformation,
-     * where the per field Lock* flags live, it is read by nothing.
+     * Magento does not put a guest's email on the quote until the order is paid for, so a guest
+     * reaches this with none. The customer block carries the address the native checkout
+     * collected and the locks that hold the buyer to it, and without it a guest was handed an
+     * empty, unlocked Qliro form.
      */
-    public function testTheIframeModeLocksTheCustomerBlock(): void
+    public function testTheIframeModeSendsTheCustomerBlockForAGuestWithNoEmail(): void
     {
         $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
+        $this->customer->setEmail(null);
 
-        $this->createRequest->expects(self::once())->method('setLockCustomerInformation')->with(true);
+        $this->createRequest->expects(self::once())->method('setCustomerInformation')->with($this->customer);
 
         $this->builder->setQuote($this->quote)->create();
     }
@@ -144,11 +149,12 @@ class CreateRequestBuilderIframeTest extends TestCase
     /**
      * Nothing about the payload changes for a store that has not turned the mode on.
      */
-    public function testTheRedirectModeSendsNoLockFlag(): void
+    public function testTheRedirectModeSendsNoCustomerBlockWithoutAnEmail(): void
     {
         $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(false);
+        $this->customer->setEmail(null);
 
-        $this->createRequest->expects(self::never())->method('setLockCustomerInformation');
+        $this->createRequest->expects(self::never())->method('setCustomerInformation');
 
         $this->builder->setQuote($this->quote)->create();
     }
