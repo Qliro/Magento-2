@@ -12,6 +12,7 @@ use Magento\Sales\Api\Data\CreditmemoItemInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Creditmemo as SalesCreditmemo;
 use Magento\Sales\Model\Order\Creditmemo\Item as SalesCreditmemoItem;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Magento\Tax\Helper\Data as TaxHelper;
 use Magento\Tax\Model\Calculation as TaxCalculation;
@@ -37,6 +38,11 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
      * @var LineReference|null
      */
     private ?LineReference $lineReference = null;
+
+    /**
+     * @var LineQuantity|null
+     */
+    private ?LineQuantity $lineQuantity = null;
 
     /**
      * Set credit memo for data extraction
@@ -83,7 +89,10 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
             if (!$creditMemoItem->getQty()) {
                 continue;
             }
-            $item->setQuantity((int)$creditMemoItem->getQty());
+            $item->setQuantity($this->lineQuantity()->settlementQuantity(
+                (float)$creditMemoItem->getQty(),
+                (string)$creditMemoItem->getSku()
+            ));
             $creditMemoItems[$key] = $item;
         }
 
@@ -171,5 +180,19 @@ class CreditMemoItemsBuilder extends OrderItemsBuilder
         }
 
         return $this->lineReference;
+    }
+
+    /**
+     * Lazy for the same reason as `lineReference()`
+     *
+     * @return LineQuantity
+     */
+    private function lineQuantity(): LineQuantity
+    {
+        if ($this->lineQuantity === null) {
+            $this->lineQuantity = new LineQuantity();
+        }
+
+        return $this->lineQuantity;
     }
 }

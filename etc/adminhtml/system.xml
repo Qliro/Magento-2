@@ -117,7 +117,16 @@
                         <comment>Set to 'Yes' to use native magento checkout with Qliro payment option</comment>
                     </field>
 
-                    <field id="hide_native_shipping_step" translate="label" type="select" sortOrder="160" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                    <field id="payment_method_render_mode" translate="label" type="select" sortOrder="160" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                        <label>Payment method display</label>
+                        <source_model>Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode</source_model>
+                        <comment>How Qliro appears once selected: a redirect to the Qliro checkout page, or an iframe inside the native checkout. The iframe locks the address, the email and the delivery method to what the native checkout collected.</comment>
+                        <depends>
+                            <field id="show_as_payment_method">1</field>
+                        </depends>
+                    </field>
+
+                    <field id="hide_native_shipping_step" translate="label" type="select" sortOrder="170" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Hide the Magento shipping step</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                         <comment>Set to 'No' to keep the native Magento shipping step on the Qliro checkout page. Deliveries are chosen inside the Qliro checkout, so the step is hidden by default.</comment>
@@ -152,6 +161,40 @@
                         <label>Preset Shipping Address</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                         <comment>Use store address for shipping methods until the real shipping address is available.</comment>
+                    </field>
+                </group>
+
+                <group id="timeouts" translate="label comment" type="text" sortOrder="45" showInDefault="1" showInWebsite="1" showInStore="1">
+                    <depends>
+                        <field id="active">1</field>
+                    </depends>
+
+                    <label>API Timeouts</label>
+
+                    <comment><![CDATA[<p>How long a call to Qliro may take, in seconds. Without these the checkout waits for as long as the connection stays open, which holds a PHP worker and leaves the customer looking at a spinner.</p><p>An empty field, or anything that is not a whole number of seconds, falls back to the shipped default rather than to no timeout at all. The highest accepted value is 300.</p>]]></comment>
+
+                    <field id="interactive_connect" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Connect Timeout, Somebody Waiting</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds to wait for the connection to Qliro on a call a customer or an admin is waiting for. Default 5.</comment>
+                    </field>
+
+                    <field id="interactive_request" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Request Timeout, Somebody Waiting</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds a whole call somebody is waiting for may take: the checkout, and the order screens in the admin. Default 15.</comment>
+                    </field>
+
+                    <field id="background_connect" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Connect Timeout, Nobody Waiting</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds to wait for the connection to Qliro on a call nobody is waiting for: a capture, a refund, a callback, a poll. Default 5.</comment>
+                    </field>
+
+                    <field id="background_request" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Request Timeout, Nobody Waiting</label>
+                        <validate>validate-digits validate-digits-range digits-range-1-300</validate>
+                        <comment>Seconds a whole call nobody is waiting for may take: a capture, a refund, a cancellation, a callback, the pending page poll. Abandoning one Qliro has already accepted is worse than waiting for it, so this is the longer of the two. Default 60.</comment>
                     </field>
                 </group>
 

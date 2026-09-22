@@ -12,6 +12,7 @@ use Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\Api\RequestId;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Api\Data\AdminAdditionsInterface;
 use Qliro\QliroOne\Api\Data\AdminAdditionsInterfaceFactory;
@@ -42,6 +43,8 @@ class AddItemsToInvoiceBuilder
      * @param Config $qliroConfig
      * @param AdminAdditionsInterfaceFactory $adminAdditionsFactory
      * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
+     * @param LineVatRate $lineVatRate
+     * @param RequestId $requestId
      */
     public function __construct(
         private readonly AdminAddItemsToInvoiceRequestInterfaceFactory $adminAddItemsToInvoiceRequestFactory,
@@ -50,7 +53,8 @@ class AddItemsToInvoiceBuilder
         private readonly Config $qliroConfig,
         private readonly AdminAdditionsInterfaceFactory $adminAdditionsFactory,
         private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        private readonly LineVatRate $lineVatRate
+        private readonly LineVatRate $lineVatRate,
+        private readonly RequestId $requestId
     )
     {
 
@@ -125,6 +129,8 @@ class AddItemsToInvoiceBuilder
                 $order->getOrderCurrencyCode()
             )->setAdditions(
                 $this->buildAdditions()
+            )->setRequestId(
+                $this->buildRequestId($order)
             );
         } catch (NoSuchEntityException $e) {
             $this->logManager->debug(
@@ -139,6 +145,42 @@ class AddItemsToInvoiceBuilder
         }
 
         return $request;
+    }
+
+    /**
+     * The id this refund is sent under, the same one if the merchant sends it again
+     *
+     * A refund that timed out after Qliro booked it leaves no credit memo behind, Magento rolls
+     * it back, and the merchant refunds again. Under a fresh id Qliro would book that twice, so
+     * the id is built from what is being asked for and repeats itself: the order, what it had
+     * already given back, and the captures and amounts this refund is spread over.
+     *
+     * @param \Magento\Sales\Model\Order $order
+     * @return string
+     */
+    private function buildRequestId($order): string
+    {
+        $parts = [
+            'add-items-to-invoice',
+            (string)$order->getIncrementId(),
+            (float)$order->getTotalRefunded(),
+        ];
+
+        if (empty($this->allocation)) {
+            $creditMemo = $this->payment->getCreditmemo();
+
+            $parts[] = (string)$this->payment->getParentTransactionId();
+            $parts[] = $creditMemo ? abs((float)$creditMemo->getGrandTotal()) : 0.0;
+
+            return $this->requestId->forRequest($parts);
+        }
+
+        foreach ($this->allocation as $entry) {
+            $parts[] = (string)($entry['payment_transaction_id'] ?? '');
+            $parts[] = abs((float)($entry['amount'] ?? 0));
+        }
+
+        return $this->requestId->forRequest($parts);
     }
 
     /**
