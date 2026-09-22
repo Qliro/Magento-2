@@ -13,6 +13,7 @@ use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 use Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter;
+use Qliro\QliroOne\Model\QliroOrder\Customer;
 
 /**
  * @see \Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter
@@ -215,7 +216,248 @@ class AddressConverterTest extends TestCase
         return $address;
     }
 
-    private function qliroAddress(): QliroOrderCustomerAddressInterface&MockObject
+    /**
+     * Qliro sends a B2B buyer as one string, `964969124 Gloppen Kommune`, and the order was
+     * printed with the organisation number in front of the company on both addresses. Magento
+     * has a field of its own for the number, so the two are stored apart.
+     */
+    public function testSplitsTheOrganisationNumberOutOfTheCompanyName(): void
+    {
+        $address = $this->address();
+
+        self::assertTrue($this->converter->convert(
+            $this->qliroAddress('964969124 Gloppen Kommune'),
+            $this->qliroCustomer('964969124'),
+            $address
+        ));
+        self::assertSame('Gloppen Kommune', $this->addressData['company']);
+    }
+
+    /**
+     * The number itself is not written to the quote. `vat_id` on a quote address is what Magento
+     * validates against VIES when automatic customer group assignment is on, and an organisation
+     * number is not a VAT number, so the buyer would land in the group a store keeps for an
+     * invalid one and pay that group's tax. The order is given the number instead.
+     */
+    public function testNeverWritesTheNumberToTheQuoteAddress(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('964969124 Gloppen Kommune'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertArrayNotHasKey('vat_id', $this->addressData);
+    }
+
+    /**
+     * The number the order is given, which is what `Model\Order\OrganizationNumber` writes.
+     */
+    public function testReadsTheOrganisationNumberForTheOrder(): void
+    {
+        self::assertSame(
+            '964969124',
+            $this->converter->organizationNumber(
+                $this->qliroAddress('964969124 Gloppen Kommune'),
+                $this->qliroCustomer('964969124')
+            )
+        );
+    }
+
+    /**
+     * A shorter number must not eat the front of a longer one: 964969124 against `9649691240 AB`
+     * left `0 AB` behind as the company name.
+     */
+    public function testKeepsANameWhoseNumberOnlyStartsWithTheOneQliroSent(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('9649691240 AB'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertSame('9649691240 AB', $this->addressData['company']);
+    }
+
+    /**
+     * The same, with the longer number written the way a country separates it: all the digits of
+     * the shorter one are there, and a separator behind them is not the end of the number.
+     */
+    public function testKeepsANameWhoseSeparatedNumberOnlyStartsWithTheOneQliroSent(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('964969-1240 AB'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertSame('964969-1240 AB', $this->addressData['company']);
+    }
+
+    /**
+     * The number is written with the separators the country uses, and the company name repeats
+     * them or leaves them out. Only the digits decide whether the name starts with the number.
+     */
+    public function testSplitsTheNumberWhateverSeparatorsEitherSideCarries(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('556036-0793 Acme AB'),
+            $this->qliroCustomer('5560360793'),
+            $address
+        );
+
+        self::assertSame('Acme AB', $this->addressData['company']);
+    }
+
+    /**
+     * Qliro sending the two apart is what the checkout is expected to do, and the day it does
+     * the company name must survive untouched.
+     */
+    public function testKeepsACompanyNameThatDoesNotStartWithTheNumber(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('Gloppen Kommune'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertSame('Gloppen Kommune', $this->addressData['company']);
+    }
+
+    /**
+     * A name that is nothing but the number is still the only name the order has, and an empty
+     * company would announce the buyer to Qliro as a private person on the next update.
+     */
+    public function testKeepsACompanyNameThatIsOnlyTheNumber(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('964969124'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertSame('964969124', $this->addressData['company']);
+    }
+
+    /**
+     * `VatNumber` is the field Qliro has for this. It is empty today, and where it is filled it
+     * is the answer, not the personal number the checkout falls back to.
+     */
+    public function testPrefersTheVatNumberFieldWhereQliroFillsIt(): void
+    {
+        self::assertSame(
+            'SE556036079301',
+            $this->converter->organizationNumber(
+                $this->qliroAddress('Acme AB'),
+                $this->qliroCustomer('5560360793', 'SE556036079301')
+            )
+        );
+    }
+
+    /**
+     * The number that answers for the order is not always the one the name was glued to: a
+     * `VatNumber` carries the country prefix, the name carries the bare organisation number.
+     */
+    public function testStripsTheNumberTheNameCarriesEvenWhenVatIdComesFromTheOtherField(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('5560360793 Acme AB'),
+            $this->qliroCustomer('5560360793', 'SE556036079301'),
+            $address
+        );
+
+        self::assertSame('Acme AB', $this->addressData['company']);
+        self::assertSame(
+            'SE556036079301',
+            $this->converter->organizationNumber(
+                $this->qliroAddress('5560360793 Acme AB'),
+                $this->qliroCustomer('5560360793', 'SE556036079301')
+            )
+        );
+    }
+
+    /**
+     * For a buyer who is not a company the same field carries their own identity number, which
+     * has no business on an order address at all.
+     */
+    public function testNeverWritesTheIdentityNumberOfAPrivateBuyer(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer('19800101-1234'), $address);
+
+        self::assertArrayNotHasKey('vat_id', $this->addressData);
+        self::assertNull(
+            $this->converter->organizationNumber($this->qliroAddress(), $this->qliroCustomer('19800101-1234'))
+        );
+    }
+
+    /**
+     * Nothing could clear a company once it was on the quote: null values are skipped. A buyer
+     * who starts as a company and completes as themselves kept it, and so did a quote that took
+     * the store name from the shipping placeholder of a release before 1.7.26.
+     */
+    public function testClearsACompanyTheIdentifiedBuyerDoesNotHave(): void
+    {
+        $address = $this->address();
+        $this->addressData['company'] = 'Batterigiganten AB';
+        $this->addressData['vat_id'] = '5560360793';
+
+        self::assertTrue(
+            $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address)
+        );
+        self::assertNull($this->addressData['company']);
+
+        // Whatever sits in `vat_id` was put there by the store, its own checkout form or an
+        // address book, and Qliro saying the buyer is private does not make it ours to clear
+        self::assertSame('5560360793', $this->addressData['vat_id']);
+    }
+
+    /**
+     * Qliro masks the address, the company with it, until the buyer is identified. An empty
+     * company name there says nothing about the buyer and must not wipe a company of their own.
+     */
+    public function testKeepsTheCompanyWhileTheBuyerIsNotIdentified(): void
+    {
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getPostalCode')->willReturn(null);
+
+        $address = $this->address();
+        $this->addressData['company'] = 'Acme AB';
+
+        self::assertFalse($this->converter->convert($qliroAddress, null, $address));
+        self::assertSame('Acme AB', $this->addressData['company']);
+    }
+
+    /**
+     * Clearing the company is a change like any other, so an address copied from the address
+     * book stops pointing at it.
+     */
+    public function testDetachesFromTheCustomerAddressWhenTheCompanyIsCleared(): void
+    {
+        $address = $this->address();
+        $address->method('getCustomerAddressId')->willReturn(7);
+        $address->expects(self::once())->method('setCustomerAddressId')->with(null);
+        $this->addressData['company'] = 'Batterigiganten AB';
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+    }
+
+    private function qliroAddress(?string $company = null): QliroOrderCustomerAddressInterface&MockObject
     {
         $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
         $qliroAddress->method('getFirstName')->willReturn('Ada');
@@ -223,15 +465,27 @@ class AddressConverterTest extends TestCase
         $qliroAddress->method('getStreet')->willReturn(['Sveavagen 1']);
         $qliroAddress->method('getCity')->willReturn('Stockholm');
         $qliroAddress->method('getPostalCode')->willReturn('11122');
+        $qliroAddress->method('getCompanyName')->willReturn($company);
 
         return $qliroAddress;
     }
 
-    private function qliroCustomer(): QliroOrderCustomerInterface&MockObject
-    {
-        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+    /**
+     * The interface has no `getVatNumber()`, so a customer with one is the container Qliro's
+     * payload is mapped into, and a customer without one is anything implementing the interface.
+     */
+    private function qliroCustomer(
+        ?string $personalNumber = null,
+        ?string $vatNumber = null
+    ): QliroOrderCustomerInterface&MockObject {
+        $qliroCustomer = $this->createMock($vatNumber === null ? QliroOrderCustomerInterface::class : Customer::class);
         $qliroCustomer->method('getEmail')->willReturn('buyer@example.com');
         $qliroCustomer->method('getMobileNumber')->willReturn('0700000000');
+        $qliroCustomer->method('getPersonalNumber')->willReturn($personalNumber);
+
+        if ($vatNumber !== null) {
+            $qliroCustomer->method('getVatNumber')->willReturn($vatNumber);
+        }
 
         return $qliroCustomer;
     }

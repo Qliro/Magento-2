@@ -21,6 +21,7 @@ use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
+use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -108,6 +109,11 @@ class PlaceOrder extends AbstractManagement
     private $recurringDataService;
 
     /**
+     * @var \Qliro\QliroOne\Model\Order\OrganizationNumber
+     */
+    private $organizationNumber;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -125,6 +131,7 @@ class PlaceOrder extends AbstractManagement
      * @param Quote $quoteManagement
      * @param Payment $paymentManagement
      * @param RecurringDataService $recurringDataService
+     * @param OrganizationNumber $organizationNumber
      */
     public function __construct(
         Config $qliroConfig,
@@ -141,7 +148,8 @@ class PlaceOrder extends AbstractManagement
         OrderSender $orderSender,
         Quote $quoteManagement,
         Payment $paymentManagement,
-        RecurringDataService $recurringDataService
+        RecurringDataService $recurringDataService,
+        OrganizationNumber $organizationNumber
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -158,6 +166,7 @@ class PlaceOrder extends AbstractManagement
         $this->quoteManagement = $quoteManagement;
         $this->paymentManagement = $paymentManagement;
         $this->recurringDataService = $recurringDataService;
+        $this->organizationNumber = $organizationNumber;
     }
 
     /**
@@ -346,6 +355,7 @@ class PlaceOrder extends AbstractManagement
 
                     $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
                     $order = $this->orderPlacer->place($this->getQuote());
+                    $this->organizationNumber->apply($order, $qliroOrder);
                     $this->logManager->debug('Finished to place order from quote: ' . $this->getQuote()->getId() . ' Order ID: ' . $order->getId());
                     $orderId = $order->getId();
 
