@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.7.44] - 2026-09-18
+
+### Fixed
+
+- An order placed before 1.7.0 can be captured again on a store that has upgraded to 1.7.42 or later. Every version before 1.7.0 reserved its order lines with the cart item id in front of the sku, 1.7.0 through 1.7.41 reserved them with the sku alone, and 1.7.42 read an order carrying no stamp as one of the second kind. A store coming straight from 1.6.x therefore captured its open orders under a line reference Qliro had never reserved, and Qliro refuses such a capture for good, so those orders could not be captured at all (PLIN-421)
+
+### Changed
+
+- The format a reservation holds is read from the reservation instead of assumed. Before the first capture of an order that carries no stamp, the module fetches the Qliro order and matches its line references against the order's own items in both formats, then stamps the answer on the payment the way an order placed from 1.7.42 on stamps itself. That is one extra call per order, once, and it stops happening as the orders predating the stamp are captured (PLIN-421)
+- A reservation that cannot be read, or whose lines answer both formats or neither, leaves the order unstamped and read the way this version already reads an unstamped order, so a capture is never sent on a guess. The capture goes to the same API, so an outage is reported by the capture itself (PLIN-421)
+- `Qliro\QliroOne\Api\Client\OrderManagementInterface::getOrder()` takes an optional store id and sends it with the request, and every call site passes one: the capture the store its order belongs to, the merchant payment the store of its quote, and the admin lookup the store of the order behind the link. A merchant running more than one store with its own Qliro credentials would otherwise have read the order with the credentials of whichever store the admin is in (PLIN-421)
+
 ## [1.7.43] - 2026-09-14
 
 ### Fixed
