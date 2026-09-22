@@ -14,6 +14,7 @@ use Magento\Framework\Controller\ResultInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\HtmlSnippet;
 use Qliro\QliroOne\Model\Security\AjaxToken;
@@ -97,6 +98,20 @@ class GetSnippet extends \Magento\Framework\App\Action\Action
                 200,
                 null,
                 'AJAX:GET_SNIPPET:ALREADY_PLACED'
+            );
+        } catch (UnsupportedQuoteException $exception) {
+            /*
+             * A cart this payment method cannot take, a fractional quantity today. The buyer can
+             * only change a cart they are told about, so this message reaches the panel as it
+             * stands, the way the checkout page shows it in place of the widget.
+             */
+            $this->logManager->debug('The cart cannot be paid for with Qliro: ' . $exception->getMessage());
+
+            return $this->dataHelper->sendPreparedPayload(
+                ['error' => $exception->getMessage()],
+                400,
+                null,
+                'AJAX:GET_SNIPPET:UNSUPPORTED_QUOTE'
             );
         } catch (\Exception $exception) {
             // The message can carry the API response, so it goes to the log and not to the browser

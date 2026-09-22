@@ -20,6 +20,7 @@ use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\CountrySelect;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
 
 /**
@@ -113,6 +114,11 @@ class CreateRequestBuilder
     private $logManager;
 
     /**
+     * @var WholeQuantityValidator
+     */
+    private $wholeQuantityValidator;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory $createRequestFactory
@@ -130,6 +136,7 @@ class CreateRequestBuilder
      * @param \Magento\Framework\Event\ManagerInterface $eventManager
      * @param \Qliro\QliroOne\Model\Management\CountrySelect $countrySelect
      * @param Manager $logManager
+     * @param WholeQuantityValidator $wholeQuantityValidator
      */
     public function __construct(
         QliroOrderCreateRequestInterfaceFactory $createRequestFactory,
@@ -147,7 +154,8 @@ class CreateRequestBuilder
         ShippingConfigBuilder $shippingConfigBuilder,
         ManagerInterface $eventManager,
         CountrySelect $countrySelectManagement,
-        Manager $logManager
+        Manager $logManager,
+        WholeQuantityValidator $wholeQuantityValidator
     ) {
         $this->createRequestFactory = $createRequestFactory;
         $this->languageMapper = $languageMapper;
@@ -165,6 +173,7 @@ class CreateRequestBuilder
         $this->shippingConfigBuilder = $shippingConfigBuilder;
         $this->countrySelectManagement = $countrySelectManagement;
         $this->logManager = $logManager;
+        $this->wholeQuantityValidator = $wholeQuantityValidator;
     }
 
     /**
@@ -193,6 +202,13 @@ class CreateRequestBuilder
         if (empty($this->quote)) {
             throw new \LogicException('Quote entity is not set.');
         }
+
+        /*
+         * Every checkout mode passes through here: the Qliro page, the payment method in the
+         * native checkout and the merchant payment. A cart Qliro cannot carry the quantity of is
+         * refused before an order exists for it, which is the only point that covers all three.
+         */
+        $this->wholeQuantityValidator->validateWholeQuantities($this->quote);
 
         $this->logManager->debug('Starting to create request object for quote: ' . $this->quote->getId());
         $createRequest = $this->prepareCreateRequest();

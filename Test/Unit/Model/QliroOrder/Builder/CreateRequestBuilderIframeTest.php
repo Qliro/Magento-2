@@ -33,6 +33,8 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingConfigBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Customer;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
 
 /**
@@ -126,7 +128,8 @@ class CreateRequestBuilderIframeTest extends TestCase
             $shippingConfigBuilder,
             $this->createMock(ManagerInterface::class),
             $this->createMock(CountrySelect::class),
-            $this->createMock(LogManager::class)
+            $this->createMock(LogManager::class),
+            new WholeQuantityValidator(new LineQuantity())
         );
     }
 

@@ -1,6 +1,27 @@
 
 # Change Log
 
+## [1.7.46] - 2026-09-22
+
+### Fixed
+
+- A capture no longer settles a quantity nobody asked for. Qliro carries the quantity of an order line as a whole number, and the capture cast the Magento quantity to an integer on the way out: an invoice of 0.5 became 0, which dropped the line out of the capture entirely while Magento recorded it as invoiced, and 2.5 became 2, which captured less than the invoice. Both paths are affected, the capture on invoice and the capture on shipment (PLIN-367)
+- The cart is refused before a Qliro order is created for it, with a message naming the line the buyer has to change. The refusal sits where the create request is built, which is the one point the standalone checkout page, the payment method in the native checkout and the merchant payment all pass through, so no mode can slip past it. A store selling by weight or length, or using a fractional `qty_increments`, is what produces such a cart. Truncating it made the line total wrong, and Qliro refuses the whole order on a totals mismatch halfway through the checkout, which is what a buyer saw instead (PLIN-367)
+- The validate callback declines a cart that turned fractional after the Qliro order was created, naming every such line in the log from the same reading the refusal above uses. Otherwise the order would be placed for a quantity Qliro was never told about (PLIN-367)
+- An order that already holds a fractional line, placed before this release or through the admin or the API, is refused at the capture and at the shipment, naming the line. Settling such a line at a quantity of the module's own invention is worse than not settling it, and the merchant is told to settle the order outside Magento (PLIN-367)
+- `CreditMemoItemsBuilder` truncated a refunded quantity the same way, 1.5 refunded as 1. Nothing in the module wires that builder up, it is kept because a store may have wired it up on its own, and it now refuses the line rather than refunding a part of it (PLIN-367)
+- A whole quantity is sent to the checkout as a whole number. Magento computes the quantity of a child line, a bundle selection times the bundle's own quantity, so a line of three could reach the payload as 2.9999999999999996, and Qliro reads that as a fraction and refuses the order over it. A quantity that is not whole is still sent as it stands, because the cart it belongs to is refused before that and rounding it would charge a quantity nobody asked for (PLIN-367)
+- The invoice the module creates from a Qliro shipment callback carries the quantity that was shipped. It cast that quantity to an integer too, and that invoice is Magento's own, where a decimal quantity is what a store selling by weight records (PLIN-367)
+
+### Changed
+
+- The quantity of a line is decided in one place, `Model/QliroOrder/LineQuantity.php`, which the checkout, the capture, the shipment and the refund all ask. A settlement asks at the one point the quantity reaches Qliro rather than per invoice line, so a line the capture never sends, the child of a bundle, cannot refuse an invoice whose capture is correct, and the quantity left to invoice on a configurable, which replaces the shipped one, is checked as the one that goes out. It rounds rather than casts, because a quantity reaches a builder through a float and a cart of three can arrive as 2.9999999999999996, which the cast turned into two. A quantity within a millionth of a whole number is that number, which is far below the smallest fraction a store can sell, `qty` being `decimal(12,4)` (PLIN-367)
+- The refusal reaches the buyer wherever Qliro is shown: on the checkout page in place of the widget, instead of "QliroOne Checkout has failed to load. Please try to reload page." which is what a reload cannot fix, and in the payment panel of the iframe mode instead of "Qliro checkout could not be loaded". It travels as `Model/Exception/UnsupportedQuoteException`, so only this refusal is shown and every other failure keeps the message it had (PLIN-367)
+- The README says that the payment method carries a whole quantity only, and what happens to an order that holds a fraction (PLIN-367)
+
+### Added
+
+- Unit tests: the quantity class, the cart validator, the observer that refuses the cart before the order is placed, the validate callback decline, a fractional quantity refused by the capture, the shipment and the refund, a fraction on a line that is never sent leaving the capture alone, a fraction left to invoice on a configurable, and a whole quantity reaching the checkout payload as a whole number (PLIN-367)
 ## [1.7.45] - 2026-09-22
 
 ### Added
