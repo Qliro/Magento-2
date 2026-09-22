@@ -231,7 +231,73 @@ class AddressConverterTest extends TestCase
             $address
         ));
         self::assertSame('Gloppen Kommune', $this->addressData['company']);
-        self::assertSame('964969124', $this->addressData['vat_id']);
+    }
+
+    /**
+     * The number itself is not written to the quote. `vat_id` on a quote address is what Magento
+     * validates against VIES when automatic customer group assignment is on, and an organisation
+     * number is not a VAT number, so the buyer would land in the group a store keeps for an
+     * invalid one and pay that group's tax. The order is given the number instead.
+     */
+    public function testNeverWritesTheNumberToTheQuoteAddress(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('964969124 Gloppen Kommune'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertArrayNotHasKey('vat_id', $this->addressData);
+    }
+
+    /**
+     * The number the order is given, which is what `Model\Order\OrganizationNumber` writes.
+     */
+    public function testReadsTheOrganisationNumberForTheOrder(): void
+    {
+        self::assertSame(
+            '964969124',
+            $this->converter->organizationNumber(
+                $this->qliroAddress('964969124 Gloppen Kommune'),
+                $this->qliroCustomer('964969124')
+            )
+        );
+    }
+
+    /**
+     * A shorter number must not eat the front of a longer one: 964969124 against `9649691240 AB`
+     * left `0 AB` behind as the company name.
+     */
+    public function testKeepsANameWhoseNumberOnlyStartsWithTheOneQliroSent(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('9649691240 AB'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertSame('9649691240 AB', $this->addressData['company']);
+    }
+
+    /**
+     * The same, with the longer number written the way a country separates it: all the digits of
+     * the shorter one are there, and a separator behind them is not the end of the number.
+     */
+    public function testKeepsANameWhoseSeparatedNumberOnlyStartsWithTheOneQliroSent(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('964969-1240 AB'),
+            $this->qliroCustomer('964969124'),
+            $address
+        );
+
+        self::assertSame('964969-1240 AB', $this->addressData['company']);
     }
 
     /**
@@ -249,7 +315,6 @@ class AddressConverterTest extends TestCase
         );
 
         self::assertSame('Acme AB', $this->addressData['company']);
-        self::assertSame('5560360793', $this->addressData['vat_id']);
     }
 
     /**
@@ -267,7 +332,6 @@ class AddressConverterTest extends TestCase
         );
 
         self::assertSame('Gloppen Kommune', $this->addressData['company']);
-        self::assertSame('964969124', $this->addressData['vat_id']);
     }
 
     /**
@@ -293,15 +357,13 @@ class AddressConverterTest extends TestCase
      */
     public function testPrefersTheVatNumberFieldWhereQliroFillsIt(): void
     {
-        $address = $this->address();
-
-        $this->converter->convert(
-            $this->qliroAddress('Acme AB'),
-            $this->qliroCustomer('5560360793', 'SE556036079301'),
-            $address
+        self::assertSame(
+            'SE556036079301',
+            $this->converter->organizationNumber(
+                $this->qliroAddress('Acme AB'),
+                $this->qliroCustomer('5560360793', 'SE556036079301')
+            )
         );
-
-        self::assertSame('SE556036079301', $this->addressData['vat_id']);
     }
 
     /**
@@ -319,7 +381,13 @@ class AddressConverterTest extends TestCase
         );
 
         self::assertSame('Acme AB', $this->addressData['company']);
-        self::assertSame('SE556036079301', $this->addressData['vat_id']);
+        self::assertSame(
+            'SE556036079301',
+            $this->converter->organizationNumber(
+                $this->qliroAddress('5560360793 Acme AB'),
+                $this->qliroCustomer('5560360793', 'SE556036079301')
+            )
+        );
     }
 
     /**
@@ -333,6 +401,9 @@ class AddressConverterTest extends TestCase
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer('19800101-1234'), $address);
 
         self::assertArrayNotHasKey('vat_id', $this->addressData);
+        self::assertNull(
+            $this->converter->organizationNumber($this->qliroAddress(), $this->qliroCustomer('19800101-1234'))
+        );
     }
 
     /**
@@ -350,7 +421,10 @@ class AddressConverterTest extends TestCase
             $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address)
         );
         self::assertNull($this->addressData['company']);
-        self::assertNull($this->addressData['vat_id']);
+
+        // Whatever sits in `vat_id` was put there by the store, its own checkout form or an
+        // address book, and Qliro saying the buyer is private does not make it ours to clear
+        self::assertSame('5560360793', $this->addressData['vat_id']);
     }
 
     /**

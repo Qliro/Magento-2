@@ -16,6 +16,12 @@ class AddressConverter
     /**
      * Convert given quote address from QliroOne address and other parameters
      *
+     * The organisation number is taken off the company name here and written to the order by
+     * `Model\Order\OrganizationNumber`, not to the quote: `vat_id` on a quote address is what
+     * Magento validates against VIES when automatic customer group assignment is on, and an
+     * organisation number is not a VAT number, so the buyer would be moved to the group a store
+     * keeps for an invalid VAT id, with whatever tax class that group carries.
+     *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroAddress
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
      * @param \Magento\Quote\Model\Quote\Address $address
@@ -41,7 +47,6 @@ class AddressConverter
             'city' => $qliroAddress ? $qliroAddress->getCity() : null,
             'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
             'company' => $this->stripOrganizationNumber($company, $organizationNumbers),
-            'vat_id' => $organizationNumbers[0] ?? null,
         ];
 
         $changed = false;
@@ -77,6 +82,20 @@ class AddressConverter
         }
 
         return $changed;
+    }
+
+    /**
+     * The organisation number of a company buyer, null for a buyer who is not one
+     *
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null $qliroAddress
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface|null $qliroCustomer
+     * @return string|null
+     */
+    public function organizationNumber($qliroAddress, $qliroCustomer)
+    {
+        $company = $qliroAddress ? $qliroAddress->getCompanyName() : null;
+
+        return $this->getOrganizationNumbers($qliroCustomer, $company)[0] ?? null;
     }
 
     /**
@@ -136,7 +155,12 @@ class AddressConverter
                 continue;
             }
 
-            $pattern = sprintf('/^\s*%s[\s.,:;\/-]*/', implode('[\s.-]*', str_split($digits)));
+            // The lookahead is what keeps 964969124 off the front of "9649691240 AB": without it
+            // the shorter number matches the longer one and leaves the rest of it on the name
+            $pattern = sprintf(
+                '/^\s*%s(?![\s.,:;\/-]*\d)[\s.,:;\/-]*/',
+                implode('[\s.-]*', str_split($digits))
+            );
             $stripped = trim((string)preg_replace($pattern, '', $company));
 
             if ($stripped !== '' && $stripped !== trim($company)) {
@@ -169,15 +193,12 @@ class AddressConverter
             return false;
         }
 
-        $changed = false;
-
-        foreach (['company', 'vat_id'] as $key) {
-            if (trim((string)$address->getData($key)) !== '') {
-                $address->setData($key, null);
-                $changed = true;
-            }
+        if (trim((string)$address->getData('company')) === '') {
+            return false;
         }
 
-        return $changed;
+        $address->setData('company', null);
+
+        return true;
     }
 }
