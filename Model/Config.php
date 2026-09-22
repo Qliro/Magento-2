@@ -114,7 +114,7 @@ class Config
      * The rounding adjustment line the reservation of this order holds, or absent when it holds
      * none. Its amount belongs to the cart as a whole rather than to any one line, so the capture
      * replays the reserved line instead of deriving a new one, the way the discount line is
-     * handled. Absent on every order placed before 1.7.44
+     * handled. Absent on every order placed before 1.7.50
      */
     const QLIROONE_ADDITIONAL_INFO_ROUNDING_ADJUSTMENT = 'qliro_rounding_adjustment';
 
