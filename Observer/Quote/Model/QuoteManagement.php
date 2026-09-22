@@ -12,10 +12,9 @@ use Magento\Framework\Event\ObserverInterface;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Model\Quote\ItemsLimitValidator;
-use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 
 /**
- * Refuses an order Qliro cannot carry, at the last point before the quote becomes one
+ * Handles the quote items limit during event observation
  */
 class QuoteManagement implements ObserverInterface
 {
@@ -23,11 +22,9 @@ class QuoteManagement implements ObserverInterface
      * Class constructor
      *
      * @param ItemsLimitValidator $itemLimitValidator
-     * @param WholeQuantityValidator $wholeQuantityValidator
      */
     public function __construct(
-        private readonly ItemsLimitValidator $itemLimitValidator,
-        private readonly WholeQuantityValidator $wholeQuantityValidator
+        private readonly ItemsLimitValidator $itemLimitValidator
     ) {
     }
 
@@ -45,7 +42,6 @@ class QuoteManagement implements ObserverInterface
         $paymentMethod = $quote->getPayment()->getMethod();
         if ($paymentMethod == 'qliroone') {
             $this->itemLimitValidator->validateQuoteItemsLimit($quote);
-            $this->wholeQuantityValidator->validateWholeQuantities($quote);
         }
     }
 }

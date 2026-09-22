@@ -15,7 +15,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Api\StockAvailabilityInterface;
-use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
@@ -57,7 +57,7 @@ class ValidateOrderBuilder
         private SubmitQuoteValidator $submitQuoteValidator,
         private CustomerManagement $customerManagement,
         private Config $config,
-        private LineQuantity $lineQuantity
+        private WholeQuantityValidator $wholeQuantityValidator
     ) {
     }
 
@@ -113,15 +113,15 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
         }
 
-        $fractionalLine = $this->fractionalLine();
+        $fractionalLines = $this->wholeQuantityValidator->fractionalLines($this->quote);
 
-        if ($fractionalLine !== null) {
+        if ($fractionalLines) {
             $this->quote = null;
             $this->validationRequest = null;
             $this->logValidateError(
                 'create',
                 'a line Qliro cannot carry the quantity of',
-                $fractionalLine
+                $fractionalLines
             );
 
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
@@ -237,31 +237,6 @@ class ValidateOrderBuilder
         }
 
         return true;
-    }
-
-    /**
-     * The first cart line Qliro cannot carry the quantity of, or null when every line is whole
-     *
-     * The cart is refused at the checkout page and again when the order is placed, so a cart that
-     * was whole when the Qliro order was created and fractional by the time the buyer paid is
-     * what reaches here. Declining is the only honest answer: the order would be placed for a
-     * quantity Qliro was never told about.
-     *
-     * @return array|null
-     */
-    private function fractionalLine(): ?array
-    {
-        foreach ($this->quote->getAllItems() as $item) {
-            $quantity = (float)$item->getQty();
-
-            if ($this->lineQuantity->isWhole($quantity)) {
-                continue;
-            }
-
-            return ['sku' => $item->getSku(), 'qty' => $quantity];
-        }
-
-        return null;
     }
 
     /**

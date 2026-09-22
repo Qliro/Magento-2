@@ -23,12 +23,13 @@ use Qliro\QliroOne\Model\Notification\ValidateOrderResponse;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 
 /**
- * The quantity half of the validate callback. The cart is refused at the cart page and again when
- * the order is placed, so what reaches here is a cart that turned fractional after the Qliro order
- * was created: placing it would charge a quantity Qliro was never told about.
+ * The quantity half of the validate callback. The cart is refused where the Qliro order is created,
+ * so what reaches here is a cart that turned fractional after that: placing it would charge a
+ * quantity Qliro was never told about. Both readings come from `WholeQuantityValidator`.
  *
  * @see \Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder
  */
@@ -83,6 +84,20 @@ class ValidateOrderBuilderQuantityTest extends TestCase
     }
 
     /**
+     * Every line the buyer has to change, not the first one: the same reading the refusal at the
+     * checkout names them all by, so the merchant and the buyer are told the same thing.
+     */
+    public function testLogsEveryLineItDeclinedFor(): void
+    {
+        $this->validate([$this->quoteItem('CABLE-5MM', 0.5), $this->quoteItem('ROPE-8MM', 2.25)]);
+
+        self::assertSame(
+            [['sku' => 'CABLE-5MM', 'qty' => 0.5], ['sku' => 'ROPE-8MM', 'qty' => 2.25]],
+            $this->logged
+        );
+    }
+
+    /**
      * @param QuoteItem[] $quoteItems
      * @return ValidateOrderResponseInterface
      */
@@ -106,7 +121,7 @@ class ValidateOrderBuilderQuantityTest extends TestCase
             $this->createMock(SubmitQuoteValidator::class),
             $this->createMock(CustomerManagement::class),
             $this->createMock(Config::class),
-            new LineQuantity()
+            new WholeQuantityValidator(new LineQuantity())
         );
 
         $builder->setQuote($this->quote($quoteItems));
@@ -125,8 +140,14 @@ class ValidateOrderBuilderQuantityTest extends TestCase
             function ($message, array $context = []) : void {
                 $details = $context['extra']['details'] ?? [];
 
-                if (isset($details['sku'], $details['qty'])) {
-                    $this->logged[] = ['sku' => $details['sku'], 'qty' => $details['qty']];
+                if (!is_array($details)) {
+                    return;
+                }
+
+                foreach ($details as $line) {
+                    if (is_array($line) && isset($line['sku'], $line['qty'])) {
+                        $this->logged[] = ['sku' => $line['sku'], 'qty' => $line['qty']];
+                    }
                 }
             }
         );

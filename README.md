@@ -198,8 +198,10 @@ store has. Watch the log for `Could not read stock` if a store's inventory needs
 
 Qliro carries the quantity of an order line as a whole number, so a store selling by weight or length
 cannot take half a metre of cable through this payment method. A cart holding a part of an item is
-refused with a message naming the line, at the checkout page and again when the order is placed, and
-the buyer can change the quantity or pay another way. It is not truncated: half a metre sent as none
+refused with a message naming the line, at the point a Qliro order would be created for it, and the
+buyer can change the quantity or pay another way. That point is the same in every mode, the Qliro
+checkout page, the payment method in Magento's own checkout and the merchant payment, and on the
+checkout page the message is shown in place of the widget. It is not truncated: half a metre sent as none
 would be a line Qliro never charges for, and two and a half sent as two would charge for less than the
 cart holds, with Magento recording the whole of it either way.
 
