@@ -14,6 +14,7 @@ use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -177,7 +178,11 @@ class CheckoutStatus extends AbstractManagement
                                 );
                             }
                         } else {
-                            $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+                            // A status push from Qliro, with nobody in front of it
+                            $qliroOrder = $this->merchantApi->getOrder(
+                                $qliroOrderId,
+                                Config::API_PROFILE_BACKGROUND
+                            );
                             $this->placeOrder->execute($qliroOrder);
 
                             $response = $this->checkoutStatusRespond(
@@ -348,7 +353,7 @@ class CheckoutStatus extends AbstractManagement
     private function resolveEffectiveCheckoutStatus($qliroOrderId, $fallbackStatus): string
     {
         try {
-            $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+            $qliroOrder = $this->merchantApi->getOrder($qliroOrderId, Config::API_PROFILE_BACKGROUND);
             $apiStatus = $qliroOrder ? (string)$qliroOrder->getCustomerCheckoutStatus() : '';
 
             $this->logManager->info(

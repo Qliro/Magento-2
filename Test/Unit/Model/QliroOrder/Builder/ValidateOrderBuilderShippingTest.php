@@ -26,6 +26,8 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Notification\ValidateOrderResponse;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 
 /**
@@ -147,6 +149,7 @@ class ValidateOrderBuilderShippingTest extends TestCase
             $this->createMock(SubmitQuoteValidator::class),
             $this->createMock(CustomerManagement::class),
             $this->createMock(Config::class),
+            new WholeQuantityValidator(new LineQuantity()),
             $quoteRepository,
             $storeManager,
             $this->createMock(StoreEmulation::class)

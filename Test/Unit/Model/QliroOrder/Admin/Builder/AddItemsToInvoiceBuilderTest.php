@@ -21,6 +21,8 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Magento\Framework\DataObject\IdentityService;
+use Qliro\QliroOne\Model\Api\RequestId;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\AddItemsToInvoiceRequest;
@@ -223,7 +225,8 @@ class AddItemsToInvoiceBuilderTest extends TestCase
             $config,
             $additionsFactory,
             $itemFactory,
-            new LineVatRate()
+            new LineVatRate(),
+            new RequestId(new IdentityService())
         );
     }
 
@@ -238,12 +241,17 @@ class AddItemsToInvoiceBuilderTest extends TestCase
         return $linkRepository;
     }
 
-    private function payment(Creditmemo $creditMemo, int $parentTransactionId): Payment&MockObject
-    {
+    private function payment(
+        Creditmemo $creditMemo,
+        int $parentTransactionId,
+        float $alreadyRefunded = 0.0
+    ): Payment&MockObject {
         $order = $this->createMock(Order::class);
         $order->method('getId')->willReturn(5);
         $order->method('getStoreId')->willReturn(1);
         $order->method('getOrderCurrencyCode')->willReturn('SEK');
+        $order->method('getIncrementId')->willReturn('000000123');
+        $order->method('getTotalRefunded')->willReturn($alreadyRefunded);
 
         $payment = $this->createMock(Payment::class);
         $payment->method('getOrder')->willReturn($order);
@@ -290,5 +298,57 @@ class AddItemsToInvoiceBuilderTest extends TestCase
         $item->method('getQty')->willReturn($qty);
 
         return $item;
+    }
+
+    /**
+     * A refund that timed out after Qliro booked it leaves no credit memo behind, Magento rolls
+     * it back and the merchant refunds again. Qliro books a repeated RequestId once, so the same
+     * refund asked for twice has to carry the same one.
+     */
+    public function testTheSameRefundCarriesTheSameRequestId(): void
+    {
+        $first = $this->builder()
+            ->setPayment($this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711))
+            ->create();
+        $second = $this->builder()
+            ->setPayment($this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711))
+            ->create();
+
+        self::assertNotSame('', $first->getRequestId());
+        self::assertSame($first->getRequestId(), $second->getRequestId());
+    }
+
+    /**
+     * A second refund the merchant really means differs in what the order has already given back,
+     * so it is a request of its own and Qliro books it.
+     */
+    public function testARefundOnTopOfAnotherCarriesItsOwnRequestId(): void
+    {
+        $first = $this->builder()
+            ->setPayment($this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711))
+            ->create();
+        $second = $this->builder()
+            ->setPayment($this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711, 125.0))
+            ->create();
+
+        self::assertNotSame($first->getRequestId(), $second->getRequestId());
+    }
+
+    /**
+     * The entries of one credit memo go out as separate calls, one per capture, so each needs an
+     * id of its own or Qliro would take the second for a repeat of the first.
+     */
+    public function testEachAllocationEntryCarriesItsOwnRequestId(): void
+    {
+        $payment = $this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711);
+
+        $first = $this->builder()->setPayment($payment)
+            ->setAllocation([['payment_transaction_id' => 4711, 'amount' => 100.0]])
+            ->create();
+        $second = $this->builder()->setPayment($payment)
+            ->setAllocation([['payment_transaction_id' => 4712, 'amount' => 25.0]])
+            ->create();
+
+        self::assertNotSame($first->getRequestId(), $second->getRequestId());
     }
 }

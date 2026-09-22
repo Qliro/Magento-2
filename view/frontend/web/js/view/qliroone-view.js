@@ -73,16 +73,7 @@ define([
         },
 
         initializeQliro: function() {
-            window.q1Ready = function(q1) {
-                q1.onCheckoutLoaded(qliro.onCheckoutLoaded);
-                q1.onCustomerInfoChanged(qliro.onCustomerInfoChanged);
-                q1.onPaymentDeclined(qliro.onPaymentDeclined);
-                q1.onPaymentMethodChanged(qliro.onPaymentMethodChanged);
-                q1.onPaymentProcess(qliro.onPaymentProcessStart, qliro.onPaymentProcessEnd)
-                q1.onSessionExpired(qliro.onSessionExpired);
-                q1.onShippingMethodChanged(qliro.onShippingMethodChanged);
-                q1.onShippingPriceChanged(qliro.onShippingPriceChanged);
-            }
+            qliro.registerCallbacks();
         },
 
         /**

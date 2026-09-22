@@ -18,6 +18,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Api\StockAvailabilityInterface;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Quote\Model\CustomerManagement;
@@ -79,6 +80,7 @@ class ValidateOrderBuilder
         private SubmitQuoteValidator $submitQuoteValidator,
         private CustomerManagement $customerManagement,
         private Config $config,
+        private WholeQuantityValidator $wholeQuantityValidator,
         ?CartRepositoryInterface $quoteRepository = null,
         ?StoreManagerInterface $storeManager = null,
         ?StoreEmulation $storeEmulation = null
@@ -265,6 +267,20 @@ class ValidateOrderBuilder
             $this->validationRequest = null;
 
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OUT_OF_STOCK);
+        }
+
+        $fractionalLines = $this->wholeQuantityValidator->fractionalLines($this->quote);
+
+        if ($fractionalLines) {
+            $this->quote = null;
+            $this->validationRequest = null;
+            $this->logValidateError(
+                'create',
+                'a line Qliro cannot carry the quantity of',
+                $fractionalLines
+            );
+
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
         }
 
         if (!$this->isQliroShippingDataValid()) {

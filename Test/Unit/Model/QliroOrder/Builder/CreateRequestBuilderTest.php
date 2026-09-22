@@ -13,6 +13,7 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Api\Data\CurrencyInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Address;
+use Magento\Quote\Model\Quote\Item as QuoteItem;
 use Magento\Store\Model\Store;
 use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -25,6 +26,7 @@ use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\GeoIpResolverInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder;
@@ -33,6 +35,8 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingConfigBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Customer;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
 
 /**
@@ -42,6 +46,10 @@ use Qliro\QliroOne\Service\Callback\UrlBuilder as CallbackUrlBuilder;
  * guest order printed the store name on the company line of its shipping address. It belongs to
  * `ShippingMethodsBuilder` now, at the one place that rates, and this class writes nothing to the
  * address at all.
+ *
+ * PLIN-367: this is also where a cart Qliro cannot carry the quantity of is refused, because it
+ * is the one point the standalone checkout page, the payment method in the native checkout and
+ * the merchant payment all pass through.
  */
 class CreateRequestBuilderTest extends TestCase
 {
@@ -108,7 +116,8 @@ class CreateRequestBuilderTest extends TestCase
             $shippingConfigBuilder,
             $this->createMock(ManagerInterface::class),
             $this->createMock(CountrySelect::class),
-            $this->createMock(LogManager::class)
+            $this->createMock(LogManager::class),
+            new WholeQuantityValidator(new LineQuantity())
         );
     }
 
@@ -170,5 +179,42 @@ class CreateRequestBuilderTest extends TestCase
         $address->method('collectShippingRates')->willReturnSelf();
 
         return $address;
+    }
+
+    /**
+     * Qliro carries a whole quantity only, so no order is created for a cart holding half a
+     * metre. The message names the line, because the buyer can only change a cart they are told
+     * about, and it is the same refusal whichever mode asked for the order.
+     */
+    public function testRefusesACartHoldingAPartOfAnItem(): void
+    {
+        $this->quote->method('getId')->willReturn(11);
+        $this->quote->method('getAllItems')->willReturn([$this->quoteItem('CABLE-5MM', 0.5)]);
+
+        $this->expectException(UnsupportedQuoteException::class);
+        $this->expectExceptionMessageMatches('/CABLE-5MM/');
+
+        $this->builder->setQuote($this->quote)->create();
+    }
+
+    /**
+     * A cart of three that arrives as 2.9999999999999996 is a cart of three, and refusing it
+     * would be a checkout nobody can finish.
+     */
+    public function testCreatesTheRequestForAWholeQuantityThatArrivedAsAFloat(): void
+    {
+        $this->quote->method('getId')->willReturn(11);
+        $this->quote->method('getAllItems')->willReturn([$this->quoteItem('SKU-1', 2.9999999999999996)]);
+
+        self::assertSame($this->createRequest, $this->builder->setQuote($this->quote)->create());
+    }
+
+    private function quoteItem(string $sku, float $qty): QuoteItem&MockObject
+    {
+        $item = $this->createMock(QuoteItem::class);
+        $item->method('getSku')->willReturn($sku);
+        $item->method('getQty')->willReturn($qty);
+
+        return $item;
     }
 }

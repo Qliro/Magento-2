@@ -17,6 +17,7 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Exception\LinkInactiveException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CancelOrderRequest;
@@ -313,6 +314,10 @@ class QliroOrder extends AbstractManagement
                 );
             }
         } catch (AlreadyPlacedException $e) {
+            throw $e;
+        } catch (UnsupportedQuoteException $e) {
+            // The buyer can only fix a cart they are told about, so this one keeps its message
+            // instead of becoming "the checkout failed to load"
             throw $e;
         }
         catch (\Exception $exception) {
