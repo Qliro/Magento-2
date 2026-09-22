@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.7.45] - 2026-09-22
+
+### Added
+
+- Qliro can open inside the native checkout instead of sending the buyer to its own page. **Payment Methods > QliroOne Checkout > General > Payment method display**, on a store that already shows Qliro as a payment method, chooses between the redirect it has always done and an iframe in the payment panel. The default is the redirect, so a store that upgrades keeps the checkout it has (PLIN-419)
+- The iframe is fetched when the buyer picks Qliro, through `checkout/qliro_ajax/getSnippet`, and not when the payment step loads. A buyer who pays with another method never creates a Qliro order (PLIN-419)
+
+### Changed
+
+- The native checkout owns identity, address and delivery in the iframe mode, and Qliro is told so. The customer block is sent locked, with `LockCustomerInformation` on the block itself, which is where Qliro reads it: measured against the sandbox, the widget then offers neither its change button nor the personal number lookup, while the same flag at the top level of the create request changes nothing. The lock holds the whole block, the mobile number with it, because a `LockCustomerMobileNumber: false` beside it does not reopen that field, and in this mode the phone is the one the native checkout collected. The block is sent whether or not the quote carries an email: Magento gives a guest quote one only when the order is paid for, so gating the block on it left every guest with nothing prefilled and nothing locked. An address that is still empty is never locked, because a virtual cart takes the billing address and the native checkout collects that inside the payment step, so it can be blank at the moment Qliro is picked, and a locked empty address leaves the buyer with no field to type one into anywhere. The phone number is locked with the rest of the block, because Qliro offers no way to keep one field of a locked block open, and the buyer changes it in the checkout step above the widget (PLIN-419)
+- Qliro is sent only the delivery method the buyer already chose, so the iframe shows no delivery picker of its own and the order cannot move off the method Magento rated. The reduction happens in `ShippingMethodsBuilder`, which both the create request and the quote update come through, so the two cannot disagree and the picker cannot reappear after a cart change. A selection that is not among the rated methods sends the full list and logs why, because the cost of delivery travels on that list and has no line of its own (PLIN-419)
+- The Qliro order is created for the country on the quote, in the iframe mode, and that country is left on the quote. Everywhere else the country comes from the country selector, GeoIP and the store default and is written back to both quote addresses, which is harmless where Qliro owns the address. Here it would replace a country the buyer chose with one they did not and leave a delivery method and a tax that belong to neither, and creating the order for the resolved country while sending a locked address of another would hand Qliro one country's address under another country's rules, with no field for the buyer to correct it in (PLIN-419)
+- An address Qliro reports back is not written onto the quote in the iframe mode, where the native checkout owns it, and the snippet request reuses the fetch the checkout page makes rather than repeating it (PLIN-419)
+- A buyer who has already paid and returns to the checkout reaches the pending page that waits for their Magento order, rather than a panel that fails to load for good. The snippet request also clears a link the widget left locked, which the redirect mode cleared by reopening the Qliro page and nothing else would clear here: a locked link refuses every later change to the cart (PLIN-419)
 ## [1.7.44] - 2026-09-18
 
 ### Fixed
