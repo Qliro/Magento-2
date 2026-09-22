@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.7.50] - 2026-09-22
+
+### Fixed
+
+- A cart whose unit price carries more than two decimals no longer stops at the checkout. An order line states one price per unit and Qliro reads the total of a line as that price times the quantity, while Magento keeps the unit price unrounded and rounds the row once: a catalogue priced without VAT puts the two at odds, 19.75 plus 25 percent is 24.6875 a unit, so 25 of them cost 617.19 in the store and 617.25 on the line. The browser compares the two totals on every order update and keeps the Qliro iframe locked while they disagree, which is why the customer never reached a payment method. The difference now goes out as a line of its own, `Model/QliroOrder/RoundingAdjustment.php`, so every product line keeps the price the cart shows and the totals still agree to the öre. Reported by Skyltexperten, where a cart of 50 Kanalplast at 57.425 a unit was 25 öre apart and a cart of three lines was 6 öre apart (PLIN-408)
+- The figure the checkout hands the browser and the figure the order lines are built to add up to are now the same one, `Model/QliroOrder/LinesTotal.php`. The delivery and the invoice fee are lines Qliro puts on the order itself, so both leave them out, and neither can drift from the other (PLIN-408)
+
+### Changed
+
+- The adjustment is bounded by what rounding can honestly produce, half an öre per unit plus the öre the store's own total is rounded by. A larger disagreement is not rounding and is left to the checkout guard rather than absorbed into a line, because a line that hid it would let the customer pay a total nothing checked (PLIN-408)
+- An order the module places is stamped with the adjustment its reservation holds, `qliro_rounding_adjustment` on the payment, and the first capture replays that line rather than deriving a new one. The amount belongs to the cart as a whole, like the discount, so it goes out once and whole. A reservation that needs no adjustment clears the stamp instead of leaving the one an earlier, failed placement attempt wrote. An order placed before this release carries no stamp and is captured exactly as it was reserved, without one, because Qliro refuses a capture whose lines disagree with the reservation and refuses it terminally (PLIN-408)
+- A fee line the module sent itself is no longer read back as one of Qliro's, `Model/QliroOrder/Converter/OrderItemsConverter.php`. Qliro's own fee lines become a fee on the Magento order, and an adjustment that went out as a fee would have been added to the order a second time (PLIN-408)
 ## [1.7.48] - 2026-09-22
 
 ### Fixed

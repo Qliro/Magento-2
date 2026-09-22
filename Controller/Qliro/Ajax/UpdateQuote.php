@@ -15,6 +15,7 @@ use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\QliroOrder\LinesTotal;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
 /**
@@ -53,6 +54,11 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
     private $logManager;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\LinesTotal
+     */
+    private LinesTotal $linesTotal;
+
+    /**
      * Inject dependnecies
      *
      * @param \Magento\Framework\App\Action\Context $context
@@ -62,6 +68,7 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
      * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param \Qliro\QliroOne\Model\QliroOrder\LinesTotal|null $linesTotal
      */
     public function __construct(
         Context $context,
@@ -70,7 +77,8 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
         AjaxToken $ajaxToken,
         ManagementInterface $qliroManagement,
         Session $checkoutSession,
-        Manager $logManager
+        Manager $logManager,
+        ?LinesTotal $linesTotal = null
     ) {
         parent::__construct($context);
         $this->dataHelper = $dataHelper;
@@ -79,6 +87,8 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
         $this->qliroManagement = $qliroManagement;
         $this->checkoutSession = $checkoutSession;
         $this->logManager = $logManager;
+        // Optional so a store constructing this controller with the old signature keeps working
+        $this->linesTotal = $linesTotal ?? new LinesTotal();
     }
 
     /**
@@ -127,20 +137,13 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
             );
         }
 
-        if ($quote->isVirtual()) {
-            $billingAddress = $quote->getBillingAddress();
-            $fee = $billingAddress->getQlirooneFee();
-            $shippingCost = 0;
-        } else {
-            $shippingAddress = $quote->getShippingAddress();
-            $fee = $shippingAddress->getQlirooneFee();
-            $shippingCost = $shippingAddress->getShippingInclTax();
-        }
-
         return $this->dataHelper->sendPreparedPayload(
             [
                 'order' => [
-                    'totalPrice' => $quote->getGrandTotal() - $fee - $shippingCost,
+                    // The same figure the order lines are built to add up to, see LinesTotal:
+                    // the browser compares it against the Qliro order and keeps the checkout
+                    // locked while the two disagree
+                    'totalPrice' => $this->linesTotal->ofQuote($quote),
                 ],
             ],
             200,
