@@ -190,7 +190,12 @@ class PlaceOrder extends AbstractManagement
             if (empty($orderId)) {
                 try {
                     $this->logManager->debug('Order id is empty: ' . $orderId . ' sending request to Qliro to get order: ' . $qliroOrderId);
-                    $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
+                    // The pending page polls until the order exists, so this answer is worth
+                    // waiting for rather than cutting short
+                    $responseContainer = $this->merchantApi->getOrder(
+                        $qliroOrderId,
+                        Config::API_PROFILE_BACKGROUND
+                    );
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
                         throw new OrderPlacementPendingException(

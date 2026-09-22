@@ -139,6 +139,50 @@ Rows are deleted in batches of 5000, and a single run stops after 200 of them, s
 while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
 and a run that stopped at that cap says so rather than looking like a finished one.
 
+## API timeouts
+
+Every call to Qliro carries a connect timeout and a request timeout, in seconds, set under **Stores >
+Configuration > Sales > Payment Methods > QliroOne Checkout > API Timeouts**. Before 1.7.45 the HTTP
+client ran with Guzzle's defaults, which are neither, so a connection Qliro never answered held a PHP
+worker until the web server killed it and the customer watched a spinner for as long as that took.
+
+Two pairs, and the call says which one it wants, because the class it goes through cannot: the same
+client fetches the order for the checkout page and for the status push Qliro sends afterwards, and the
+same admin client serves the order screen an admin is looking at and the capture behind a shipment.
+
+| Setting | Default | Applies to |
+| --- | --- | --- |
+| Connect Timeout, Somebody Waiting | 5 | Checkout render, quote update, shipping change, the admin order screen |
+| Request Timeout, Somebody Waiting | 15 | The same calls, whole call |
+| Connect Timeout, Nobody Waiting | 5 | Capture, refund, cancel, status push, the pending page poll |
+| Request Timeout, Nobody Waiting | 60 | The same calls, whole call |
+
+The first pair is short because somebody is watching the page it renders: a store that would rather show
+an error than a spinner can cut it further. The second is longer because nobody is, and abandoning a
+capture Qliro has already accepted is worse than waiting for the answer.
+
+The request timeout covers the whole call, connecting included, so a request timeout shorter than the
+connect timeout is the one that decides: the connect never gets the window it was given. Setting the
+request timeout to the longest a call may take and the connect timeout to a few seconds is the useful
+shape.
+
+Both are per store view, and both accept 1 to 300 seconds. A field left empty, or holding anything that is
+not a whole number of seconds, falls back to the default rather than to no timeout: 0 means "wait forever"
+to Guzzle, which is the state these settings exist to end.
+
+A call that runs out of time fails the way a refused call already does, as a `TerminalException`, so the
+checkout answers the customer with its own message and the order management screens report the failure.
+It is logged with the same `>>>` and `<<<` lines as any other call, so a store that times out often is
+visible in `qliroone_log` rather than only in the web server's error log.
+
+A capture or a refund that runs out of time may have been booked by Qliro before the answer was lost.
+Magento rolls its own document back, so the merchant invoices or refunds again, and that second attempt
+carries the same `RequestId` as the first: Qliro books a repeated id once. The id is built from what is
+being settled, the order, what it had already settled, the transactions and the amounts, because the
+invoice and the credit memo have no id of their own until Magento saves them, which happens after the
+call. A settlement the merchant really means a second time differs in what the order had already settled
+by then, so it is a request of its own and Qliro books it.
+
 ## Callback security
 
 Qliro pushes order and transaction updates to callback urls this module registers on the order when
@@ -193,6 +237,64 @@ and are checked in its place. If the inventory cannot be read at all, the line i
 reason is logged, however often it happens: Magento checks the stock again for real when it places the
 order, so an unreadable inventory costs nothing here, while refusing on it would decline every order the
 store has. Watch the log for `Could not read stock` if a store's inventory needs looking at.
+
+## Where Qliro appears in the checkout
+
+**Payment Methods > QliroOne Checkout > General > Show as payment method** decides whether the
+store keeps the native Magento checkout and offers Qliro as one payment method in it, or replaces
+the checkout with Qliro's own page. With it on, **Payment method display** decides what happens
+once the buyer picks Qliro:
+
+- **Redirect to Qliro checkout page** sends the buyer to the standalone Qliro page. This is what
+  the setting did before it existed, and it stays the default.
+- **Embedded iframe in checkout** opens Qliro in the payment panel, and the buyer never leaves the
+  checkout.
+
+The iframe is fetched when the buyer picks Qliro, not when the payment step loads, so a buyer who
+pays with something else never creates a Qliro order.
+
+In the iframe the native checkout owns identity, address and delivery, because it collected all
+three before Qliro was shown. The customer block reaches Qliro locked, so the widget states it and
+offers neither its change button nor the personal number lookup, and Qliro is sent only the
+delivery method the buyer already chose, so its own delivery picker has nothing to offer and
+cannot move the order off the method Magento rated. The order is created for the country on the
+quote, and that country stays on the quote: everywhere else it comes from the country selector,
+GeoIP and the store default, and is written back, which here would replace a country the buyer
+chose with one they did not.
+
+The lock holds the whole block, the phone number with it: Qliro offers no way to keep one field of
+a locked block open. The buyer changes the phone where they entered it, in the checkout step above
+the widget, and a store whose buyers need to correct it inside Qliro should stay on the redirect
+mode, where Qliro owns the form.
+
+Three things fall back rather than trap the buyer. An address that is still empty is not locked,
+and neither is the block around it, which matters for a virtual cart, where the native checkout
+collects the billing address inside the payment step and it can still be blank when Qliro is
+picked. A chosen delivery method that is not
+among the rated ones sends the whole list and logs why, because the cost of delivery travels on
+that list and has no line of its own. A Qliro order that cannot be built at all leaves a message in
+the panel and the buyer can try again.
+
+A buyer who has already paid and comes back to the checkout, with the Back button or a reopened
+tab, is sent to the pending page that waits for their Magento order, which is what the standalone
+checkout does too.
+
+## Quantity
+
+Qliro carries the quantity of an order line as a whole number, so a store selling by weight or length
+cannot take half a metre of cable through this payment method. A cart holding a part of an item is
+refused with a message naming the line, at the point a Qliro order would be created for it, and the
+buyer can change the quantity or pay another way. That point is the same in every mode, the Qliro
+checkout page, the payment method in Magento's own checkout and the merchant payment, and on the
+checkout page the message is shown in place of the widget. It is not truncated: half a metre sent as none
+would be a line Qliro never charges for, and two and a half sent as two would charge for less than the
+cart holds, with Magento recording the whole of it either way.
+
+A product configured with `is_qty_decimal`, or with a `qty_increments` that is not a whole number, is
+what produces such a cart. An order that already holds one, placed before this release or through the
+admin or the API, is refused at the capture and at the shipment for the same reason, naming the line,
+and has to be settled outside Magento. The refund the module sends is a single line for the amount of
+the credit memo and carries no quantity, so it is unaffected.
 
 ---
 

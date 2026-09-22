@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Admin\Builder;
 
 use Magento\Catalog\Model\Product;
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Invoice;
 use Magento\Sales\Model\Order\Invoice\Item as InvoiceItem;
@@ -166,6 +167,40 @@ class InvoiceShipmentsBuilderTest extends TestCase
 
         $this->expectException(\LogicException::class);
         $builder->create();
+    }
+
+    /**
+     * Qliro carries a whole quantity only, so half a metre is refused rather than truncated: the
+     * `(int)` cast this replaced made 0.5 into 0, which dropped the line out of the capture while
+     * Magento recorded it as invoiced, and 2.5 into 2, which captured less than the invoice.
+     */
+    public function testRefusesToCaptureAPartOfAnItem(): void
+    {
+        $item = $this->orderItem(['id' => 1, 'sku' => 'CABLE-5MM', 'name' => 'Cable', 'type' => 'simple',
+            'qtyOrdered' => 5.0, 'incVat' => 125.0, 'exVat' => 100.0, 'taxPercent' => 25.0]);
+
+        $this->expectException(LocalizedException::class);
+        $this->expectExceptionMessageMatches('/CABLE-5MM/');
+
+        $this->build([$item], [1 => 0.5]);
+    }
+
+    /**
+     * A line the loop skips is never sent, so its quantity has nothing to refuse. The child of a
+     * bundle is such a line: only a configurable's children reach the payload. Refusing on it
+     * would leave a merchant unable to invoice an order whose capture is entirely correct.
+     */
+    public function testAPartOfAnItemOnALineThatIsNeverSentDoesNotStopTheCapture(): void
+    {
+        $bundle = $this->orderItem(['id' => 1, 'sku' => 'KIT', 'name' => 'Kit', 'type' => 'bundle',
+            'qtyOrdered' => 1.0, 'incVat' => 500.0, 'exVat' => 400.0, 'taxPercent' => 25.0]);
+        $child = $this->orderItem(['id' => 2, 'sku' => 'COFFEE-KG', 'name' => 'Coffee', 'type' => 'simple',
+            'qtyOrdered' => 0.5, 'incVat' => 0.0, 'exVat' => 0.0, 'taxPercent' => 25.0, 'parentId' => 1], $bundle);
+
+        $lines = $this->build([$bundle, $child], [1 => 1.0, 2 => 0.5])[0]->getOrderItems();
+
+        self::assertCount(1, $lines);
+        self::assertSame(1.0, $lines[0]->getQuantity());
     }
 
     public function testRefusesToBuildWithoutAnOrder(): void

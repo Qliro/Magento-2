@@ -96,7 +96,9 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
 
             /** @var \Magento\Sales\Model\Order\Shipment\Item $shipmentItem */
             foreach ($shipmentItems as $shipmentItem) {
-                $qty = (int)$shipmentItem->getQty();
+                // The invoice is Magento's own, and Magento counts in decimals: truncating here
+                // would invoice a store selling by weight for nothing, or for less than it shipped
+                $qty = (float)$shipmentItem->getQty();
 
                 /** @var \Magento\Sales\Model\Order\Item $item */
                 $item = $order->getItemById($shipmentItem->getOrderItemId());
