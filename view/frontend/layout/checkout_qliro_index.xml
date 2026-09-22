@@ -27,10 +27,6 @@
                                         <item name="shipping-step" xsi:type="array">
                                             <item name="children" xsi:type="array">
                                                 <item name="shippingAddress" xsi:type="array">
-                                                    <!-- Renders nothing, but still loads, so shipping rates are collected as usual -->
-                                                    <item name="config" xsi:type="array">
-                                                        <item name="template" xsi:type="string"/>
-                                                    </item>
                                                     <item name="children" xsi:type="array">
                                                         <item name="price" xsi:type="array">
                                                             <item name="config" xsi:type="array">

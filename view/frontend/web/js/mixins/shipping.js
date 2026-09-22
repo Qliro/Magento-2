@@ -4,7 +4,7 @@
  *
  * Remove template rendering for this component
  *
- * The checkout layout empties the same component through its jsLayout, so this is the fallback
+ * The checkout page empties the same component through a layout processor, so this is the fallback
  * for a theme or an extension that renders the shipping step from a layout of its own.
  */
 
@@ -32,7 +32,9 @@ define([], function () {
         var config = window.checkoutConfig && window.checkoutConfig.qliro,
             result = {};
 
-        if (config && config.enabled && config.checkoutUrl && isCurrentPage(config.checkoutUrl)) {
+        if (config && config.enabled && config.hideNativeShippingStep &&
+            config.checkoutUrl && isCurrentPage(config.checkoutUrl)
+        ) {
             result = {defaults: {template: ''}};
         }
         return shippingFunction.extend(result);

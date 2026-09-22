@@ -33,6 +33,7 @@ class Config
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
     const QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
+    const QLIROONE_HIDE_NATIVE_SHIPPING_STEP = 'api/hide_native_shipping_step';
 
     const QLIROONE_API_TYPE = 'qliro_api/type';
     const QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
@@ -797,6 +798,17 @@ class Config
     public function getShowAsPaymentMethod($storeId = null): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_SHOW_AS_PAYMENT_METHOD, $storeId);
+    }
+
+    /**
+     * Check if the native Magento shipping step must be hidden on the QliroOne checkout page
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isHideNativeShippingStep($storeId = null): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_HIDE_NATIVE_SHIPPING_STEP, $storeId);
     }
 
     /**

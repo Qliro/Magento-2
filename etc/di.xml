@@ -283,4 +283,12 @@
             <argument name="qliroConfig" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
         </arguments>
     </type>
+
+    <type name="Magento\Checkout\Block\Onepage">
+        <arguments>
+            <argument name="layoutProcessors" xsi:type="array">
+                <item name="qliroone_shipping_step" xsi:type="object">Qliro\QliroOne\Block\Checkout\ShippingStepLayoutProcessor</item>
+            </argument>
+        </arguments>
+    </type>
 </config>
