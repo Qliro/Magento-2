@@ -21,6 +21,7 @@ use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
+use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -109,6 +110,11 @@ class PlaceOrder extends AbstractManagement
     private $recurringDataService;
 
     /**
+     * @var \Qliro\QliroOne\Model\Order\OrganizationNumber
+     */
+    private $organizationNumber;
+
+    /**
      * @var \Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp|null
      */
     private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
@@ -131,6 +137,7 @@ class PlaceOrder extends AbstractManagement
      * @param Quote $quoteManagement
      * @param Payment $paymentManagement
      * @param RecurringDataService $recurringDataService
+     * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      */
     public function __construct(
@@ -149,6 +156,7 @@ class PlaceOrder extends AbstractManagement
         Quote $quoteManagement,
         Payment $paymentManagement,
         RecurringDataService $recurringDataService,
+        OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null
     ) {
         $this->qliroConfig = $qliroConfig;
@@ -166,6 +174,7 @@ class PlaceOrder extends AbstractManagement
         $this->quoteManagement = $quoteManagement;
         $this->paymentManagement = $paymentManagement;
         $this->recurringDataService = $recurringDataService;
+        $this->organizationNumber = $organizationNumber;
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
     }
@@ -191,7 +200,12 @@ class PlaceOrder extends AbstractManagement
             if (empty($orderId)) {
                 try {
                     $this->logManager->debug('Order id is empty: ' . $orderId . ' sending request to Qliro to get order: ' . $qliroOrderId);
-                    $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
+                    // The pending page polls until the order exists, so this answer is worth
+                    // waiting for rather than cutting short
+                    $responseContainer = $this->merchantApi->getOrder(
+                        $qliroOrderId,
+                        Config::API_PROFILE_BACKGROUND
+                    );
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
                         throw new OrderPlacementPendingException(
@@ -355,6 +369,7 @@ class PlaceOrder extends AbstractManagement
 
                     $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
                     $order = $this->orderPlacer->place($this->getQuote());
+                    $this->organizationNumber->apply($order, $qliroOrder);
                     $this->logManager->debug('Finished to place order from quote: ' . $this->getQuote()->getId() . ' Order ID: ' . $order->getId());
                     $orderId = $order->getId();
 

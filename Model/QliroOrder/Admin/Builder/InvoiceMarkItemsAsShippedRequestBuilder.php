@@ -10,6 +10,7 @@ use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Api\RequestId;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder;
 
@@ -32,6 +33,11 @@ class InvoiceMarkItemsAsShippedRequestBuilder
      * @var float
      */
     private $amount;
+
+    /**
+     * @var \Qliro\QliroOne\Model\Api\RequestId
+     */
+    private $requestId;
 
     /**
      * @var \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterfaceFactory
@@ -66,19 +72,22 @@ class InvoiceMarkItemsAsShippedRequestBuilder
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceShipmentsBuilder $shipmentsBuilder
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
+     * @param \Qliro\QliroOne\Model\Api\RequestId $requestId
      */
     public function __construct(
         AdminMarkItemsAsShippedRequestInterfaceFactory $requestFactory,
         LinkRepositoryInterface $linkRepository,
         LogManager $logManager,
         InvoiceShipmentsBuilder $shipmentsBuilder,
-        Config $qliroConfig
+        Config $qliroConfig,
+        RequestId $requestId
     ) {
         $this->requestFactory = $requestFactory;
         $this->linkRepository = $linkRepository;
         $this->logManager = $logManager;
         $this->shipmentsBuilder = $shipmentsBuilder;
         $this->qliroConfig = $qliroConfig;
+        $this->requestId = $requestId;
     }
 
     /**
@@ -141,6 +150,20 @@ class InvoiceMarkItemsAsShippedRequestBuilder
 
             $request->setShipments($shipments);
 
+            /*
+             * The same id if this capture is sent again. A capture that timed out after Qliro
+             * booked it leaves no invoice behind, and the merchant invoices again: under a fresh
+             * id that is the buyer's money taken twice. What repeats is the order, what it had
+             * already paid before this attempt, and the amount being captured.
+             */
+            $request->setRequestId(
+                $this->requestId->forRequest([
+                    'mark-items-as-shipped',
+                    (string)$this->order->getIncrementId(),
+                    (float)$this->order->getTotalPaid(),
+                    (float)$this->amount,
+                ])
+            );
         } catch (NoSuchEntityException $exception) {
             $this->logManager->debug(
                 $exception,

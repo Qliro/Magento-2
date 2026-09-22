@@ -59,6 +59,11 @@ class Customer implements QliroOrderCustomerInterface
     private $juridicalType = self::JURIDICAL_TYPE_PHYSICAL;
 
     /**
+     * @var string|null
+     */
+    private $vatNumber;
+
+    /**
      * Getter.
      *
      * @return string
@@ -241,6 +246,29 @@ class Customer implements QliroOrderCustomerInterface
     public function setJuridicalType($juridicalType)
     {
         $this->juridicalType = $juridicalType;
+
+        return $this;
+    }
+
+    /**
+     * The organisation number of a company buyer, where Qliro sends it in a field of its own
+     *
+     * Not on QliroOrderCustomerInterface, so nothing implementing that interface has to change.
+     *
+     * @return string|null
+     */
+    public function getVatNumber()
+    {
+        return $this->vatNumber;
+    }
+
+    /**
+     * @param string|null $vatNumber
+     * @return $this
+     */
+    public function setVatNumber($vatNumber)
+    {
+        $this->vatNumber = $vatNumber;
 
         return $this;
     }

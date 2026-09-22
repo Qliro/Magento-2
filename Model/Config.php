@@ -11,6 +11,7 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Directory\Model\ResourceModel\Country\CollectionFactory as CountryCollectionFactory;
 use Magento\Store\Model\ScopeInterface;
+use Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode;
 
 class Config
 {
@@ -33,11 +34,33 @@ class Config
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
     const QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
+    const QLIROONE_PAYMENT_METHOD_RENDER_MODE = 'api/payment_method_render_mode';
 
     const QLIROONE_API_TYPE = 'qliro_api/type';
     const QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
     const QLIROONE_MERCHANT_API_SECRET = 'qliro_api/merchant_api_secret';
     const QLIROONE_PRESET_ADDRESS = 'qliro_api/preset_address';
+
+    /**
+     * Which pair of timeouts a call is made with: whether anybody is waiting for the answer
+     *
+     * It is the call that says so, not the client class it goes through. The same client serves
+     * both: a checkout page fetch and the status push Qliro sends afterwards are one class, and
+     * so are the admin order view and the capture behind a shipment.
+     */
+    const API_PROFILE_INTERACTIVE = 'interactive';
+    const API_PROFILE_BACKGROUND = 'background';
+
+    const QLIROONE_INTERACTIVE_CONNECT_TIMEOUT = 'timeouts/interactive_connect';
+    const QLIROONE_INTERACTIVE_REQUEST_TIMEOUT = 'timeouts/interactive_request';
+    const QLIROONE_BACKGROUND_CONNECT_TIMEOUT = 'timeouts/background_connect';
+    const QLIROONE_BACKGROUND_REQUEST_TIMEOUT = 'timeouts/background_request';
+
+    const DEFAULT_INTERACTIVE_CONNECT_TIMEOUT = 5;
+    const DEFAULT_INTERACTIVE_REQUEST_TIMEOUT = 15;
+    const DEFAULT_BACKGROUND_CONNECT_TIMEOUT = 5;
+    const DEFAULT_BACKGROUND_REQUEST_TIMEOUT = 60;
+    const MAX_API_TIMEOUT = 300;
 
     const QLIROONE_STYLING_BACKGROUND = 'styling/background_color';
     const QLIROONE_STYLING_PRIMARY = 'styling/primary_color';
@@ -364,6 +387,81 @@ class Config
     public function getMerchantApiSecret($storeId = null)
     {
         return (string)$this->adapter->getConfigData(self::QLIROONE_MERCHANT_API_SECRET, $storeId);
+    }
+
+    /**
+     * Seconds to wait for the connection to Qliro to be established, per call
+     *
+     * @param string $profile
+     * @param int|null $storeId
+     * @return int
+     */
+    public function getApiConnectTimeout($profile = self::API_PROFILE_INTERACTIVE, $storeId = null): int
+    {
+        if ($profile === self::API_PROFILE_BACKGROUND) {
+            return $this->readTimeout(
+                self::QLIROONE_BACKGROUND_CONNECT_TIMEOUT,
+                self::DEFAULT_BACKGROUND_CONNECT_TIMEOUT,
+                $storeId
+            );
+        }
+
+        return $this->readTimeout(
+            self::QLIROONE_INTERACTIVE_CONNECT_TIMEOUT,
+            self::DEFAULT_INTERACTIVE_CONNECT_TIMEOUT,
+            $storeId
+        );
+    }
+
+    /**
+     * Seconds a whole call to Qliro may take, per call
+     *
+     * A call somebody is waiting for is cut short so they are answered, a call nobody is waiting
+     * for is given time, because abandoning a capture Qliro has already accepted is worse than
+     * waiting for its answer. That is the only reason the two are configured apart.
+     *
+     * @param string $profile
+     * @param int|null $storeId
+     * @return int
+     */
+    public function getApiRequestTimeout($profile = self::API_PROFILE_INTERACTIVE, $storeId = null): int
+    {
+        if ($profile === self::API_PROFILE_BACKGROUND) {
+            return $this->readTimeout(
+                self::QLIROONE_BACKGROUND_REQUEST_TIMEOUT,
+                self::DEFAULT_BACKGROUND_REQUEST_TIMEOUT,
+                $storeId
+            );
+        }
+
+        return $this->readTimeout(
+            self::QLIROONE_INTERACTIVE_REQUEST_TIMEOUT,
+            self::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT,
+            $storeId
+        );
+    }
+
+    /**
+     * Read one timeout field, falling back to its default rather than to no timeout at all
+     *
+     * Guzzle reads 0 as "wait forever", which is the state this setting exists to end, so a field
+     * left empty, cleared or filled with anything that is not a positive whole number of seconds
+     * is the default, not an unlimited wait.
+     *
+     * @param string $path
+     * @param int $default
+     * @param int|null $storeId
+     * @return int
+     */
+    private function readTimeout($path, $default, $storeId = null): int
+    {
+        $seconds = trim((string)$this->adapter->getConfigData($path, $storeId));
+
+        if (!ctype_digit($seconds) || (int)$seconds < 1) {
+            return $default;
+        }
+
+        return min((int)$seconds, self::MAX_API_TIMEOUT);
     }
 
     /**
@@ -805,6 +903,32 @@ class Config
     public function getShowAsPaymentMethod($storeId = null): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_SHOW_AS_PAYMENT_METHOD, $storeId);
+    }
+
+    /**
+     * How the payment method renders once selected, see Config\Source\PaymentMethodRenderMode
+     *
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getPaymentMethodRenderMode($storeId = null): string
+    {
+        return (string)$this->adapter->getConfigData(self::QLIROONE_PAYMENT_METHOD_RENDER_MODE, $storeId);
+    }
+
+    /**
+     * Whether Qliro renders as an iframe inside the native checkout
+     *
+     * The mode only exists on top of "show as payment method", so both settings decide it. Every
+     * caller asks here rather than pairing the two itself, so they cannot drift apart.
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isEmbeddedIframeMode($storeId = null): bool
+    {
+        return $this->getShowAsPaymentMethod($storeId)
+            && $this->getPaymentMethodRenderMode($storeId) === PaymentMethodRenderMode::MODE_IFRAME;
     }
 
     /**

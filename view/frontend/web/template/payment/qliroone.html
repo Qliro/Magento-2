@@ -24,6 +24,16 @@
             <!--/ko-->
         </div>
 
+        <!-- ko if: isIframeMode() -->
+        <div class="qliroone-embedded-checkout">
+            <!-- ko if: isIframeBusy() -->
+            <div class="qliroone-embedded-checkout-loader" data-bind="i18n: 'Loading...'"></div>
+            <!-- /ko -->
+            <div class="qliroone-embedded-checkout-mount" data-bind="afterRender: setIframeContainer"></div>
+        </div>
+        <!-- /ko -->
+
+        <!-- ko ifnot: isIframeMode() -->
         <div class="actions-toolbar">
             <div class="primary">
                 <button data-role="review-save"
@@ -40,5 +50,6 @@
                 </button>
             </div>
         </div>
+        <!-- /ko -->
     </div>
 </div>

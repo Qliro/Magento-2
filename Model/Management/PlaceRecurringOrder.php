@@ -21,6 +21,7 @@ use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
+use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -119,6 +120,11 @@ class PlaceRecurringOrder extends AbstractManagement
     protected $order;
 
     /**
+     * @var \Qliro\QliroOne\Model\Order\OrganizationNumber
+     */
+    private $organizationNumber;
+
+    /**
      * @var \Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp|null
      */
     private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
@@ -143,6 +149,7 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param RecurringDataService $recurringDataService
      * @param \Magento\Quote\Api\CartManagementInterface $cartManagementInterface
      * @param \Magento\Sales\Model\Order $order
+     * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      */
     public function __construct(
@@ -163,6 +170,7 @@ class PlaceRecurringOrder extends AbstractManagement
         RecurringDataService $recurringDataService,
         \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
         \Magento\Sales\Model\Order $order,
+        OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null
     ) {
         $this->qliroConfig = $qliroConfig;
@@ -182,6 +190,7 @@ class PlaceRecurringOrder extends AbstractManagement
         $this->recurringDataService = $recurringDataService;
         $this->cartManagementInterface = $cartManagementInterface;
         $this->order = $order;
+        $this->organizationNumber = $organizationNumber;
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
     }
@@ -204,7 +213,11 @@ class PlaceRecurringOrder extends AbstractManagement
 
             if (empty($orderId)) {
                 try {
-                    $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
+                    // A recurring order is placed with nobody in front of it
+                    $responseContainer = $this->merchantApi->getOrder(
+                        $qliroOrderId,
+                        Config::API_PROFILE_BACKGROUND
+                    );
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
                         throw new OrderPlacementPendingException(
@@ -346,6 +359,7 @@ class PlaceRecurringOrder extends AbstractManagement
                     // $order = $this->orderPlacer->place($this->getQuote());
                     $orderId = $this->cartManagementInterface->placeOrder($this->getQuote()->getId());
                     $order = $this->order->load($orderId);
+                    $this->organizationNumber->apply($order, $qliroOrder);
 
 
                     // $orderId = $order->getId();

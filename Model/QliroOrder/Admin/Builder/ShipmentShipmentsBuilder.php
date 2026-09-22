@@ -10,6 +10,7 @@ use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory;
 
@@ -54,6 +55,11 @@ class ShipmentShipmentsBuilder
     private $lineReference;
 
     /**
+     * @var LineQuantity
+     */
+    private $lineQuantity;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
@@ -61,13 +67,15 @@ class ShipmentShipmentsBuilder
      * @param OrderSourceProvider $orderSourceProvider
      * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
      * @param LineReference|null $lineReference
+     * @param LineQuantity|null $lineQuantity
      */
     public function __construct(
         TypePoolHandler $typeResolver,
         QliroShipmentInterfaceFactory $qliroShipmentFactory,
         OrderSourceProvider $orderSourceProvider,
         $handlers = [],
-        ?LineReference $lineReference = null
+        ?LineReference $lineReference = null,
+        ?LineQuantity $lineQuantity = null
     ) {
         $this->typeResolver = $typeResolver;
         $this->qliroShipmentFactory = $qliroShipmentFactory;
@@ -75,6 +83,7 @@ class ShipmentShipmentsBuilder
         $this->handlers = $handlers;
         // Optional so a store constructing this builder with the old signature keeps working
         $this->lineReference = $lineReference ?? new LineReference();
+        $this->lineQuantity = $lineQuantity ?? new LineQuantity();
     }
 
     /**
@@ -111,7 +120,7 @@ class ShipmentShipmentsBuilder
         foreach ($this->shipment->getItemsCollection() as $shipmentItem) {
             /** @var \Magento\Sales\Model\Order\Item $orderItem */
             $orderItem = $this->order->getItemById($shipmentItem->getOrderItemId());
-            $shipmentQty = (int)$shipmentItem->getQty();
+            $shipmentQty = (float)$shipmentItem->getQty();
 
             if ($orderItem->getProductType() == 'configurable') {
                 /**
@@ -143,7 +152,13 @@ class ShipmentShipmentsBuilder
             );
 
             if ($qliroOrderItem) {
-                $qliroOrderItem->setQuantity($shipmentQty);
+                // Asked here rather than at the top of the loop, because this is the quantity that
+                // reaches Qliro: a line the loop skips is never sent, and the quantity left to
+                // invoice, which replaces the shipped one above, is what a legacy partial invoice
+                // can make fractional
+                $qliroOrderItem->setQuantity(
+                    $this->lineQuantity->settlementQuantity($shipmentQty, (string)$orderItem->getSku())
+                );
                 $shipmentOrderItems[] = $qliroOrderItem;
             }
         }

@@ -216,6 +216,33 @@ class DefaultHandlerTest extends TestCase
         );
     }
 
+    /**
+     * Qliro carries a whole quantity as a whole number. Magento computes the quantity of a child
+     * line, a bundle selection times the bundle's own quantity, so a line of three can reach the
+     * payload as 2.9999999999999996, which Qliro reads as a fraction and refuses the order over.
+     */
+    public function testSendsAWholeQuantityAsAWholeNumber(): void
+    {
+        $line = $this->buildHandler()->getQliroOrderItem(
+            $this->buildSourceItem(125.0, 100.0, 25.0, 2.9999999999999996)
+        );
+
+        self::assertSame(3.0, $line->getQuantity());
+    }
+
+    /**
+     * A quantity that is not whole is sent as it stands. The cart it belongs to is refused before
+     * this, and rounding it here would charge a quantity nobody asked for.
+     */
+    public function testSendsAQuantityThatIsNotWholeAsItStands(): void
+    {
+        $line = $this->buildHandler()->getQliroOrderItem(
+            $this->buildSourceItem(125.0, 100.0, 25.0, 0.5)
+        );
+
+        self::assertSame(0.5, $line->getQuantity());
+    }
+
     private function buildSourceItem(
         float $priceInclTax,
         float $priceExclTax,
