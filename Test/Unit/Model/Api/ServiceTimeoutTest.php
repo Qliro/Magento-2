@@ -80,6 +80,46 @@ class ServiceTimeoutTest extends TestCase
     }
 
     /**
+     * The call says which pair it wants, because the client class it goes through cannot: the
+     * same class serves a checkout page fetch and the status push that follows it.
+     */
+    public function testTheCallChoosesTheProfile(): void
+    {
+        $this->config->expects(self::once())
+            ->method('getApiConnectTimeout')
+            ->with(Config::API_PROFILE_BACKGROUND, 3)
+            ->willReturn(5);
+        $this->config->expects(self::once())
+            ->method('getApiRequestTimeout')
+            ->with(Config::API_PROFILE_BACKGROUND, 3)
+            ->willReturn(60);
+        $this->respond();
+
+        // An instance with the interactive default, asked for the background pair by the call
+        $this->service()->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => 1], 3, Config::API_PROFILE_BACKGROUND);
+
+        self::assertSame(60, $this->options[RequestOptions::TIMEOUT]);
+    }
+
+    /**
+     * A call that names no profile keeps the one the instance was built with, so nothing that
+     * constructs a Service by hand loses its timeouts.
+     */
+    public function testACallThatNamesNoProfileKeepsTheInstanceDefault(): void
+    {
+        $this->config->expects(self::once())
+            ->method('getApiRequestTimeout')
+            ->with(Config::API_PROFILE_BACKGROUND, null)
+            ->willReturn(60);
+        $this->config->method('getApiConnectTimeout')->willReturn(5);
+        $this->respond();
+
+        $this->service(Config::API_PROFILE_BACKGROUND)->post('checkout/adminapi/v2/orders/capture', []);
+
+        self::assertSame(60, $this->options[RequestOptions::TIMEOUT]);
+    }
+
+    /**
      * The store decides the values and the store is only known here, per call, not when the
      * shared client is built.
      */
@@ -87,28 +127,28 @@ class ServiceTimeoutTest extends TestCase
     {
         $this->config->expects(self::once())
             ->method('getApiConnectTimeout')
-            ->with(Config::API_PROFILE_ORDER_MANAGEMENT, 3)
+            ->with(Config::API_PROFILE_BACKGROUND, 3)
             ->willReturn(5);
         $this->config->expects(self::once())
             ->method('getApiRequestTimeout')
-            ->with(Config::API_PROFILE_ORDER_MANAGEMENT, 3)
+            ->with(Config::API_PROFILE_BACKGROUND, 3)
             ->willReturn(60);
         $this->respond();
 
-        $this->service(Config::API_PROFILE_ORDER_MANAGEMENT)
+        $this->service(Config::API_PROFILE_BACKGROUND)
             ->post('checkout/adminapi/v2/orders/capture', [], 3);
 
         self::assertSame(60, $this->options[RequestOptions::TIMEOUT]);
     }
 
     /**
-     * An instance nobody configured calls with the checkout timeouts, the shorter pair.
+     * An instance nobody configured calls with the shorter pair, the one somebody waits for.
      */
-    public function testTheCheckoutProfileIsTheDefault(): void
+    public function testTheInteractiveProfileIsTheDefault(): void
     {
         $this->config->expects(self::once())
             ->method('getApiRequestTimeout')
-            ->with(Config::API_PROFILE_CHECKOUT, null)
+            ->with(Config::API_PROFILE_INTERACTIVE, null)
             ->willReturn(15);
         $this->config->method('getApiConnectTimeout')->willReturn(5);
         $this->respond();
@@ -149,7 +189,7 @@ class ServiceTimeoutTest extends TestCase
         );
     }
 
-    private function service(string $profile = Config::API_PROFILE_CHECKOUT): Service
+    private function service(string $profile = Config::API_PROFILE_INTERACTIVE): Service
     {
         $json = $this->createMock(Json::class);
         $json->method('serialize')->willReturn('{}');

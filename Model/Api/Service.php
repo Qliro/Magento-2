@@ -61,7 +61,7 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     private $duration;
 
     /**
-     * @var string Which set of timeouts this instance calls with, see Config::API_PROFILE_*
+     * @var string The timeouts a call that names none is made with, see Config::API_PROFILE_*
      */
     private $timeoutProfile;
 
@@ -72,14 +72,14 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param \GuzzleHttp\Client $client
      * @param \Magento\Framework\Serialize\Serializer\Json $json
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
-     * @param string $timeoutProfile Which set of timeouts to call with, see Config::API_PROFILE_*
+     * @param string $timeoutProfile The timeouts for a call that names none, see Config::API_PROFILE_*
      */
     public function __construct(
         Config $config,
         Client $client,
         Json $json,
         Manager $logManager,
-        $timeoutProfile = Config::API_PROFILE_CHECKOUT
+        $timeoutProfile = Config::API_PROFILE_INTERACTIVE
     ) {
         $this->config = $config;
         $this->client = $client;
@@ -94,15 +94,16 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param string $endpoint
      * @param array $data
      * @param int|null $storeId
+     * @param string|null $profile Which timeouts this call is made with, see Config::API_PROFILE_*
      * @return array
      * @throws \InvalidArgumentException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function get($endpoint, $data = [], $storeId = null)
+    public function get($endpoint, $data = [], $storeId = null, $profile = null)
     {
         $this->applyParams($endpoint, $data);
 
-        return $this->call(self::METHOD_GET, $endpoint, $data, $storeId);
+        return $this->call(self::METHOD_GET, $endpoint, $data, $storeId, $profile);
     }
 
     /**
@@ -111,13 +112,14 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param string $endpoint
      * @param array $data
      * @param int|null $storeId
+     * @param string|null $profile Which timeouts this call is made with, see Config::API_PROFILE_*
      * @return array
      * @throws \InvalidArgumentException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function post($endpoint, $data = [], $storeId = null)
+    public function post($endpoint, $data = [], $storeId = null, $profile = null)
     {
-        return $this->call(self::METHOD_POST, $endpoint, $data, $storeId);
+        return $this->call(self::METHOD_POST, $endpoint, $data, $storeId, $profile);
     }
 
     /**
@@ -126,15 +128,16 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param string $endpoint
      * @param array $data
      * @param int|null $storeId
+     * @param string|null $profile Which timeouts this call is made with, see Config::API_PROFILE_*
      * @return array
      * @throws \InvalidArgumentException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function put($endpoint, $data = [], $storeId = null)
+    public function put($endpoint, $data = [], $storeId = null, $profile = null)
     {
         $this->applyParams($endpoint, $data);
 
-        return $this->call(self::METHOD_PUT, $endpoint, $data, $storeId);
+        return $this->call(self::METHOD_PUT, $endpoint, $data, $storeId, $profile);
     }
 
     /**
@@ -171,7 +174,7 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @throws \InvalidArgumentException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    private function call($method, $endpoint, $body = [], $storeId = null)
+    private function call($method, $endpoint, $body = [], $storeId = null, $profile = null)
     {
         $this->logManager->setMark('REST API');
 
@@ -195,15 +198,20 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
         $options[RequestOptions::HEADERS] = $headers;
         $options[RequestOptions::ON_STATS] = [$this, 'receiveStats'];
 
-        // Guzzle waits forever by default, and this call sits inside the customer's own request:
-        // one unanswered connection held a PHP worker until the web server killed it. Read per
-        // call, because the store decides them and the store is only known here.
+        /*
+         * Guzzle waits forever by default, and a call can sit inside the customer's own request:
+         * one unanswered connection held a PHP worker until the web server killed it. Which pair
+         * of timeouts applies is the call's own answer, not this class's: the same client serves
+         * a checkout page fetch and the status push that follows it. Read per call, because the
+         * store decides the seconds and the store is only known here.
+         */
+        $timeoutProfile = $profile ?: $this->timeoutProfile;
         $options[RequestOptions::CONNECT_TIMEOUT] = $this->config->getApiConnectTimeout(
-            $this->timeoutProfile,
+            $timeoutProfile,
             $storeId
         );
         $options[RequestOptions::TIMEOUT] = $this->config->getApiRequestTimeout(
-            $this->timeoutProfile,
+            $timeoutProfile,
             $storeId
         );
 

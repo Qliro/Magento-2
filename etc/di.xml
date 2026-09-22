@@ -283,16 +283,4 @@
             <argument name="qliroConfig" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
         </arguments>
     </type>
-    <!-- The order management calls do not wait in front of a customer, so they get their own
-         timeouts: aborting a capture early is worse than waiting for it. -->
-    <virtualType name="Qliro\QliroOne\Model\Api\OrderManagementService" type="Qliro\QliroOne\Model\Api\Service">
-        <arguments>
-            <argument name="timeoutProfile" xsi:type="const">Qliro\QliroOne\Model\Config::API_PROFILE_ORDER_MANAGEMENT</argument>
-        </arguments>
-    </virtualType>
-    <type name="Qliro\QliroOne\Model\Api\Client\OrderManagement">
-        <arguments>
-            <argument name="service" xsi:type="object">Qliro\QliroOne\Model\Api\OrderManagementService</argument>
-        </arguments>
-    </type>
 </config>

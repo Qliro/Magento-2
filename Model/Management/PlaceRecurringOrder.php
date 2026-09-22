@@ -194,7 +194,11 @@ class PlaceRecurringOrder extends AbstractManagement
 
             if (empty($orderId)) {
                 try {
-                    $responseContainer = $this->merchantApi->getOrder($qliroOrderId);
+                    // A recurring order is placed with nobody in front of it
+                    $responseContainer = $this->merchantApi->getOrder(
+                        $qliroOrderId,
+                        Config::API_PROFILE_BACKGROUND
+                    );
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
                         throw new OrderPlacementPendingException(

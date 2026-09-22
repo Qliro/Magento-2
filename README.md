@@ -146,18 +146,20 @@ Configuration > Sales > Payment Methods > QliroOne Checkout > API Timeouts**. Be
 client ran with Guzzle's defaults, which are neither, so a connection Qliro never answered held a PHP
 worker until the web server killed it and the customer watched a spinner for as long as that took.
 
-Two pairs, because the two kinds of call want different answers:
+Two pairs, and the call says which one it wants, because the class it goes through cannot: the same
+client fetches the order for the checkout page and for the status push Qliro sends afterwards, and the
+same admin client serves the order screen an admin is looking at and the capture behind a shipment.
 
 | Setting | Default | Applies to |
 | --- | --- | --- |
-| Checkout Connect Timeout | 5 | Checkout render, quote update, shipping change |
-| Checkout Request Timeout | 15 | The same calls, whole call |
-| Order Management Connect Timeout | 5 | Capture, refund, cancel, shipment |
-| Order Management Request Timeout | 60 | The same calls, whole call |
+| Connect Timeout, Somebody Waiting | 5 | Checkout render, quote update, shipping change, the admin order screen |
+| Request Timeout, Somebody Waiting | 15 | The same calls, whole call |
+| Connect Timeout, Nobody Waiting | 5 | Capture, refund, cancel, status push, the pending page poll |
+| Request Timeout, Nobody Waiting | 60 | The same calls, whole call |
 
-The checkout pair is short because a customer is waiting: a store that would rather show an error than a
-spinner can cut it further. The order management pair is longer because nobody is waiting in front of it
-and abandoning a capture Qliro has already accepted is worse than waiting for the answer.
+The first pair is short because somebody is watching the page it renders: a store that would rather show
+an error than a spinner can cut it further. The second is longer because nobody is, and abandoning a
+capture Qliro has already accepted is worse than waiting for the answer.
 
 The request timeout covers the whole call, connecting included, so a request timeout shorter than the
 connect timeout is the one that decides: the connect never gets the window it was given. Setting the
@@ -172,6 +174,14 @@ A call that runs out of time fails the way a refused call already does, as a `Te
 checkout answers the customer with its own message and the order management screens report the failure.
 It is logged with the same `>>>` and `<<<` lines as any other call, so a store that times out often is
 visible in `qliroone_log` rather than only in the web server's error log.
+
+A capture or a refund that runs out of time may have been booked by Qliro before the answer was lost.
+Magento rolls its own document back, so the merchant invoices or refunds again, and that second attempt
+carries the same `RequestId` as the first: Qliro books a repeated id once. The id is built from what is
+being settled, the order, what it had already settled, the transactions and the amounts, because the
+invoice and the credit memo have no id of their own until Magento saves them, which happens after the
+call. A settlement the merchant really means a second time differs in what the order had already settled
+by then, so it is a request of its own and Qliro books it.
 
 ## Callback security
 

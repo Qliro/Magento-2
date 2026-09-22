@@ -155,28 +155,28 @@
 
                     <comment><![CDATA[<p>How long a call to Qliro may take, in seconds. Without these the checkout waits for as long as the connection stays open, which holds a PHP worker and leaves the customer looking at a spinner.</p><p>An empty field, or anything that is not a whole number of seconds, falls back to the shipped default rather than to no timeout at all. The highest accepted value is 300.</p>]]></comment>
 
-                    <field id="checkout_connect" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
-                        <label>Checkout Connect Timeout</label>
+                    <field id="interactive_connect" translate="label comment" type="text" sortOrder="10" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Connect Timeout, Somebody Waiting</label>
                         <validate>validate-digits validate-digits-range digits-range-1-300</validate>
-                        <comment>Seconds to wait for the connection to Qliro while a customer is in the checkout. Default 5.</comment>
+                        <comment>Seconds to wait for the connection to Qliro on a call a customer or an admin is waiting for. Default 5.</comment>
                     </field>
 
-                    <field id="checkout_request" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
-                        <label>Checkout Request Timeout</label>
+                    <field id="interactive_request" translate="label comment" type="text" sortOrder="20" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Request Timeout, Somebody Waiting</label>
                         <validate>validate-digits validate-digits-range digits-range-1-300</validate>
-                        <comment>Seconds a whole checkout call to Qliro may take. Default 15.</comment>
+                        <comment>Seconds a whole call somebody is waiting for may take: the checkout, and the order screens in the admin. Default 15.</comment>
                     </field>
 
-                    <field id="order_management_connect" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
-                        <label>Order Management Connect Timeout</label>
+                    <field id="background_connect" translate="label comment" type="text" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Connect Timeout, Nobody Waiting</label>
                         <validate>validate-digits validate-digits-range digits-range-1-300</validate>
-                        <comment>Seconds to wait for the connection to Qliro when capturing, refunding or cancelling. Default 5.</comment>
+                        <comment>Seconds to wait for the connection to Qliro on a call nobody is waiting for: a capture, a refund, a callback, a poll. Default 5.</comment>
                     </field>
 
-                    <field id="order_management_request" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
-                        <label>Order Management Request Timeout</label>
+                    <field id="background_request" translate="label comment" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Request Timeout, Nobody Waiting</label>
                         <validate>validate-digits validate-digits-range digits-range-1-300</validate>
-                        <comment>Seconds a whole capture, refund or cancellation may take. Nobody is waiting in front of these, and abandoning one that Qliro has already accepted is worse than waiting, so this is the longer of the two. Default 60.</comment>
+                        <comment>Seconds a whole call nobody is waiting for may take: a capture, a refund, a cancellation, a callback, the pending page poll. Abandoning one Qliro has already accepted is worse than waiting for it, so this is the longer of the two. Default 60.</comment>
                     </field>
                 </group>
 

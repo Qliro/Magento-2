@@ -39,18 +39,25 @@ class Config
     const QLIROONE_MERCHANT_API_SECRET = 'qliro_api/merchant_api_secret';
     const QLIROONE_PRESET_ADDRESS = 'qliro_api/preset_address';
 
-    const API_PROFILE_CHECKOUT = 'checkout';
-    const API_PROFILE_ORDER_MANAGEMENT = 'order_management';
+    /**
+     * Which pair of timeouts a call is made with: whether anybody is waiting for the answer
+     *
+     * It is the call that says so, not the client class it goes through. The same client serves
+     * both: a checkout page fetch and the status push Qliro sends afterwards are one class, and
+     * so are the admin order view and the capture behind a shipment.
+     */
+    const API_PROFILE_INTERACTIVE = 'interactive';
+    const API_PROFILE_BACKGROUND = 'background';
 
-    const QLIROONE_CHECKOUT_CONNECT_TIMEOUT = 'timeouts/checkout_connect';
-    const QLIROONE_CHECKOUT_REQUEST_TIMEOUT = 'timeouts/checkout_request';
-    const QLIROONE_ORDER_MANAGEMENT_CONNECT_TIMEOUT = 'timeouts/order_management_connect';
-    const QLIROONE_ORDER_MANAGEMENT_REQUEST_TIMEOUT = 'timeouts/order_management_request';
+    const QLIROONE_INTERACTIVE_CONNECT_TIMEOUT = 'timeouts/interactive_connect';
+    const QLIROONE_INTERACTIVE_REQUEST_TIMEOUT = 'timeouts/interactive_request';
+    const QLIROONE_BACKGROUND_CONNECT_TIMEOUT = 'timeouts/background_connect';
+    const QLIROONE_BACKGROUND_REQUEST_TIMEOUT = 'timeouts/background_request';
 
-    const DEFAULT_CHECKOUT_CONNECT_TIMEOUT = 5;
-    const DEFAULT_CHECKOUT_REQUEST_TIMEOUT = 15;
-    const DEFAULT_ORDER_MANAGEMENT_CONNECT_TIMEOUT = 5;
-    const DEFAULT_ORDER_MANAGEMENT_REQUEST_TIMEOUT = 60;
+    const DEFAULT_INTERACTIVE_CONNECT_TIMEOUT = 5;
+    const DEFAULT_INTERACTIVE_REQUEST_TIMEOUT = 15;
+    const DEFAULT_BACKGROUND_CONNECT_TIMEOUT = 5;
+    const DEFAULT_BACKGROUND_REQUEST_TIMEOUT = 60;
     const MAX_API_TIMEOUT = 300;
 
     const QLIROONE_STYLING_BACKGROUND = 'styling/background_color';
@@ -373,52 +380,53 @@ class Config
     }
 
     /**
-     * Seconds to wait for the connection to Qliro to be established, per call type
+     * Seconds to wait for the connection to Qliro to be established, per call
      *
      * @param string $profile
      * @param int|null $storeId
      * @return int
      */
-    public function getApiConnectTimeout($profile = self::API_PROFILE_CHECKOUT, $storeId = null): int
+    public function getApiConnectTimeout($profile = self::API_PROFILE_INTERACTIVE, $storeId = null): int
     {
-        if ($profile === self::API_PROFILE_ORDER_MANAGEMENT) {
+        if ($profile === self::API_PROFILE_BACKGROUND) {
             return $this->readTimeout(
-                self::QLIROONE_ORDER_MANAGEMENT_CONNECT_TIMEOUT,
-                self::DEFAULT_ORDER_MANAGEMENT_CONNECT_TIMEOUT,
+                self::QLIROONE_BACKGROUND_CONNECT_TIMEOUT,
+                self::DEFAULT_BACKGROUND_CONNECT_TIMEOUT,
                 $storeId
             );
         }
 
         return $this->readTimeout(
-            self::QLIROONE_CHECKOUT_CONNECT_TIMEOUT,
-            self::DEFAULT_CHECKOUT_CONNECT_TIMEOUT,
+            self::QLIROONE_INTERACTIVE_CONNECT_TIMEOUT,
+            self::DEFAULT_INTERACTIVE_CONNECT_TIMEOUT,
             $storeId
         );
     }
 
     /**
-     * Seconds a whole call to Qliro may take, per call type
+     * Seconds a whole call to Qliro may take, per call
      *
-     * The checkout waits in front of a customer and the order management calls do not, which is
-     * the only reason the two are configured apart.
+     * A call somebody is waiting for is cut short so they are answered, a call nobody is waiting
+     * for is given time, because abandoning a capture Qliro has already accepted is worse than
+     * waiting for its answer. That is the only reason the two are configured apart.
      *
      * @param string $profile
      * @param int|null $storeId
      * @return int
      */
-    public function getApiRequestTimeout($profile = self::API_PROFILE_CHECKOUT, $storeId = null): int
+    public function getApiRequestTimeout($profile = self::API_PROFILE_INTERACTIVE, $storeId = null): int
     {
-        if ($profile === self::API_PROFILE_ORDER_MANAGEMENT) {
+        if ($profile === self::API_PROFILE_BACKGROUND) {
             return $this->readTimeout(
-                self::QLIROONE_ORDER_MANAGEMENT_REQUEST_TIMEOUT,
-                self::DEFAULT_ORDER_MANAGEMENT_REQUEST_TIMEOUT,
+                self::QLIROONE_BACKGROUND_REQUEST_TIMEOUT,
+                self::DEFAULT_BACKGROUND_REQUEST_TIMEOUT,
                 $storeId
             );
         }
 
         return $this->readTimeout(
-            self::QLIROONE_CHECKOUT_REQUEST_TIMEOUT,
-            self::DEFAULT_CHECKOUT_REQUEST_TIMEOUT,
+            self::QLIROONE_INTERACTIVE_REQUEST_TIMEOUT,
+            self::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT,
             $storeId
         );
     }

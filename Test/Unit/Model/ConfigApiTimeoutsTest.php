@@ -29,9 +29,9 @@ class ConfigApiTimeoutsTest extends TestCase
      */
     public function testFallsBackToTheDefaultRatherThanToNoTimeout(mixed $stored, int $expected): void
     {
-        $config = $this->config([Config::QLIROONE_CHECKOUT_REQUEST_TIMEOUT => $stored]);
+        $config = $this->config([Config::QLIROONE_INTERACTIVE_REQUEST_TIMEOUT => $stored]);
 
-        self::assertSame($expected, $config->getApiRequestTimeout(Config::API_PROFILE_CHECKOUT));
+        self::assertSame($expected, $config->getApiRequestTimeout(Config::API_PROFILE_INTERACTIVE));
     }
 
     /**
@@ -45,11 +45,11 @@ class ConfigApiTimeoutsTest extends TestCase
             'stray whitespace' => [' 8 ', 8],
             'the longest wait' => ['300', Config::MAX_API_TIMEOUT],
             'longer than that is capped' => ['3600', Config::MAX_API_TIMEOUT],
-            'zero is no timeout at all' => ['0', Config::DEFAULT_CHECKOUT_REQUEST_TIMEOUT],
-            'a blanked field' => ['', Config::DEFAULT_CHECKOUT_REQUEST_TIMEOUT],
-            'nothing stored' => [null, Config::DEFAULT_CHECKOUT_REQUEST_TIMEOUT],
-            'a negative number' => ['-5', Config::DEFAULT_CHECKOUT_REQUEST_TIMEOUT],
-            'a fraction' => ['2.5', Config::DEFAULT_CHECKOUT_REQUEST_TIMEOUT],
+            'zero is no timeout at all' => ['0', Config::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT],
+            'a blanked field' => ['', Config::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT],
+            'nothing stored' => [null, Config::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT],
+            'a negative number' => ['-5', Config::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT],
+            'a fraction' => ['2.5', Config::DEFAULT_INTERACTIVE_REQUEST_TIMEOUT],
         ];
     }
 
@@ -61,16 +61,16 @@ class ConfigApiTimeoutsTest extends TestCase
     public function testEachCallTypeReadsItsOwnFields(): void
     {
         $config = $this->config([
-            Config::QLIROONE_CHECKOUT_CONNECT_TIMEOUT => '3',
-            Config::QLIROONE_CHECKOUT_REQUEST_TIMEOUT => '9',
-            Config::QLIROONE_ORDER_MANAGEMENT_CONNECT_TIMEOUT => '7',
-            Config::QLIROONE_ORDER_MANAGEMENT_REQUEST_TIMEOUT => '90',
+            Config::QLIROONE_INTERACTIVE_CONNECT_TIMEOUT => '3',
+            Config::QLIROONE_INTERACTIVE_REQUEST_TIMEOUT => '9',
+            Config::QLIROONE_BACKGROUND_CONNECT_TIMEOUT => '7',
+            Config::QLIROONE_BACKGROUND_REQUEST_TIMEOUT => '90',
         ]);
 
-        self::assertSame(3, $config->getApiConnectTimeout(Config::API_PROFILE_CHECKOUT));
-        self::assertSame(9, $config->getApiRequestTimeout(Config::API_PROFILE_CHECKOUT));
-        self::assertSame(7, $config->getApiConnectTimeout(Config::API_PROFILE_ORDER_MANAGEMENT));
-        self::assertSame(90, $config->getApiRequestTimeout(Config::API_PROFILE_ORDER_MANAGEMENT));
+        self::assertSame(3, $config->getApiConnectTimeout(Config::API_PROFILE_INTERACTIVE));
+        self::assertSame(9, $config->getApiRequestTimeout(Config::API_PROFILE_INTERACTIVE));
+        self::assertSame(7, $config->getApiConnectTimeout(Config::API_PROFILE_BACKGROUND));
+        self::assertSame(90, $config->getApiRequestTimeout(Config::API_PROFILE_BACKGROUND));
     }
 
     /**
@@ -82,10 +82,10 @@ class ConfigApiTimeoutsTest extends TestCase
         $adapter = $this->createMock(Adapter::class);
         $adapter->expects(self::once())
             ->method('getConfigData')
-            ->with(Config::QLIROONE_CHECKOUT_REQUEST_TIMEOUT, 7)
+            ->with(Config::QLIROONE_INTERACTIVE_REQUEST_TIMEOUT, 7)
             ->willReturn('12');
 
-        self::assertSame(12, $this->configWith($adapter)->getApiRequestTimeout(Config::API_PROFILE_CHECKOUT, 7));
+        self::assertSame(12, $this->configWith($adapter)->getApiRequestTimeout(Config::API_PROFILE_INTERACTIVE, 7));
     }
 
     /**
@@ -94,7 +94,7 @@ class ConfigApiTimeoutsTest extends TestCase
      */
     public function testAnUnknownCallTypeIsTreatedAsTheCheckout(): void
     {
-        $config = $this->config([Config::QLIROONE_CHECKOUT_REQUEST_TIMEOUT => '9']);
+        $config = $this->config([Config::QLIROONE_INTERACTIVE_REQUEST_TIMEOUT => '9']);
 
         self::assertSame(9, $config->getApiRequestTimeout('something else'));
     }

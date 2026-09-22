@@ -36,10 +36,10 @@
                 <timeouts>
                     <!-- Seconds. Guzzle reads 0 as no timeout at all, so an empty or invalid
                          value falls back to these rather than to an unlimited wait -->
-                    <checkout_connect>5</checkout_connect>
-                    <checkout_request>15</checkout_request>
-                    <order_management_connect>5</order_management_connect>
-                    <order_management_request>60</order_management_request>
+                    <interactive_connect>5</interactive_connect>
+                    <interactive_request>15</interactive_request>
+                    <background_connect>5</background_connect>
+                    <background_request>60</background_request>
                 </timeouts>
                 <styling>
                     <background_color>#FFFFFF</background_color>

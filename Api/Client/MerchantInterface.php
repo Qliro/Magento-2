@@ -27,10 +27,14 @@ interface MerchantInterface
     /**
      * Get QliroOne order by its Qliro Order ID
      *
+     * The same fetch serves the checkout page, where the customer is waiting for it, and the
+     * callbacks and polls that nobody waits for, so the caller says which timeouts it wants.
+     *
      * @param int $qliroOrderId
+     * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      */
-    public function getOrder($qliroOrderId);
+    public function getOrder($qliroOrderId, $profile = null);
 
     /**
      * Update QliroOne order
