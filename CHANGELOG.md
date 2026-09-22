@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.44] - 2026-09-17
+## [1.7.45] - 2026-09-22
 
 ### Added
 
@@ -10,11 +10,22 @@
 
 ### Changed
 
-- The native checkout owns identity, address and delivery in the iframe mode, and Qliro is told so. The customer block is sent locked, with `LockCustomerInformation` on the block itself, which is where Qliro reads it: measured against the sandbox, the widget then offers neither its change button nor the personal number lookup, while the same flag at the top level of the create request changes nothing. The lock holds the whole block, the mobile number with it, because a `LockCustomerMobileNumber: false` beside it does not reopen that field, and in this mode the phone is the one the native checkout collected. The block is sent whether or not the quote carries an email: Magento gives a guest quote one only when the order is paid for, so gating the block on it left every guest with nothing prefilled and nothing locked. An address that is still empty is never locked, because a virtual cart takes the billing address and the native checkout collects that inside the payment step, so it can be blank at the moment Qliro is picked, and a locked empty address leaves the buyer with no field to type one into anywhere. The phone number stays editable for the same kind of reason: Magento does not check that its telephone field holds a mobile number, and Qliro identifies the buyer by sending an sms to it (PLIN-419)
+- The native checkout owns identity, address and delivery in the iframe mode, and Qliro is told so. The customer block is sent locked, with `LockCustomerInformation` on the block itself, which is where Qliro reads it: measured against the sandbox, the widget then offers neither its change button nor the personal number lookup, while the same flag at the top level of the create request changes nothing. The lock holds the whole block, the mobile number with it, because a `LockCustomerMobileNumber: false` beside it does not reopen that field, and in this mode the phone is the one the native checkout collected. The block is sent whether or not the quote carries an email: Magento gives a guest quote one only when the order is paid for, so gating the block on it left every guest with nothing prefilled and nothing locked. An address that is still empty is never locked, because a virtual cart takes the billing address and the native checkout collects that inside the payment step, so it can be blank at the moment Qliro is picked, and a locked empty address leaves the buyer with no field to type one into anywhere. The phone number is locked with the rest of the block, because Qliro offers no way to keep one field of a locked block open, and the buyer changes it in the checkout step above the widget (PLIN-419)
 - Qliro is sent only the delivery method the buyer already chose, so the iframe shows no delivery picker of its own and the order cannot move off the method Magento rated. The reduction happens in `ShippingMethodsBuilder`, which both the create request and the quote update come through, so the two cannot disagree and the picker cannot reappear after a cart change. A selection that is not among the rated methods sends the full list and logs why, because the cost of delivery travels on that list and has no line of its own (PLIN-419)
 - The Qliro order is created for the country on the quote, in the iframe mode, and that country is left on the quote. Everywhere else the country comes from the country selector, GeoIP and the store default and is written back to both quote addresses, which is harmless where Qliro owns the address. Here it would replace a country the buyer chose with one they did not and leave a delivery method and a tax that belong to neither, and creating the order for the resolved country while sending a locked address of another would hand Qliro one country's address under another country's rules, with no field for the buyer to correct it in (PLIN-419)
 - An address Qliro reports back is not written onto the quote in the iframe mode, where the native checkout owns it, and the snippet request reuses the fetch the checkout page makes rather than repeating it (PLIN-419)
 - A buyer who has already paid and returns to the checkout reaches the pending page that waits for their Magento order, rather than a panel that fails to load for good. The snippet request also clears a link the widget left locked, which the redirect mode cleared by reopening the Qliro page and nothing else would clear here: a locked link refuses every later change to the cart (PLIN-419)
+## [1.7.44] - 2026-09-18
+
+### Fixed
+
+- An order placed before 1.7.0 can be captured again on a store that has upgraded to 1.7.42 or later. Every version before 1.7.0 reserved its order lines with the cart item id in front of the sku, 1.7.0 through 1.7.41 reserved them with the sku alone, and 1.7.42 read an order carrying no stamp as one of the second kind. A store coming straight from 1.6.x therefore captured its open orders under a line reference Qliro had never reserved, and Qliro refuses such a capture for good, so those orders could not be captured at all (PLIN-421)
+
+### Changed
+
+- The format a reservation holds is read from the reservation instead of assumed. Before the first capture of an order that carries no stamp, the module fetches the Qliro order and matches its line references against the order's own items in both formats, then stamps the answer on the payment the way an order placed from 1.7.42 on stamps itself. That is one extra call per order, once, and it stops happening as the orders predating the stamp are captured (PLIN-421)
+- A reservation that cannot be read, or whose lines answer both formats or neither, leaves the order unstamped and read the way this version already reads an unstamped order, so a capture is never sent on a guess. The capture goes to the same API, so an outage is reported by the capture itself (PLIN-421)
+- `Qliro\QliroOne\Api\Client\OrderManagementInterface::getOrder()` takes an optional store id and sends it with the request, and every call site passes one: the capture the store its order belongs to, the merchant payment the store of its quote, and the admin lookup the store of the order behind the link. A merchant running more than one store with its own Qliro credentials would otherwise have read the order with the credentials of whichever store the admin is in (PLIN-421)
 
 ## [1.7.43] - 2026-09-14
 
