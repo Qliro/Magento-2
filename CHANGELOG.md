@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.44] - 2026-09-16
+## [1.7.46] - 2026-09-22
 
 ### Fixed
 
@@ -16,12 +16,37 @@
 ### Changed
 
 - The quantity of a line is decided in one place, `Model/QliroOrder/LineQuantity.php`, which the checkout, the capture, the shipment and the refund all ask. A settlement asks at the one point the quantity reaches Qliro rather than per invoice line, so a line the capture never sends, the child of a bundle, cannot refuse an invoice whose capture is correct, and the quantity left to invoice on a configurable, which replaces the shipped one, is checked as the one that goes out. It rounds rather than casts, because a quantity reaches a builder through a float and a cart of three can arrive as 2.9999999999999996, which the cast turned into two. A quantity within a millionth of a whole number is that number, which is far below the smallest fraction a store can sell, `qty` being `decimal(12,4)` (PLIN-367)
-- The refusal reaches the buyer on the Qliro checkout page instead of "QliroOne Checkout has failed to load. Please try to reload page.", which is what a reload cannot fix. It travels as `Model/Exception/UnsupportedQuoteException`, so only this refusal is shown and every other failure keeps the message it had (PLIN-367)
+- The refusal reaches the buyer wherever Qliro is shown: on the checkout page in place of the widget, instead of "QliroOne Checkout has failed to load. Please try to reload page." which is what a reload cannot fix, and in the payment panel of the iframe mode instead of "Qliro checkout could not be loaded". It travels as `Model/Exception/UnsupportedQuoteException`, so only this refusal is shown and every other failure keeps the message it had (PLIN-367)
 - The README says that the payment method carries a whole quantity only, and what happens to an order that holds a fraction (PLIN-367)
 
 ### Added
 
 - Unit tests: the quantity class, the cart validator, the observer that refuses the cart before the order is placed, the validate callback decline, a fractional quantity refused by the capture, the shipment and the refund, a fraction on a line that is never sent leaving the capture alone, a fraction left to invoice on a configurable, and a whole quantity reaching the checkout payload as a whole number (PLIN-367)
+## [1.7.45] - 2026-09-22
+
+### Added
+
+- Qliro can open inside the native checkout instead of sending the buyer to its own page. **Payment Methods > QliroOne Checkout > General > Payment method display**, on a store that already shows Qliro as a payment method, chooses between the redirect it has always done and an iframe in the payment panel. The default is the redirect, so a store that upgrades keeps the checkout it has (PLIN-419)
+- The iframe is fetched when the buyer picks Qliro, through `checkout/qliro_ajax/getSnippet`, and not when the payment step loads. A buyer who pays with another method never creates a Qliro order (PLIN-419)
+
+### Changed
+
+- The native checkout owns identity, address and delivery in the iframe mode, and Qliro is told so. The customer block is sent locked, with `LockCustomerInformation` on the block itself, which is where Qliro reads it: measured against the sandbox, the widget then offers neither its change button nor the personal number lookup, while the same flag at the top level of the create request changes nothing. The lock holds the whole block, the mobile number with it, because a `LockCustomerMobileNumber: false` beside it does not reopen that field, and in this mode the phone is the one the native checkout collected. The block is sent whether or not the quote carries an email: Magento gives a guest quote one only when the order is paid for, so gating the block on it left every guest with nothing prefilled and nothing locked. An address that is still empty is never locked, because a virtual cart takes the billing address and the native checkout collects that inside the payment step, so it can be blank at the moment Qliro is picked, and a locked empty address leaves the buyer with no field to type one into anywhere. The phone number is locked with the rest of the block, because Qliro offers no way to keep one field of a locked block open, and the buyer changes it in the checkout step above the widget (PLIN-419)
+- Qliro is sent only the delivery method the buyer already chose, so the iframe shows no delivery picker of its own and the order cannot move off the method Magento rated. The reduction happens in `ShippingMethodsBuilder`, which both the create request and the quote update come through, so the two cannot disagree and the picker cannot reappear after a cart change. A selection that is not among the rated methods sends the full list and logs why, because the cost of delivery travels on that list and has no line of its own (PLIN-419)
+- The Qliro order is created for the country on the quote, in the iframe mode, and that country is left on the quote. Everywhere else the country comes from the country selector, GeoIP and the store default and is written back to both quote addresses, which is harmless where Qliro owns the address. Here it would replace a country the buyer chose with one they did not and leave a delivery method and a tax that belong to neither, and creating the order for the resolved country while sending a locked address of another would hand Qliro one country's address under another country's rules, with no field for the buyer to correct it in (PLIN-419)
+- An address Qliro reports back is not written onto the quote in the iframe mode, where the native checkout owns it, and the snippet request reuses the fetch the checkout page makes rather than repeating it (PLIN-419)
+- A buyer who has already paid and returns to the checkout reaches the pending page that waits for their Magento order, rather than a panel that fails to load for good. The snippet request also clears a link the widget left locked, which the redirect mode cleared by reopening the Qliro page and nothing else would clear here: a locked link refuses every later change to the cart (PLIN-419)
+## [1.7.44] - 2026-09-18
+
+### Fixed
+
+- An order placed before 1.7.0 can be captured again on a store that has upgraded to 1.7.42 or later. Every version before 1.7.0 reserved its order lines with the cart item id in front of the sku, 1.7.0 through 1.7.41 reserved them with the sku alone, and 1.7.42 read an order carrying no stamp as one of the second kind. A store coming straight from 1.6.x therefore captured its open orders under a line reference Qliro had never reserved, and Qliro refuses such a capture for good, so those orders could not be captured at all (PLIN-421)
+
+### Changed
+
+- The format a reservation holds is read from the reservation instead of assumed. Before the first capture of an order that carries no stamp, the module fetches the Qliro order and matches its line references against the order's own items in both formats, then stamps the answer on the payment the way an order placed from 1.7.42 on stamps itself. That is one extra call per order, once, and it stops happening as the orders predating the stamp are captured (PLIN-421)
+- A reservation that cannot be read, or whose lines answer both formats or neither, leaves the order unstamped and read the way this version already reads an unstamped order, so a capture is never sent on a guess. The capture goes to the same API, so an outage is reported by the capture itself (PLIN-421)
+- `Qliro\QliroOne\Api\Client\OrderManagementInterface::getOrder()` takes an optional store id and sends it with the request, and every call site passes one: the capture the store its order belongs to, the merchant payment the store of its quote, and the admin lookup the store of the order behind the link. A merchant running more than one store with its own Qliro credentials would otherwise have read the order with the credentials of whichever store the admin is in (PLIN-421)
 
 ## [1.7.43] - 2026-09-14
 
