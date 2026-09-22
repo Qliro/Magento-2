@@ -75,7 +75,10 @@ class CustomerBuilderLockTest extends TestCase
     }
 
     /**
-     * The iframe mode locks what the native checkout already collected.
+     * The iframe mode locks what the native checkout already collected, with the flag Qliro reads
+     * for it: on the customer block, not at the top level of the create request. Measured against
+     * the sandbox, the widget offers neither "Ändra" nor the personal number lookup with it, and
+     * the same flag at the top level changes nothing.
      */
     public function testTheIframeModeLocksTheCollectedData(): void
     {
@@ -83,6 +86,7 @@ class CustomerBuilderLockTest extends TestCase
 
         $customer = $this->builder->setQuote($this->quote)->setCustomer(null)->create();
 
+        $this->assertTrue($customer->getLockCustomerInformation());
         $this->assertTrue($customer->getLockCustomerAddress());
         $this->assertTrue($customer->getLockCustomerEmail());
     }
@@ -101,14 +105,18 @@ class CustomerBuilderLockTest extends TestCase
         $customer = $this->builder->setQuote($this->quote)->setCustomer(null)->create();
 
         $this->assertFalse($customer->getLockCustomerAddress());
+
+        // And the block is not locked either, because that would lock the empty address with it
+        $this->assertNull($customer->getLockCustomerInformation());
     }
 
     /**
-     * The phone number stays editable even in the iframe mode. Magento never checks that its
-     * telephone field holds a mobile number, and Qliro identifies the buyer by sending an sms to
-     * it, so a locked landline would end the checkout with no way forward.
+     * The per field flag for the phone is sent as false, and it is what a store gets where the
+     * block itself cannot be locked. Next to the block lock it decides nothing: measured against
+     * the sandbox, a `LockCustomerMobileNumber: false` beside `LockCustomerInformation: true`
+     * does not reopen the field. In this mode the phone is the one the native checkout collected.
      */
-    public function testThePhoneNumberStaysEditable(): void
+    public function testThePhoneFlagIsSentAsFalse(): void
     {
         $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
 
@@ -127,6 +135,7 @@ class CustomerBuilderLockTest extends TestCase
 
         $customer = $this->builder->setQuote($this->quote)->setCustomer(null)->create();
 
+        $this->assertNull($customer->getLockCustomerInformation());
         $this->assertFalse($customer->getLockCustomerAddress());
         $this->assertFalse($customer->getLockCustomerEmail());
         $this->assertFalse($customer->getLockCustomerMobileNumber());

@@ -88,6 +88,7 @@ class CustomerBuilder
         // The native checkout already collected these in the iframe mode, so the buyer does not
         // retype them in the iframe and cannot move the order to another address behind our back.
         $lockData = $this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId());
+        $addressIsComplete = false;
 
         try {
             if ($address = $this->getAddress()) {
@@ -97,9 +98,8 @@ class CustomerBuilder
                 // billing address, which the native checkout collects inside the payment step,
                 // so at the moment Qliro is picked it can still be empty, and locking an empty
                 // address leaves the buyer with no field to type one into anywhere.
-                $qliroOrderCustomer->setLockCustomerAddress(
-                    $lockData && $this->isAddressComplete($qliroOrderCustomerAddress)
-                );
+                $addressIsComplete = $this->isAddressComplete($qliroOrderCustomerAddress);
+                $qliroOrderCustomer->setLockCustomerAddress($lockData && $addressIsComplete);
                 $qliroOrderCustomer->setJuridicalType(
                     $qliroOrderCustomerAddress->getCompanyName() ? QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY
                         : QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL
@@ -119,10 +119,26 @@ class CustomerBuilder
 
         if ($mobileNumber = $this->getMobileNumber()) {
             $qliroOrderCustomer->setMobileNumber($mobileNumber);
-            // Left editable on purpose, in the iframe mode too. This is the quote's telephone,
-            // which Magento never checks is a mobile, and Qliro identifies the buyer by sending
-            // an sms to it. Locking a landline would end the checkout with no way forward.
             $qliroOrderCustomer->setLockCustomerMobileNumber(false);
+        }
+
+        /*
+         * The lock Qliro actually reads, and it sits on this block rather than at the top level of
+         * the create request. Measured against the sandbox: with it the widget shows the customer
+         * as stated and offers neither "Ändra" nor the personal number lookup, without it both are
+         * there, and the same flag sent at the top level changes nothing at all.
+         *
+         * It holds the whole block, the mobile number with it: a `LockCustomerMobileNumber: false`
+         * next to it does not reopen that field. The per field flags above are what a store gets
+         * when this one cannot be set, and they leave the buyer the "Ändra" button.
+         *
+         * Only with an address the buyer can be held to. A virtual cart takes the billing address,
+         * which the native checkout collects inside the payment step, so at the moment Qliro is
+         * picked it can still be empty, and a locked empty address leaves the buyer with no field
+         * to type one into anywhere.
+         */
+        if ($lockData && $addressIsComplete) {
+            $qliroOrderCustomer->setLockCustomerInformation(true);
         }
 
         $this->customer = null;

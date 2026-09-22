@@ -210,20 +210,23 @@ The iframe is fetched when the buyer picks Qliro, not when the payment step load
 pays with something else never creates a Qliro order.
 
 In the iframe the native checkout owns identity, address and delivery, because it collected all
-three before Qliro was shown. The address and the email reach Qliro locked, and Qliro is sent only
-the delivery method the buyer already chose, so its own delivery picker has nothing to offer and
+three before Qliro was shown. The customer block reaches Qliro locked, so the widget states it and
+offers neither its change button nor the personal number lookup, and Qliro is sent only the
+delivery method the buyer already chose, so its own delivery picker has nothing to offer and
 cannot move the order off the method Magento rated. The order is created for the country on the
 quote, and that country stays on the quote: everywhere else it comes from the country selector,
 GeoIP and the store default, and is written back, which here would replace a country the buyer
 chose with one they did not.
 
-The phone number is the exception and stays editable. Magento never checks that its telephone
-field holds a mobile number, and Qliro identifies the buyer by sending an sms to it, so a locked
-landline would end the checkout with nowhere to go.
+The lock holds the whole block, the phone number with it: Qliro offers no way to keep one field of
+a locked block open. The buyer changes the phone where they entered it, in the checkout step above
+the widget, and a store whose buyers need to correct it inside Qliro should stay on the redirect
+mode, where Qliro owns the form.
 
 Three things fall back rather than trap the buyer. An address that is still empty is not locked,
-which matters for a virtual cart, where the native checkout collects the billing address inside the
-payment step and it can still be blank when Qliro is picked. A chosen delivery method that is not
+and neither is the block around it, which matters for a virtual cart, where the native checkout
+collects the billing address inside the payment step and it can still be blank when Qliro is
+picked. A chosen delivery method that is not
 among the rated ones sends the whole list and logs why, because the cost of delivery travels on
 that list and has no line of its own. A Qliro order that cannot be built at all leaves a message in
 the panel and the buyer can try again.
