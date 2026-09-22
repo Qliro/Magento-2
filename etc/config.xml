@@ -34,6 +34,14 @@
                     <merchant_api_secret backend_model="Magento\Config\Model\Config\Backend\Encrypted" />
                     <preset_address>0</preset_address>
                 </qliro_api>
+                <timeouts>
+                    <!-- Seconds. Guzzle reads 0 as no timeout at all, so an empty or invalid
+                         value falls back to these rather than to an unlimited wait -->
+                    <interactive_connect>5</interactive_connect>
+                    <interactive_request>15</interactive_request>
+                    <background_connect>5</background_connect>
+                    <background_request>60</background_request>
+                </timeouts>
                 <styling>
                     <background_color>#FFFFFF</background_color>
                     <primary_color>#A1A1A1</primary_color>

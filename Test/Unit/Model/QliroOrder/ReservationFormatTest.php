@@ -94,13 +94,14 @@ class ReservationFormatTest extends TestCase
 
     /**
      * The reservation is read with the credentials of the store the order was placed in, which on
-     * a multi store merchant is not the ones the admin happens to be looking at.
+     * a multi store merchant is not the ones the admin happens to be looking at, and with the
+     * timeouts of a call nobody is waiting for, because it runs on the way to a capture.
      */
     public function testTheReservationIsReadForTheStoreTheOrderBelongsTo(): void
     {
         $this->orderManagementApi->expects(self::once())
             ->method('getOrder')
-            ->with(self::QLIRO_ORDER_ID, 7)
+            ->with(self::QLIRO_ORDER_ID, 7, Config::API_PROFILE_BACKGROUND)
             ->willReturn($this->buildQliroOrder(['Kanalplast']));
 
         $order = $this->buildOrder($this->buildPayment(null), [[519, 'Kanalplast']]);

@@ -24,10 +24,11 @@ interface OrderManagementInterface
      *
      * @param int $qliroOrderId
      * @param int|null $storeId
+     * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
      * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
-    public function getOrder($qliroOrderId, $storeId = null);
+    public function getOrder($qliroOrderId, $storeId = null, $profile = null);
 
     /**
      * Send a "Mark items as shipped" request

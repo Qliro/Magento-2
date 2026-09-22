@@ -139,6 +139,50 @@ Rows are deleted in batches of 5000, and a single run stops after 200 of them, s
 while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
 and a run that stopped at that cap says so rather than looking like a finished one.
 
+## API timeouts
+
+Every call to Qliro carries a connect timeout and a request timeout, in seconds, set under **Stores >
+Configuration > Sales > Payment Methods > QliroOne Checkout > API Timeouts**. Before 1.7.45 the HTTP
+client ran with Guzzle's defaults, which are neither, so a connection Qliro never answered held a PHP
+worker until the web server killed it and the customer watched a spinner for as long as that took.
+
+Two pairs, and the call says which one it wants, because the class it goes through cannot: the same
+client fetches the order for the checkout page and for the status push Qliro sends afterwards, and the
+same admin client serves the order screen an admin is looking at and the capture behind a shipment.
+
+| Setting | Default | Applies to |
+| --- | --- | --- |
+| Connect Timeout, Somebody Waiting | 5 | Checkout render, quote update, shipping change, the admin order screen |
+| Request Timeout, Somebody Waiting | 15 | The same calls, whole call |
+| Connect Timeout, Nobody Waiting | 5 | Capture, refund, cancel, status push, the pending page poll |
+| Request Timeout, Nobody Waiting | 60 | The same calls, whole call |
+
+The first pair is short because somebody is watching the page it renders: a store that would rather show
+an error than a spinner can cut it further. The second is longer because nobody is, and abandoning a
+capture Qliro has already accepted is worse than waiting for the answer.
+
+The request timeout covers the whole call, connecting included, so a request timeout shorter than the
+connect timeout is the one that decides: the connect never gets the window it was given. Setting the
+request timeout to the longest a call may take and the connect timeout to a few seconds is the useful
+shape.
+
+Both are per store view, and both accept 1 to 300 seconds. A field left empty, or holding anything that is
+not a whole number of seconds, falls back to the default rather than to no timeout: 0 means "wait forever"
+to Guzzle, which is the state these settings exist to end.
+
+A call that runs out of time fails the way a refused call already does, as a `TerminalException`, so the
+checkout answers the customer with its own message and the order management screens report the failure.
+It is logged with the same `>>>` and `<<<` lines as any other call, so a store that times out often is
+visible in `qliroone_log` rather than only in the web server's error log.
+
+A capture or a refund that runs out of time may have been booked by Qliro before the answer was lost.
+Magento rolls its own document back, so the merchant invoices or refunds again, and that second attempt
+carries the same `RequestId` as the first: Qliro books a repeated id once. The id is built from what is
+being settled, the order, what it had already settled, the transactions and the amounts, because the
+invoice and the credit memo have no id of their own until Magento saves them, which happens after the
+call. A settlement the merchant really means a second time differs in what the order had already settled
+by then, so it is a request of its own and Qliro books it.
+
 ## Callback security
 
 Qliro pushes order and transaction updates to callback urls this module registers on the order when

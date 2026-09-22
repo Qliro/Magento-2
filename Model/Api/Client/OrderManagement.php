@@ -20,6 +20,7 @@ use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Api\Client\Exception\OrderManagementApiException;
 use Qliro\QliroOne\Model\Api\Service;
+use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -84,18 +85,22 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      *
      * @param int $qliroOrderId
      * @param int|null $storeId
+     * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
      * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
-    public function getOrder($qliroOrderId, $storeId = null)
+    public function getOrder($qliroOrderId, $storeId = null, $profile = null)
     {
         $container = null;
 
         try {
+            // An admin has an order screen open in front of this one, unless the caller says
+            // otherwise: the read before a capture is nobody's page
             $response = $this->service->get(
                 'checkout/adminapi/v2/orders/{OrderId}',
                 ['OrderId' => $qliroOrderId],
-                $storeId
+                $storeId,
+                $profile ?: Config::API_PROFILE_INTERACTIVE
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderInterface $container */
@@ -118,11 +123,16 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
     public function markItemsAsShipped(AdminMarkItemsAsShippedRequestInterface $request, $storeId = null)
     {
         $container = null;
-        $request->setRequestId($this->idGenerator->generateId());
+        $this->stampRequestId($request);
 
         try {
             $payload = $this->containerMapper->toArray($request);
-            $response = $this->service->post('checkout/adminapi/v2/MarkItemsAsShipped', $payload, $storeId);
+            $response = $this->service->post(
+                'checkout/adminapi/v2/MarkItemsAsShipped',
+                $payload,
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
+            );
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             /** @var AdminTransactionResponseInterface $container */
@@ -140,11 +150,16 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
     public function addItemsToInvoice(AdminAddItemsToInvoiceRequestInterface $request, $storeId = null)
     {
         $containers = [];
-        $request->setRequestId($this->idGenerator->generateId());
+        $this->stampRequestId($request);
 
         try {
             $payload = $this->containerMapper->toArray($request);
-            $response = $this->service->post('checkout/adminapi/v2/AddItemsToInvoice', $payload, $storeId);
+            $response = $this->service->post(
+                'checkout/adminapi/v2/AddItemsToInvoice',
+                $payload,
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
+            );
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             foreach ($paymentTransactions as $paymentTransaction) {
@@ -162,6 +177,25 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
     }
 
     /**
+     * Give the request an id, keeping the one the builder chose
+     *
+     * A capture or a refund is built with an id that repeats when the merchant sends the same
+     * document again, which is what stops Qliro booking it twice after a call timed out on an
+     * answer it had already given. Anything that arrives without one still gets a fresh id.
+     *
+     * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface|\Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterface $request
+     * @return void
+     */
+    private function stampRequestId($request)
+    {
+        if (trim((string)$request->getRequestId()) !== '') {
+            return;
+        }
+
+        $request->setRequestId($this->idGenerator->generateId());
+    }
+
+    /**
      * Cancel admin QliroOne order
      *
      * @param \Qliro\QliroOne\Api\Data\AdminCancelOrderRequestInterface $request
@@ -176,7 +210,12 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 
         try {
             $payload = $this->containerMapper->toArray($request);
-            $response = $this->service->post('checkout/adminapi/v2/cancelOrder', $payload, $storeId);
+            $response = $this->service->post(
+                'checkout/adminapi/v2/cancelOrder',
+                $payload,
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
+            );
             $paymentTransactions = $response['PaymentTransactions'] ?? [];
 
             /** @var AdminTransactionResponseInterface $container */
@@ -221,7 +260,12 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
 
         try {
             $payload = $this->containerMapper->toArray($request);
-            $response = $this->service->post('checkout/adminapi/v2/updatemerchantreference', $payload, $storeId);
+            $response = $this->service->post(
+                'checkout/adminapi/v2/updatemerchantreference',
+                $payload,
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
+            );
 
             /** @var AdminTransactionResponseInterface $container */
             $container = $this->containerMapper->fromArray($response, AdminTransactionResponseInterface::class);
@@ -274,7 +318,8 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $response = $this->service->get(
                 'checkout/adminapi/v2/paymentTransactions/{PaymentTransactionId}',
                 ['PaymentTransactionId' => $paymentTransactionId],
-                $storeId
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface $container */
@@ -302,7 +347,8 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $response = $this->service->post(
                 'checkout/adminapi/v2/retryReversalPaymentTransaction',
                 ['PaymentReference' => $paymentReference],
-                $storeId
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface $container */
@@ -334,7 +380,8 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $response = $this->service->post(
                 'checkout/adminapi/v2/merchantpayment',
                 $payload,
-                $storeId
+                $storeId,
+                Config::API_PROFILE_BACKGROUND
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminCreateMerchantPaymentResponseInterface $container */

@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.7.47] - 2026-09-22
+
+### Fixed
+
+- A call to Qliro that is never answered no longer holds the checkout open. `Model/Api/Service` was handed a bare `GuzzleHttp\Client` with no configuration, and Guzzle's own defaults are no connect timeout and no request timeout, so the client waited for as long as the connection stayed open. Every checkout render, quote update and shipping change goes through it inside the customer's own request, so one unanswered connection held a PHP worker until the web server killed it, and the customer watched a spinner until then. Every call now carries both timeouts (PLIN-363)
+
+### Added
+
+- **Payment Methods > QliroOne Checkout > API Timeouts**, four fields in seconds, per store view: the connect and the request timeout for a call somebody is waiting for, defaulting to 5 and 15, and the same pair for a call nobody is waiting for, defaulting to 5 and 60. The first pair is short because a customer or an admin is watching the page it renders. The second is longer because nobody is, and abandoning a capture Qliro has already accepted is worse than waiting for the answer. Both accept 1 to 300 seconds, and a field left empty or holding anything that is not a whole number of seconds falls back to its default rather than to no timeout at all, because 0 is what Guzzle reads as an unlimited wait (PLIN-363)
+- The call says which pair it wants, not the class it goes through. `Service::get()`, `post()` and `put()` take the profile as a last argument, and the callers name it: the checkout render and the admin order screen are calls somebody waits for, the status push, the pending page poll, the recurring placement, the reservation read before a capture, the capture, the refund and the cancellation are not. The same client serves both sides in each case, which is why the class could not decide it. A call that names no profile keeps the one its instance was built with, and that default is the shorter pair, so anything constructing a `Service` by hand is unaffected (PLIN-363)
+- A capture or a refund is sent under a `RequestId` that repeats when the merchant sends the same document again, `Model/Api/RequestId`. A settlement that times out may have been booked by Qliro before the answer was lost, Magento rolls its own invoice or credit memo back, and the merchant does it again: under the fresh id the module used to stamp, that is the buyer's money taken or given back twice. Qliro books a repeated id once. The id is built from the order, what it had already settled, and the transactions and amounts being settled, because the invoice and the credit memo have no id until Magento saves them, which happens after this call. A settlement the merchant really means a second time differs in what the order had already settled, so Qliro books that one (PLIN-363)
+- Unit tests for the new settings and for the calls that carry them: the fall back to the default rather than to no timeout, the cap at 300 seconds, each call type reading its own fields, the values read for the store the call is made for, and a timed out call surfacing as the `TerminalException` the checkout controllers already answer with a customer facing message rather than as a fatal (PLIN-363)
 ## [1.7.46] - 2026-09-22
 
 ### Fixed

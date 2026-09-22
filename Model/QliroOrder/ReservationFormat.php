@@ -107,7 +107,12 @@ class ReservationFormat
     private function readFromReservation(Order $order, $qliroOrderId)
     {
         try {
-            $qliroOrder = $this->orderManagementApi->getOrder($qliroOrderId, $order->getStoreId());
+            // Nobody is waiting for this one, it runs on the way to a capture
+            $qliroOrder = $this->orderManagementApi->getOrder(
+                $qliroOrderId,
+                $order->getStoreId(),
+                Config::API_PROFILE_BACKGROUND
+            );
         } catch (\Throwable $exception) {
             // Throwable, not Exception: a line Qliro sends with no MerchantReference makes the
             // mapper pass null to a string typed setter, and that TypeError has to leave the

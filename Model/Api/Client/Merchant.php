@@ -95,7 +95,13 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
         $payload = $this->containerMapper->toArray($qliroOrderCreateRequest);
 
         try {
-            $response = $this->service->post('checkout/merchantapi/orders', $payload);
+            // The customer is in the checkout waiting for the widget this creates
+            $response = $this->service->post(
+                'checkout/merchantapi/orders',
+                $payload,
+                null,
+                Config::API_PROFILE_INTERACTIVE
+            );
             $qliroOrderId = $response['OrderId'] ?? null;
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
@@ -108,16 +114,22 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
      * Get QliroOne order by its Qliro Order ID
      *
      * @param int $qliroOrderId
+     * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
      * @return \Qliro\QliroOne\Api\Data\QliroOrderInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
-    public function getOrder($qliroOrderId)
+    public function getOrder($qliroOrderId, $profile = null)
     {
         /** @var QliroOrderInterface $qliroOrder */
         $qliroOrder = $this->qliroOrderFactory->create();
 
         try {
-            $response = $this->service->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => $qliroOrderId]);
+            $response = $this->service->get(
+                'checkout/merchantapi/orders/{OrderId}',
+                ['OrderId' => $qliroOrderId],
+                null,
+                $profile ?: Config::API_PROFILE_INTERACTIVE
+            );
             $this->containerMapper->fromArray($response, $qliroOrder);
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
@@ -140,7 +152,13 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
         $payload['OrderId'] = $qliroOrderId;
 
         try {
-            $response = $this->service->put('checkout/merchantapi/orders/{OrderId}', $payload);
+            // The customer is watching the widget this updates
+            $response = $this->service->put(
+                'checkout/merchantapi/orders/{OrderId}',
+                $payload,
+                null,
+                Config::API_PROFILE_INTERACTIVE
+            );
         } catch (\Exception $exception) {
             $this->handleExceptions($exception);
         }
