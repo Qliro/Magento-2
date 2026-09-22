@@ -238,6 +238,64 @@ reason is logged, however often it happens: Magento checks the stock again for r
 order, so an unreadable inventory costs nothing here, while refusing on it would decline every order the
 store has. Watch the log for `Could not read stock` if a store's inventory needs looking at.
 
+## Where Qliro appears in the checkout
+
+**Payment Methods > QliroOne Checkout > General > Show as payment method** decides whether the
+store keeps the native Magento checkout and offers Qliro as one payment method in it, or replaces
+the checkout with Qliro's own page. With it on, **Payment method display** decides what happens
+once the buyer picks Qliro:
+
+- **Redirect to Qliro checkout page** sends the buyer to the standalone Qliro page. This is what
+  the setting did before it existed, and it stays the default.
+- **Embedded iframe in checkout** opens Qliro in the payment panel, and the buyer never leaves the
+  checkout.
+
+The iframe is fetched when the buyer picks Qliro, not when the payment step loads, so a buyer who
+pays with something else never creates a Qliro order.
+
+In the iframe the native checkout owns identity, address and delivery, because it collected all
+three before Qliro was shown. The customer block reaches Qliro locked, so the widget states it and
+offers neither its change button nor the personal number lookup, and Qliro is sent only the
+delivery method the buyer already chose, so its own delivery picker has nothing to offer and
+cannot move the order off the method Magento rated. The order is created for the country on the
+quote, and that country stays on the quote: everywhere else it comes from the country selector,
+GeoIP and the store default, and is written back, which here would replace a country the buyer
+chose with one they did not.
+
+The lock holds the whole block, the phone number with it: Qliro offers no way to keep one field of
+a locked block open. The buyer changes the phone where they entered it, in the checkout step above
+the widget, and a store whose buyers need to correct it inside Qliro should stay on the redirect
+mode, where Qliro owns the form.
+
+Three things fall back rather than trap the buyer. An address that is still empty is not locked,
+and neither is the block around it, which matters for a virtual cart, where the native checkout
+collects the billing address inside the payment step and it can still be blank when Qliro is
+picked. A chosen delivery method that is not
+among the rated ones sends the whole list and logs why, because the cost of delivery travels on
+that list and has no line of its own. A Qliro order that cannot be built at all leaves a message in
+the panel and the buyer can try again.
+
+A buyer who has already paid and comes back to the checkout, with the Back button or a reopened
+tab, is sent to the pending page that waits for their Magento order, which is what the standalone
+checkout does too.
+
+## Quantity
+
+Qliro carries the quantity of an order line as a whole number, so a store selling by weight or length
+cannot take half a metre of cable through this payment method. A cart holding a part of an item is
+refused with a message naming the line, at the point a Qliro order would be created for it, and the
+buyer can change the quantity or pay another way. That point is the same in every mode, the Qliro
+checkout page, the payment method in Magento's own checkout and the merchant payment, and on the
+checkout page the message is shown in place of the widget. It is not truncated: half a metre sent as none
+would be a line Qliro never charges for, and two and a half sent as two would charge for less than the
+cart holds, with Magento recording the whole of it either way.
+
+A product configured with `is_qty_decimal`, or with a `qty_increments` that is not a whole number, is
+what produces such a cart. An order that already holds one, placed before this release or through the
+admin or the API, is refused at the capture and at the shipment for the same reason, naming the line,
+and has to be settled outside Magento. The refund the module sends is a single line for the amount of
+the credit memo and carries no quantity, so it is unaffected.
+
 ---
 
 > 📘 **Documentation:** For complete guides, detailed instructions, and technical references, please refer to the Wiki.

@@ -6,8 +6,10 @@
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Escaper;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Magento\Framework\App\Response\Http;
 use \Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -23,13 +25,35 @@ class HtmlSnippet extends AbstractManagement
      * @param Manager $logManager
      * @param Http $http
      * @param LinkRepositoryInterface $linkRepository
+     * @param Escaper $escaper
      */
     public function __construct(
         private readonly QliroOrder $qliroOrder,
         private readonly  Manager $logManager,
         private readonly  Http $http,
-        private readonly  LinkRepositoryInterface $linkRepository
+        private readonly  LinkRepositoryInterface $linkRepository,
+        private readonly Escaper $escaper
     ) {
+    }
+
+    /**
+     * Fetch an HTML snippet from QliroOne order, leaving the caller to answer for a failure
+     *
+     * The checkout page turns a failure into page content, an ajax caller into a payload, so the
+     * fetch itself lives here and each caller keeps its own answer.
+     *
+     * @return string
+     * @throws AlreadyPlacedException
+     */
+    public function fetch()
+    {
+        try {
+            $this->linkRepository->unlock($this->getQuote()->getId());
+        } catch (NoSuchEntityException $exception) {
+            // No link for this quote yet, so there is nothing to unlock
+        }
+
+        return (string)$this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
     }
 
     /**
@@ -40,17 +64,22 @@ class HtmlSnippet extends AbstractManagement
     public function get()
     {
         try {
-            try {
-                $this->linkRepository->unlock($this->getQuote()->getId());
-            } catch (NoSuchEntityException $exception) {}
-
-            return $this->qliroOrder->setQuote($this->getQuote())->get()->getOrderHtmlSnippet();
+            return $this->fetch();
         } catch (AlreadyPlacedException $exception) {
             $this->logManager->debug('The order has already been placed. Redirecting to pending order page.');
             $this->http->setRedirect(
                 $this->getQuote()->getStore()->getUrl('checkout/qliro/pending')
             );
             return '';
+        } catch (UnsupportedQuoteException $exception) {
+            /*
+             * The cart, not the checkout, is what the buyer has to change, and the reload link
+             * below would only bring them back here. The message names the line and says what to
+             * do with it, so it is shown in place of the widget.
+             */
+            $this->logManager->debug('The cart cannot be paid for with Qliro: ' . $exception->getMessage());
+
+            return $this->escaper->escapeHtml($exception->getMessage());
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 sprintf(

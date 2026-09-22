@@ -84,20 +84,23 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      * Get admin QliroOne order by its Qliro Order ID
      *
      * @param int $qliroOrderId
+     * @param int|null $storeId
+     * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
      * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
-    public function getOrder($qliroOrderId)
+    public function getOrder($qliroOrderId, $storeId = null, $profile = null)
     {
         $container = null;
 
         try {
-            // An admin has an order screen open in front of this one
+            // An admin has an order screen open in front of this one, unless the caller says
+            // otherwise: the read before a capture is nobody's page
             $response = $this->service->get(
                 'checkout/adminapi/v2/orders/{OrderId}',
                 ['OrderId' => $qliroOrderId],
-                null,
-                Config::API_PROFILE_INTERACTIVE
+                $storeId,
+                $profile ?: Config::API_PROFILE_INTERACTIVE
             );
 
             /** @var \Qliro\QliroOne\Api\Data\AdminOrderInterface $container */

@@ -11,6 +11,7 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Directory\Model\ResourceModel\Country\CollectionFactory as CountryCollectionFactory;
 use Magento\Store\Model\ScopeInterface;
+use Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode;
 
 class Config
 {
@@ -33,6 +34,7 @@ class Config
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
     const QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
+    const QLIROONE_PAYMENT_METHOD_RENDER_MODE = 'api/payment_method_render_mode';
 
     const QLIROONE_API_TYPE = 'qliro_api/type';
     const QLIROONE_MERCHANT_API_KEY = 'qliro_api/merchant_api_key';
@@ -893,6 +895,32 @@ class Config
     public function getShowAsPaymentMethod($storeId = null): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_SHOW_AS_PAYMENT_METHOD, $storeId);
+    }
+
+    /**
+     * How the payment method renders once selected, see Config\Source\PaymentMethodRenderMode
+     *
+     * @param int|null $storeId
+     * @return string
+     */
+    public function getPaymentMethodRenderMode($storeId = null): string
+    {
+        return (string)$this->adapter->getConfigData(self::QLIROONE_PAYMENT_METHOD_RENDER_MODE, $storeId);
+    }
+
+    /**
+     * Whether Qliro renders as an iframe inside the native checkout
+     *
+     * The mode only exists on top of "show as payment method", so both settings decide it. Every
+     * caller asks here rather than pairing the two itself, so they cannot drift apart.
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isEmbeddedIframeMode($storeId = null): bool
+    {
+        return $this->getShowAsPaymentMethod($storeId)
+            && $this->getPaymentMethodRenderMode($storeId) === PaymentMethodRenderMode::MODE_IFRAME;
     }
 
     /**

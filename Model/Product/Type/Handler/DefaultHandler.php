@@ -19,6 +19,7 @@ use Qliro\QliroOne\Api\StockAvailabilityInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Product\VatRate;
+use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
@@ -49,6 +50,11 @@ class DefaultHandler implements TypeHandlerInterface
     private readonly LineReference $lineReference;
 
     /**
+     * @var LineQuantity
+     */
+    private readonly LineQuantity $lineQuantity;
+
+    /**
      * Class constructor
      *
      * @param QliroOrderItemFactory            $qliroOrderItemFactory
@@ -59,6 +65,7 @@ class DefaultHandler implements TypeHandlerInterface
      * @param LineReference|null               $lineReference
      * @param StockAvailabilityInterface|null  $stockAvailability
      * @param QuoteLines|null                  $quoteLines
+     * @param LineQuantity|null                $lineQuantity
      */
     public function __construct(
         private readonly QliroOrderItemFactory $qliroOrderItemFactory,
@@ -68,13 +75,15 @@ class DefaultHandler implements TypeHandlerInterface
         ?LineVatRate                           $lineVatRate = null,
         ?LineReference                         $lineReference = null,
         ?StockAvailabilityInterface            $stockAvailability = null,
-        ?QuoteLines                            $quoteLines = null
+        ?QuoteLines                            $quoteLines = null,
+        ?LineQuantity                          $lineQuantity = null
     ) {
         // Optional so a store's handler calling parent::__construct() with the old signature keeps working
         $this->lineVatRate = $lineVatRate ?? new LineVatRate();
         $this->lineReference = $lineReference ?? new LineReference();
         $this->stockAvailability = $stockAvailability;
         $this->quoteLines = $quoteLines ?? new QuoteLines();
+        $this->lineQuantity = $lineQuantity ?? new LineQuantity();
     }
 
     /**
@@ -88,7 +97,7 @@ class DefaultHandler implements TypeHandlerInterface
         $qliroOrderItem = $this->qliroOrderItemFactory->create();
         $qliroOrderItem->setMerchantReference($this->prepareMerchantReference($item));
         $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_PRODUCT);
-        $qliroOrderItem->setQuantity($this->prepareQuantity($item));
+        $qliroOrderItem->setQuantity($this->lineQuantity->forPayload((float)$this->prepareQuantity($item)));
         $qliroOrderItem->setPricePerItemIncVat((float)$this->qliroHelper->formatPrice($pricePerItemIncVat));
         $qliroOrderItem->setPricePerItemExVat((float)$this->qliroHelper->formatPrice($pricePerItemExVat));
         $qliroOrderItem->setVatRate($this->resolveVatRate($item, (float)$pricePerItemIncVat, (float)$pricePerItemExVat));

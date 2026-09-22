@@ -369,7 +369,50 @@ class ShippingMethodsBuilder
              }
          }
 
-         return $this->reorderShippingMethods($shippingMethods);
+         return $this->filterToSelectedShippingMethod($this->reorderShippingMethods($shippingMethods));
+     }
+
+    /**
+     * Reduce the list to the method the native checkout already chose, in the iframe mode
+     *
+     * The native checkout owns the delivery choice in that mode, so a second picker inside the
+     * iframe would let the buyer move the order off the method Magento rated. A single entry
+     * leaves the iframe nothing to pick and still carries the cost, which travels only on
+     * AvailableShippingMethods and has no line of its own.
+     *
+     * Every caller of this builder passes through here, the create request and the update alike,
+     * so the two cannot disagree about what the iframe is allowed to show.
+     *
+     * The list is returned untouched when it is empty, when nothing is selected yet, or when the
+     * selection is not in it. The cost rides on this list, so an empty or wrong one would drop the
+     * delivery cost from the Qliro total, which is worse than showing a picker.
+     *
+     * @param array $shippingMethods
+     * @return array
+     */
+     protected function filterToSelectedShippingMethod(array $shippingMethods): array
+     {
+         if (!count($shippingMethods) || !$this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
+             return $shippingMethods;
+         }
+
+         $selected = $this->quote->getShippingAddress()->getShippingMethod();
+         if (empty($selected)) {
+             return $shippingMethods;
+         }
+
+         foreach ($shippingMethods as $method) {
+             if (method_exists($method, 'getMerchantReference') && $method->getMerchantReference() === $selected) {
+                 return [$method];
+             }
+         }
+
+         $this->logManager->debug(
+             'Iframe mode: the selected delivery method is not in the rated list, sending the full list',
+             ['extra' => ['selected' => $selected]]
+         );
+
+         return $shippingMethods;
      }
 
     /**

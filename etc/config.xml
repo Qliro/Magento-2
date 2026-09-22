@@ -26,6 +26,7 @@
                     <minimum_customer_age/>
                     <b2b_checkout_only>0</b2b_checkout_only>
                     <show_as_payment_method>0</show_as_payment_method>
+                    <payment_method_render_mode>redirect</payment_method_render_mode>
                 </api>
                 <qliro_api>
                     <type>sandbox</type>
