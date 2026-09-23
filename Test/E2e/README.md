@@ -3,11 +3,13 @@
 Playwright tests that check what a merchant and a customer actually see for an order paid with
 Qliro: the payment method on the order view, the fee lines in the totals, and the invoice.
 
-They need a local Magento with this module installed. Qliro itself is not involved: the seeder
-places orders through the module's own placement path with a Qliro order fixture in place of the
-merchant API, so no credentials and no test merchant are required. That also means these tests
-cover the store side only. The checkout iframe, the payment authorisation and capture, refund
-and cancel against Qliro need a real test merchant.
+They need a local Magento with this module installed. Qliro itself is not involved in most of
+them: the seeder places orders through the module's own placement path with a Qliro order fixture
+in place of the merchant API, so no credentials and no test merchant are required.
+
+One test is the exception. `checkout-guest-email.spec.ts` drives the real checkout iframe, so it
+needs a store pointed at a Qliro test merchant and is skipped unless `QLIRO_CHECKOUT_E2E=1`. The
+payment authorisation and capture, refund and cancel against Qliro are still out of scope.
 
 ## The store under test
 
@@ -65,3 +67,25 @@ It prints a JSON object with the ids it created, and the global setup keeps it i
 
 Reverting the fee accumulation in `OrderItemsConverter` or the name in `Block/Info/QliroOne`
 turns four of the eight tests red, so they are pinned to the behaviour rather than to the markup.
+
+## The checkout test
+
+`checkout-guest-email.spec.ts` guards the regression where Magento refused its own
+`set-payment-information` calls because the thin checkout never filled the guest email. It needs
+a store whose only payment method is Qliro, because that is what makes Magento select it by
+itself, which is what triggers the call. With a second method enabled the regression is invisible.
+
+```bash
+QLIRO_CHECKOUT_E2E=1 \
+QLIRO_E2E_PRODUCT_URL=/some-simple-product \
+npx playwright test checkout-guest-email
+```
+
+| Variable | Default |
+| --- | --- |
+| `QLIRO_CHECKOUT_E2E` | unset, which skips the test |
+| `QLIRO_E2E_PRODUCT_URL` | `/` |
+| `QLIRO_E2E_EMAIL` | `qliro-e2e@example.com` |
+| `QLIRO_E2E_POSTCODE` | `11329` |
+| `QLIRO_E2E_LOCALE` | `sv-SE` |
+| `QLIRO_E2E_USER_AGENT` | a desktop Chrome string |
