@@ -88,12 +88,30 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
         // handed leaves behind
         $address = $this->address(559004, [], self::PLACEHOLDER_ROW);
         $address->expects(self::once())->method('removeAllShippingRates');
-        $address->expects(self::once())->method('save');
+
+        $written = null;
+        $address->expects(self::once())->method('save')->willReturnCallback(
+            function () use ($address, &$written) {
+                $written = $address->getData();
+
+                return $address;
+            }
+        );
 
         $this->builder($address)->setQuote($this->quote($address))->create();
 
         self::assertNull($address->getData('postcode'), 'the buyer keeps an empty address, not the store one');
         self::assertNull($address->getData('region_id'), 'and the store region does not outlive the rating');
+
+        /*
+         * Present and null, not absent. Magento builds the update from the keys the object still
+         * carries, so a key merely dropped leaves the placeholder's value standing in the column,
+         * which is how the store region survived under the buyer's own street.
+         */
+        foreach (['street', 'city', 'postcode', 'region', 'region_id', 'country_id'] as $key) {
+            self::assertArrayHasKey($key, $written, sprintf('%s has to be written, not omitted', $key));
+            self::assertNull($written[$key], sprintf('%s has to be cleared', $key));
+        }
     }
 
     /**
@@ -180,6 +198,7 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
                 'getResource',
                 'getData',
                 'addData',
+                'setData',
                 'save',
                 'collectShippingRates',
                 'removeAllShippingRates',
@@ -192,8 +211,12 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
 
         $address->method('getId')->willReturn($addressId);
         $address->method('getResource')->willReturn($this->addressResource($storedRow));
+        // A closure and not an arrow function: an arrow function captures by value, so it would
+        // keep answering with the array as it was when the mock was built
         $address->method('getData')->willReturnCallback(
-            fn ($key = '') => ($key === '' || $key === null) ? $store : ($store[$key] ?? null)
+            function ($key = '') use (&$store) {
+                return ($key === '' || $key === null) ? $store : ($store[$key] ?? null);
+            }
         );
         $address->method('addData')->willReturnCallback(
             function (array $values) use (&$store, $address) {
@@ -202,7 +225,19 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
                 return $address;
             }
         );
-        $address->method('getPostcode')->willReturnCallback(fn () => $store['postcode'] ?? null);
+        // Replaces rather than merges, as the real one does when it is handed an array
+        $address->method('setData')->willReturnCallback(
+            function ($key, $value = null) use (&$store, $address) {
+                if (is_array($key)) {
+                    $store = $key;
+                } else {
+                    $store[$key] = $value;
+                }
+
+                return $address;
+            }
+        );
+        $address->method('getPostcode')->willReturnCallback(function () use (&$store) { return $store['postcode'] ?? null; });
         $address->method('setCollectShippingRates')->willReturnSelf();
         $address->method('collectShippingRates')->willReturnSelf();
         $address->method('getGroupedAllShippingRates')->willReturn([]);

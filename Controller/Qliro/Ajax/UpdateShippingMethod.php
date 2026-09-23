@@ -95,7 +95,23 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
 
 
         $this->logManager->debug('Starting to read prepared payload');
-        $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
+
+        // Guarded, because anything raised while reading it left the controller as Magento's
+        // error page in place of the JSON the widget's own error handler expects
+        try {
+            $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
+        } catch (\Exception $exception) {
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'FAILED',
+                    'error' => (string)__('Cannot update shipping method option in quote.')
+                ],
+                400,
+                null,
+                'AJAX:UPDATE_SHIPPING_METHOD:ERROR'
+            );
+        }
+
         $this->logManager->debug('Finished to read prepared payload');
 
         try {

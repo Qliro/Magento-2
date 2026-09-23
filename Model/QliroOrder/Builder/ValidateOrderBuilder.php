@@ -145,9 +145,20 @@ class ValidateOrderBuilder
         // Rated in the quote's own store view, for the same reason the shipping methods callback
         // is: a carrier that reads the current store would otherwise price this in another
         // store's currency and refuse the code the buyer was offered (PLIN-376).
-        if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->storeManager->getStore()->getId()) {
-            $this->storeEmulation->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
-            $isEmulated = $quoteStoreId === (int)$this->storeManager->getStore()->getId();
+        // Guarded, because this method answers with false and never throws: a store view removed
+        // or disabled between the order's creation and the callback would otherwise turn a
+        // shipping decline into a critical and a generic refusal
+        try {
+            if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->storeManager->getStore()->getId()) {
+                $this->storeEmulation->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
+                $isEmulated = $quoteStoreId === (int)$this->storeManager->getStore()->getId();
+            }
+        } catch (\Throwable $exception) {
+            $this->logManager->debug(
+                'Could not rate in the quote store view: ' . $exception->getMessage()
+            );
+
+            return false;
         }
 
         try {

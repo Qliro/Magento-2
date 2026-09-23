@@ -267,6 +267,9 @@ class ShippingMethodsBuilder
          * the quote once this returns.
          */
         $storedIsStillThePlaceholder = $address->getId() && $this->rowStillHoldsThePlaceholder($address);
+
+        // Read before the marker is dropped: the nulls below are keyed by what was applied
+        $presetKeys = array_keys($this->presetData);
         $this->forgetPreset();
 
         if ($address->getId() && !$storedIsStillThePlaceholder) {
@@ -285,7 +288,7 @@ class ShippingMethodsBuilder
          */
         $restored = $addressBeforePreset;
 
-        foreach (array_keys($this->presetData) as $key) {
+        foreach ($presetKeys as $key) {
             if (!array_key_exists($key, $restored)) {
                 $restored[$key] = null;
             }
@@ -300,6 +303,11 @@ class ShippingMethodsBuilder
          */
         $address->removeAllShippingRates();
         $address->setCollectShippingRates(true);
+
+        // The quote's own totals were collected against the placeholder too, and nothing would
+        // collect them again in this request, so a later save would carry the store's delivery
+        // cost in the grand total
+        $this->quote->setTotalsCollectedFlag(false);
 
         if (!$address->getId()) {
             return;
@@ -331,16 +339,25 @@ class ShippingMethodsBuilder
      */
     private function takeTheStoredAddressBack($address, array $addressBeforePreset): void
     {
+        $loaded = false;
+
         try {
-            $address->getResource()->load($address, $address->getId());
+            $addressId = $address->getId();
+            $address->getResource()->load($address, $addressId);
+            // `load()` on a row that is gone replaces nothing and throws nothing, so the object
+            // would be left holding the placeholder. The id coming back is what says it loaded
+            $loaded = (string)$address->getId() === (string)$addressId;
         } catch (\Throwable $exception) {
-            // Whatever happens, the placeholder must not be what the object is left holding: the
-            // create path saves the quote once this returns
-            $address->addData($addressBeforePreset);
             $this->logManager->critical(
                 $exception,
                 ['extra' => ['quote_id' => $this->quote->getId()]]
             );
+        }
+
+        if (!$loaded) {
+            // Whatever happened, the placeholder must not be what the object is left holding:
+            // the create path saves the quote once this returns
+            $address->addData($addressBeforePreset);
         }
 
         $address->removeAllShippingRates();
@@ -400,12 +417,17 @@ class ShippingMethodsBuilder
 
             return true;
         } catch (\Throwable $exception) {
-            // Reading it is what makes the write safe, so without the read there is no write
+            /*
+             * The read is only there to spare a concurrent write, which is the rarer of the two
+             * failures. Without it, the safe answer is the one that takes the placeholder back
+             * out of the row, because a placeholder left in the database is the defect this
+             * whole method exists for.
+             */
             $this->logManager->debug(
-                'Could not read the stored shipping address, leaving it as it is: ' . $exception->getMessage()
+                'Could not read the stored shipping address, restoring it anyway: ' . $exception->getMessage()
             );
 
-            return false;
+            return true;
         }
     }
 
