@@ -93,6 +93,7 @@ class CheckoutConfigProvider implements ConfigProviderInterface
                 'isDebug' => $this->qliroConfig->isDebugMode(),
                 'isEagerCheckoutRefresh' => $this->qliroConfig->isEagerCheckoutRefresh(),
                 'showAsPaymentMethod' => $this->qliroConfig->getShowAsPaymentMethod(),
+                'hideNativeShippingStep' => $this->qliroConfig->isHideNativeShippingStep(),
                 'paymentMethodRenderMode' => $this->qliroConfig->getPaymentMethodRenderMode(),
                 'checkoutTitle' => $this->qliroConfig->getTitle(),
                 'securityToken' => $this->ajaxToken->setQuote($this->quote)->getToken(),

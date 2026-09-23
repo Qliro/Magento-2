@@ -14,6 +14,15 @@
         </arguments>
     </type>
 
+    <!-- Frontend scope: Magento_Checkout declares layoutProcessors here, which replaces a global declaration -->
+    <type name="Magento\Checkout\Block\Onepage">
+        <arguments>
+            <argument name="layoutProcessors" xsi:type="array">
+                <item name="qliroone_shipping_step" xsi:type="object">Qliro\QliroOne\Block\Checkout\ShippingStepLayoutProcessor</item>
+            </argument>
+        </arguments>
+    </type>
+
     <type name="Magento\Checkout\Block\Checkout\LayoutProcessor">
         <plugin name="qliroone_onepage" type="Qliro\QliroOne\Plugin\Block\Checkout\LayoutProcessorPlugin" sortOrder="99999" />
     </type>

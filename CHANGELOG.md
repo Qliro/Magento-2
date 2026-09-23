@@ -1,6 +1,21 @@
 
 # Change Log
 
+## [1.7.52] - 2026-09-23
+
+### Fixed
+
+- The shipping step layout processor from 1.7.51 never ran on the storefront. It was registered in the global `etc/di.xml`, and Magento_Checkout declares the same `layoutProcessors` argument of `Magento\Checkout\Block\Onepage` in its frontend `di.xml`, which replaces the global value instead of merging with it. The registration now lives in `etc/frontend/di.xml`, so the step is emptied on the QliroOne checkout page even when the theme does not load the mixin
+
+## [1.7.51] - 2026-09-22
+
+### Fixed
+
+- The Magento shipping step no longer shows above the QliroOne widget on the checkout page. It was hidden by a mixin that empties the shipping component's template only when the configured checkout URL matches the address in the browser character for character, so a query string, a fragment, or a link without the trailing slash left the native address form, the shipping rate list and its "Next" button on the page. A buyer who used them could set a delivery the Qliro checkout never offered and be declined when Qliro validated the order, and most buyers stopped at that broken step without scrolling down to the real one. The component is now emptied by a layout processor that runs on the QliroOne checkout page, so it follows the page and not the address that reached it, and the mixin compares host and path instead of the whole address. The component itself still loads, so shipping rates are collected as before
+
+### Added
+
+- "Hide the Magento shipping step" under Stores > Configuration > Sales > Payment Methods > QliroOne Checkout > General Module Settings. It is set to Yes, which is how the checkout has always been meant to look, and a merchant whose theme needs the native step on the QliroOne checkout page can set it to No and get the step back. The setting has no effect when QliroOne runs as a payment method, because the native checkout keeps its own shipping step in that mode
 ## [1.7.48] - 2026-09-22
 
 ### Fixed

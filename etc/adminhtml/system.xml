@@ -125,6 +125,15 @@
                             <field id="show_as_payment_method">1</field>
                         </depends>
                     </field>
+
+                    <field id="hide_native_shipping_step" translate="label" type="select" sortOrder="170" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
+                        <label>Hide the Magento shipping step</label>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                        <comment>Set to 'No' to keep the native Magento shipping step on the Qliro checkout page. Deliveries are chosen inside the Qliro checkout, so the step is hidden by default.</comment>
+                        <depends>
+                            <field id="show_as_payment_method">0</field>
+                        </depends>
+                    </field>
                 </group>
 
                 <group id="qliro_api" translate="label" type="text" sortOrder="40" showInDefault="1" showInWebsite="1" showInStore="0">
