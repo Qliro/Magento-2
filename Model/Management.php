@@ -229,7 +229,9 @@ class Management extends AbstractManagement implements ManagementInterface
      */
     public function updateShippingMethod($code, $secondaryOption = null, $price = null)
     {
-        return $this->shippingMethodManagement->setQuote($this->getQuote())->update($code, $secondaryOption, $price);
+        return $this->shippingMethodManagement
+            ->setQuote($this->getQuote())
+            ->update($code, $secondaryOption, $price);
     }
 
     /**
@@ -242,7 +244,9 @@ class Management extends AbstractManagement implements ManagementInterface
      */
     public function updateShippingPrice($price)
     {
-        return $this->quoteManagement->setQuote($this->getQuote())->updateShippingPrice($price);
+        return $this->quoteManagement
+            ->setQuote($this->getQuote())
+            ->updateShippingPrice($price);
     }
 
     /**

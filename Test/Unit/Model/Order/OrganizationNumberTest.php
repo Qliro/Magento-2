@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Test\Unit\Model\Order;
 
 use Magento\Sales\Api\Data\OrderAddressInterface;
 use Magento\Sales\Api\OrderAddressRepositoryInterface;
+use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Address;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -49,7 +50,7 @@ class OrganizationNumberTest extends TestCase
         );
 
         $this->organizationNumber = new OrganizationNumber(
-            new AddressConverter(),
+            new AddressConverter($this->createMock(DirectoryHelper::class)),
             $repository,
             $this->createMock(LogManager::class)
         );
@@ -136,7 +137,7 @@ class OrganizationNumberTest extends TestCase
         $logManager = $this->createMock(LogManager::class);
         $logManager->expects(self::once())->method('warning');
 
-        $organizationNumber = new OrganizationNumber(new AddressConverter(), $repository, $logManager);
+        $organizationNumber = new OrganizationNumber(new AddressConverter($this->createMock(DirectoryHelper::class)), $repository, $logManager);
 
         $organizationNumber->apply(
             $this->order($this->orderAddress(), null),

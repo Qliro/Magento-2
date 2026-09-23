@@ -15,6 +15,7 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Framework\App\ProductMetadataInterface;
@@ -92,25 +93,6 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
             );
         }
 
-        try {
-            $link = $this->linkRepository->getByQuoteId($quote->getId());
-            // Only after Qliro validated the order, not while the payment is merely in
-            // progress: Qliro sends its final delivery choice during identity verification,
-            // and refusing it left the quote without a shipping method to validate against.
-            if ($link->getValidatedAt() !== null) {
-                return $this->dataHelper->sendPreparedPayload(
-                    [
-                        'status' => 'LOCKED',
-                        'error' => (string)__('Shipping method cannot be updated after validation. The quote is locked.')
-                    ],
-                    423,
-                    null,
-                    'AJAX:UPDATE_SHIPPING_METHOD:LOCKED'
-                );
-            }
-        } catch (NoSuchEntityException $e) {
-            // No link found — allow the update to proceed
-        }
 
         $this->logManager->debug('Starting to read prepared payload');
         $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
@@ -142,7 +124,25 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                 $shippingMethodCode = $data['method'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
             }
-            $result = $this->qliroManagement->setQuote($quote)->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
+            /*
+             * Only after Qliro validated the order, and refused where the write is rather than
+             * here: Qliro re-sends its delivery choice during identity verification, and a
+             * refusal made before reading the payload turned a choice the quote already carried
+             * into an error dialog in front of a buyer mid payment.
+             */
+            $result = $this->qliroManagement
+                ->setQuote($quote)
+                ->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
+        } catch (QuoteValidatedException $exception) {
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'LOCKED',
+                    'error' => $exception->getMessage(),
+                ],
+                423,
+                null,
+                'AJAX:UPDATE_SHIPPING_METHOD:LOCKED'
+            );
         } catch (\Exception $exception) {
             $this->logManager->debug('Failed to update shipping method in quote: ' .
                 $quote->getId() . ' error: ' . $exception->getMessage()

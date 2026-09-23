@@ -6,6 +6,8 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
+use Magento\Directory\Helper\Data as DirectoryHelper;
+use Magento\Framework\App\ObjectManager;
 use Magento\Quote\Model\Quote\Address;
 
 /**
@@ -13,6 +15,24 @@ use Magento\Quote\Model\Quote\Address;
  */
 class AddressConverter
 {
+    /**
+     * @var \Magento\Directory\Helper\Data
+     */
+    private $directoryHelper;
+
+    /**
+     * Inject dependencies
+     *
+     * @param DirectoryHelper|null $directoryHelper
+     */
+    public function __construct(?DirectoryHelper $directoryHelper = null)
+    {
+        // Optional so anything constructing this class without arguments keeps working, and
+        // resolved here because Magento passes null for an optional argument rather than the
+        // instance
+        $this->directoryHelper = $directoryHelper ?: ObjectManager::getInstance()->get(DirectoryHelper::class);
+    }
+
     /**
      * Convert given quote address from QliroOne address and other parameters
      *
@@ -49,6 +69,8 @@ class AddressConverter
             'company' => $this->stripOrganizationNumber($company, $organizationNumbers),
         ];
 
+        $postcodeBefore = $address->getData('postcode');
+
         $changed = false;
         foreach ($addressData as $key => $value) {
             if ($value !== null && $address->getData($key) != $value) {
@@ -58,6 +80,7 @@ class AddressConverter
         }
 
         $changed = $this->clearCompanyOfAPrivateBuyer($qliroAddress, $address) || $changed;
+        $changed = $this->clearRegionOfAReplacedAddress($address, $postcodeBefore) || $changed;
 
         // Qliro owns the country, the buyer can change it after the order was created. Replacing
         // one takes a payload that also brings the postcode, otherwise the quote would keep the
@@ -82,6 +105,77 @@ class AddressConverter
         }
 
         return $changed;
+    }
+
+    /**
+     * Drop a region that belongs to an address the buyer's own has just replaced
+     *
+     * Qliro sends no region, so the loop above cannot overwrite one, and only a change of country
+     * cleared it. A quote that was rated against the shipping placeholder of a release before
+     * this one therefore kept the store's own region under the buyer's street and postcode, and
+     * the order went out as Stockholm 11329 in Västmanlands län. Only a postcode that actually
+     * replaces another is read this way: a repeated payload changes nothing, and a merchant whose
+     * countries require a region is left alone until the buyer's address really moves.
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @param string|null $postcodeBefore
+     * @return bool
+     */
+    private function clearRegionOfAReplacedAddress(Address $address, $postcodeBefore): bool
+    {
+        $postcodeAfter = $address->getData('postcode');
+
+        /*
+         * Normalised, because Qliro sends the postcode as the buyer typed it while the module's
+         * own placeholder strips the spaces out of it: `113 29` against `11329` is the same
+         * address written twice, and treating it as a move wiped a region the buyer had entered
+         * in the store's own checkout.
+         */
+        $before = strtolower(preg_replace('/\s+/', '', (string)$postcodeBefore));
+        $after = strtolower(preg_replace('/\s+/', '', (string)$postcodeAfter));
+
+        if ($before === '' || $after === '' || $before === $after) {
+            return false;
+        }
+
+        /*
+         * An address the buyer picked from their own address book keeps its region, and so does
+         * one in a country where Magento requires a region: Finland and Spain are among them,
+         * nothing here can put a region back, and an address without one fails validation when
+         * the order is placed. The address the placeholder poisoned was never either of those.
+         */
+        if ($address->getCustomerAddressId() || $this->isRegionRequired($address->getData('country_id'))) {
+            return false;
+        }
+
+        if (empty($address->getData('region')) && empty($address->getData('region_id'))) {
+            return false;
+        }
+
+        $address->setRegion(null);
+        $address->setRegionId(null);
+
+        return true;
+    }
+
+    /**
+     * Whether Magento refuses an address of this country without a region
+     *
+     * @param string|null $countryId
+     * @return bool
+     */
+    private function isRegionRequired($countryId): bool
+    {
+        if (empty($countryId)) {
+            return false;
+        }
+
+        try {
+            return (bool)$this->directoryHelper->isRegionRequired($countryId);
+        } catch (\Throwable $exception) {
+            // Nothing here is worth failing a checkout for, and keeping a region is the safe answer
+            return true;
+        }
     }
 
     /**
