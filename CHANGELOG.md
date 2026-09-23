@@ -1,6 +1,12 @@
 
 # Change Log
 
+## [1.7.52] - 2026-09-23
+
+### Fixed
+
+- The shipping step layout processor from 1.7.51 never ran on the storefront. It was registered in the global `etc/di.xml`, and Magento_Checkout declares the same `layoutProcessors` argument of `Magento\Checkout\Block\Onepage` in its frontend `di.xml`, which replaces the global value instead of merging with it. The registration now lives in `etc/frontend/di.xml`, so the step is emptied on the QliroOne checkout page even when the theme does not load the mixin
+
 ## [1.7.51] - 2026-09-22
 
 ### Fixed

@@ -70,6 +70,18 @@ class ShippingStepLayoutProcessorTest extends TestCase
     }
 
     /**
+     * Magento_Checkout's frontend layoutProcessors argument replaces a global one, so only a frontend registration runs
+     */
+    public function testItIsRegisteredInTheFrontendArea(): void
+    {
+        $query = '//type[@name="Magento\Checkout\Block\Onepage"]//item[@name="qliroone_shipping_step"]';
+        $etc = dirname(__DIR__, 4) . '/etc';
+
+        $this->assertCount(1, simplexml_load_file($etc . '/frontend/di.xml')->xpath($query));
+        $this->assertCount(0, simplexml_load_file($etc . '/di.xml')->xpath($query));
+    }
+
+    /**
      * The part of the checkout layout this processor reaches into
      *
      * @return array
