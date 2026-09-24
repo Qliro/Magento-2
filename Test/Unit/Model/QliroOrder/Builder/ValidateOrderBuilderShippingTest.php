@@ -98,6 +98,35 @@ class ValidateOrderBuilderShippingTest extends TestCase
         self::assertFalse($this->quoteSaved, 'the quote was saved although the prices disagreed');
     }
 
+    /**
+     * Qliro's price for the delivery and the store's reach the comparison through different
+     * rounding, so an öre between them is ordinary. Declining on it fails an order the buyer has
+     * already paid for, which is what this whole path exists to stop.
+     */
+    public function testAcceptsASingleOreOfRoundingBetweenTheTwoPrices(): void
+    {
+        $response = $this->validate('dhl_pickup_A', ['dhl_pickup_A'], 49.01, 49.00);
+
+        self::assertNotSame(
+            ValidateOrderResponseInterface::REASON_SHIPPING,
+            $response->getDeclineReason(),
+            'an öre of rounding declined an order the buyer had paid for'
+        );
+        self::assertSame('dhl_pickup_A', $this->appliedMethod);
+        self::assertTrue($this->quoteSaved);
+    }
+
+    /**
+     * Two öre is a difference in price rather than in rounding, and the buyer pays Qliro.
+     */
+    public function testStillDeclinesTwoOreOfDifference(): void
+    {
+        $response = $this->validate('dhl_pickup_A', ['dhl_pickup_A'], 49.02, 49.00);
+
+        self::assertSame(ValidateOrderResponseInterface::REASON_SHIPPING, $response->getDeclineReason());
+        self::assertNull($this->appliedMethod);
+    }
+
     public function testDeclinesWhenQliroStatesNoSelection(): void
     {
         $response = $this->validate(null, ['dhl_pickup_A']);

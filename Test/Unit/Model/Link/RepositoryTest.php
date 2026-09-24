@@ -272,6 +272,24 @@ class RepositoryTest extends TestCase
         $this->repository->unlock(11);
     }
 
+    /**
+     * Unlock answers an endpoint anyone can call and every snippet fetch, so a checkout that has
+     * already produced an order must not be reopened by it: there is nothing left for the buyer
+     * to change, and the delivery endpoints would accept writes to the quote it was placed from.
+     */
+    public function testUnlockKeepsTheValidationMarkOnceAnOrderExists(): void
+    {
+        $link = $this->givenCollectionReturnsLink(7);
+        $link->method('getIsLocked')->willReturn(true);
+        $link->method('getValidatedAt')->willReturn('2026-09-20 08:38:37');
+        $link->method('getOrderId')->willReturn(900016);
+        $link->expects(self::once())->method('setIsLocked')->with(false);
+        $link->expects(self::never())->method('setValidatedAt');
+        $this->linkResourceModel->expects(self::once())->method('save')->with($link);
+
+        $this->repository->unlock(11);
+    }
+
     private function givenCollectionReturnsLink(?int $linkId): LinkInterface&MockObject
     {
         $link = $this->createMock(Link::class);

@@ -180,6 +180,63 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
     }
 
     /**
+     * `load()` on a row that is gone replaces nothing and throws nothing, and the id on the
+     * object is its own, so the load cannot report its own failure. Without the probe the object
+     * kept the store placeholder and the create path saved it onto the buyer's quote, which is
+     * the defect the whole restore exists for.
+     */
+    public function testClearsThePlaceholderWhenTheStoredRowHasVanished(): void
+    {
+        $this->qliroConfig->method('presetAddress')->willReturn(true);
+
+        $address = $this->address(
+            559004,
+            [],
+            ['street' => 'Observatoriegatan 21', 'city' => 'Stockholm', 'postcode' => '11329', 'country_id' => 'SE'],
+            true
+        );
+
+        $this->builder($address)->setQuote($this->quote($address))->create();
+
+        self::assertNull($address->getData('street'), 'the store street must not survive a read that found nothing');
+        self::assertNull($address->getData('city'), 'the store city must not survive a read that found nothing');
+        self::assertNull($address->getData('postcode'));
+    }
+
+    /**
+     * The totals were collected against the placeholder on this path too, so the flag has to come
+     * off with it. `Quote::recalculateAndSaveQuote()` happens to reset it, a caller that saves
+     * through `CartRepository` directly does not, and the store's own delivery cost would then be
+     * written into the grand total.
+     */
+    public function testForgetsTotalsCollectedAgainstThePlaceholderWhenTheRowHasMovedOn(): void
+    {
+        $this->qliroConfig->method('presetAddress')->willReturn(true);
+
+        $address = $this->address(559004, [], [
+            'street' => 'Observatoriegatan 21',
+            'city' => 'Stockholm',
+            'postcode' => '11329',
+            'country_id' => 'SE',
+        ]);
+
+        $quote = $this->quote($address);
+        $resets = 0;
+        $quote->method('setTotalsCollectedFlag')->willReturnCallback(
+            function ($flag) use (&$resets): void {
+                if ($flag === false) {
+                    $resets++;
+                }
+            }
+        );
+
+        $this->builder($address)->setQuote($quote)->create();
+
+        // Once before the rating, once after the placeholder is taken back off
+        self::assertSame(2, $resets, 'the totals collected against the placeholder have to be dropped');
+    }
+
+    /**
      * A quote address whose data behaves like the real one, so the placeholder can be seen going
      * on and coming back off
      *
@@ -187,7 +244,12 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
      * @param array $data
      * @return QuoteAddress&MockObject
      */
-    private function address(?int $addressId, array $data = [], ?array $storedRow = null): QuoteAddress&MockObject
+    private function address(
+        ?int $addressId,
+        array $data = [],
+        ?array $storedRow = null,
+        bool $rowIsGone = false
+    ): QuoteAddress&MockObject
     {
         $store = $data;
 
@@ -210,7 +272,9 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
             ->getMock();
 
         $address->method('getId')->willReturn($addressId);
-        $address->method('getResource')->willReturn($this->addressResource($storedRow));
+        $address->method('getResource')->willReturn(
+            $this->addressResource($storedRow, $rowIsGone ? null : $addressId)
+        );
         // A closure and not an arrow function: an arrow function captures by value, so it would
         // keep answering with the array as it was when the mock was built
         $address->method('getData')->willReturnCallback(
@@ -255,7 +319,7 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
      * @param array|null $storedRow What the row holds, which is not what the object holds
      * @return AddressResource&MockObject
      */
-    private function addressResource(?array $storedRow): AddressResource&MockObject
+    private function addressResource(?array $storedRow, ?int $existingRowId = null): AddressResource&MockObject
     {
         // The fluent select has to answer with itself, or the read below is an error the caller
         // treats as "cannot tell", and nothing is written
@@ -266,6 +330,9 @@ class ShippingMethodsBuilderPresetAddressTest extends TestCase
         $connection = $this->createMock(AdapterInterface::class);
         $connection->method('select')->willReturn($select);
         $connection->method('fetchRow')->willReturn($storedRow);
+        // What the probe before the read back answers: the id of the row, or nothing when the
+        // row is gone, which is the only thing that tells a load apart from a load of nothing
+        $connection->method('fetchOne')->willReturn($existingRowId);
 
         $resource = $this->createMock(AddressResource::class);
         $resource->method('getConnection')->willReturn($connection);

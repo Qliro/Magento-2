@@ -151,6 +151,13 @@ class ValidateOrderBuilder
         try {
             if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->storeManager->getStore()->getId()) {
                 $this->storeEmulation->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
+                /*
+                 * Magento allows a single level of emulation and refuses a nested one silently,
+                 * so the store the start actually produced is what decides whether this method
+                 * owns a stop. Stopping a refused one would end the emulation its caller is
+                 * still inside, which is the worse of the two failures and the reason a start
+                 * this method cannot confirm is left alone rather than stopped blind.
+                 */
                 $isEmulated = $quoteStoreId === (int)$this->storeManager->getStore()->getId();
             }
         } catch (\Throwable $exception) {
@@ -196,7 +203,15 @@ class ValidateOrderBuilder
             $qliroPrice = $this->getQliroShippingPrice();
             $quotePrice = (float)$shippingAddress->getShippingInclTax();
 
-            if (\abs($quotePrice - $qliroPrice) >= 0.005) {
+            /*
+             * A minor unit of slack, not none. The two numbers reach this line through different
+             * rounding: Qliro's was advertised by `ShippingMethodBuilder` through the tax helper,
+             * the store's is `shipping_incl_tax` as the tax collector left it. A single öre of
+             * disagreement between those is ordinary, and declining on it fails an order the
+             * buyer has already paid for, which is the failure this method exists to remove. Two
+             * öre and up is a real difference in price and still a decline.
+             */
+            if (\abs(\round($quotePrice, 2) - \round($qliroPrice, 2)) > 0.011) {
                 $this->logManager->debug(
                     'CALLBACK:VALIDATE: the store prices that method differently than Qliro',
                     [

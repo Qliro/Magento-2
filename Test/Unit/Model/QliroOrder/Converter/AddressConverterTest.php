@@ -259,6 +259,30 @@ class AddressConverterTest extends TestCase
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
     }
 
+    /**
+     * A quote address copied from the address book loses its region with the rest of it. The
+     * clear used to spare one, which read like respecting the buyer's own choice, but a postcode
+     * that really moves makes `convert()` drop `customer_address_id` a few lines later: the
+     * address stops being the saved one either way, and sparing the region left a Göteborg
+     * street standing under a Stockholm one.
+     */
+    public function testClearsTheRegionOfAnAddressCopiedFromTheAddressBook(): void
+    {
+        $address = $this->address();
+        $address->method('getCustomerAddressId')->willReturn(7);
+        $this->addressData = [
+            'postcode' => '41118',
+            'region' => 'Stockholms län',
+            'region_id' => 1066,
+            'country_id' => 'SE',
+        ];
+        $address->expects(self::once())->method('setRegion')->with(null);
+        $address->expects(self::once())->method('setRegionId')->with(null);
+        $address->expects(self::once())->method('setCustomerAddressId')->with(null);
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+    }
+
     private function address(): Address&MockObject
     {
         $address = $this->createMock(Address::class);

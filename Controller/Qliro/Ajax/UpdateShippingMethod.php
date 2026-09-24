@@ -10,8 +10,6 @@ use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\ResponseInterface;
-use Magento\Framework\Exception\NoSuchEntityException;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
@@ -48,8 +46,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         readonly private Session $checkoutSession,
         readonly private LogManager $logManager,
         readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper,
-        readonly private LinkRepositoryInterface $linkRepository
+        readonly private TaxHelper $taxHelper
     ) {
         parent::__construct($context);
     }
@@ -101,6 +98,13 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         try {
             $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
         } catch (\Exception $exception) {
+            // Logged here, because the answer below replaces the error page this used to be and
+            // a support case on this endpoint would otherwise have nothing at all to read
+            $this->logManager->debug(
+                'AJAX:UPDATE_SHIPPING_METHOD: could not read the payload',
+                ['extra' => ['quote_id' => $quote->getId(), 'reason' => $exception->getMessage()]]
+            );
+
             return $this->dataHelper->sendPreparedPayload(
                 [
                     'status' => 'FAILED',

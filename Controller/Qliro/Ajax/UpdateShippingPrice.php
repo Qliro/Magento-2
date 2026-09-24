@@ -16,7 +16,6 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\Quote;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
@@ -58,8 +57,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         readonly private Session $checkoutSession,
         readonly private Manager $logManager,
         readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper,
-        readonly private LinkRepositoryInterface $linkRepository
+        readonly private TaxHelper $taxHelper
     ) {
         parent::__construct($context);
     }
@@ -121,6 +119,13 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         try {
             $shippingPrice = $this->getShippingPrice();
         } catch (\Exception $exception) {
+            // Logged here, because the answer below replaces the error page this used to be and
+            // a support case on this endpoint would otherwise have nothing at all to read
+            $this->logManager->debug(
+                'AJAX:UPDATE_SHIPPING_PRICE: could not read the payload',
+                ['extra' => ['quote_id' => $quote->getId(), 'reason' => $exception->getMessage()]]
+            );
+
             return $this->dataHelper->sendPreparedPayload(
                 [
                     'status' => 'FAILED',

@@ -279,6 +279,10 @@ class ShippingMethod extends AbstractManagement
                     'secondary_option' => $secondaryOption,
                     'shipping_price' => $price,
                     'can_save_quote' => $shippingAddress->getShippingMethod() !== $code,
+                    // So an observer of its own can see that the order is already validated. The
+                    // module can refuse its own writes below, but not one an observer makes
+                    // directly, and the price event carries the same flag for the same reason
+                    'qliro_order_validated' => (bool)$refuseAfterValidation,
                 ]
             );
             // @codingStandardsIgnoreEnd

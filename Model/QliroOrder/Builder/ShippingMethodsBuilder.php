@@ -268,33 +268,40 @@ class ShippingMethodsBuilder
          */
         $storedIsStillThePlaceholder = $address->getId() && $this->rowStillHoldsThePlaceholder($address);
 
-        // Read before the marker is dropped: the nulls below are keyed by what was applied
-        $presetKeys = array_keys($this->presetData);
-        $this->forgetPreset();
-
-        if ($address->getId() && !$storedIsStillThePlaceholder) {
-            $this->takeTheStoredAddressBack($address, $addressBeforePreset);
-
-            return;
-        }
-
         /*
-         * Explicit nulls for the placeholder's own fields. Dropping a key is not the same as
-         * clearing a column: Magento builds the update from the keys the object still has, so a
-         * key simply removed leaves the placeholder's value standing in the row. Only these are
-         * nulled, and the totals the rating collected are left to the next collect, because
+         * Explicit nulls for the placeholder's own fields, built before the marker is dropped and
+         * before the branch, because both paths can end up putting this back. Dropping a key is
+         * not the same as clearing a column: Magento builds the update from the keys the object
+         * still has, so a key simply removed leaves the placeholder's value standing. Only these
+         * are nulled, and the totals the rating collected are left to the next collect, because
          * `quote_address` declares them NOT NULL and writing a null there depends on the column
          * carrying a default.
          */
         $restored = $addressBeforePreset;
 
-        foreach ($presetKeys as $key) {
+        foreach (array_keys($this->presetData) as $key) {
             if (!array_key_exists($key, $restored)) {
                 $restored[$key] = null;
             }
         }
 
+        $this->forgetPreset();
+
+        if ($address->getId() && !$storedIsStillThePlaceholder) {
+            $this->takeTheStoredAddressBack($address, $restored);
+
+            return;
+        }
+
+        // setData() replaces the whole array, so an id assigned to the object after the snapshot
+        // was taken would be dropped, and an id-less object inserts a second quote_address row
+        // the next time the quote is saved
+        $addressId = $address->getId();
         $address->setData($restored);
+
+        if ($addressId && !$address->getId()) {
+            $address->setId($addressId);
+        }
 
         /*
          * The rates go with the address. A delivery option rated for the store is not one the
@@ -335,18 +342,26 @@ class ShippingMethodsBuilder
      * Give the object the address the row already holds, written there while the rating ran
      *
      * @param \Magento\Quote\Model\Quote\Address $address
+     * @param array $addressWithoutPreset The snapshot with an explicit null for every field the
+     *                                    placeholder introduced, so the fallback below clears
+     *                                    them rather than leaving the store's own values standing
      * @return void
      */
-    private function takeTheStoredAddressBack($address, array $addressBeforePreset): void
+    private function takeTheStoredAddressBack($address, array $addressWithoutPreset): void
     {
         $loaded = false;
 
         try {
-            $addressId = $address->getId();
-            $address->getResource()->load($address, $addressId);
-            // `load()` on a row that is gone replaces nothing and throws nothing, so the object
-            // would be left holding the placeholder. The id coming back is what says it loaded
-            $loaded = (string)$address->getId() === (string)$addressId;
+            /*
+             * The row is looked up before it is loaded, because nothing about `load()` says
+             * whether it found anything: it replaces the object's data only when the select
+             * returned a row, so a row that is gone leaves the placeholder standing and the id
+             * on the object, its own all along, still matches.
+             */
+            if ($this->storedAddressRowExists($address)) {
+                $address->getResource()->load($address, $address->getId());
+                $loaded = true;
+            }
         } catch (\Throwable $exception) {
             $this->logManager->critical(
                 $exception,
@@ -357,11 +372,17 @@ class ShippingMethodsBuilder
         if (!$loaded) {
             // Whatever happened, the placeholder must not be what the object is left holding:
             // the create path saves the quote once this returns
-            $address->addData($addressBeforePreset);
+            $address->addData($addressWithoutPreset);
         }
 
         $address->removeAllShippingRates();
         $address->setCollectShippingRates(true);
+
+        // The quote's own totals were collected against the placeholder on this path too, and a
+        // caller that saves without collecting again would carry the store's delivery cost into
+        // the grand total. `Quote::recalculateAndSaveQuote()` resets the flag itself, a direct
+        // `CartRepository::save()` does not
+        $this->quote->setTotalsCollectedFlag(false);
     }
 
     /**
@@ -372,6 +393,23 @@ class ShippingMethodsBuilder
     private function forgetPreset(): void
     {
         $this->presetData = [];
+    }
+
+    /**
+     * Whether the quote address still has a row of its own to be read back
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @return bool
+     */
+    private function storedAddressRowExists($address): bool
+    {
+        $resource = $address->getResource();
+        $connection = $resource->getConnection();
+        $select = $connection->select()
+            ->from($resource->getMainTable(), ['address_id'])
+            ->where('address_id = ?', (int)$address->getId());
+
+        return (bool)$connection->fetchOne($select);
     }
 
     /**

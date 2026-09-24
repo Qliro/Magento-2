@@ -139,12 +139,16 @@ class AddressConverter
         }
 
         /*
-         * An address the buyer picked from their own address book keeps its region, and so does
-         * one in a country where Magento requires a region: Finland and Spain are among them,
-         * nothing here can put a region back, and an address without one fails validation when
-         * the order is placed. The address the placeholder poisoned was never either of those.
+         * An address in a country where Magento requires a region keeps it: Finland and Spain
+         * are among them, nothing here can put a region back, and an address without one fails
+         * validation when the order is placed.
+         *
+         * One copied from the address book is not spared, although it reads like it should be:
+         * a postcode that really moved makes `convert()` drop `customer_address_id` a few lines
+         * below, so the address stops being the buyer's saved one either way, and sparing it
+         * only left a Göteborg street standing under a Stockholm region.
          */
-        if ($address->getCustomerAddressId() || $this->isRegionRequired($address->getData('country_id'))) {
+        if ($this->isRegionRequired($address->getData('country_id'))) {
             return false;
         }
 

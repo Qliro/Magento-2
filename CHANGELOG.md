@@ -1,6 +1,24 @@
 
 # Change Log
 
+## [1.7.53] - 2026-09-24
+
+### Fixed
+
+- The buyer's address is fetched when the customer event arrives, not when the browser gets round to asking for it. Qliro withholds the address from that event, sending `{"isMasked": true}` in its place until the buyer has identified, so the only way to learn it is to read the order back over the merchant API. That read used to happen in the cart refresh the checkout makes afterwards, which put the timing of the whole delivery step in the hands of whichever script owns the customer handler. On Vajper, where a mixin of the merchant's own had replaced it and polled an endpoint of its own first, nine seconds passed between the event and the address, and the widget had rendered the payment step before the shipping methods reached it, so the buyer never saw a delivery to choose. The read now happens in `QliroOrder::refreshAfterCustomerEvent()`, which the customer event reaches whoever owns the handler, and only while the quote still has no postcode and country of its own, its Qliro order already exists and no Magento order has been placed from it. It reads the order and pushes the methods itself rather than going through `get()`, because `get()` rates the whole quote to hash an update payload whether anything changed or not, and this runs on the buyer's critical path while the address is still masked. A fetch that fails changes nothing: the customer payload is applied either way and the cart refresh still follows (PLIN-376)
+- The totals collected against the store placeholder are dropped on both restore paths. The branch that reloads a row a Qliro callback has already filled in returned without clearing the flag, so the quote object kept the store's own delivery cost in a grand total that nothing would collect again. `Quote::recalculateAndSaveQuote()` resets it, a caller saving through `CartRepository` directly does not (PLIN-376)
+- The shipping method event states whether Qliro has validated the order, the way the shipping price event already did. Without it an observer on `qliroone_shipping_method_update_before` had no way to see that the quote is closed for changes and wrote to it unguarded (PLIN-376)
+- Restoring the address the placeholder replaced keeps the row id. `setData()` replaces the whole data array, so an id assigned to the object while the carriers were rating was dropped, the save that follows was skipped as a new address, and the next save of the quote inserted a second `quote_address` row (PLIN-376)
+- A delivery Qliro validates against is no longer declined over an öre. The store's price and Qliro's reach the comparison through different rounding, the store's from the tax collector and Qliro's from what the shipping method builder advertised, and the threshold was below one minor unit. A single öre of disagreement therefore declined an order the buyer had already paid for, which is what applying the selection exists to prevent. Two öre and up is a difference in price and still a decline (PLIN-376)
+- The address is only read back from a row that is still there. `load()` replaces nothing when the row is gone and says nothing about it, and the id on the object is its own, so the fallback that clears the placeholder never ran for the case it was written for and the store's own address stayed on the quote the create path then saved (PLIN-376)
+- A customer payload that was applied is no longer answered with a 400 because something after it failed. Only the read back was guarded, so anything raised by the link lookup escaped `updateCustomer()` and the controller turned an applied payload into a failed update (PLIN-376)
+- A region is cleared with an address copied from the address book too. The clear spared one, which read like respecting the buyer's own choice, but a postcode that really moves makes the converter drop `customer_address_id` a few lines later, so the address stops being the saved one either way and a Göteborg street was left standing under a Stockholm region (PLIN-376)
+- Unlocking a quote an order was already placed from no longer takes the validation mark off with the lock. Unlock answers an endpoint the browser calls on `onPaymentProcessEnd` and runs on every snippet fetch, so a checkout that had already produced an order could be reopened to delivery writes by a call anyone can make. A payment that ended without an order still clears the mark, because the buyer is still in the checkout and the delivery they pick next has to reach the quote (PLIN-376)
+
+### Changed
+
+- `UpdateShippingMethod` and `UpdateShippingPrice` no longer take a link repository. The lock check that used it moved into the management classes in 1.7.49, and an injected dependency nobody calls invites the next reader to put the check back where it caused the refusals (PLIN-376)
+
 ## [1.7.50] - 2026-09-23
 
 ### Fixed

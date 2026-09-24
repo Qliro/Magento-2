@@ -214,7 +214,10 @@ class Management extends AbstractManagement implements ManagementInterface
      */
     public function updateCustomer($customerData)
     {
-        return $this->quoteManagement->setQuote($this->getQuote())->updateCustomer($customerData);
+        $applied = $this->quoteManagement->setQuote($this->getQuote())->updateCustomer($customerData);
+        $this->qliroOrderManagement->setQuote($this->getQuote())->refreshAfterCustomerEvent();
+
+        return $applied;
     }
 
     /**

@@ -353,11 +353,23 @@ class Repository implements LinkRepositoryInterface
     {
         $link = $this->getByQuoteId($quoteId);
 
-        // The validation mark goes with the lock: a payment that ended without an order leaves the
-        // customer in the checkout, and the delivery they pick next has to reach the quote.
-        if ($link->getIsLocked() || $link->getValidatedAt() !== null) {
+        /*
+         * The validation mark goes with the lock, but only while the quote has not become an
+         * order: a payment that ended without one leaves the customer in the checkout and the
+         * delivery they pick next has to reach the quote, whereas a quote an order was already
+         * placed from has nothing left to accept. This is reachable from the browser, through
+         * the unlock endpoint and through every snippet fetch, so the narrower rule is what
+         * keeps a checkout that is already done from being reopened by a call anyone can make.
+         */
+        $clearValidation = $link->getValidatedAt() !== null && empty($link->getOrderId());
+
+        if ($link->getIsLocked() || $clearValidation) {
             $link->setIsLocked(false);
-            $link->setValidatedAt(null);
+
+            if ($clearValidation) {
+                $link->setValidatedAt(null);
+            }
+
             $this->save($link);
         }
 
