@@ -1,6 +1,22 @@
 
 # Change Log
 
+## [1.7.55] - 2026-09-24
+
+### Fixed
+
+- A buyer shopping in a second currency could be shown the next cached page in the default one. Magento writes the store and the currency into the page cache vary cookie from a plugin on the deprecated `AbstractAction` only, so a controller on the action interfaces rewrote the cookie without them, or deleted it where nothing else was set. `lockQuote`, `unlockQuote`, `updateCountry`, `setRecurring` and `updateRecurring` were already on the interfaces, and `lockQuote` runs every time a buyer starts to pay. Measured on 2.4.9 with SEK and EUR: an EUR buyer's `X-Magento-Vary` came back deleted from `lockQuote`, and the product page then came from the cache at 199 SEK instead of €17.31. `Plugin/Controller/KeepVaryCookie` now flags the response of every storefront controller of the module, so the page cache leaves the cookie as the last page set it. A forward, `History` sending a buyer to the 404 page when recurring is off, is not flagged, since the page it forwards to sets the cookie itself (PLIN-370)
+
+### Changed
+
+- The controllers that extended the deprecated `Magento\Framework\App\Action\Action` implement `HttpPostActionInterface` instead: the four Qliro callbacks `CheckoutStatus`, `Validate`, `ShippingMethods` and `TransactionStatus`, the AJAX actions `GetSnippet`, `PollPending`, `UpdateCustomer`, `UpdatePaymentMethod`, `UpdateQuote`, `UpdateShippingMethod` and `UpdateShippingPrice`, and `Checkout/Totals` and `Link/Expire`. Each is called with POST only: the AJAX actions by `view/frontend/web/js`, the callbacks by Qliro with a JSON body. `Totals` and `Expire` have no caller left in the module, the listener that posted to `Expire` is gone, so they take POST like the rest. A GET to one of them now gets a 404 where it used to reach the controller, as `MerchantNotification` and `SavedCreditCard` already did (PLIN-370)
+- The six Qliro callbacks declare their CSRF exemption through `CsrfAwareActionInterface`. Qliro posts them server to server without a form key, and the token in the URL is what proves the call. `Plugin/Callbacks/CsrfValidatorSkip`, the around plugin on Magento's CSRF validator that skipped every request whose controller path was `qliro_callback`, is removed. Replayed on 2.4.9 against main, every callback answers the same with and without the plugin, the token failure path included, apart from the GET above (PLIN-370)
+- `Index`, `Pending` and `Success` still extend Magento's checkout controllers, which sit on the deprecated base themselves, and take the checkout page and its guest checks from them. Moving them would mean copying that code out of Magento_Checkout (PLIN-370)
+
+### Breaking
+
+- The constructors of the controllers above take `Magento\Framework\App\Request\Http $request` where they took `Magento\Framework\App\Action\Context $context`, and the inherited `getRequest()`, `messageManager`, `resultFactory` and the rest of `Action` are gone from them. A store that extends one of these controllers, or passes the `context` argument to one in its own `di.xml`, has to follow. `Qliro\QliroOne\Plugin\Callbacks\CsrfValidatorSkip` no longer exists (PLIN-370)
+
 ## [1.7.48] - 2026-09-22
 
 ### Fixed

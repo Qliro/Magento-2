@@ -6,6 +6,9 @@
 
 namespace Qliro\QliroOne\Controller\Qliro\Callback;
 
+use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\App\RequestInterface;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\ResponseInterface;
@@ -21,7 +24,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 /**
  * Saved Credit Card callback controller action
  */
-class SavedCreditCard implements HttpPostActionInterface
+class SavedCreditCard implements HttpPostActionInterface, CsrfAwareActionInterface
 {
     /**
      * @var \Magento\Framework\App\Request\Http
@@ -161,5 +164,27 @@ class SavedCreditCard implements HttpPostActionInterface
         $this->logManager->info('Notification SavedCreditCard done in {duration} seconds', ['duration' => \microtime(true) - $start]);
 
         return $response;
+    }
+
+    /**
+     * Qliro calls this server to server, it carries no form key and proves itself with the token
+     *
+     * @param RequestInterface $request
+     * @return InvalidRequestException|null
+     */
+    public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
+    {
+        return null;
+    }
+
+    /**
+     * Accept the callback without a form key, the token is checked in execute()
+     *
+     * @param RequestInterface $request
+     * @return bool|null
+     */
+    public function validateForCsrf(RequestInterface $request): ?bool
+    {
+        return true;
     }
 }

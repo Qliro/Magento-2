@@ -8,8 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Controller\Link;
 
 use Magento\Checkout\Model\Session as CheckoutSession;
-use Magento\Framework\App\Action\Action;
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface as LinkRepository;
 use Qliro\QliroOne\Model\Logger\Manager as LoggerManager;
@@ -19,12 +18,11 @@ use Qliro\QliroOne\Service\Checkout\LinkManager;
 /**
  * Class Expire
  */
-class Expire extends Action
+class Expire implements HttpPostActionInterface
 {
     /**
      * Class constructor
      *
-     * @param Context                    $context
      * @param JsonFactory                $resultJsonFactory
      * @param CheckoutSession            $checkoutSession
      * @param LinkRepository             $linkRepository
@@ -32,7 +30,6 @@ class Expire extends Action
      * @param LoggerManager              $loggerManager
      */
     public function __construct(
-                         Context         $context,
         private readonly JsonFactory     $resultJsonFactory,
         private readonly CheckoutSession $checkoutSession,
         private readonly LinkRepository  $linkRepository,
@@ -40,7 +37,6 @@ class Expire extends Action
         private readonly LoggerManager   $loggerManager,
         private readonly QuoteManagement $quoteManagement
     ) {
-        parent::__construct($context);
     }
 
     /**

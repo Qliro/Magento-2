@@ -7,7 +7,6 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Controller\Qliro\Callback;
 
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\Controller\Result\Json as JsonResult;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -189,7 +188,7 @@ class MissingOrderIdTest extends TestCase
     }
 
     /**
-     * Build the controller, passing whatever its first constructor argument asks for
+     * Build the controller with a request and the collaborators every callback takes
      *
      * @param string $controllerClass
      * @return object
@@ -198,17 +197,6 @@ class MissingOrderIdTest extends TestCase
     {
         $request = $this->createMock(Http::class);
 
-        $constructor = new \ReflectionMethod($controllerClass, '__construct');
-        $expectedType = $constructor->getParameters()[0]->getType()->getName();
-
-        if ($expectedType === Context::class) {
-            $context = $this->createMock(Context::class);
-            $context->method('getRequest')->willReturn($request);
-            $firstArgument = $context;
-        } else {
-            $firstArgument = $request;
-        }
-
         $qliroConfig = $this->createMock(Config::class);
         $qliroConfig->method('isActive')->willReturn(true);
 
@@ -216,7 +204,7 @@ class MissingOrderIdTest extends TestCase
         $callbackToken->method('verifyToken')->willReturn(true);
 
         return new $controllerClass(
-            $firstArgument,
+            $request,
             $qliroConfig,
             $this->qliroManagement,
             $this->containerMapper,
