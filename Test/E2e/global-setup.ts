@@ -32,6 +32,16 @@ function seed(args: string[]): SeededOrder {
 }
 
 export default async function globalSetup() {
+  /*
+   * The seeder places an order through the module, which needs a carrier the store actually
+   * offers. A copy of a merchant's store has their carriers and not `flatrate`, so the two
+   * checkout tests, which seed nothing, would be unrunnable there. Skipping leaves the specs
+   * that read seeded orders without their fixture, so it is only for running the checkout ones.
+   */
+  if (process.env.MAGENTO_SKIP_SEED === '1') {
+    return;
+  }
+
   const seeded = {
     // the everyday case: a routed pay later method, an invoice fee and a second fee line
     withName: seed(['--fees=29,10']),

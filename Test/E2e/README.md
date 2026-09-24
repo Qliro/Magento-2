@@ -7,9 +7,15 @@ They need a local Magento with this module installed. Qliro itself is not involv
 them: the seeder places orders through the module's own placement path with a Qliro order fixture
 in place of the merchant API, so no credentials and no test merchant are required.
 
-One test is the exception. `checkout-guest-email.spec.ts` drives the real checkout iframe, so it
-needs a store pointed at a Qliro test merchant and is skipped unless `QLIRO_CHECKOUT_E2E=1`. The
+Two tests are the exception. `checkout-guest-email.spec.ts` and `checkout-delivery-refresh.spec.ts`
+drive the real checkout iframe, so they need a store pointed at a Qliro test merchant and are
+skipped unless `QLIRO_CHECKOUT_E2E=1`. They seed nothing, so `MAGENTO_SKIP_SEED=1` lets them run
+against a store the seeder cannot place an order in, such as a copy of a merchant's own. The
 payment authorisation and capture, refund and cancel against Qliro are still out of scope.
+
+`checkout-delivery-refresh.spec.ts` reads `qliroone_log` through the database container to see
+where the order was read back, so it also needs `MAGENTO_DB_CONTAINER` when that container is not
+the app one with `-phpfpm-` swapped for `-db-`.
 
 ## The store under test
 
@@ -41,6 +47,7 @@ stand:
 | `MAGENTO_ADMIN_PATH` | `/admin` |
 | `MAGENTO_ADMIN_USER` | `admin` |
 | `MAGENTO_ADMIN_PASSWORD` | `Admin123!` |
+| `MAGENTO_DB_CONTAINER` | the app container with `-phpfpm-` swapped for `-db-` |
 
 `MAGENTO_CONTAINER` is the container the seeder runs in, through `docker exec`.
 
