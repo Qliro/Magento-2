@@ -40,7 +40,7 @@ class TransactionResponse implements AdminTransactionResponseInterface
      */
     public function getType()
     {
-        $this->type;
+        return $this->type;
     }
 
     /**
@@ -48,7 +48,7 @@ class TransactionResponse implements AdminTransactionResponseInterface
      */
     public function getReversalPaymentTransactionId()
     {
-        $this->reversalPaymentTransactionId;
+        return $this->reversalPaymentTransactionId;
     }
 
     /**
@@ -56,7 +56,7 @@ class TransactionResponse implements AdminTransactionResponseInterface
      */
     public function getReversalPaymentTransactionStatus()
     {
-        $this->reversalPaymentTransactionStatus;
+        return $this->reversalPaymentTransactionStatus;
     }
 
     /**
@@ -85,7 +85,8 @@ class TransactionResponse implements AdminTransactionResponseInterface
      */
     public function setType($value)
     {
-        // TODO: Implement setType() method.
+        $this->type = $value;
+        return $this;
     }
 
     /**
@@ -94,7 +95,8 @@ class TransactionResponse implements AdminTransactionResponseInterface
      */
     public function setReversalPaymentTransactionId($value)
     {
-        // TODO: Implement setReversalPaymentTransactionId() method.
+        $this->reversalPaymentTransactionId = $value;
+        return $this;
     }
 
     /**
@@ -103,6 +105,7 @@ class TransactionResponse implements AdminTransactionResponseInterface
      */
     public function setReversalPaymentTransactionStatus($value)
     {
-        // TODO: Implement setReversalPaymentTransactionStatus() method.
+        $this->reversalPaymentTransactionStatus = $value;
+        return $this;
     }
 }

@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.7.54] - 2026-09-24
+
+### Fixed
+
+- `TransactionResponse` filled only two of its five fields. It is the container `OrderManagement` maps Qliro's answer into for `MarkItemsAsShipped`, `AddItemsToInvoice`, `cancelOrder` and `updatemerchantreference`, and for each payment transaction of a recurring `merchantpayment`. `setType()`, `setReversalPaymentTransactionId()` and `setReversalPaymentTransactionStatus()` had a `TODO` for a body, and the three matching getters read the field without returning it, so `Type` and both reversal fields read back null on every response. The setters now store the value and return the container, the getters return it. Nothing in the module reads these three fields yet, so no flow changes; a store's own code reading them now gets what Qliro sent (PLIN-369)
+- `ShippingOrderItemBuilder` priced the shipping line in base currency. The shipping rate carries a base currency price and the tax helper converts nothing, so a store with base currency SEK selling in DKK sent the SEK amount as DKK. The price is now converted into the quote currency first, the way `ShippingMethodsBuilder` does for the delivery options. The tax helper is also given the quote's store, so the shipping tax class and the price-includes-tax setting are the quote's store view's rather than those of the store the request runs in (PLIN-369)
+- `ShippingOrderItemBuilder` ended in a fatal error, `getPrice()` on `false`, for a quote whose shipping method has no collected rate. It now throws a `LogicException`, as it already did for a missing quote (PLIN-369)
+
+### Changed
+
+- `FeeBuilder`, `ShippingOrderItemBuilder` and `CreditMemoItemsBuilder` stay. Nothing in the module wires any of them up, and they are kept rather than deleted because a public class may be wired up by a store on its own, so removing one would be a breaking change for that store. The defects PLIN-369 raised on the first two were already fixed in 1.7.29 (PLIN-362): the inc VAT and ex VAT amounts of `FeeBuilder` are no longer swapped, both builders state a VAT rate, and every price is rounded by `Item` where it is set. The rate is the one Magento's tax calculation gives for the customer and the store, not one read off the line's own amounts, so where the quote is taxed differently from that, a guest shipping to a country without a tax rule or a quote with an exempt customer tax class, the rate can disagree with the two amounts (PLIN-369)
+
 ## [1.7.48] - 2026-09-22
 
 ### Fixed

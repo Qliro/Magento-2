@@ -96,21 +96,34 @@ class ShippingOrderItemBuilder
         $code = $shippingAddress->getShippingMethod();
         $rate = $shippingAddress->getShippingRateByCode($code);
 
+        if (!$rate) {
+            throw new \LogicException('Quote has no rate collected for its shipping method.');
+        }
+
+        // The rate is in base currency, and the Qliro order is in the quote's, as in ShippingMethodsBuilder
+        $store = $this->quote->getStore();
+        $price = $store->getBaseCurrency()->convert(
+            $rate->getPrice(),
+            $this->quote->getQuoteCurrencyCode() ?: $store->getDefaultCurrencyCode()
+        );
+
         /** @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface $container */
         $container = $this->orderItemFactory->create();
 
         $priceExVat = $this->taxHelper->getShippingPrice(
-            $rate->getPrice(),
+            $price,
             false,
             $shippingAddress,
-            $this->quote->getCustomerTaxClassId()
+            $this->quote->getCustomerTaxClassId(),
+            $store
         );
 
         $priceIncVat = $this->taxHelper->getShippingPrice(
-            $rate->getPrice(),
+            $price,
             true,
             $shippingAddress,
-            $this->quote->getCustomerTaxClassId()
+            $this->quote->getCustomerTaxClassId(),
+            $store
         );
 
         $container->setMerchantReference($code);
