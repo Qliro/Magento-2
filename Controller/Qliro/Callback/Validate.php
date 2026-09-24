@@ -6,7 +6,11 @@
 
 namespace Qliro\QliroOne\Controller\Qliro\Callback;
 
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\App\RequestInterface;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodNotificationInterfaceFactory;
 use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
@@ -21,8 +25,13 @@ use Qliro\QliroOne\Model\Security\CallbackToken;
 /**
  * Validate callback controller action
  */
-class Validate extends \Magento\Framework\App\Action\Action
+class Validate implements HttpPostActionInterface, CsrfAwareActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var \Qliro\QliroOne\Model\Config
      */
@@ -56,7 +65,7 @@ class Validate extends \Magento\Framework\App\Action\Action
     /**
      * Inject dependencies
      *
-     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
      * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
      * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
@@ -65,7 +74,7 @@ class Validate extends \Magento\Framework\App\Action\Action
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        Context $context,
+        Http $request,
         Config $qliroConfig,
         ManagementInterface $qliroManagement,
         ContainerMapper $containerMapper,
@@ -73,8 +82,7 @@ class Validate extends \Magento\Framework\App\Action\Action
         CallbackToken $callbackToken,
         Manager $logManager
     ) {
-        parent::__construct($context);
-
+        $this->request = $request;
         $this->qliroConfig = $qliroConfig;
         $this->qliroManagement = $qliroManagement;
         $this->containerMapper = $containerMapper;
@@ -103,7 +111,7 @@ class Validate extends \Magento\Framework\App\Action\Action
         }
 
         /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         if (!$this->callbackToken->verifyToken($request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
@@ -148,5 +156,27 @@ class Validate extends \Magento\Framework\App\Action\Action
         $this->logManager->info('Notification Validate done in {duration} seconds', ['duration' => \microtime(true) - $start]);
 
         return $response;
+    }
+
+    /**
+     * Qliro calls this server to server, it carries no form key and proves itself with the token
+     *
+     * @param RequestInterface $request
+     * @return InvalidRequestException|null
+     */
+    public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
+    {
+        return null;
+    }
+
+    /**
+     * Accept the callback without a form key, the token is checked in execute()
+     *
+     * @param RequestInterface $request
+     * @return bool|null
+     */
+    public function validateForCsrf(RequestInterface $request): ?bool
+    {
+        return true;
     }
 }

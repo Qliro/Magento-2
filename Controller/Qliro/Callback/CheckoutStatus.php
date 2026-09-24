@@ -6,7 +6,11 @@
 
 namespace Qliro\QliroOne\Controller\Qliro\Callback;
 
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\CsrfAwareActionInterface;
+use Magento\Framework\App\Request\InvalidRequestException;
+use Magento\Framework\App\RequestInterface;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface;
@@ -20,8 +24,13 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 /**
  * Checkout status push callback controller action
  */
-class CheckoutStatus extends \Magento\Framework\App\Action\Action
+class CheckoutStatus implements HttpPostActionInterface, CsrfAwareActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var \Qliro\QliroOne\Model\Config
      */
@@ -55,7 +64,7 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
     /**
      * Inject dependencies
      *
-     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
      * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
      * @param \Qliro\QliroOne\Model\ContainerMapper $containerMapper
@@ -64,7 +73,7 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        Context $context,
+        Http $request,
         Config $qliroConfig,
         ManagementInterface $qliroManagement,
         ContainerMapper $containerMapper,
@@ -72,8 +81,7 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
         CallbackToken $callbackToken,
         LogManager $logManager
     ) {
-        parent::__construct($context);
-
+        $this->request = $request;
         $this->qliroConfig = $qliroConfig;
         $this->qliroManagement = $qliroManagement;
         $this->containerMapper = $containerMapper;
@@ -105,7 +113,7 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
         }
 
         /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         if (!$this->callbackToken->verifyToken($request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
@@ -156,5 +164,27 @@ class CheckoutStatus extends \Magento\Framework\App\Action\Action
         $this->logManager->info('Notification CheckoutStatus done in {duration} seconds', ['duration' => \microtime(true) - $start]);
 
         return $response;
+    }
+
+    /**
+     * Qliro calls this server to server, it carries no form key and proves itself with the token
+     *
+     * @param RequestInterface $request
+     * @return InvalidRequestException|null
+     */
+    public function createCsrfValidationException(RequestInterface $request): ?InvalidRequestException
+    {
+        return null;
+    }
+
+    /**
+     * Accept the callback without a form key, the token is checked in execute()
+     *
+     * @param RequestInterface $request
+     * @return bool|null
+     */
+    public function validateForCsrf(RequestInterface $request): ?bool
+    {
+        return true;
     }
 }

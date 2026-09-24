@@ -37,4 +37,51 @@
     <type name="Magento\Customer\Controller\Account\Logout">
         <plugin name="qliro_prevent_logout_in_when_locked" type="Qliro\QliroOne\Plugin\PreventChangeInCartWhenLocked\Logout"/>
     </type>
+
+    <!-- Magento sets the store and currency of the vary cookie only for the deprecated action base -->
+    <type name="Qliro\QliroOne\Controller\Checkout\Totals">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Link\Expire">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\AbstractLockQuote">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\GetSnippet">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\PollPending">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\SetRecurring">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateCountry">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateCustomer">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdatePaymentMethod">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateQuote">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateRecurring">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateShippingMethod">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateShippingPrice">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Recurring\Cancel">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Recurring\History">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
 </config>

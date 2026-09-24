@@ -6,8 +6,9 @@
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
@@ -21,8 +22,13 @@ use Qliro\QliroOne\Model\Security\AjaxToken;
 /**
  * Update customer AJAX controller action class
  */
-class UpdateCustomer extends \Magento\Framework\App\Action\Action
+class UpdateCustomer implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var \Qliro\QliroOne\Helper\Data
      */
@@ -66,7 +72,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
     /**
      * Inject dependnecies
      *
-     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
      * @param \Qliro\QliroOne\Helper\Data $dataHelper
      * @param \Qliro\QliroOne\Model\Security\AjaxToken $ajaxToken
@@ -77,7 +83,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
      * @param \Qliro\QliroOne\Model\Quote\ShippingAddressFormDataBuilder|null $shippingAddressFormDataBuilder
      */
     public function __construct(
-        Context $context,
+        Http $request,
         Config $qliroConfig,
         Data $dataHelper,
         AjaxToken $ajaxToken,
@@ -87,7 +93,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         Agent $quoteAgent,
         ?ShippingAddressFormDataBuilder $shippingAddressFormDataBuilder = null
     ) {
-        parent::__construct($context);
+        $this->request = $request;
         $this->dataHelper = $dataHelper;
         $this->ajaxToken = $ajaxToken;
         $this->qliroConfig = $qliroConfig;
@@ -95,8 +101,8 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         $this->checkoutSession = $checkoutSession;
         $this->logManager = $logManager;
         $this->quoteAgent = $quoteAgent;
-        // Optional so a subclass calling parent::__construct() with the old signature keeps
-        // working, resolved here because the frontend depends on the address being returned.
+        // Optional for subclasses written before it existed, resolved here because the
+        // frontend depends on the address being returned.
         $this->shippingAddressFormDataBuilder = $shippingAddressFormDataBuilder
             ?: ObjectManager::getInstance()->get(ShippingAddressFormDataBuilder::class);
     }
@@ -109,7 +115,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
     public function execute()
     {
         if (!$this->qliroConfig->isActive()) {
-            $this->logManager->debug('Qliro One is not enabled for ' . $this->getRequest()->getRequestUri());
+            $this->logManager->debug('Qliro One is not enabled for ' . $this->request->getRequestUri());
             return $this->dataHelper->sendPreparedPayload(
                 [
                     'status' => 'FAILED',
@@ -122,7 +128,7 @@ class UpdateCustomer extends \Magento\Framework\App\Action\Action
         }
 
         /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         $quote = $this->checkoutSession->getQuote();
         $this->logManager->setMerchantReferenceFromQuote($quote);

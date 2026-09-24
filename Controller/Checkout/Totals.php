@@ -6,15 +6,20 @@
 
 namespace Qliro\QliroOne\Controller\Checkout;
 
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Action;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\Controller\Result\JsonFactory;
 use Magento\Framework\Json\Helper\Data;
 use Magento\Quote\Api\CartRepositoryInterface;
 
-class Totals extends Action
+class Totals implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var Session
      */
@@ -38,20 +43,20 @@ class Totals extends Action
     /**
      * Checkout Totals Ajax Controller constructor.
      *
-     * @param Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param Session $checkoutSession
      * @param Data $helper
      * @param JsonFactory $resultJson
      * @param CartRepositoryInterface $quoteRepository
      */
     public function __construct(
-        Context $context,
+        Http $request,
         Session $checkoutSession,
         Data $helper,
         JsonFactory $resultJson,
         CartRepositoryInterface $quoteRepository
     ) {
-        parent::__construct($context);
+        $this->request = $request;
         $this->checkoutSession = $checkoutSession;
         $this->helper = $helper;
         $this->resultJson = $resultJson;
@@ -75,7 +80,7 @@ class Totals extends Action
             $quote = $this->quoteRepository->get($this->checkoutSession->getQuoteId());
 
             /** @var array $payment */
-            $payment = $this->helper->jsonDecode($this->getRequest()->getContent());
+            $payment = $this->helper->jsonDecode($this->request->getContent());
             $quote->getPayment()->setMethod($payment['payment']);
             $quote->collectTotals();
             $this->quoteRepository->save($quote);
