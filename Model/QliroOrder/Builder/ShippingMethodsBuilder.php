@@ -30,6 +30,11 @@ class ShippingMethodsBuilder
     private $quote;
 
     /**
+     * @var array The values the placeholder put on the address, empty when none was applied
+     */
+    private $presetData = [];
+
+    /**
      * @var \Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterfaceFactory
      */
     private $shippingMethodsResponseFactory;
@@ -135,8 +140,9 @@ class ShippingMethodsBuilder
         $addressBeforePreset = $this->applyPresetAddress();
 
         // In a finally because a carrier that throws would otherwise leave the store's own
-        // address on the quote, which is the defect the restore exists for. The totals collected
-        // against the placeholder are left as they stand, the next collect corrects them.
+        // address on the quote, which is the defect the restore exists for. The totals and the
+        // rates collected against the placeholder are put back with it, because the restore is
+        // now written to the database and a delivery price of the store's own must not be.
         try {
             $this->quote->setTotalsCollectedFlag(false);
             $this->quote->collectTotals();
@@ -189,6 +195,8 @@ class ShippingMethodsBuilder
     {
         $address = $this->quote->getShippingAddress();
 
+        $this->presetData = [];
+
         if (!$this->qliroConfig->presetAddress() || !empty($address->getPostcode())) {
             return [];
         }
@@ -217,12 +225,16 @@ class ShippingMethodsBuilder
             'region' => $storeInfo->getData('region'),
         ];
 
-        $addressBeforePreset = array_replace(
-            array_fill_keys(array_keys($presetData), null),
-            array_intersect_key($address->getData(), $presetData)
-        );
+        /*
+         * The whole row, not the six address keys. Rating the placeholder collects the address's
+         * totals against the store as well, tax and discount among them wherever a rule keys on
+         * the postcode or the region, and the restore is written to the database now, so anything
+         * left out of the snapshot would be saved under the buyer's own empty address.
+         */
+        $addressBeforePreset = $address->getData();
 
         $address->addData($presetData);
+        $this->presetData = $presetData;
 
         return $addressBeforePreset;
     }
@@ -238,11 +250,223 @@ class ShippingMethodsBuilder
      */
     private function restorePresetAddress(array $addressBeforePreset): void
     {
-        if (empty($addressBeforePreset)) {
+        // Whether the placeholder was applied, not whether the snapshot has anything in it: the
+        // address of a buyer Qliro has not reported yet is empty, and that is the very case this
+        // runs for, so an empty snapshot is a state to restore rather than a reason to skip
+        if (empty($this->presetData)) {
             return;
         }
 
-        $this->quote->getShippingAddress()->addData($addressBeforePreset);
+        $address = $this->quote->getShippingAddress();
+
+        /*
+         * Decided before the object is touched. The rating takes seconds on a carrier that calls
+         * a service, and Qliro's callbacks write to the same row without a session to serialise
+         * them against it, so by now the row can already hold the buyer's own address. Putting
+         * the snapshot back on the object would then be enough to lose it: the create path saves
+         * the quote once this returns.
+         */
+        $storedIsStillThePlaceholder = $address->getId() && $this->rowStillHoldsThePlaceholder($address);
+
+        /*
+         * Explicit nulls for the placeholder's own fields, built before the marker is dropped and
+         * before the branch, because both paths can end up putting this back. Dropping a key is
+         * not the same as clearing a column: Magento builds the update from the keys the object
+         * still has, so a key simply removed leaves the placeholder's value standing. Only these
+         * are nulled, and the totals the rating collected are left to the next collect, because
+         * `quote_address` declares them NOT NULL and writing a null there depends on the column
+         * carrying a default.
+         */
+        $restored = $addressBeforePreset;
+
+        foreach (array_keys($this->presetData) as $key) {
+            if (!array_key_exists($key, $restored)) {
+                $restored[$key] = null;
+            }
+        }
+
+        $this->forgetPreset();
+
+        if ($address->getId() && !$storedIsStillThePlaceholder) {
+            $this->takeTheStoredAddressBack($address, $restored);
+
+            return;
+        }
+
+        // setData() replaces the whole array, so an id assigned to the object after the snapshot
+        // was taken would be dropped, and an id-less object inserts a second quote_address row
+        // the next time the quote is saved
+        $addressId = $address->getId();
+        $address->setData($restored);
+
+        if ($addressId && !$address->getId()) {
+            $address->setId($addressId);
+        }
+
+        /*
+         * The rates go with the address. A delivery option rated for the store is not one the
+         * buyer can be given, and leaving them on the object was enough to persist them: the
+         * create path saves the quote after this runs.
+         */
+        $address->removeAllShippingRates();
+        $address->setCollectShippingRates(true);
+
+        // The quote's own totals were collected against the placeholder too, and nothing would
+        // collect them again in this request, so a later save would carry the store's delivery
+        // cost in the grand total
+        $this->quote->setTotalsCollectedFlag(false);
+
+        if (!$address->getId()) {
+            return;
+        }
+
+        /*
+         * The update path saves no quote after the rating, so without this the store's own
+         * address stayed in the database: the buyer's street, city and postcode were written over
+         * it when Qliro reported them, the region never was, and Vajper's order 000008764 went
+         * out as Stockholm 11329 in Västmanlands län.
+         */
+        try {
+            $address->save();
+        } catch (\Throwable $exception) {
+            // This runs from a finally that exists to survive a carrier that throws, so a write
+            // that fails here must not replace the failure it was cleaning up after
+            $this->logManager->critical(
+                $exception,
+                ['extra' => ['quote_id' => $this->quote->getId()]]
+            );
+        }
+    }
+
+    /**
+     * Give the object the address the row already holds, written there while the rating ran
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @param array $addressWithoutPreset The snapshot with an explicit null for every field the
+     *                                    placeholder introduced, so the fallback below clears
+     *                                    them rather than leaving the store's own values standing
+     * @return void
+     */
+    private function takeTheStoredAddressBack($address, array $addressWithoutPreset): void
+    {
+        $loaded = false;
+
+        try {
+            /*
+             * The row is looked up before it is loaded, because nothing about `load()` says
+             * whether it found anything: it replaces the object's data only when the select
+             * returned a row, so a row that is gone leaves the placeholder standing and the id
+             * on the object, its own all along, still matches.
+             */
+            if ($this->storedAddressRowExists($address)) {
+                $address->getResource()->load($address, $address->getId());
+                $loaded = true;
+            }
+        } catch (\Throwable $exception) {
+            $this->logManager->critical(
+                $exception,
+                ['extra' => ['quote_id' => $this->quote->getId()]]
+            );
+        }
+
+        if (!$loaded) {
+            // Whatever happened, the placeholder must not be what the object is left holding:
+            // the create path saves the quote once this returns
+            $address->addData($addressWithoutPreset);
+        }
+
+        $address->removeAllShippingRates();
+        $address->setCollectShippingRates(true);
+
+        // The quote's own totals were collected against the placeholder on this path too, and a
+        // caller that saves without collecting again would carry the store's delivery cost into
+        // the grand total. `Quote::recalculateAndSaveQuote()` resets the flag itself, a direct
+        // `CartRepository::save()` does not
+        $this->quote->setTotalsCollectedFlag(false);
+    }
+
+    /**
+     * Forget the placeholder, so a later rating cannot be measured against this one's
+     *
+     * @return void
+     */
+    private function forgetPreset(): void
+    {
+        $this->presetData = [];
+    }
+
+    /**
+     * Whether the quote address still has a row of its own to be read back
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @return bool
+     */
+    private function storedAddressRowExists($address): bool
+    {
+        $resource = $address->getResource();
+        $connection = $resource->getConnection();
+        $select = $connection->select()
+            ->from($resource->getMainTable(), ['address_id'])
+            ->where('address_id = ?', (int)$address->getId());
+
+        return (bool)$connection->fetchOne($select);
+    }
+
+    /**
+     * Whether the stored address is still the placeholder this rating put there
+     *
+     * The rating takes seconds on a carrier that calls a service, and Qliro's own callbacks write
+     * to the same row without a session to serialise them against this request. Saving the
+     * snapshot blind would put the buyer's street, city and postcode back to empty seconds after
+     * a callback had filled them in. Only a row that still holds the placeholder is corrected;
+     * one that holds a real address has already been corrected by whoever wrote it.
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @return bool
+     */
+    private function rowStillHoldsThePlaceholder($address): bool
+    {
+        if (empty($this->presetData)) {
+            return false;
+        }
+
+        // The whole placeholder, not its postcode: a buyer who lives in the store's own town
+        // shares that postcode, and on this merchant that is the very town the defect is about
+        $columns = ['street', 'city', 'postcode', 'country_id'];
+
+        try {
+            $resource = $address->getResource();
+            $connection = $resource->getConnection();
+            $select = $connection->select()
+                ->from($resource->getMainTable(), $columns)
+                ->where('address_id = ?', (int)$address->getId());
+
+            $stored = $connection->fetchRow($select);
+
+            if (!is_array($stored)) {
+                return false;
+            }
+
+            foreach ($columns as $column) {
+                if ((string)($stored[$column] ?? '') !== (string)($this->presetData[$column] ?? '')) {
+                    return false;
+                }
+            }
+
+            return true;
+        } catch (\Throwable $exception) {
+            /*
+             * The read is only there to spare a concurrent write, which is the rarer of the two
+             * failures. Without it, the safe answer is the one that takes the placeholder back
+             * out of the row, because a placeholder left in the database is the defect this
+             * whole method exists for.
+             */
+            $this->logManager->debug(
+                'Could not read the stored shipping address, restoring it anyway: ' . $exception->getMessage()
+            );
+
+            return true;
+        }
     }
 
     /**
@@ -259,7 +483,11 @@ class ShippingMethodsBuilder
             'extra' => [
                 'quote_id' => $this->quote->getId(),
                 'store_id' => (int)$this->quote->getStoreId(),
-                'postcode' => $shippingAddress->getPostcode(),
+                // Named without `postcode` in it on purpose: the redaction matches its personal
+                // keys by substring, so `postcode_area` would be masked exactly as `postcode` was
+                // and the one field this line exists to show would read `[redacted]` again. Two
+                // characters name the region a carrier refuses without naming the buyer
+                'delivery_zone' => $this->postcodeArea($shippingAddress->getPostcode()),
                 'country_id' => $shippingAddress->getCountryId(),
                 // Whether, not what: a carrier can require these and rate on nothing without
                 // them, and the address is the buyer's own.
@@ -281,6 +509,19 @@ class ShippingMethodsBuilder
         $context['extra'] += $this->describeRatingScope();
 
         $this->logManager->notice($message, $context);
+    }
+
+    /**
+     * The first characters of a postcode, enough to place a decline without naming the buyer
+     *
+     * @param string|null $postcode
+     * @return string|null
+     */
+    private function postcodeArea($postcode): ?string
+    {
+        $digits = preg_replace('/\s+/', '', (string)$postcode);
+
+        return $digits === '' ? null : substr($digits, 0, 2) . '…';
     }
 
     /**

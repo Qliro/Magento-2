@@ -138,8 +138,53 @@ class CustomerConverterTest extends TestCase
         $customer->method('getEmail')->willReturn('buyer@example.com');
         $customer->expects(self::never())->method('setData');
 
-        $quote = $this->createMock(Quote::class);
+        // Both places the email lives: the data object the loop writes, and the quote's own
+        // column, which is the one Magento renders the checkout from
+        $quote = $this->quoteMock('buyer@example.com', null);
         $quote->method('getCustomer')->willReturn($customer);
+        $quote->expects(self::never())->method('setCustomerEmail');
+
+        self::assertFalse($this->converter->convert($qliroCustomer, $quote));
+    }
+
+    /**
+     * A guest quote carries the email in a column of its own, and only that one is read when the
+     * checkout page is rendered. Left empty, every native call that carries the guest's email
+     * goes out without one and Magento refuses it, which is what put two failed
+     * `set-payment-information` calls in front of a Vajper buyer.
+     */
+    public function testWritesTheEmailToTheGuestQuoteItself(): void
+    {
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getEmail')->willReturn('buyer@example.com');
+        $qliroCustomer->method('getAddress')->willReturn(null);
+
+        $customer = $this->createMock(Customer::class);
+        $customer->method('getEmail')->willReturn('buyer@example.com');
+
+        $quote = $this->quoteMock(null, null);
+        $quote->method('getCustomer')->willReturn($customer);
+        $quote->expects(self::once())->method('setCustomerEmail')->with('buyer@example.com');
+
+        self::assertTrue($this->converter->convert($qliroCustomer, $quote));
+    }
+
+    /**
+     * A logged in buyer's email belongs to their account. Qliro lets them type another one in the
+     * widget, and writing that over the account's would change who the order is placed for.
+     */
+    public function testLeavesTheEmailOfALoggedInBuyerAlone(): void
+    {
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getEmail')->willReturn('typed@example.com');
+        $qliroCustomer->method('getAddress')->willReturn(null);
+
+        $customer = $this->createMock(Customer::class);
+        $customer->method('getEmail')->willReturn('typed@example.com');
+
+        $quote = $this->quoteMock('account@example.com', 7);
+        $quote->method('getCustomer')->willReturn($customer);
+        $quote->expects(self::never())->method('setCustomerEmail');
 
         self::assertFalse($this->converter->convert($qliroCustomer, $quote));
     }
@@ -183,6 +228,30 @@ class CustomerConverterTest extends TestCase
         $quote->method('isVirtual')->willReturn(false);
         $quote->method('getBillingAddress')->willReturn($billingAddress ?? $this->createMock(Address::class));
         $quote->method('getShippingAddress')->willReturn($shippingAddress ?? $this->createMock(Address::class));
+
+        return $quote;
+    }
+
+    /**
+     * A quote whose email and customer id can be stubbed
+     *
+     * `getCustomerEmail`, `getCustomerId` and `setCustomerEmail` reach the quote through Magento's
+     * data object rather than being declared on it, so they are added rather than overridden.
+     *
+     * @param string|null $email
+     * @param int|null $customerId
+     * @return Quote&MockObject
+     */
+    private function quoteMock(?string $email, ?int $customerId): Quote&MockObject
+    {
+        $quote = $this->getMockBuilder(Quote::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getCustomer', 'getBillingAddress', 'getShippingAddress', 'isVirtual'])
+            ->addMethods(['getCustomerEmail', 'getCustomerId', 'setCustomerEmail'])
+            ->getMock();
+
+        $quote->method('getCustomerEmail')->willReturn($email);
+        $quote->method('getCustomerId')->willReturn($customerId);
 
         return $quote;
     }

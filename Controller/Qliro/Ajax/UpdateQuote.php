@@ -14,6 +14,7 @@ use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\TerminalException;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
@@ -118,6 +119,20 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
 
         try {
             $this->qliroManagement->setQuote($quote)->getQliroOrder();
+        } catch (UnsupportedQuoteException $exception) {
+            /*
+             * The cart or the country is what the buyer has to change, and the message says which,
+             * so it is passed on rather than replaced. Without this the exception left the
+             * controller as a Magento error page, and the browser showed `Internal Server Error`
+             * in place of the sentence the refusal exists to deliver. This refresh runs on every
+             * checkout, so the same was true of the fractional quantity refusal (PLIN-367).
+             */
+            return $this->dataHelper->sendPreparedPayload(
+                ['error' => $exception->getMessage()],
+                400,
+                null,
+                'AJAX:UPDATE_QUOTE:UNSUPPORTED'
+            );
         } catch (TerminalException $exception) {
             return $this->dataHelper->sendPreparedPayload(
                 ['error' => (string)__('Cannot fetch Qliro One order.')],
@@ -142,6 +157,15 @@ class UpdateQuote extends \Magento\Framework\App\Action\Action
                 'order' => [
                     'totalPrice' => $quote->getGrandTotal() - $fee - $shippingCost,
                 ],
+                /*
+                 * The buyer's email reaches the browser here as well as through the customer
+                 * callback, because this response is handled on the cart refresh, which every
+                 * checkout runs and which a store that replaces the customer handler with one of
+                 * its own still calls. Without it the native checkout's own email stays empty and
+                 * every core call carrying it is refused. The key is one the log redaction masks
+                 * by name, so it is written to the browser and not to the log.
+                 */
+                'email' => $quote->getCustomerEmail(),
             ],
             200,
             null,

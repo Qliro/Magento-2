@@ -341,6 +341,142 @@ class QliroOrder extends AbstractManagement
     }
 
     /**
+     * Read the order back when the customer event has left the quote without a destination
+     *
+     * Qliro withholds the address from that event, sending `{"isMasked": true}` in its place
+     * until the buyer has identified, so the merchant API is the only place it can be read. Until
+     * it reaches the quote Magento rates nothing, the update carries no shipping methods and the
+     * checkout has no delivery to offer. The read used to happen in the cart refresh the browser
+     * makes afterwards, which left the timing of the whole delivery step to whichever script owns
+     * the customer handler: a store that had replaced it with one polling an endpoint of its own
+     * put nine seconds between the event and the address, and the widget had rendered the payment
+     * step before the methods arrived. The read belongs to the event that reveals the buyer, and
+     * that event arrives whoever owns the handler (PLIN-376).
+     *
+     * @return void
+     */
+    public function refreshAfterCustomerEvent(): void
+    {
+        $quote = $this->getQuote();
+        $qliroOrderId = null;
+
+        /*
+         * The whole body, not only the read. This answers a customer payload that has already
+         * been applied and saved, and the cart refresh the browser makes next reads the order
+         * again anyway, so nothing in here may turn an applied payload into a failed update:
+         * the controller answers any exception from it with a 400.
+         */
+        try {
+            if ($quote->isVirtual()) {
+                return;
+            }
+
+            $shippingAddress = $quote->getShippingAddress();
+
+            /*
+             * Once the quote can be rated there is nothing left to learn, so the events that
+             * follow cost nothing. While the address is still masked every event does pay for a
+             * read, which is what buys the delivery step: the cart refresh those same events
+             * used to trigger read the order too, and rated the whole quote to hash an update
+             * payload on top of it.
+             */
+            if ($shippingAddress && $shippingAddress->getPostcode() && $shippingAddress->getCountryId()) {
+                return;
+            }
+
+            $link = $this->linkRepository->getByQuoteId($quote->getId());
+            $qliroOrderId = $link->getQliroOrderId();
+
+            // Only for an order that already exists, and only while this quote has not become a
+            // Magento order: creating one or placing one is not this event's business
+            if (!$qliroOrderId || !empty($link->getOrderId())) {
+                return;
+            }
+
+            $this->readTheAddressFromQliro($quote, $qliroOrderId);
+        } catch (NoSuchEntityException $exception) {
+            // A quote Qliro has never heard of, which the cart refresh gives an order
+            return;
+        } catch (\Throwable $exception) {
+            $this->logManager->debug(
+                'Could not read the QliroOne order back while answering the customer event',
+                [
+                    'extra' => [
+                        'quote_id' => $quote->getId(),
+                        'qliro_order_id' => $qliroOrderId,
+                        'reason' => $exception->getMessage(),
+                    ],
+                ]
+            );
+        }
+    }
+
+    /**
+     * Take the address from the QliroOne order and push the methods it makes possible
+     *
+     * Deliberately not `get()`, although it does the same three things. `get()` reaches them
+     * through `getLinkFromQuote()`, which rates the whole quote to hash the update payload
+     * whether anything changed or not, and which creates a Qliro order for a quote that has
+     * none. This path is on the buyer's critical path and runs while the address is still
+     * masked, so it rates once and only because the address is new (PLIN-376).
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @param string|int $qliroOrderId
+     * @return void
+     */
+    private function readTheAddressFromQliro($quote, $qliroOrderId): void
+    {
+        $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+
+        // Both belong to the cart refresh, which redirects the buyer to the pending page or
+        // replaces the order, and neither is something a customer event should decide
+        if ($qliroOrder->isPlaced() || $qliroOrder->isRefused()) {
+            return;
+        }
+
+        if (!$this->lock->lock($qliroOrderId)) {
+            $this->logManager->debug(
+                'An order is in preparation, leaving the customer event to the cart refresh',
+                ['extra' => ['quote_id' => $quote->getId(), 'qliro_order_id' => $qliroOrderId]]
+            );
+
+            return;
+        }
+
+        try {
+            $isQuoteChanged = $this->quoteFromOrderConverter->convert($qliroOrder, $quote);
+
+            if (!empty($isQuoteChanged)) {
+                $this->quoteManagement->setQuote($quote)->recalculateAndSaveQuote();
+            }
+        } finally {
+            $this->lock->unlock($qliroOrderId);
+        }
+
+        if (!empty($isQuoteChanged)) {
+            $this->quoteManagement->setQuote($quote)->update($qliroOrderId);
+        }
+
+        $shippingAddress = $quote->getShippingAddress();
+
+        // Logged whether or not the order carried anything, because the line is what says the
+        // read happened at all: a buyer Qliro has not identified yet leaves it with nothing to
+        // teach the quote, and that is the same line a support case needs to see
+        $this->logManager->debug(
+            'Read the QliroOne order back for the address the customer event withheld',
+            [
+                'extra' => [
+                    'quote_id' => $quote->getId(),
+                    'qliro_order_id' => $qliroOrderId,
+                    'anything_learned' => (bool)$isQuoteChanged,
+                    'quote_postcode_set' => (bool)($shippingAddress && $shippingAddress->getPostcode()),
+                    'quote_country_set' => (bool)($shippingAddress && $shippingAddress->getCountryId()),
+                ],
+            ]
+        );
+    }
+
+    /**
      * Update quote with received data in the container and validate QliroOne order
      *
      * @param \Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface $validateContainer
@@ -362,9 +498,24 @@ class QliroOrder extends AbstractManagement
                 $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
                 $this->quoteFromValidateConverter->convert($validateContainer, $this->getQuote());
 
-                return $this->validateOrderBuilder->setQuote($this->getQuote())->setValidationRequest(
+                $response = $this->validateOrderBuilder->setQuote($this->getQuote())->setValidationRequest(
                     $validateContainer
                 )->create();
+
+                if (!$response->getDeclineReason()) {
+                    // The order is on its way to payment from here, so the quote must stop moving.
+                    // A failure to write the mark must not turn an approved order into a declined
+                    // one, which is what letting it reach the catch below would do.
+                    try {
+                        $this->linkRepository->markValidated((int)$link->getQuoteId());
+                    } catch (\Exception $exception) {
+                        $this->logManager->warning(
+                            'Could not mark the link as validated: ' . $exception->getMessage()
+                        );
+                    }
+                }
+
+                return $response;
             } catch (\Exception $exception) {
                 $this->logManager->critical(
                     $exception,

@@ -18,6 +18,8 @@ use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\ResourceModel\Link\Collection;
 use Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory;
 use Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory;
+use Magento\Framework\App\ObjectManager;
+use Magento\Framework\Stdlib\DateTime\DateTime;
 
 /**
  * Link repository class
@@ -57,23 +59,34 @@ class Repository implements LinkRepositoryInterface
     private $collectionFactory;
 
     /**
+     * @var \Magento\Framework\Stdlib\DateTime\DateTime
+     */
+    private $dateTime;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\ResourceModel\Link $linkResourceModel
      * @param \Qliro\QliroOne\Api\Data\LinkInterfaceFactory $linkFactory
      * @param \Qliro\QliroOne\Api\LinkSearchResultInterfaceFactory $searchResultFactory
      * @param \Qliro\QliroOne\Model\ResourceModel\Link\CollectionFactory $collectionFactory
+     * @param \Magento\Framework\Stdlib\DateTime\DateTime $dateTime
      */
     public function __construct(
         LinkResourceModel $linkResourceModel,
         LinkInterfaceFactory $linkFactory,
         LinkSearchResultInterfaceFactory $searchResultFactory,
-        CollectionFactory $collectionFactory
+        CollectionFactory $collectionFactory,
+        ?DateTime $dateTime = null
     ) {
         $this->linkResourceModel = $linkResourceModel;
         $this->linkFactory = $linkFactory;
         $this->searchResultFactory = $searchResultFactory;
         $this->collectionFactory = $collectionFactory;
+        // Optional so a subclass calling parent::__construct() with the old signature keeps
+        // working. Magento passes null for optional arguments instead of resolving them, so
+        // the instance is fetched here rather than left to DI.
+        $this->dateTime = $dateTime ?: ObjectManager::getInstance()->get(DateTime::class);
     }
 
     /**
@@ -339,8 +352,39 @@ class Repository implements LinkRepositoryInterface
     public function unlock(int $quoteId): LinkInterface
     {
         $link = $this->getByQuoteId($quoteId);
-        if ($link->getIsLocked()) {
+
+        /*
+         * The validation mark goes with the lock, but only while the quote has not become an
+         * order: a payment that ended without one leaves the customer in the checkout and the
+         * delivery they pick next has to reach the quote, whereas a quote an order was already
+         * placed from has nothing left to accept. This is reachable from the browser, through
+         * the unlock endpoint and through every snippet fetch, so the narrower rule is what
+         * keeps a checkout that is already done from being reopened by a call anyone can make.
+         */
+        $clearValidation = $link->getValidatedAt() !== null && empty($link->getOrderId());
+
+        if ($link->getIsLocked() || $clearValidation) {
             $link->setIsLocked(false);
+
+            if ($clearValidation) {
+                $link->setValidatedAt(null);
+            }
+
+            $this->save($link);
+        }
+
+        return $link;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function markValidated(int $quoteId): LinkInterface
+    {
+        $link = $this->getByQuoteId($quoteId);
+
+        if ($link->getValidatedAt() === null) {
+            $link->setValidatedAt($this->dateTime->gmtDate());
             $this->save($link);
         }
 

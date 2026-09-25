@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Converter;
 
+use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Quote\Model\Quote\Address;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -29,7 +30,10 @@ class AddressConverterTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->converter = new AddressConverter();
+        $directoryHelper = $this->createMock(DirectoryHelper::class);
+        $directoryHelper->method('isRegionRequired')->willReturn(false);
+
+        $this->converter = new AddressConverter($directoryHelper);
         $this->addressData = [];
     }
 
@@ -194,6 +198,86 @@ class AddressConverterTest extends TestCase
     {
         $address = $this->address();
         $address->method('getCustomerAddressId')->willReturn(7);
+        $address->expects(self::once())->method('setCustomerAddressId')->with(null);
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+    }
+
+    /**
+     * The shipping placeholder put the store's own region on the quote, and the loop above could
+     * never take it off again: Qliro sends no region, so nothing overwrote it, and only a change
+     * of country cleared it. Vajper's order 000008764 went out as Stockholm 11329 in Västmanlands
+     * län for exactly that reason (PLIN-376).
+     */
+    public function testClearsARegionTheNewPostcodeHasLeftBehind(): void
+    {
+        $this->addressData = [
+            'postcode' => '72132',
+            'city' => 'Västerås',
+            'region' => 'Västmanlands län',
+            'region_id' => 1072,
+        ];
+
+        $address = $this->address();
+        $address->expects(self::once())->method('setRegion')->with(null);
+        $address->expects(self::once())->method('setRegionId')->with(null);
+
+        self::assertTrue($this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address));
+    }
+
+    /**
+     * The same payload arriving twice moves no address, so the region it belongs to stays. A
+     * merchant whose countries require a region would otherwise lose it on every callback.
+     */
+    public function testKeepsTheRegionWhenThePostcodeIsUnchanged(): void
+    {
+        $this->addressData = [
+            'postcode' => '11122',
+            'region' => 'Stockholms län',
+            'region_id' => 1066,
+        ];
+
+        $address = $this->address();
+        $address->expects(self::never())->method('setRegion');
+        $address->expects(self::never())->method('setRegionId');
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+    }
+
+    /**
+     * A first address has no region to leave behind, and reporting a change for one that was
+     * never there would push a pointless order update.
+     */
+    public function testKeepsQuietWhenThereIsNoRegionToClear(): void
+    {
+        $this->addressData = ['postcode' => '72132'];
+
+        $address = $this->address();
+        $address->expects(self::never())->method('setRegion');
+        $address->expects(self::never())->method('setRegionId');
+
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+    }
+
+    /**
+     * A quote address copied from the address book loses its region with the rest of it. The
+     * clear used to spare one, which read like respecting the buyer's own choice, but a postcode
+     * that really moves makes `convert()` drop `customer_address_id` a few lines later: the
+     * address stops being the saved one either way, and sparing the region left a Göteborg
+     * street standing under a Stockholm one.
+     */
+    public function testClearsTheRegionOfAnAddressCopiedFromTheAddressBook(): void
+    {
+        $address = $this->address();
+        $address->method('getCustomerAddressId')->willReturn(7);
+        $this->addressData = [
+            'postcode' => '41118',
+            'region' => 'Stockholms län',
+            'region_id' => 1066,
+            'country_id' => 'SE',
+        ];
+        $address->expects(self::once())->method('setRegion')->with(null);
+        $address->expects(self::once())->method('setRegionId')->with(null);
         $address->expects(self::once())->method('setCustomerAddressId')->with(null);
 
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);

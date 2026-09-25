@@ -29,6 +29,7 @@ interface LinkInterface
     const FIELD_UNIFAUN_SHIPPING_AMOUNT = 'unifaun_shipping_amount';
     const FIELD_INGRID_SHIPPING_AMOUNT = 'ingrid_shipping_amount';
     const FIELD_IS_LOCKED = 'is_locked';
+    const FIELD_VALIDATED_AT = 'validated_at';
 
     /**
      * Get ID
@@ -141,6 +142,13 @@ interface LinkInterface
      * @return bool
      */
     public function getIsLocked(): bool;
+
+    /**
+     * Get the time Qliro validated the order, null while it has not
+     *
+     * @return string|null
+     */
+    public function getValidatedAt(): ?string;
 
     /**
      * Set ID
@@ -269,4 +277,12 @@ interface LinkInterface
      * @return LinkInterface
      */
     public function setIsLocked(bool $value): LinkInterface;
+
+    /**
+     * Set the time Qliro validated the order, null to clear it
+     *
+     * @param string|null $value
+     * @return $this
+     */
+    public function setValidatedAt(?string $value): LinkInterface;
 }
