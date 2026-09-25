@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.7.54] - 2026-09-25
+
+### Fixed
+
+- The address Qliro sends with the validation callback is put on the quote before the carriers are asked. Qliro masks the buyer's street and city until they identify, so a quote reaches that callback holding a country and a postcode and nothing else, and the callback itself carries the rest. `QuoteFromValidateConverter` applied it only to a virtual quote, which is the one kind of order that has no delivery to correct, so a physical order was rated against half an address. A carrier that answers only a complete destination then returns nothing: the merchant's own DHL module refuses outright on a missing street or city, which is why every one of these refusals took milliseconds and looked as though the carrier had never been asked. The delivery Qliro stated was therefore not among the rates, and the order was declined with `ShippingIsNotSupportedForPostalCode` whatever the buyer tried to pay with. On Vajper the rescue added in 1.7.49 ran twelve times in ten days and succeeded none of them, and seventeen separate checkouts reached the payment step and could not pay. The condition has been there since the first release (PLIN-376)
+
+### Changed
+
+- The refusal says what the rating answered. It named the code it could not find and nothing else, which cannot tell a carrier that returned nothing apart from one that returned a different set, and those two have nothing in common. It now carries the codes that were offered and which parts of the address were filled, the parts rather than the values, because the values are the buyer's (PLIN-376)
+
 ## [1.7.53] - 2026-09-24
 
 ### Fixed

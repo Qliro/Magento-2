@@ -247,6 +247,27 @@ class ValidateOrderBuilderShippingTest extends TestCase
                 return $this;
             }
 
+
+            public function getStreetLine($number)
+            {
+                return 'Sveavagen 1';
+            }
+
+            public function getCity(): string
+            {
+                return 'Stockholm';
+            }
+
+            public function getPostcode(): string
+            {
+                return '11122';
+            }
+
+            public function getCountryId(): string
+            {
+                return 'SE';
+            }
+
             public function getShippingInclTax(): float
             {
                 return $this->test->quoteShippingPrice();

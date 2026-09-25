@@ -174,19 +174,41 @@ class ValidateOrderBuilder
             $shippingAddress->collectShippingRates();
 
             $isOffered = false;
+            $offered = [];
 
             foreach ($shippingAddress->getAllShippingRates() as $rate) {
+                $offered[] = $rate->getCode();
+
                 if ($rate->getCode() === $code) {
                     $isOffered = true;
-
-                    break;
                 }
             }
 
             if (!$isOffered) {
+                /*
+                 * What the rating answered, not only that it did not answer with this. A line
+                 * that says a code was not found without saying what was found turns every
+                 * report of a declined order into an investigation: it cannot tell a carrier
+                 * that returned nothing apart from one that returned a different set, and those
+                 * two have nothing in common. The address is named by which parts of it are
+                 * filled, because a carrier that refuses an incomplete destination is the first
+                 * thing to rule out and the values themselves are the buyer's (PLIN-376).
+                 */
                 $this->logManager->debug(
                     'CALLBACK:VALIDATE: the method Qliro selected is not among the rates',
-                    ['extra' => ['quote_id' => $this->quote->getId(), 'qliro_method' => $code]]
+                    [
+                        'extra' => [
+                            'quote_id' => $this->quote->getId(),
+                            'qliro_method' => $code,
+                            'offered_methods' => $offered,
+                            'address_has' => [
+                                'street' => (bool)$shippingAddress->getStreetLine(1),
+                                'city' => (bool)$shippingAddress->getCity(),
+                                'postcode' => (bool)$shippingAddress->getPostcode(),
+                                'country' => (bool)$shippingAddress->getCountryId(),
+                            ],
+                        ],
+                    ]
                 );
 
                 return false;
