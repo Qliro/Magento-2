@@ -44,7 +44,7 @@ class Expire extends Action
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function execute()
     {

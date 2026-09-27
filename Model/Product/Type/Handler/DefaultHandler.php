@@ -87,7 +87,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getQliroOrderItem(TypeSourceItemInterface $item)
     {
@@ -140,7 +140,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getItem(
         QliroOrderItemInterface $qliroOrderItem,
@@ -157,7 +157,7 @@ class DefaultHandler implements TypeHandlerInterface
      * The reference carries the cart item id because the sku alone does not tell two lines apart:
      * a cart may hold one sku on several lines, and Qliro merges lines that share a reference
      *
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function prepareMerchantReference(TypeSourceItemInterface $item)
     {
@@ -165,7 +165,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function preparePrice(TypeSourceItemInterface $item, $taxIncluded = true)
     {
@@ -173,7 +173,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function prepareQuantity(TypeSourceItemInterface $item)
     {
@@ -181,7 +181,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function prepareDescription(TypeSourceItemInterface $item)
     {
@@ -189,7 +189,7 @@ class DefaultHandler implements TypeHandlerInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function prepareMetaData(TypeSourceItemInterface $item)
     {

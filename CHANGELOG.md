@@ -1,6 +1,23 @@
 
 # Change Log
 
+## [1.7.56] - 2026-09-27
+
+### Changed
+
+- Every PHP file of the module declares `strict_types=1`. Until now 181 of 434 did, split by the age of the file, so two classes calling each other could disagree on whether `"100.0000"` becomes a float or a `TypeError`. Strict types only govern the calls a file makes, its returns and its typed properties, so no signature Magento calls into changed: every fix is an explicit cast where the module makes the call. Valid input gives the result weak mode gave (PLIN-371)
+- The call sites that would have failed were found with a PHPStan rule over native types only, since a docblock `@return float` on a Magento getter says nothing about the database string it returns, and read file by file for what the rule cannot see: dynamic calls, `$proceed`, untyped receivers. Money paths first: order lines, fees, capture and refund builders, then the checkout, the callbacks and the API client, then the rest (PLIN-371)
+- `ContainerMapper` hands a typed setter the type it declares when the value comes from Qliro's JSON: a number into a string setter, a whole number string into an int or float setter. The saved card callback carries `CardBin` and `ExpiryMonth` as numbers into string setters, which is a fatal under strict types. A fraction or an id past the int range is not truncated into an int setter, it fails as before (PLIN-371)
+- `CONTRIBUTING.md` records the conventions: strict types in every file, casts at the call site and never on a signature Magento owns, constructor property promotion with `private readonly` for new code (PLIN-371)
+
+### Fixed
+
+- Sites that turn into fatals under strict types, found while rolling them out: `Helper/Data::formatPrice()` passed `false` as the thousands separator, which is on the price of every order line, fee and discount; `Service` passed an int Qliro order id to `str_replace` when building the URL of every GET and PUT; exceptions were built from a `Phrase` or from `getCode()` of a database exception, which is a string; ids, quantities and totals read from the database reached `int` and `float` parameters as strings (PLIN-371)
+- The `@inheirtDoc` and `@inerhitDoc` typos (PLIN-371)
+
+### Added
+
+- `Test/Unit/StrictTypesTest.php` fails on any PHP file without `declare(strict_types=1)`, and unit tests for the JSON to setter conversion, `formatPrice`, the shipping price the widget posts, and the ids the refund reads from the database (PLIN-371)
 ## [1.7.48] - 2026-09-22
 
 ### Fixed
