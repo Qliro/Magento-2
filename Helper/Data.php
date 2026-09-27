@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Helper;
 
@@ -196,7 +197,8 @@ class Data extends AbstractHelper
      */
     public function formatPrice($value)
     {
-        return \number_format($value, 2, '.', false);
+        // Only a DB value is converted; anything weak mode rejected still fails here
+        return \number_format($value === null || is_numeric($value) ? (float)$value : $value, 2, '.', '');
     }
 
     /**
