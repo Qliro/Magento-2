@@ -386,7 +386,11 @@ define([
 
             if (lockDeferred) {
                 lockCheckout();
-                armUnlockWatchdog();
+
+                // A refresh still queued or in flight arms it on its answer, a timer now could unlock before that
+                if (!refreshInFlight) {
+                    armUnlockWatchdog();
+                }
             }
         },
 
