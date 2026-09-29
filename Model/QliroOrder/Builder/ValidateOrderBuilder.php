@@ -151,6 +151,13 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
         }
 
+        if (!$this->applySelectedShippingMethod()) {
+            $this->quote = null;
+            $this->validationRequest = null;
+
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
+        }
+
         try {
             $this->logManager->debug('Starting to validate address for quote id: ' . $this->quote->getId());
             $this->customerManagement->validateAddresses($this->quote);
@@ -237,6 +244,87 @@ class ValidateOrderBuilder
         }
 
         return true;
+    }
+
+    /**
+     * Put the quote on the delivery Qliro validates, a late browser update may have left another (PLIN-461)
+     *
+     * @return bool False when the store prices that delivery differently than Qliro
+     */
+    private function applySelectedShippingMethod(): bool
+    {
+        if ($this->quote->isVirtual()) {
+            return true;
+        }
+
+        $storeId = $this->quote->getStoreId();
+
+        // Both put one fixed code of their own on the quote, which Qliro's selection is not
+        if ($this->config->isUnifaunEnabled($storeId) || $this->config->isIngridEnabled($storeId)) {
+            return true;
+        }
+
+        $code = (string)$this->validationRequest->getSelectedShippingMethod();
+        $shippingAddress = $this->quote->getShippingAddress();
+        $quoteMethod = (string)$shippingAddress->getShippingMethod();
+
+        if ($code === '' || $code === $quoteMethod) {
+            return true;
+        }
+
+        // Accepted as before, the quote keeps the method it has
+        if (!$shippingAddress->getShippingRateByCode($code)) {
+            $this->logValidateError(
+                'applySelectedShippingMethod',
+                'the method Qliro selected is not among the quote rates, the quote keeps its own',
+                ['quote_method' => $quoteMethod, 'qliro_method' => $code]
+            );
+
+            return true;
+        }
+
+        $shippingAddress->setShippingMethod($code);
+        $this->quote->setTotalsCollectedFlag(false);
+        $this->quote->collectTotals();
+
+        $quotePrice = (float)$shippingAddress->getShippingInclTax();
+        $qliroPrice = $this->getQliroShippingPrice();
+
+        // One öre of slack, the two amounts are rounded by different code
+        if (\abs(\round($quotePrice, 2) - \round($qliroPrice, 2)) > 0.011) {
+            $this->logValidateError(
+                'applySelectedShippingMethod',
+                'the store prices the method Qliro selected differently',
+                ['qliro_method' => $code, 'quote_price' => $quotePrice, 'qliro_price' => $qliroPrice]
+            );
+
+            return false;
+        }
+
+        $this->logManager->debug(
+            'CALLBACK:VALIDATE: applied the method Qliro selected',
+            ['extra' => ['quote_id' => $this->quote->getId(), 'quote_method' => $quoteMethod, 'qliro_method' => $code]]
+        );
+
+        return true;
+    }
+
+    /**
+     * What Qliro charges for delivery on this order, VAT included
+     *
+     * @return float
+     */
+    private function getQliroShippingPrice(): float
+    {
+        $total = 0.0;
+
+        foreach ($this->validationRequest->getOrderItems() ?? [] as $item) {
+            if ($item->getType() === QliroOrderItemInterface::TYPE_SHIPPING) {
+                $total += (float)$item->getPricePerItemIncVat() * (float)$item->getQuantity();
+            }
+        }
+
+        return $total;
     }
 
     /**

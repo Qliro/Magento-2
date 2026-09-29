@@ -14,6 +14,7 @@ use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
@@ -348,10 +349,12 @@ class PlaceOrder extends AbstractManagement
                         ]
                     );
 
-                    $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
+                    // The delivery Qliro charged for, not the one the quote's last update left (PLIN-461)
+                    $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
                     $this->addAdditionalInfoToQuote($link, $qliroOrder->getPaymentMethod());
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+                    $this->logShippingMismatch($qliroOrder);
 
                     $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
                     $order = $this->orderPlacer->place($this->getQuote());
@@ -608,6 +611,41 @@ class PlaceOrder extends AbstractManagement
                 Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME,
                 $paymentMethod->getPaymentMethodName()
             );
+        }
+    }
+
+    /**
+     * Record an order placed with another delivery than the Qliro order carries
+     *
+     * @param QliroOrderInterface $qliroOrder
+     */
+    private function logShippingMismatch(QliroOrderInterface $qliroOrder): void
+    {
+        $storeId = $this->getQuote()->getStoreId();
+
+        // Their lines are not referenced by a rate code
+        if ($this->getQuote()->isVirtual()
+            || $this->qliroConfig->isUnifaunEnabled($storeId)
+            || $this->qliroConfig->isIngridEnabled($storeId)
+        ) {
+            return;
+        }
+
+        $quoteMethod = (string)$this->getQuote()->getShippingAddress()->getShippingMethod();
+
+        foreach ($qliroOrder->getOrderItems() ?? [] as $orderItem) {
+            if ($orderItem->getType() !== QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+
+            $reference = (string)$orderItem->getMerchantReference();
+
+            if ($reference !== '' && $reference !== $quoteMethod) {
+                $this->logManager->debug(
+                    'Placing the order with another delivery than the Qliro order line',
+                    ['extra' => ['quote_method' => $quoteMethod, 'qliro_line_reference' => $reference]]
+                );
+            }
         }
     }
 

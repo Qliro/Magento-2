@@ -59,10 +59,11 @@ class QuoteFromOrderConverter
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderInterface $container
      * @param \Magento\Quote\Model\Quote $quote
+     * @param bool $useOrderedShipping Put the quote on the delivery of the Qliro order, for placing it
      * @return bool Whether the fetched order changed the customer or address on the quote
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    public function convert($container, Quote $quote)
+    public function convert($container, Quote $quote, bool $useOrderedShipping = false)
     {
         $applied = $this->customerConverter->convert($container->getCustomer(), $quote);
 
@@ -82,7 +83,7 @@ class QuoteFromOrderConverter
             ) || $applied;
         }
 
-        $this->orderItemsConverter->convert($container->getOrderItems(), $quote);
+        $this->orderItemsConverter->convert($container->getOrderItems(), $quote, $useOrderedShipping);
 
         $signupForNewsletter = $container->getSignupForNewsletter();
         if ($signupForNewsletter) {
