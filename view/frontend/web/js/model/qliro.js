@@ -29,36 +29,33 @@ define([
     getPaymentInformationAction,
     shippingService
 ) {
-    function sendUpdateQuote(timeout) {
+    function sendUpdateQuote() {
         return (
             $.ajax({
                 url: config.updateQuoteUrl + '?quote_id=' + quote.getQuoteId() + '&token=' + config.securityToken,
-                method: 'POST',
-                timeout: timeout || 0
+                method: 'POST'
             })
         )
     }
 
-    function sendAjaxAsJson(url, data, timeout) {
+    function sendAjaxAsJson(url, data) {
         qliroDebug('Calling sendAjaxAsJson', data);
         return $.ajax({
             url: url + '?token=' + config.securityToken,
             method: 'POST',
             data: JSON.stringify(data),
             processData: false,
-            contentType: 'application/json',
-            timeout: timeout || 0
+            contentType: 'application/json'
         });
     }
 
-    // A request that never answers must not stop every update behind it
-    var QUEUED_REQUEST_TIMEOUT_MS = 60000;
+    // No timeout: the store keeps running a request the browser gave up on, and the next one would race it
     var quoteUpdates = $.when();
 
     // One at a time, so the store saves the buyer's choices in the order they were made (PLIN-461)
     function enqueue(send) {
         var sent = quoteUpdates.then(function() {
-            return send(QUEUED_REQUEST_TIMEOUT_MS);
+            return send();
         });
 
         // A failed update must not hold back the ones behind it
@@ -70,8 +67,11 @@ define([
     }
 
     function sendQueuedUpdate(url, data) {
-        return enqueue(function(timeout) {
-            return sendAjaxAsJson(url, data, timeout);
+        // Copied now, so a payload the widget changes later is still sent as it was at the event
+        var payload = data === undefined ? data : JSON.parse(JSON.stringify(data));
+
+        return enqueue(function() {
+            return sendAjaxAsJson(url, payload);
         });
     }
 
@@ -334,6 +334,11 @@ define([
         }
 
         refreshInFlight = true;
+        // Locked while it waits too, so the buyer cannot pay the total it is about to change. What the
+        // previous refresh left behind could unlock it before this one is sent
+        clearTimeout(unlockWatchdog);
+        unlockWatchdog = null;
+        expectedTotalPrice = null;
         lockCheckout();
 
         enqueue(sendUpdateQuote)

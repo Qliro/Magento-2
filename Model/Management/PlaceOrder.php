@@ -615,7 +615,7 @@ class PlaceOrder extends AbstractManagement
     }
 
     /**
-     * Record an order placed with another delivery than the Qliro order carries
+     * Record an order placed with another delivery or delivery price than the Qliro order carries
      *
      * @param QliroOrderInterface $qliroOrder
      */
@@ -631,21 +631,33 @@ class PlaceOrder extends AbstractManagement
             return;
         }
 
-        $quoteMethod = (string)$this->getQuote()->getShippingAddress()->getShippingMethod();
+        $shippingAddress = $this->getQuote()->getShippingAddress();
+        $quoteMethod = (string)$shippingAddress->getShippingMethod();
+        $quotePrice = (float)$shippingAddress->getShippingInclTax();
+        $references = [];
+        $qliroPrice = 0.0;
 
         foreach ($qliroOrder->getOrderItems() ?? [] as $orderItem) {
-            if ($orderItem->getType() !== QliroOrderItemInterface::TYPE_SHIPPING) {
-                continue;
+            if ($orderItem->getType() === QliroOrderItemInterface::TYPE_SHIPPING) {
+                $references[] = (string)$orderItem->getMerchantReference();
+                $qliroPrice += (float)$orderItem->getPricePerItemIncVat() * (float)$orderItem->getQuantity();
             }
+        }
 
-            $reference = (string)$orderItem->getMerchantReference();
+        $isOtherMethod = $references && !in_array($quoteMethod, $references, true);
 
-            if ($reference !== '' && $reference !== $quoteMethod) {
-                $this->logManager->debug(
-                    'Placing the order with another delivery than the Qliro order line',
-                    ['extra' => ['quote_method' => $quoteMethod, 'qliro_line_reference' => $reference]]
-                );
-            }
+        if ($isOtherMethod || \abs(\round($quotePrice, 2) - \round($qliroPrice, 2)) > 0.011) {
+            $this->logManager->debug(
+                'Placing the order with another delivery than the Qliro order carries',
+                [
+                    'extra' => [
+                        'quote_method' => $quoteMethod,
+                        'quote_price' => $quotePrice,
+                        'qliro_line_references' => $references,
+                        'qliro_price' => $qliroPrice,
+                    ],
+                ]
+            );
         }
     }
 

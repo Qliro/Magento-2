@@ -6,10 +6,15 @@
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
+use Magento\Framework\App\Area;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Validator\Exception;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\SubmitQuoteValidator;
+use Magento\Store\Model\App\Emulation;
+use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
@@ -47,6 +52,10 @@ class ValidateOrderBuilder
      * @param SubmitQuoteValidator $submitQuoteValidator
      * @param CustomerManagement $customerManagement
      * @param Config $config
+     * @param WholeQuantityValidator $wholeQuantityValidator
+     * @param CartRepositoryInterface|null $quoteRepository
+     * @param StoreManagerInterface|null $storeManager
+     * @param Emulation|null $storeEmulation
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -57,7 +66,10 @@ class ValidateOrderBuilder
         private SubmitQuoteValidator $submitQuoteValidator,
         private CustomerManagement $customerManagement,
         private Config $config,
-        private WholeQuantityValidator $wholeQuantityValidator
+        private WholeQuantityValidator $wholeQuantityValidator,
+        private ?CartRepositoryInterface $quoteRepository = null,
+        private ?StoreManagerInterface $storeManager = null,
+        private ?Emulation $storeEmulation = null
     ) {
     }
 
@@ -155,7 +167,8 @@ class ValidateOrderBuilder
             $this->quote = null;
             $this->validationRequest = null;
 
-            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_SHIPPING);
+            // A price disagreement, like one on a product line, not a delivery the address cannot get
+            return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
         }
 
         try {
@@ -253,7 +266,8 @@ class ValidateOrderBuilder
      */
     private function applySelectedShippingMethod(): bool
     {
-        if ($this->quote->isVirtual()) {
+        // A quote that is already an order is left alone, as the stock check does for a resent callback
+        if ($this->quote->isVirtual() || !$this->quote->getIsActive()) {
             return true;
         }
 
@@ -283,7 +297,56 @@ class ValidateOrderBuilder
             return true;
         }
 
+        // The callback runs in the default store view, and totals are collected in the current one's currency
+        $quoteStoreId = (int)$storeId;
+        $isEmulated = false;
+
+        try {
+            if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->getStoreManager()->getStore()->getId()) {
+                $this->getStoreEmulation()->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
+                // Magento refuses a nested emulation silently, so only a start that took owns a stop
+                $isEmulated = $quoteStoreId === (int)$this->getStoreManager()->getStore()->getId();
+            }
+        } catch (\Exception $exception) {
+            $this->logValidateError(
+                'applySelectedShippingMethod',
+                'could not enter the quote store view, the quote keeps its own method: ' . $exception->getMessage(),
+                ['quote_method' => $quoteMethod, 'qliro_method' => $code]
+            );
+
+            return true;
+        }
+
+        try {
+            return $this->switchToSelectedMethod($code, $quoteMethod);
+        } finally {
+            if ($isEmulated) {
+                $this->getStoreEmulation()->stopEnvironmentEmulation();
+            }
+        }
+    }
+
+    /**
+     * Move the quote to the method Qliro selected, at Qliro's price, and save it
+     *
+     * @param string $code
+     * @param string $quoteMethod
+     * @return bool False when the store prices that method differently than Qliro
+     */
+    private function switchToSelectedMethod(string $code, string $quoteMethod): bool
+    {
+        $shippingAddress = $this->quote->getShippingAddress();
         $shippingAddress->setShippingMethod($code);
+
+        // The repository saves the method of the shipping assignment, not the one on the address
+        $assignments = $this->quote->getExtensionAttributes()
+            ? $this->quote->getExtensionAttributes()->getShippingAssignments()
+            : null;
+
+        foreach (is_array($assignments) ? $assignments : [] as $assignment) {
+            $assignment->getShipping()->setMethod($code);
+        }
+
         $this->quote->setTotalsCollectedFlag(false);
         $this->quote->collectTotals();
 
@@ -301,6 +364,18 @@ class ValidateOrderBuilder
             return false;
         }
 
+        // Saved, so placing the order starts from it even when the Qliro order has no shipping line.
+        // A failed save is no reason to refuse the payment, placing applies the Qliro line again
+        try {
+            $this->getQuoteRepository()->save($this->quote);
+        } catch (\Exception $exception) {
+            $this->logValidateError(
+                'applySelectedShippingMethod',
+                'could not save the quote on the method Qliro selected: ' . $exception->getMessage(),
+                ['qliro_method' => $code]
+            );
+        }
+
         $this->logManager->debug(
             'CALLBACK:VALIDATE: applied the method Qliro selected',
             ['extra' => ['quote_id' => $this->quote->getId(), 'quote_method' => $quoteMethod, 'qliro_method' => $code]]
@@ -312,7 +387,7 @@ class ValidateOrderBuilder
     /**
      * What Qliro charges for delivery on this order, VAT included
      *
-     * @return float
+     * @return float Zero when the order carries no shipping line, which is what Qliro charges then
      */
     private function getQliroShippingPrice(): float
     {
@@ -325,6 +400,27 @@ class ValidateOrderBuilder
         }
 
         return $total;
+    }
+
+    /**
+     * These three are resolved on first use, Magento passes null for an optional argument instead of injecting it
+     *
+     * @return CartRepositoryInterface
+     */
+    private function getQuoteRepository(): CartRepositoryInterface
+    {
+        return $this->quoteRepository
+            ??= ObjectManager::getInstance()->get(CartRepositoryInterface::class);
+    }
+
+    private function getStoreManager(): StoreManagerInterface
+    {
+        return $this->storeManager ??= ObjectManager::getInstance()->get(StoreManagerInterface::class);
+    }
+
+    private function getStoreEmulation(): Emulation
+    {
+        return $this->storeEmulation ??= ObjectManager::getInstance()->get(Emulation::class);
     }
 
     /**
