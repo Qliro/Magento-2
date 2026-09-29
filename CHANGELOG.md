@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.7.57] - 2026-09-29
+
+### Fixed
+
+- The c/o the buyer gives in the checkout now reaches the order. Qliro sends it as `CareOf` in the validate callback and in the order read before placement, and `AddressConverter` set it on the quote address as `care_of`, a field Magento does not have, so it was dropped when the quote was saved and the order was placed with an incomplete address. It is now written as a street line under the street, `c/o Rosi Röckl`, on both the billing and the shipping address, which is where the admin, the invoice, the PDF and a shipping integration read the address from. It goes under the street and not above it because an integration takes the first line as the street its carrier validates. No schema change, so nothing has to be installed for it. A repeated payload does not add the line twice, a c/o the buyer typed with the prefix keeps theirs, and a c/o the buyer removes in the checkout is removed from the quote (PLIN-459)
+- A quote address carrying such a line is sent to Qliro with the c/o in `CareOf` and the street without it, so a recurring order or a prefilled checkout does not hand Qliro the c/o glued to the street. The first line is always read as the street (PLIN-459)
+
+### Added
+
+- Unit tests for the c/o on the quote address, a repeated payload, a prefix typed by the buyer, a removed c/o, a masked address without a street, and the c/o line sent back to Qliro in its own field (PLIN-459)
 ## [1.7.48] - 2026-09-22
 
 ### Fixed
