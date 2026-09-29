@@ -489,6 +489,19 @@ class AddressConverterTest extends TestCase
         self::assertSame("Sveavagen 1\nC/O Rosi Röckl", $this->addressData['street']);
     }
 
+    public function testDoesNotRepeatACareOfTheStreetAlreadyCarries(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress(null, 'Rosi Röckl', "Sveavagen 1\nC/O Rosi Röckl"),
+            null,
+            $address
+        );
+
+        self::assertSame("Sveavagen 1\nC/O Rosi Röckl", $this->addressData['street']);
+    }
+
     public function testDropsTheCareOfLineTheBuyerRemoved(): void
     {
         $address = $this->address();
@@ -512,6 +525,15 @@ class AddressConverterTest extends TestCase
         $this->converter->convert($qliroAddress, null, $address);
 
         self::assertSame('Sveavagen 1', $this->addressData['street']);
+    }
+
+    public function testWritesNoCareOfUnderAnEmptyStreet(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert($this->qliroAddress(null, 'Rosi Röckl', ''), null, $address);
+
+        self::assertStringNotContainsString('c/o', (string)($this->addressData['street'] ?? ''));
     }
 
     /**

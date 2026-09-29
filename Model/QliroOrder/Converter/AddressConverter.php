@@ -99,14 +99,18 @@ class AddressConverter
         $street = $qliroAddress->getStreet();
         $careOf = trim((string)$qliroAddress->getCareOf());
 
-        if ($street === null || $careOf === '') {
+        $isBlank = trim(implode('', (array)$street)) === '';
+
+        if ($isBlank || $careOf === '') {
             return $street;
         }
 
         $lines = is_array($street) ? $street : explode("\n", (string)$street);
         $careOfLine = preg_match(CustomerAddressBuilder::CARE_OF_PATTERN, $careOf) ? $careOf : 'c/o ' . $careOf;
 
-        if (!in_array($careOfLine, array_map('trim', $lines), true)) {
+        $normalize = fn ($line) => mb_strtolower(trim((string)$line));
+
+        if (!in_array($normalize($careOfLine), array_map($normalize, $lines), true)) {
             $lines[] = $careOfLine;
         }
 
