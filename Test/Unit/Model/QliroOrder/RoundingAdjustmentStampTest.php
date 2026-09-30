@@ -98,7 +98,7 @@ class RoundingAdjustmentStampTest extends TestCase
     private function productLine(): QliroOrderItemInterface
     {
         return (new Item())
-            ->setMerchantReference('519:Kanalplast')
+            ->setMerchantReference('519:SKU-CABLE')
             ->setType(QliroOrderItemInterface::TYPE_PRODUCT)
             ->setQuantity(50)
             ->setPricePerItemIncVat(57.43)
