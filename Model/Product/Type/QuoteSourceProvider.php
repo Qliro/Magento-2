@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Product\Type;
 
@@ -174,12 +175,12 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
             /** @var TypeSourceItemInterface $sourceItem */
             $sourceItem = $this->typeSourceItemFactory->create();
 
-            $sourceItem->setId($item->getItemId());
+            $sourceItem->setId((int)$item->getItemId());
             $sourceItem->setName($item->getName());
             $sourceItem->setPriceInclTax((float)$item->getPriceInclTax());
             $sourceItem->setPriceExclTax((float)$item->getPrice());
             $sourceItem->setVatRate($this->vatRate->getVatRateForProduct($item));
-            $sourceItem->setQty($item->getQty());
+            $sourceItem->setQty((float)$item->getQty());
             $sku = $item->getSku() ?? $item->getProduct()?->getSku() ?? '';
             $sourceItem->setSku((string)$sku);
             $sourceItem->setType($item->getProductType());

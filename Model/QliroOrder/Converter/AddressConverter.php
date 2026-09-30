@@ -3,12 +3,14 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
 use Magento\Directory\Helper\Data as DirectoryHelper;
 use Magento\Framework\App\ObjectManager;
 use Magento\Quote\Model\Quote\Address;
+use Qliro\QliroOne\Model\QliroOrder\Builder\CustomerAddressBuilder;
 
 /**
  * QliroOne order address converter class
@@ -61,8 +63,7 @@ class AddressConverter
             'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
             'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,
             'email' => $qliroCustomer? $qliroCustomer->getEmail() : null,
-            'care_of' => $qliroAddress ? $qliroAddress->getCareOf() : null, // Is ignored for now if no attribute
-            'street' => $qliroAddress ? $qliroAddress->getStreet() : null,
+            'street' => $qliroAddress ? $this->getStreetWithCareOf($qliroAddress) : null,
             'telephone' => $qliroCustomer ? $qliroCustomer->getMobileNumber() : null,
             'city' => $qliroAddress ? $qliroAddress->getCity() : null,
             'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
@@ -183,6 +184,39 @@ class AddressConverter
     }
 
     /**
+     * The street Qliro sent, with the c/o as a line under it
+     *
+     * Magento has no c/o field, and a street line is what the admin, the invoice, the PDF and a
+     * shipping integration all print. It goes under the street, not above it, because an
+     * integration takes the first line as the street its carrier validates.
+     *
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroAddress
+     * @return string|string[]|null
+     */
+    private function getStreetWithCareOf($qliroAddress)
+    {
+        $street = $qliroAddress->getStreet();
+        $careOf = trim((string)$qliroAddress->getCareOf());
+
+        $isBlank = trim(implode('', (array)$street)) === '';
+
+        if ($isBlank || $careOf === '') {
+            return $street;
+        }
+
+        $lines = is_array($street) ? $street : explode("\n", (string)$street);
+        $careOfLine = preg_match(CustomerAddressBuilder::CARE_OF_PATTERN, $careOf) ? $careOf : 'c/o ' . $careOf;
+
+        $normalize = fn ($line) => mb_strtolower(trim((string)$line));
+
+        if (!in_array($normalize($careOfLine), array_map($normalize, $lines), true)) {
+            $lines[] = $careOfLine;
+        }
+
+        return implode("\n", $lines);
+    }
+
+    /**
      * The organisation number of a company buyer, null for a buyer who is not one
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null $qliroAddress
@@ -259,9 +293,9 @@ class AddressConverter
                 '/^\s*%s(?![\s.,:;\/-]*\d)[\s.,:;\/-]*/',
                 implode('[\s.-]*', str_split($digits))
             );
-            $stripped = trim((string)preg_replace($pattern, '', $company));
+            $stripped = trim((string)preg_replace($pattern, '', (string)$company));
 
-            if ($stripped !== '' && $stripped !== trim($company)) {
+            if ($stripped !== '' && $stripped !== trim((string)$company)) {
                 return $stripped;
             }
         }

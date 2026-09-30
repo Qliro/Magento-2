@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -289,7 +290,7 @@ class Quote extends AbstractManagement
             $link = $this->linkRepository->getByQuoteId($quoteId);
             $this->logManager->debug('Link found for quote ' . $quoteId);
         } catch (NoSuchEntityException $exception) {
-            $link = $this->createBlankLink($quoteId);
+            $link = $this->createBlankLink((int) $quoteId);
         }
 
         $this->handleCountrySelect($link);
@@ -312,7 +313,7 @@ class Quote extends AbstractManagement
                         $quoteId
                     )
                 );
-                $link = $this->createBlankLink($quoteId);
+                $link = $this->createBlankLink((int) $quoteId);
             }
         }
 

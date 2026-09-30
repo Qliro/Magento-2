@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Api\Admin\CreditMemo;
 
 use Magento\Sales\Api\Data\CreditmemoInterface;

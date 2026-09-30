@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
@@ -92,7 +93,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                     ],
                 ]
             );
-            throw new TerminalException('Could not handle Invoice Success', $exception->getCode(), $exception);
+            throw new TerminalException('Could not handle Invoice Success', (int)$exception->getCode(), $exception);
         }
 
         $this->captureTransactionUpdater->update(
@@ -198,7 +199,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
         }
     }
 
@@ -232,7 +233,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
         }
     }
 
@@ -265,7 +266,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
         }
     }
 }

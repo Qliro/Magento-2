@@ -26,7 +26,8 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `payment/qliroone/api/capture_on_invoice 0`, otherwise invoicing calls Qliro and fails
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
-- `Test/E2e/seed/seed-qliro-order.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
+- `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
 
 ## Running
 
@@ -96,3 +97,12 @@ npx playwright test checkout-guest-email
 | `QLIRO_E2E_POSTCODE` | `11329` |
 | `QLIRO_E2E_LOCALE` | `sv-SE` |
 | `QLIRO_E2E_USER_AGENT` | a desktop Chrome string |
+
+## The delivery the buyer chose
+
+`tests/shipping-selection.spec.ts` covers PLIN-461, an order placed with a delivery the buyer had
+already moved away from. `seed/seed-shipping-mismatch.php` leaves a quote on Flat Rate while the
+Qliro side says free shipping, the tests send the validate callback to the store and place the order
+from that Qliro order. The browser test holds the first of two delivery updates back on the network,
+which is how the second one used to overtake it, and reads which delivery the quote ended on.
+Reverting the fix turns all four red.

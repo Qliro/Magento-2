@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -116,7 +117,7 @@ class SavedCreditCard extends AbstractManagement
             $this->recurringDataService->orderSetter($order, $recurringInfo);
             $this->orderRepo->save($order);
 
-            $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($link->getOrderId());
+            $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId((int)$link->getOrderId());
             if (!$recurringInfo->getId()) {
                 $this->logManager->notice(
                     'MerchantSavedCreditCardNotification received before recurring info created, responding with order pending',

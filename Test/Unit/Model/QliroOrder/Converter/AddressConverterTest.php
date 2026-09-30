@@ -541,12 +541,98 @@ class AddressConverterTest extends TestCase
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
     }
 
-    private function qliroAddress(?string $company = null): QliroOrderCustomerAddressInterface&MockObject
+    /**
+     * Magento has no c/o field, so the value Qliro sent was set on the quote and lost on save.
+     */
+    public function testWritesTheCareOfAsAStreetLineUnderTheStreet(): void
     {
+        $address = $this->address();
+
+        $this->converter->convert($this->qliroAddress(null, 'Rosi Röckl', 'Sveavagen 1'), null, $address);
+
+        self::assertSame("Sveavagen 1\nc/o Rosi Röckl", $this->addressData['street']);
+        self::assertArrayNotHasKey('care_of', $this->addressData);
+    }
+
+    public function testDoesNotAddTheCareOfTwiceOnARepeatedPayload(): void
+    {
+        $address = $this->address();
+        $qliroAddress = $this->qliroAddress(null, 'Rosi Röckl', 'Sveavagen 1');
+        $this->converter->convert($qliroAddress, null, $address);
+
+        self::assertFalse($this->converter->convert($qliroAddress, null, $address));
+        self::assertSame("Sveavagen 1\nc/o Rosi Röckl", $this->addressData['street']);
+    }
+
+    public function testKeepsThePrefixTheBuyerTypedThemselves(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert($this->qliroAddress(null, 'C/O Rosi Röckl', 'Sveavagen 1'), null, $address);
+
+        self::assertSame("Sveavagen 1\nC/O Rosi Röckl", $this->addressData['street']);
+    }
+
+    public function testDoesNotRepeatACareOfTheStreetAlreadyCarries(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress(null, 'Rosi Röckl', "Sveavagen 1\nC/O Rosi Röckl"),
+            null,
+            $address
+        );
+
+        self::assertSame("Sveavagen 1\nC/O Rosi Röckl", $this->addressData['street']);
+    }
+
+    public function testDropsTheCareOfLineTheBuyerRemoved(): void
+    {
+        $address = $this->address();
+        $this->addressData['street'] = "Sveavagen 1\nc/o Rosi Röckl";
+
+        self::assertTrue($this->converter->convert($this->qliroAddress(null, '', 'Sveavagen 1'), null, $address));
+        self::assertSame('Sveavagen 1', $this->addressData['street']);
+    }
+
+    /**
+     * A masked address has no street, and a c/o on its own is not one.
+     */
+    public function testWritesNoCareOfWithoutAStreet(): void
+    {
+        $address = $this->address();
+        $this->addressData['street'] = 'Sveavagen 1';
+
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getCareOf')->willReturn('Rosi Röckl');
+
+        $this->converter->convert($qliroAddress, null, $address);
+
+        self::assertSame('Sveavagen 1', $this->addressData['street']);
+    }
+
+    public function testWritesNoCareOfUnderAnEmptyStreet(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert($this->qliroAddress(null, 'Rosi Röckl', ''), null, $address);
+
+        self::assertStringNotContainsString('c/o', (string)($this->addressData['street'] ?? ''));
+    }
+
+    /**
+     * @param string|string[] $street
+     */
+    private function qliroAddress(
+        ?string $company = null,
+        ?string $careOf = null,
+        $street = ['Sveavagen 1']
+    ): QliroOrderCustomerAddressInterface&MockObject {
         $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
         $qliroAddress->method('getFirstName')->willReturn('Ada');
         $qliroAddress->method('getLastName')->willReturn('Lovelace');
-        $qliroAddress->method('getStreet')->willReturn(['Sveavagen 1']);
+        $qliroAddress->method('getCareOf')->willReturn($careOf);
+        $qliroAddress->method('getStreet')->willReturn($street);
         $qliroAddress->method('getCity')->willReturn('Stockholm');
         $qliroAddress->method('getPostalCode')->willReturn('11122');
         $qliroAddress->method('getCompanyName')->willReturn($company);

@@ -197,6 +197,12 @@ class ValidateOrderBuilderStoreEmulationTest extends TestCase
                 return $this;
             }
 
+            /** @return DataObject|false */
+            public function getShippingRateByCode($code)
+            {
+                return \in_array($code, $this->offeredRates, true) ? new DataObject(['code' => $code]) : false;
+            }
+
             /** @return DataObject[] */
             public function getAllShippingRates(): array
             {
