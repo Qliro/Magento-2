@@ -10,12 +10,12 @@ use Magento\Framework\Logger\Handler\Base as BaseHandler;
 class ErrorFile extends BaseHandler
 {
     /**
-     * {@inheirtDoc}
+     * {@inheritDoc}
      */
     protected $fileName = '/var/log/qliroone_error.log';
 
     /**
-     * {@inheirtDoc}
+     * {@inheritDoc}
      */
     protected $loggerType = \Monolog\Logger::ERROR;
 }

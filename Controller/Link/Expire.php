@@ -40,7 +40,7 @@ class Expire implements HttpPostActionInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function execute()
     {

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\CreditMemo;
 
 use Magento\Sales\Api\Data\CreditmemoInterface;
@@ -38,8 +40,8 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
 
         if ($useQtyRefundedOnly) {
             return bccomp(
-                    $order->getBaseTotalRefunded(),
-                    $order->getGrandTotal()
+                    (string)$order->getBaseTotalRefunded(),
+                    (string)$order->getGrandTotal()
                 ) != -1;
         }
 
@@ -58,7 +60,7 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
             ? $totalRefunded + $totalCreditMemo - $fee
             : $totalRefunded + $totalCreditMemo;
 
-        if (bccomp($orderTotalRefunded, $orderGrandTotal) != -1) {
+        if (bccomp((string)$orderTotalRefunded, (string)$orderGrandTotal) != -1) {
             return true;
         }
 
