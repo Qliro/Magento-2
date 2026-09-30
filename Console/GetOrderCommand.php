@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
@@ -82,7 +83,7 @@ class GetOrderCommand extends AbstractCommand
             $responseContainer = $merchant->getOrder($this->orderId);
             $responsePayload = $containerMapper->toArray($responseContainer);
 
-            fprintf(STDOUT, \json_encode($responsePayload, JSON_PRETTY_PRINT));
+            fprintf(STDOUT, (string) \json_encode($responsePayload, JSON_PRETTY_PRINT));
 
             if ($this->createMagentoOrder) {
                 /** @var \Qliro\QliroOne\Model\Management $management */
@@ -110,7 +111,7 @@ class GetOrderCommand extends AbstractCommand
 
             fprintf(
                 STDOUT,
-                \json_encode(
+                (string) \json_encode(
                     [
                         'request.uri' => $origException->getRequest()->getUri(),
                         'request.method' => $origException->getRequest()->getMethod(),

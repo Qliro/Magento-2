@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
@@ -111,7 +112,7 @@ class UpdateCountry implements HttpPostActionInterface
         }
 
         $data = $this->dataHelper->readPreparedPayload($this->request, 'AJAX:UPDATE_COUNTRY');
-        $countryId = $data['countryId'] ?? '';
+        $countryId = (string)($data['countryId'] ?? '');
         $this->countrySelect->registerCountryChangeInput($countryId);
 
         return $this->dataHelper->sendPreparedPayload(
