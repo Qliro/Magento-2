@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
@@ -96,8 +97,8 @@ class FeeBuilder
 
         $container->setMerchantReference($this->qliroConfig->getFeeMerchantReference());
         $container->setDescription($this->qliroConfig->getFeeMerchantReference());
-        $container->setPricePerItemIncVat($priceIncVat);
-        $container->setPricePerItemExVat($priceExVat);
+        $container->setPricePerItemIncVat((float)$priceIncVat);
+        $container->setPricePerItemExVat((float)$priceExVat);
         // The fee model rounds both amounts, so the rate is asked for rather than read off them
         $container->setVatRate($this->fee->getQlirooneFeeVatRate($this->quote));
         $container->setQuantity(1);

@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Controller\Adminhtml\Recurring;
 
 use Magento\Framework\App\Action\HttpPostActionInterface as HttpPostActionInterface;
@@ -64,7 +67,7 @@ class Cancel extends \Magento\Sales\Controller\Adminhtml\Order\AbstractMassActio
         foreach ($collection->getItems() as $order) {
             try {
         
-                $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($order->getEntityId());
+                $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId((int)$order->getEntityId());
                 if (!$recurringInfo->getId()) {
                     $this->messageManager->addNoticeMessage(
                         __('Order #%1 is not a recurring order.', $order->getIncrementId())

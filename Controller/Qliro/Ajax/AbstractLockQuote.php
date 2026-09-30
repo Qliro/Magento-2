@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
@@ -154,7 +155,7 @@ abstract class AbstractLockQuote implements HttpPostActionInterface, CsrfAwareAc
         if (ctype_digit($rawId)) {
             $quoteId = (int)$rawId;
         } else {
-            $quoteId = $this->maskedQuoteIdToQuoteId->execute($rawId);
+            $quoteId = $this->maskedQuoteIdToQuoteId->execute((string)$rawId);
         }
 
         return $this->cartRepository->get($quoteId);

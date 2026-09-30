@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
@@ -84,7 +85,7 @@ class LockCommand extends AbstractCommand
 
             fprintf(
                 STDOUT,
-                \json_encode(
+                (string) \json_encode(
                     [
                         'request.uri' => $origException->getRequest()->getUri(),
                         'request.method' => $origException->getRequest()->getMethod(),

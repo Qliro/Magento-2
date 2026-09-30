@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
@@ -161,9 +162,9 @@ class AddressConverter
                 '/^\s*%s(?![\s.,:;\/-]*\d)[\s.,:;\/-]*/',
                 implode('[\s.-]*', str_split($digits))
             );
-            $stripped = trim((string)preg_replace($pattern, '', $company));
+            $stripped = trim((string)preg_replace($pattern, '', (string)$company));
 
-            if ($stripped !== '' && $stripped !== trim($company)) {
+            if ($stripped !== '' && $stripped !== trim((string)$company)) {
                 return $stripped;
             }
         }

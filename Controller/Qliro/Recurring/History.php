@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Controller\Qliro\Recurring;
 
 use Magento\Customer\Controller\AccountInterface;
