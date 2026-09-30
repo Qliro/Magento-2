@@ -10,7 +10,7 @@ use Magento\Framework\Logger\Handler\Base as BaseHandler;
 class File extends BaseHandler
 {
     /**
-     * {@inheirtDoc}
+     * {@inheritDoc}
      */
     protected $fileName = '/var/log/qliroone.log';
 }

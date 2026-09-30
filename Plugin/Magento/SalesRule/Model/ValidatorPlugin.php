@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Plugin\Magento\SalesRule\Model;
 
 use Qliro\QliroOne\Model\Config;

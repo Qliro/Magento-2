@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -152,7 +153,7 @@ class CheckoutStatus extends AbstractManagement
 
                     if (!$tooEarly) {
                         if (!$this->lock->lock($qliroOrderId)) {
-                            throw new FailToLockException(__('Failed to acquire lock when placing order'));
+                            throw new FailToLockException((string)__('Failed to acquire lock when placing order'));
                         }
 
                         $this->orderLocked = true;
@@ -215,7 +216,7 @@ class CheckoutStatus extends AbstractManagement
                 }
             } else {
                 if (!$this->lock->lock($qliroOrderId)) {
-                    throw new FailToLockException(__('Failed to acquire lock when updating order status'));
+                    throw new FailToLockException((string)__('Failed to acquire lock when updating order status'));
                 }
 
                 $this->orderLocked = true;

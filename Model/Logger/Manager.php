@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Logger;
 
@@ -294,7 +295,7 @@ class Manager
         $stack = '';
         $skip = strpos($exception->getFile(), 'module-qliroone/') + 16;
         foreach (array_slice($exception->getTrace(), 1, $levels) as $one) {
-            $stack .= sprintf('|%s:%s', substr($one['file'], $skip), $one['line']);
+            $stack .= sprintf('|%s:%s', substr((string) ($one['file'] ?? ''), $skip), $one['line']);
         }
 
         return substr($stack, 1);

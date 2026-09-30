@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -200,13 +201,13 @@ class PlaceOrder extends AbstractManagement
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
                         throw new OrderPlacementPendingException(
-                            __('QliroOne order status is "InProcess" and order cannot be placed.')
+                            (string) __('QliroOne order status is "InProcess" and order cannot be placed.')
                         );
                     }
                     $this->logManager->debug('Starting to lock Qliro order id: ' . $qliroOrderId);
                     if (!$this->lock->lock($qliroOrderId)) {
                         $this->logManager->debug('Lock failed for order id: ' . $qliroOrderId);
-                        throw new FailToLockException(__('Failed to aquire lock when placing order'));
+                        throw new FailToLockException((string) __('Failed to aquire lock when placing order'));
                     }
 
                     $this->prepareQuoteRecurringInfo();
@@ -252,7 +253,7 @@ class PlaceOrder extends AbstractManagement
                     );
                     $this->lock->unlock($qliroOrderId);
 
-                    throw new TerminalException('Order placement failed', $exception->getCode(), $exception);
+                    throw new TerminalException('Order placement failed', (int) $exception->getCode(), $exception);
                 }
             } else {
                 $order = $this->orderRepository->get($orderId);
@@ -268,7 +269,7 @@ class PlaceOrder extends AbstractManagement
                     ],
                 ]
             );
-            throw new TerminalException('Failed to link current session with Qliro One order', $exception->getCode(), $exception);
+            throw new TerminalException('Failed to link current session with Qliro One order', (int) $exception->getCode(), $exception);
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 $exception,
@@ -281,7 +282,7 @@ class PlaceOrder extends AbstractManagement
                 ]
             );
 
-            throw new TerminalException('Something went wrong during order placement polling', $exception->getCode(), $exception);
+            throw new TerminalException('Something went wrong during order placement polling', (int) $exception->getCode(), $exception);
         }
 
         return $order;
@@ -417,7 +418,7 @@ class PlaceOrder extends AbstractManagement
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int) $exception->getCode(), $exception);
         } finally {
             $this->logManager->setMark(null);
         }
