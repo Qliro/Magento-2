@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Converter;
 
@@ -67,9 +68,10 @@ class OrderItemsConverter
      *
      * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $qliroOrderItems
      * @param \Magento\Quote\Model\Quote $quote
+     * @param bool $useOrderedShipping Put the quote on the delivery of the Qliro order, when it was rated for it
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    public function convert($qliroOrderItems, Quote $quote)
+    public function convert($qliroOrderItems, Quote $quote, bool $useOrderedShipping = false)
     {
         $feeAmount = 0;
         $shippingCode = null;
@@ -88,7 +90,7 @@ class OrderItemsConverter
                     break;
 
                 case QliroOrderItemInterface::TYPE_SHIPPING:
-                    $shippingMerchantRef = $orderItem->getMerchantReference();
+                    $shippingMerchantRef = (string)$orderItem->getMerchantReference();
                     break;
 
                 case QliroOrderItemInterface::TYPE_DISCOUNT:
@@ -111,6 +113,15 @@ class OrderItemsConverter
         }
 
         $quote->getPayment()->setAdditionalInformation('qliroone_fees', $qliroFees);
+
+        // Unifaun and Ingrid reference their lines by something the quote was never rated for (PLIN-461)
+        if ($useOrderedShipping
+            && !$quote->isVirtual()
+            && $shippingMerchantRef !== ''
+            && $quote->getShippingAddress()->getShippingRateByCode($shippingMerchantRef)
+        ) {
+            $shippingCode = $shippingMerchantRef;
+        }
 
         if (!$quote->isVirtual() && $shippingCode && $shippingMerchantRef) {
             $this->applyShippingMethod($shippingCode, $quote, $shippingMerchantRef);

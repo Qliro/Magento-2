@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.7.50] - 2026-09-22
+## [1.7.60] - 2026-09-30
 
 ### Fixed
 
@@ -13,6 +13,45 @@
 - The adjustment is bounded by what rounding can honestly produce, half an öre per unit plus the öre the store's own total is rounded by. A larger disagreement is not rounding and is left to the checkout guard rather than absorbed into a line, because a line that hid it would let the customer pay a total nothing checked (PLIN-408)
 - An order the module places is stamped with the adjustment its reservation holds, `qliro_rounding_adjustment` on the payment, and the first capture replays that line rather than deriving a new one. The amount belongs to the cart as a whole, like the discount, so it goes out once and whole. A reservation that needs no adjustment clears the stamp instead of leaving the one an earlier, failed placement attempt wrote. An order placed before this release carries no stamp and is captured exactly as it was reserved, without one, because Qliro refuses a capture whose lines disagree with the reservation and refuses it terminally (PLIN-408)
 - A fee line the module sent itself is no longer read back as one of Qliro's, `Model/QliroOrder/Converter/OrderItemsConverter.php`. Qliro's own fee lines become a fee on the Magento order, and an adjustment that went out as a fee would have been added to the order a second time (PLIN-408)
+
+## [1.7.58] - 2026-09-30
+
+### Fixed
+
+- An order is no longer placed with a delivery the buyer had moved away from. The checkout sent every delivery the buyer picked to the store at once, and the store could process those requests in another order than they were sent, so the last one processed could be a choice already changed: the buyer picked free shipping in Qliro and the order was placed with a 99 SEK delivery that the reservation did not carry. The Qliro checkout script now sends its requests that write the quote, the delivery, the customer, the payment method, the cart refresh and the lock, one at a time, each after the one before it has been answered, because each of them saves the shipping address with its method. Qliro's own server callbacks are not part of that order, which is what the two changes below are for (PLIN-461)
+- The validate callback puts the delivery Qliro states on the quote and saves it, when the quote is on another one. It used to apply `SelectedShippingMethod` only to a virtual quote, and the line comparison skips shipping lines, so the mismatch was accepted. When it moves the quote, it declines the order if the store prices that delivery more than an öre away from Qliro's shipping line, or charges for it where the Qliro order has no shipping line. A code the quote was never rated for is logged and accepted as before. Unifaun and Ingrid keep their own code and are not affected (PLIN-461)
+- Placing the order takes the delivery from the shipping line of the Qliro order, not from whatever the quote was last left on, when the quote was rated for that code. Only placing does: the refresh during checkout still leaves the delivery to the checkout, which can be ahead of the Qliro order. An order placed with another delivery or another delivery price than the Qliro order carries is logged (PLIN-461)
+
+## [1.7.57] - 2026-09-29
+
+### Fixed
+
+- The c/o the buyer gives in the checkout now reaches the order. Qliro sends it as `CareOf` in the validate callback and in the order read before placement, and `AddressConverter` set it on the quote address as `care_of`, a field Magento does not have, so it was dropped when the quote was saved and the order was placed with an incomplete address. It is now written as a street line under the street, `c/o Rosi Röckl`, on both the billing and the shipping address, which is where the admin, the invoice, the PDF and a shipping integration read the address from. It goes under the street and not above it because an integration takes the first line as the street its carrier validates. No schema change, so nothing has to be installed for it. A repeated payload does not add the line twice, a c/o the buyer typed with the prefix keeps theirs, a c/o the buyer removes in the checkout is removed from the quote, and no c/o is written while Qliro sends no street, so a half filled address never gets a c/o in place of the street (PLIN-459)
+- A quote address carrying such a line is sent to Qliro with the c/o in `CareOf` and the street without it, so a recurring order or a prefilled checkout does not hand Qliro the c/o glued to the street. The first line is always read as the street (PLIN-459)
+
+### Added
+
+- Unit tests for the c/o on the quote address, a repeated payload, a prefix typed by the buyer, a c/o the street already carries in another case, a removed c/o, a masked or empty street, and the c/o line sent back to Qliro in its own field (PLIN-459)
+
+## [1.7.56] - 2026-09-27
+
+### Changed
+
+- Every PHP file of the module declares `strict_types=1`. Until now 181 of 434 did, split by the age of the file, so two classes calling each other could disagree on whether `"100.0000"` becomes a float or a `TypeError`. Strict types only govern the calls a file makes, its returns and its typed properties, so no signature Magento calls into changed: every fix is an explicit cast where the module makes the call. Valid input gives the result weak mode gave (PLIN-371)
+- The call sites that would have failed were found with a PHPStan rule over native types only, since a docblock `@return float` on a Magento getter says nothing about the database string it returns, and read file by file for what the rule cannot see: dynamic calls, `$proceed`, untyped receivers. Money paths first: order lines, fees, capture and refund builders, then the checkout, the callbacks and the API client, then the rest (PLIN-371)
+- `ContainerMapper` hands a typed setter the type it declares when the value comes from Qliro's JSON: a number into a string setter, a whole number string into an int or float setter. The saved card callback carries `CardBin` and `ExpiryMonth` as numbers into string setters, which is a fatal under strict types. A fraction or an id past the int range is not truncated into an int setter, it fails as before (PLIN-371)
+- Call sites that weak mode converted silently and strict types would have turned into fatals are made explicit. None of them failed before this release. The ones on every order: `Helper/Data::formatPrice()` passed `false` as the thousands separator, which is the price of every order line, fee and discount sent to Qliro, and `Service` passed the int Qliro order id to `str_replace` when building the URL of every GET and PUT. Besides those, exceptions built from a `Phrase` or from `getCode()` of a database exception, which is a string, and ids, quantities and totals read from the database reaching `int` and `float` parameters as strings (PLIN-371)
+- Where a cast would turn a value weak mode rejected into a plausible wrong one on a money path, the conversion is guarded instead. The parent transaction id and the Qliro order id of a refund are converted only when they are a whole number, since `(int) "123-capture"` is `123` and would refund against another transaction. `formatPrice()` converts only a number or null, so a value that is not a price still fails rather than being sent as `0.00` (PLIN-371)
+- `UpdateShippingPrice` reads a price posted as a numeric string as a float. The widget posts a JSON number, which already worked; a string used to be converted by weak mode and would otherwise fail (PLIN-371)
+- `CONTRIBUTING.md` records the conventions: strict types in every file, casts at the call site and never on a signature Magento owns, constructor property promotion with `private readonly` for new code (PLIN-371)
+
+### Fixed
+
+- The `@inheirtDoc` and `@inerhitDoc` typos (PLIN-371)
+
+### Added
+
+- `Test/Unit/StrictTypesTest.php` fails on any PHP file without `declare(strict_types=1)`, and unit tests for the JSON to setter conversion, `formatPrice`, the shipping price the widget posts, and the ids the refund reads from the database (PLIN-371)
 ## [1.7.48] - 2026-09-22
 
 ### Fixed

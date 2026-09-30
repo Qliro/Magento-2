@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -332,7 +333,7 @@ class QliroOrder extends AbstractManagement
                 ]
             );
 
-            throw new TerminalException('Couldn\'t fetch the QliroOne order.', $exception->getCode(), $exception);
+            throw new TerminalException('Couldn\'t fetch the QliroOne order.', (int) $exception->getCode(), $exception);
         } finally {
             $this->logManager->setMark(null);
         }
@@ -454,7 +455,7 @@ class QliroOrder extends AbstractManagement
         } catch (\LogicException $exception) {
             throw new TerminalException(
                 'Couldn\'t request to cancel QliroOne order. No link found',
-                $exception->getCode(),
+                (int) $exception->getCode(),
                 $exception
             );
         } catch (\Exception $exception) {
@@ -478,7 +479,7 @@ class QliroOrder extends AbstractManagement
                 ]
             );
 
-            throw new TerminalException('Couldn\'t request to cancel QliroOne order.', $exception->getCode(), $exception);
+            throw new TerminalException('Couldn\'t request to cancel QliroOne order.', (int) $exception->getCode(), $exception);
         } finally {
             $this->logManager->setMark(null);
         }

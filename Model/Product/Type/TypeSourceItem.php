@@ -77,7 +77,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     private bool $subscription = false;
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getId(): int
     {
@@ -85,7 +85,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setId(int $value): static
     {
@@ -95,7 +95,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getSku(): string
     {
@@ -103,7 +103,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setSku(string $value): static
     {
@@ -113,7 +113,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getType(): string
     {
@@ -121,7 +121,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setType(string $value): static
     {
@@ -131,7 +131,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getName(): string
     {
@@ -139,7 +139,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setName(string $value): static
     {
@@ -149,7 +149,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getProduct(): Product
     {
@@ -157,7 +157,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setProduct(Product $value): static
     {
@@ -167,7 +167,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getQty(): float
     {
@@ -175,7 +175,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setQty(float $value): static
     {
@@ -185,7 +185,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getPriceInclTax(): float
     {
@@ -193,7 +193,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setPriceInclTax(float $value): static
     {
@@ -203,7 +203,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getPriceExclTax(): float
     {
@@ -211,7 +211,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setPriceExclTax(float $value): static
     {
@@ -221,7 +221,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getVatRate(): float
     {
@@ -229,7 +229,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setVatRate(float $value): static
     {
@@ -239,7 +239,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getItem(): mixed
     {
@@ -247,7 +247,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setItem(mixed $value): static
     {
@@ -257,7 +257,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getParent(): ?TypeSourceItemInterface
     {
@@ -265,7 +265,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setParent(TypeSourceItemInterface $value): static
     {
@@ -275,7 +275,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getSubscription(): bool
     {
@@ -283,7 +283,7 @@ class TypeSourceItem implements TypeSourceItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setSubscription(bool $value): static
     {

@@ -62,7 +62,7 @@ class Item implements QliroOrderItemInterface
 
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getMerchantReference(): string
     {
@@ -70,7 +70,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setMerchantReference(string $value): static
     {
@@ -80,7 +80,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getType(): string
     {
@@ -88,7 +88,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setType(string $value): static
     {
@@ -98,7 +98,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getQuantity(): float
     {
@@ -106,7 +106,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setQuantity(float $value): static
     {
@@ -116,7 +116,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getPricePerItemIncVat(): float
     {
@@ -124,7 +124,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setPricePerItemIncVat(float $value): static
     {
@@ -134,7 +134,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getPricePerItemExVat(): float
     {
@@ -142,7 +142,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setPricePerItemExVat(float $value): static
     {
@@ -152,7 +152,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getVatRate(): float
     {
@@ -160,7 +160,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setVatRate(float $value): static
     {
@@ -170,7 +170,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getDescription(): string
     {
@@ -178,7 +178,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setDescription(string $value): static
     {
@@ -188,7 +188,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function getMetadata(): array
     {
@@ -196,7 +196,7 @@ class Item implements QliroOrderItemInterface
     }
 
     /**
-     * @inheirtDoc
+     * @inheritDoc
      */
     public function setMetadata(?array $value): static
     {

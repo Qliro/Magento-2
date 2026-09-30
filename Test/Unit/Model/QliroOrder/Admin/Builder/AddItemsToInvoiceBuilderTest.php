@@ -66,6 +66,48 @@ class AddItemsToInvoiceBuilderTest extends TestCase
     }
 
     /**
+     * The database hands both ids out as strings, and Qliro takes them as numbers (PLIN-371)
+     */
+    public function testSendsTheIdsTheDatabaseReturnsAsNumbers(): void
+    {
+        $payment = $this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), '4711');
+
+        $request = $this->builder($this->linkRepository('998877'))->setPayment($payment)->create();
+
+        self::assertSame(998877, $request->getOrderId());
+        self::assertSame(4711, $request->getAdditions()[0]->getPaymentTransactionId());
+    }
+
+    /**
+     * @dataProvider idsThatAreNotWholeNumbers
+     */
+    public function testRefusesATransactionIdItWouldHaveToTruncate(string $transactionId): void
+    {
+        $payment = $this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), $transactionId);
+
+        $this->expectException(\TypeError::class);
+
+        $this->builder()->setPayment($payment)->create();
+    }
+
+    public static function idsThatAreNotWholeNumbers(): array
+    {
+        return [
+            'suffixed' => ['4711-capture'],
+            'past the int range' => ['9223372036854775808'],
+        ];
+    }
+
+    public function testRefusesALinkWithoutAQliroOrderId(): void
+    {
+        $payment = $this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711);
+
+        $this->expectException(\TypeError::class);
+
+        $this->builder($this->linkRepository(null))->setPayment($payment)->create();
+    }
+
+    /**
      * A credit memo whose lines are taxed at more than one rate states no rate at all: a single
      * line cannot describe two, and a wrong one would refund the wrong VAT.
      */
@@ -230,10 +272,10 @@ class AddItemsToInvoiceBuilderTest extends TestCase
         );
     }
 
-    private function linkRepository(): LinkRepositoryInterface&MockObject
+    private function linkRepository(int|string|null $qliroOrderId = self::QLIRO_ORDER_ID): LinkRepositoryInterface&MockObject
     {
         $link = $this->createMock(LinkInterface::class);
-        $link->method('getQliroOrderId')->willReturn(self::QLIRO_ORDER_ID);
+        $link->method('getQliroOrderId')->willReturn($qliroOrderId);
 
         $linkRepository = $this->createMock(LinkRepositoryInterface::class);
         $linkRepository->method('getByOrderId')->willReturn($link);
@@ -243,7 +285,7 @@ class AddItemsToInvoiceBuilderTest extends TestCase
 
     private function payment(
         Creditmemo $creditMemo,
-        int $parentTransactionId,
+        int|string $parentTransactionId,
         float $alreadyRefunded = 0.0
     ): Payment&MockObject {
         $order = $this->createMock(Order::class);

@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\GeoIp;
 
@@ -22,7 +23,7 @@ class DefaultResolver implements GeoIpResolverInterface
     public function getCountryCode($ipAddress)
     {
         if (extension_loaded('geoip')) {
-            return \geoip_country_code_by_name($ipAddress);
+            return \geoip_country_code_by_name((string)$ipAddress);
         }
 
         return null;
