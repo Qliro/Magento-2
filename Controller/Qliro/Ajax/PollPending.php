@@ -7,7 +7,8 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
-use Magento\Framework\App\Action\Context;
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
@@ -23,8 +24,13 @@ use Qliro\QliroOne\Model\Success\Session;
 /**
  * AJAX controller action class for triggering order placement and polling for pending
  */
-class PollPending extends \Magento\Framework\App\Action\Action
+class PollPending implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var \Qliro\QliroOne\Helper\Data
      */
@@ -62,7 +68,7 @@ class PollPending extends \Magento\Framework\App\Action\Action
     /**
      * Inject dependnecies
      *
-     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
      * @param \Qliro\QliroOne\Helper\Data $dataHelper
      * @param \Qliro\QliroOne\Model\Security\AjaxToken $ajaxToken
@@ -72,7 +78,7 @@ class PollPending extends \Magento\Framework\App\Action\Action
      * @param Session $successSession
      */
     public function __construct(
-        Context $context,
+        Http $request,
         Config $qliroConfig,
         Data $dataHelper,
         AjaxToken $ajaxToken,
@@ -81,7 +87,7 @@ class PollPending extends \Magento\Framework\App\Action\Action
         Manager $logManager,
         Session $successSession
     ) {
-        parent::__construct($context);
+        $this->request = $request;
         $this->dataHelper = $dataHelper;
         $this->ajaxToken = $ajaxToken;
         $this->qliroConfig = $qliroConfig;
@@ -111,7 +117,7 @@ class PollPending extends \Magento\Framework\App\Action\Action
         }
 
         /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         $quote = $this->quoteAgent->fetchRelevantQuote();
         $this->logManager->setMerchantReferenceFromQuote($quote);

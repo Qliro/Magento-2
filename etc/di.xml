@@ -246,9 +246,6 @@
     <preference for="Qliro\QliroOne\Api\Data\RecurringInfoInterface" type="Qliro\QliroOne\Model\RecurringInfo" />
     <preference for="Qliro\QliroOne\Api\RecurringInfoRepositoryInterface" type="Qliro\QliroOne\Model\RecurringInfoRepository" />
 
-    <type name="Magento\Framework\App\Request\CsrfValidator">
-        <plugin name="qliroone_onepage_csrf_validator_skip" type="Qliro\QliroOne\Plugin\Callbacks\CsrfValidatorSkip" />
-    </type>
     <type name="Magento\SalesRule\Model\Validator">
         <plugin name="qliroone_plugin_magento_salesrule_model_validator" type="Qliro\QliroOne\Plugin\Magento\SalesRule\Model\ValidatorPlugin" />
     </type>
