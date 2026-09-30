@@ -55,7 +55,7 @@ class ReservationFormatTest extends TestCase
         $payment->expects(self::never())->method('setAdditionalInformation');
         $this->orderManagementApi->expects(self::never())->method('getOrder');
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID);
     }
 
     /**
@@ -69,10 +69,10 @@ class ReservationFormatTest extends TestCase
             ->method('setAdditionalInformation')
             ->with(Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID, true);
 
-        $this->expectReservation(['519:Kanalplast', 'unifaun']);
+        $this->expectReservation(['519:SKU-CABLE', 'unifaun']);
 
         self::assertTrue(
-            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID)
+            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID)
         );
     }
 
@@ -87,9 +87,9 @@ class ReservationFormatTest extends TestCase
             ->method('setAdditionalInformation')
             ->with(Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID, false);
 
-        $this->expectReservation(['Kanalplast', 'unifaun']);
+        $this->expectReservation(['SKU-CABLE', 'unifaun']);
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID);
     }
 
     /**
@@ -102,9 +102,9 @@ class ReservationFormatTest extends TestCase
         $this->orderManagementApi->expects(self::once())
             ->method('getOrder')
             ->with(self::QLIRO_ORDER_ID, 7, Config::API_PROFILE_BACKGROUND)
-            ->willReturn($this->buildQliroOrder(['Kanalplast']));
+            ->willReturn($this->buildQliroOrder(['SKU-CABLE']));
 
-        $order = $this->buildOrder($this->buildPayment(null), [[519, 'Kanalplast']]);
+        $order = $this->buildOrder($this->buildPayment(null), [[519, 'SKU-CABLE']]);
         $order->method('getStoreId')->willReturn(7);
 
         $this->reservationFormat->stamp($order, self::QLIRO_ORDER_ID);
@@ -122,7 +122,7 @@ class ReservationFormatTest extends TestCase
         $this->orderManagementApi->method('getOrder')->willThrowException(new \RuntimeException('down'));
 
         self::assertFalse(
-            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID)
+            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID)
         );
     }
 
@@ -141,7 +141,7 @@ class ReservationFormatTest extends TestCase
         );
 
         self::assertFalse(
-            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID)
+            $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID)
         );
     }
 
@@ -156,7 +156,7 @@ class ReservationFormatTest extends TestCase
 
         $this->expectReservation(['something-else', 'unifaun']);
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID);
     }
 
     /**
@@ -168,10 +168,10 @@ class ReservationFormatTest extends TestCase
         $payment = $this->buildPayment(null);
         $payment->expects(self::never())->method('setAdditionalInformation');
 
-        $this->expectReservation(['519:Kanalplast', 'Kanalplast']);
+        $this->expectReservation(['519:SKU-CABLE', 'SKU-CABLE']);
 
         $this->reservationFormat->stamp(
-            $this->buildOrder($payment, [[519, 'Kanalplast'], [520, 'Kanalplast']]),
+            $this->buildOrder($payment, [[519, 'SKU-CABLE'], [520, 'SKU-CABLE']]),
             self::QLIRO_ORDER_ID
         );
     }
@@ -187,9 +187,9 @@ class ReservationFormatTest extends TestCase
             ->method('setAdditionalInformation')
             ->with(Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID, false);
 
-        $this->expectReservation(['Kanalplast']);
+        $this->expectReservation(['SKU-CABLE']);
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[null, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        $this->reservationFormat->stamp($this->buildOrder($payment, [[null, 'SKU-CABLE']]), self::QLIRO_ORDER_ID);
     }
 
     /**
@@ -205,7 +205,7 @@ class ReservationFormatTest extends TestCase
         $qliroOrder->method('getOrderItemActions')->willReturn(null);
         $this->orderManagementApi->method('getOrder')->willReturn($qliroOrder);
 
-        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'Kanalplast']]), self::QLIRO_ORDER_ID);
+        $this->reservationFormat->stamp($this->buildOrder($payment, [[519, 'SKU-CABLE']]), self::QLIRO_ORDER_ID);
     }
 
     /**
@@ -221,10 +221,10 @@ class ReservationFormatTest extends TestCase
             ->method('setAdditionalInformation')
             ->with(Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID, true);
 
-        $this->expectReservation(['', '519:Kanalplast']);
+        $this->expectReservation(['', '519:SKU-CABLE']);
 
         $this->reservationFormat->stamp(
-            $this->buildOrder($payment, [[518, ''], [519, 'Kanalplast']]),
+            $this->buildOrder($payment, [[518, ''], [519, 'SKU-CABLE']]),
             self::QLIRO_ORDER_ID
         );
     }
