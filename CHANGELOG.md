@@ -1,6 +1,14 @@
 
 # Change Log
 
+## [1.7.58] - 2026-09-30
+
+### Fixed
+
+- An order is no longer placed with a delivery the buyer had moved away from. The checkout sent every delivery the buyer picked to the store at once, and the store could process those requests in another order than they were sent, so the last one processed could be a choice already changed: the buyer picked free shipping in Qliro and the order was placed with a 99 SEK delivery that the reservation did not carry. The Qliro checkout script now sends its requests that write the quote, the delivery, the customer, the payment method, the cart refresh and the lock, one at a time, each after the one before it has been answered, because each of them saves the shipping address with its method. Qliro's own server callbacks are not part of that order, which is what the two changes below are for (PLIN-461)
+- The validate callback puts the delivery Qliro states on the quote and saves it, when the quote is on another one. It used to apply `SelectedShippingMethod` only to a virtual quote, and the line comparison skips shipping lines, so the mismatch was accepted. When it moves the quote, it declines the order if the store prices that delivery more than an öre away from Qliro's shipping line, or charges for it where the Qliro order has no shipping line. A code the quote was never rated for is logged and accepted as before. Unifaun and Ingrid keep their own code and are not affected (PLIN-461)
+- Placing the order takes the delivery from the shipping line of the Qliro order, not from whatever the quote was last left on, when the quote was rated for that code. Only placing does: the refresh during checkout still leaves the delivery to the checkout, which can be ahead of the Qliro order. An order placed with another delivery or another delivery price than the Qliro order carries is logged (PLIN-461)
+
 ## [1.7.57] - 2026-09-29
 
 ### Fixed
