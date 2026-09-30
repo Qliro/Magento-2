@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -14,6 +15,7 @@ use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
@@ -199,13 +201,13 @@ class PlaceOrder extends AbstractManagement
 
                     if ($responseContainer->getCustomerCheckoutStatus() == CheckoutStatusInterface::STATUS_IN_PROCESS) {
                         throw new OrderPlacementPendingException(
-                            __('QliroOne order status is "InProcess" and order cannot be placed.')
+                            (string) __('QliroOne order status is "InProcess" and order cannot be placed.')
                         );
                     }
                     $this->logManager->debug('Starting to lock Qliro order id: ' . $qliroOrderId);
                     if (!$this->lock->lock($qliroOrderId)) {
                         $this->logManager->debug('Lock failed for order id: ' . $qliroOrderId);
-                        throw new FailToLockException(__('Failed to aquire lock when placing order'));
+                        throw new FailToLockException((string) __('Failed to aquire lock when placing order'));
                     }
 
                     $this->prepareQuoteRecurringInfo();
@@ -251,7 +253,7 @@ class PlaceOrder extends AbstractManagement
                     );
                     $this->lock->unlock($qliroOrderId);
 
-                    throw new TerminalException('Order placement failed', $exception->getCode(), $exception);
+                    throw new TerminalException('Order placement failed', (int) $exception->getCode(), $exception);
                 }
             } else {
                 $order = $this->orderRepository->get($orderId);
@@ -267,7 +269,7 @@ class PlaceOrder extends AbstractManagement
                     ],
                 ]
             );
-            throw new TerminalException('Failed to link current session with Qliro One order', $exception->getCode(), $exception);
+            throw new TerminalException('Failed to link current session with Qliro One order', (int) $exception->getCode(), $exception);
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 $exception,
@@ -280,7 +282,7 @@ class PlaceOrder extends AbstractManagement
                 ]
             );
 
-            throw new TerminalException('Something went wrong during order placement polling', $exception->getCode(), $exception);
+            throw new TerminalException('Something went wrong during order placement polling', (int) $exception->getCode(), $exception);
         }
 
         return $order;
@@ -348,10 +350,12 @@ class PlaceOrder extends AbstractManagement
                         ]
                     );
 
-                    $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
+                    // The delivery Qliro charged for, not the one the quote's last update left (PLIN-461)
+                    $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
                     $this->addAdditionalInfoToQuote($link, $qliroOrder->getPaymentMethod());
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+                    $this->logShippingMismatch($qliroOrder);
 
                     $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
                     $order = $this->orderPlacer->place($this->getQuote());
@@ -414,7 +418,7 @@ class PlaceOrder extends AbstractManagement
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int) $exception->getCode(), $exception);
         } finally {
             $this->logManager->setMark(null);
         }
@@ -607,6 +611,53 @@ class PlaceOrder extends AbstractManagement
             $payment->setAdditionalInformation(
                 Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME,
                 $paymentMethod->getPaymentMethodName()
+            );
+        }
+    }
+
+    /**
+     * Record an order placed with another delivery or delivery price than the Qliro order carries
+     *
+     * @param QliroOrderInterface $qliroOrder
+     */
+    private function logShippingMismatch(QliroOrderInterface $qliroOrder): void
+    {
+        $storeId = $this->getQuote()->getStoreId();
+
+        // Their lines are not referenced by a rate code
+        if ($this->getQuote()->isVirtual()
+            || $this->qliroConfig->isUnifaunEnabled($storeId)
+            || $this->qliroConfig->isIngridEnabled($storeId)
+        ) {
+            return;
+        }
+
+        $shippingAddress = $this->getQuote()->getShippingAddress();
+        $quoteMethod = (string)$shippingAddress->getShippingMethod();
+        $quotePrice = (float)$shippingAddress->getShippingInclTax();
+        $references = [];
+        $qliroPrice = 0.0;
+
+        foreach ($qliroOrder->getOrderItems() ?? [] as $orderItem) {
+            if ($orderItem->getType() === QliroOrderItemInterface::TYPE_SHIPPING) {
+                $references[] = (string)$orderItem->getMerchantReference();
+                $qliroPrice += (float)$orderItem->getPricePerItemIncVat() * (float)$orderItem->getQuantity();
+            }
+        }
+
+        $isOtherMethod = $references && !in_array($quoteMethod, $references, true);
+
+        if ($isOtherMethod || \abs(\round($quotePrice, 2) - \round($qliroPrice, 2)) > 0.011) {
+            $this->logManager->debug(
+                'Placing the order with another delivery than the Qliro order carries',
+                [
+                    'extra' => [
+                        'quote_method' => $quoteMethod,
+                        'quote_price' => $quotePrice,
+                        'qliro_line_references' => $references,
+                        'qliro_price' => $qliroPrice,
+                    ],
+                ]
             );
         }
     }

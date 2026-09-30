@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Plugin\Model\Type;
 
 use \Magento\Checkout\Model\Type\Onepage as Subject;

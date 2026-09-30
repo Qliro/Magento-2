@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
@@ -181,6 +182,9 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
 
         $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_PRICE');
         $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
+        if (is_string($shippingPrice) && is_numeric($shippingPrice)) {
+            $shippingPrice = (float)$shippingPrice;
+        }
 
         $taxPercentage = $this->getTaxPercentage();
 

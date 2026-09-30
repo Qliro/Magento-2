@@ -49,6 +49,32 @@ define([
         });
     }
 
+    // No timeout: the store keeps running a request the browser gave up on, and the next one would race it
+    var quoteUpdates = $.when();
+
+    // One at a time, so the store saves the buyer's choices in the order they were made (PLIN-461)
+    function enqueue(send) {
+        var sent = quoteUpdates.then(function() {
+            return send();
+        });
+
+        // A failed update must not hold back the ones behind it
+        quoteUpdates = sent.then(null, function() {
+            return $.when();
+        });
+
+        return sent;
+    }
+
+    function sendQueuedUpdate(url, data) {
+        // Copied now, so a payload the widget changes later is still sent as it was at the event
+        var payload = data === undefined ? data : JSON.parse(JSON.stringify(data));
+
+        return enqueue(function() {
+            return sendAjaxAsJson(url, payload);
+        });
+    }
+
     function showErrorMessage(message) {
         qliroDebug('Calling showErrorMessage', message);
         customerData.set('messages', {
@@ -316,14 +342,14 @@ define([
         var generation = checkoutGeneration;
 
         refreshInFlight = true;
-        // An order Qliro reports now predates this update, so neither it nor the watchdog of the
-        // update before may release the lock; the answer arms a new one
-        expectedTotalPrice = null;
+        // Locked while it waits too, so the buyer cannot pay the total it is about to change. What the
+        // previous refresh left behind could unlock it before this one is sent
         clearTimeout(unlockWatchdog);
         unlockWatchdog = null;
+        expectedTotalPrice = null;
         lockCheckout();
 
-        sendUpdateQuote()
+        enqueue(sendUpdateQuote)
             .then(
                 function(data) {
                     if (generation !== checkoutGeneration) {
@@ -390,7 +416,7 @@ define([
         },
 
         onCustomerInfoChanged: function(customer) {
-            sendAjaxAsJson(config.updateCustomerUrl, customer).then(
+            sendQueuedUpdate(config.updateCustomerUrl, customer).then(
                 function(data) {
                     qliroSuccessDebug('onCustomerInfoChanged', data);
 
@@ -421,7 +447,7 @@ define([
         },
 
         onPaymentMethodChanged: function(paymentMethod) {
-            sendAjaxAsJson(config.updatePaymentMethodUrl, paymentMethod).then(
+            sendQueuedUpdate(config.updatePaymentMethodUrl, paymentMethod).then(
                 function(data) {
                     qliroSuccessDebug('onPaymentMethodChanged', data);
                     updateTotals();
@@ -437,7 +463,7 @@ define([
         onPaymentProcessStart: function() {
             $(".opc-block-summary").hide();
             $(".discount-code").hide();
-            sendAjaxAsJson(config.lockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
+            sendQueuedUpdate(config.lockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
                 function(data) {
                     qliroSuccessDebug('Quote is locked', data);
                 },
@@ -451,7 +477,7 @@ define([
         onPaymentProcessEnd: function() {
             $(".opc-block-summary").show();
             $(".discount-code").show();
-            sendAjaxAsJson(config.unlockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
+            sendQueuedUpdate(config.unlockQuoteUrl, {quoteId: quote.getQuoteId()}).then(
                 function(data) {
                     qliroSuccessDebug('Quote is unlocked', data);
                 },
@@ -468,7 +494,7 @@ define([
         },
 
         onShippingMethodChanged: function(shipping) {
-            sendAjaxAsJson(config.updateShippingMethodUrl, shipping).then(
+            sendQueuedUpdate(config.updateShippingMethodUrl, shipping).then(
                 function(data) {
                     qliroSuccessDebug('onShippingMethodChanged', data);
                     updateTotals();
@@ -482,7 +508,7 @@ define([
         },
 
         onShippingPriceChanged: function(newShippingPrice) {
-            sendAjaxAsJson(config.updateShippingPriceUrl, {newShippingPrice: newShippingPrice}).then(
+            sendQueuedUpdate(config.updateShippingPriceUrl, {newShippingPrice: newShippingPrice}).then(
                 function(data) {
                     qliroSuccessDebug('onShippingPriceChanged', data);
                     updateTotals();

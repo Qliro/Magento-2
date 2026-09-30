@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 // @codingStandardsIgnoreFile
 // phpcs:ignoreFile
@@ -21,6 +22,11 @@ class ContainerMapper
      * @var array
      */
     private $setterTypeCache = [];
+
+    /**
+     * @var array
+     */
+    private $setterNativeTypeCache = [];
 
     /**
      * @var array
@@ -108,7 +114,7 @@ class ContainerMapper
             );
         }
         foreach ($data as $key => $value) {
-            $key = ucfirst($key);
+            $key = ucfirst((string)$key);
             $setterName = 'set' . $key;
 
             if (isset($keyHash[$key])) {
@@ -125,7 +131,9 @@ class ContainerMapper
                     }
                 }
 
-                $container->$setterName($value);
+                $container->$setterName(
+                    $this->coerceScalar($value, $this->setterNativeTypeCache[$className][$key] ?? null)
+                );
             }
         }
 
@@ -186,6 +194,9 @@ class ContainerMapper
                 try {
                     $method = new \ReflectionMethod($container, $setterName);
                     $params = $method->getParameters();
+                    $nativeType = $params ? $params[0]->getType() : null;
+                    $this->setterNativeTypeCache[$className][$key] =
+                        $nativeType instanceof \ReflectionNamedType && $nativeType->isBuiltin() ? $nativeType->getName() : null;
                     $getClassMethod = str_replace('set', 'get', $classMethod);
                     $setterClass =
                         $this->checkIfArrayWithNumericKeys($container->$getClassMethod())
@@ -200,7 +211,7 @@ class ContainerMapper
                     if (!$setterType) {
                         $doc = $method->getDocComment();
 
-                        if (preg_match('/@param\s+([^\s]+)\s+\$' . $params[0]->getName() . '/', $doc, $matches)) {
+                        if (preg_match('/@param\s+([^\s]+)\s+\$' . $params[0]->getName() . '/', (string)$doc, $matches)) {
                             $setterType = $matches[1];
 
                             if (strpos($setterType, '\\') === false) {
@@ -254,6 +265,35 @@ class ContainerMapper
         }
 
         return $data;
+    }
+
+    /**
+     * Convert a JSON number to a string setter, or a whole number string to an int or float setter
+     *
+     * @param mixed $value
+     * @param string|null $type
+     * @return mixed
+     */
+    private function coerceScalar($value, $type)
+    {
+        switch ($type) {
+            case 'string':
+                return is_int($value) || is_float($value) ? (string)$value : $value;
+            case 'int':
+                // The round trip rejects fractions and anything outside the int range
+                if (is_string($value) && (string)(int)$value === $value) {
+                    return (int)$value;
+                }
+                return is_float($value) && $value >= PHP_INT_MIN && $value < PHP_INT_MAX && floor($value) === $value
+                    ? (int)$value
+                    : $value;
+            case 'float':
+                return is_string($value) && is_numeric($value) ? (float)$value : $value;
+            case 'bool':
+                return is_int($value) || is_string($value) ? (bool)$value : $value;
+            default:
+                return $value;
+        }
     }
 
     /**
