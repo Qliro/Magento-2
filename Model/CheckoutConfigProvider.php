@@ -9,7 +9,9 @@ namespace Qliro\QliroOne\Model;
 
 use Magento\Checkout\Model\ConfigProviderInterface;
 use Magento\Checkout\Model\Session;
+use Magento\Framework\App\RequestInterface;
 use Magento\Store\Model\StoreManagerInterface;
+use Qliro\QliroOne\Block\Checkout\ShippingStepLayoutProcessor;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringPaymentsDataService;
@@ -55,6 +57,11 @@ class CheckoutConfigProvider implements ConfigProviderInterface
     private RecurringPaymentsDataService $recurringPaymentsDataService;
 
     /**
+     * @var \Magento\Framework\App\RequestInterface
+     */
+    private $request;
+
+    /**
      * Inject dependencies
      *
      * @param \Magento\Store\Model\StoreManagerInterface $storeManager
@@ -64,6 +71,7 @@ class CheckoutConfigProvider implements ConfigProviderInterface
      * @param \Qliro\QliroOne\Model\Fee $fee
      * @param CountrySelect $countrySelect
      * @param \Qliro\QliroOne\Service\RecurringPayments\Data $recurringPaymentsDataService
+     * @param \Magento\Framework\App\RequestInterface $request
      */
     public function __construct(
         StoreManagerInterface $storeManager,
@@ -72,7 +80,8 @@ class CheckoutConfigProvider implements ConfigProviderInterface
         Config $qliroConfig,
         \Qliro\QliroOne\Model\Fee $fee,
         CountrySelect $countrySelect,
-        RecurringPaymentsDataService $recurringPaymentsDataService
+        RecurringPaymentsDataService $recurringPaymentsDataService,
+        RequestInterface $request
     ) {
         $this->quote = $checkoutSession->getQuote();
         $this->storeManager = $storeManager;
@@ -81,6 +90,7 @@ class CheckoutConfigProvider implements ConfigProviderInterface
         $this->fee = $fee;
         $this->countrySelect = $countrySelect;
         $this->recurringPaymentsDataService = $recurringPaymentsDataService;
+        $this->request = $request;
     }
 
     /**
@@ -95,6 +105,8 @@ class CheckoutConfigProvider implements ConfigProviderInterface
                 'isEagerCheckoutRefresh' => $this->qliroConfig->isEagerCheckoutRefresh(),
                 'showAsPaymentMethod' => $this->qliroConfig->getShowAsPaymentMethod(),
                 'hideNativeShippingStep' => $this->qliroConfig->isHideNativeShippingStep(),
+                // The native checkout and the cart page read this config too, so the mixin asks the page and not the URL
+                'isQliroCheckoutPage' => $this->isQliroCheckoutPage(),
                 'paymentMethodRenderMode' => $this->qliroConfig->getPaymentMethodRenderMode(),
                 'checkoutTitle' => $this->qliroConfig->getTitle(),
                 'securityToken' => $this->ajaxToken->setQuote($this->quote)->getToken(),
@@ -147,6 +159,16 @@ class CheckoutConfigProvider implements ConfigProviderInterface
         $store = $this->storeManager->getStore();
 
         return $store->getUrl($path);
+    }
+
+    /**
+     * Tell whether this request renders the QliroOne checkout page
+     *
+     * @return bool
+     */
+    private function isQliroCheckoutPage(): bool
+    {
+        return $this->request->getFullActionName() === ShippingStepLayoutProcessor::QLIROONE_CHECKOUT_ACTION;
     }
 
     /**
