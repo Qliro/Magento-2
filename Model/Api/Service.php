@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Api;
 
@@ -152,7 +153,7 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
             if (!is_scalar($value)) {
                 continue;
             }
-            $modifiedEndpoint = str_replace('{' . $key . '}', $value, (string)$endpoint);
+            $modifiedEndpoint = str_replace('{' . $key . '}', (string)$value, (string)$endpoint);
 
             if ($modifiedEndpoint !== $endpoint) {
                 unset($params[$key]);
@@ -285,7 +286,7 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
             // becomes a TerminalException, so a caller that needs to tell one refusal from
             // another (an already-shipped reservation from an unknown order from a timeout) had
             // no way to do it and could only report that the request failed.
-            $terminal = new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            $terminal = new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
             $terminal->setQliroError(
                 is_array($qliroError) ? ($qliroError['ErrorCode'] ?? null) : null,
                 is_array($qliroError) ? ($qliroError['ErrorMessage'] ?? null) : null

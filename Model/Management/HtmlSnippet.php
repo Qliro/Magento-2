@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
@@ -48,7 +49,7 @@ class HtmlSnippet extends AbstractManagement
     public function fetch()
     {
         try {
-            $this->linkRepository->unlock($this->getQuote()->getId());
+            $this->linkRepository->unlock((int)$this->getQuote()->getId());
         } catch (NoSuchEntityException $exception) {
             // No link for this quote yet, so there is nothing to unlock
         }

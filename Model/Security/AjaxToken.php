@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Security;
 
@@ -33,7 +34,7 @@ class AjaxToken extends CallbackToken
     /**
      * The checkout token lives as long as a checkout does, not as long as a callback url
      *
-     * @inerhitDoc
+     * @inheritDoc
      */
     protected function getLifetimeSeconds(): int
     {
@@ -43,7 +44,7 @@ class AjaxToken extends CallbackToken
     /**
      * A checkout tab left open past two hours is a customer, not a misconfiguration
      *
-     * @inerhitDoc
+     * @inheritDoc
      */
     protected function getExpiryLogLevel(): string
     {
@@ -51,7 +52,7 @@ class AjaxToken extends CallbackToken
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     protected function getExpiryMessage(): string
     {
@@ -59,7 +60,7 @@ class AjaxToken extends CallbackToken
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     protected function describeLifetime(): string
     {
@@ -67,7 +68,7 @@ class AjaxToken extends CallbackToken
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function getAdditionalData(): ?string
     {

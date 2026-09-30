@@ -3,6 +3,8 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model;
 
 use Magento\Framework\Serialize\Serializer\Json;
@@ -678,7 +680,7 @@ class Config
      */
     private function checkHexColor($value)
     {
-        return preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', trim($value)) ? trim($value) : null;
+        return preg_match('/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/', trim((string)$value)) ? trim((string)$value) : null;
     }
 
     /**

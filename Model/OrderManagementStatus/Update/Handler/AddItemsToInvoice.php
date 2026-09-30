@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
@@ -33,7 +34,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleSuccess($qliroOrderManagementStatus, $omStatus)
     {
@@ -52,7 +53,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
         }
 
         $formattedPrice = $order->getBaseCurrency()->formatTxt(
-            abs($qliroOrderManagementStatus->getAmount())
+            abs((float)$qliroOrderManagementStatus->getAmount())
         );
 
         $order->addCommentToStatusHistory(__('Refund of %1 confirmed successful', $formattedPrice));
@@ -72,7 +73,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleCancelled($qliroOrderManagementStatus, $omStatus)
     {
@@ -80,7 +81,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleError($qliroOrderManagementStatus, $omStatus)
     {
@@ -119,7 +120,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleInProcess($qliroOrderManagementStatus, $omStatus)
     {
@@ -127,7 +128,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleOnHold($qliroOrderManagementStatus, $omStatus)
     {
@@ -135,7 +136,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleUserInteraction($qliroOrderManagementStatus, $omStatus)
     {
@@ -143,7 +144,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     public function handleCreated($qliroOrderManagementStatus, $omStatus)
     {
@@ -151,7 +152,7 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     }
 
     /**
-     * @inerhitDoc
+     * @inheritDoc
      */
     private function log($qliroOrderManagementStatus, $omStatus)
     {

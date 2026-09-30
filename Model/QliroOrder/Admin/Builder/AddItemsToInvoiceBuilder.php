@@ -3,6 +3,8 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
 use Magento\Framework\Exception\NoSuchEntityException;
@@ -124,7 +126,7 @@ class AddItemsToInvoiceBuilder
             $request->setMerchantApiKey(
                 $this->qliroConfig->getMerchantApiKey($order->getStoreId())
             )->setOrderId(
-                $link->getQliroOrderId()
+                $this->toId($link->getQliroOrderId())
             )->setCurrency(
                 $order->getOrderCurrencyCode()
             )->setAdditions(
@@ -232,7 +234,7 @@ class AddItemsToInvoiceBuilder
         /** @var AdminAdditionsInterface $additions */
         $additions = $this->adminAdditionsFactory->create();
         $additions->setPaymentTransactionId(
-            $this->payment->getParentTransactionId()
+            $this->toId($this->payment->getParentTransactionId())
         )->setOrderItems(
             [$this->getOrderItems()]
         );
@@ -321,5 +323,16 @@ class AddItemsToInvoiceBuilder
         }
 
         return 0.00;
+    }
+
+    /**
+     * Convert a database id to int, leaving anything else to fail rather than truncating it into another id
+     *
+     * @param mixed $value
+     * @return mixed
+     */
+    private function toId($value)
+    {
+        return (string)(int)$value === (string)$value ? (int)$value : $value;
     }
 }
