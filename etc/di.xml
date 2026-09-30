@@ -79,6 +79,8 @@
         <arguments>
             <argument name="handlers" xsi:type="array">
                 <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\Handler\AppliedRulesHandler</item>
+                <!-- Last: it closes what every other line leaves open -->
+                <item name="rounding_adjustment" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\Handler\RoundingAdjustmentHandler</item>
             </argument>
         </arguments>
     </type>
@@ -89,6 +91,7 @@
                 <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
                 <item name="invoice_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler</item>
+                <item name="rounding_adjustment" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\RoundingAdjustmentHandler</item>
             </argument>
         </arguments>
     </type>
@@ -99,6 +102,7 @@
                 <item name="applied_rules" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler</item>
                 <item name="shipping_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\ShippingFeeHandler</item>
                 <item name="invoice_fee" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\InvoiceFeeHandler</item>
+                <item name="rounding_adjustment" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\RoundingAdjustmentHandler</item>
             </argument>
         </arguments>
     </type>
@@ -266,6 +270,20 @@
     <type name="Qliro\QliroOne\Model\Management\PlaceOrder">
         <arguments>
             <argument name="recurringDataService" xsi:type="object">Qliro\QliroOne\Service\RecurringPayments\Data\Proxy</argument>
+            <!-- An optional constructor argument is never auto wired, it is left at its default -->
+            <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\Management\PlaceRecurringOrder">
+        <arguments>
+            <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateQuote">
+        <arguments>
+            <argument name="linesTotal" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\LinesTotal</argument>
         </arguments>
     </type>
 
