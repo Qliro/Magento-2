@@ -1,6 +1,21 @@
 
 # Change Log
 
+## [1.7.59] - 2026-09-30
+
+### Fixed
+
+- The embedded iframe no longer stays dimmed and frozen once it is on the page. Subscribing to `q1.onOrderUpdated` is what makes the widget poll the order, and the widget holds itself busy under its own dimmer until the store calls `q1.unlock()`. Since 1.7.18 the module subscribed once, as soon as the widget loaded, and released it only after a quote update whose total it could compare, which the iframe mode of 1.7.45 never gave it: the iframe is fetched when the buyer picks Qliro, after the quote updates of the shipping step, so nothing released it: the widget polled Qliro twice a second for as long as the page was open and the buyer could not click into it. The module now subscribes after each quote update, and on load only when an update was answered before the widget existed (PLIN-419)
+- A quote update after the first one reaches the widget again, on the standalone page as well. `q1.lock()` does not start the polling and `q1.unlock()` stops it, so with a single subscription every update after the first unlock went unseen: measured on a sandbox checkout, a cart going from 199 to 318.40 to 477.60 SEK showed 318.40 after the second update on the iframe, and on the standalone page, depending on when the page's own first update settled, 199 after both. The lock waited out the 10 second watchdog each time. Subscribing per update makes the widget fetch the order Qliro now holds, and the lock is released on the matching total again. Each update also forgets the total the one before it expected, so an order Qliro reports while a newer update is on its way no longer releases the lock early, and a watchdog left armed by the update before is cleared, so it cannot release the newer one before its answer. An answer that arrives after its widget was taken off the page is dropped rather than compared against the next one (PLIN-419)
+- With **Eager Checkout Refresh** on, the module never locks or unlocks the widget, so a subscription could leave it busy, and its totals were not refreshed: the same cart stayed at 199 SEK through both updates. The module now asks for the order through `q1.getOrderUpdates` there, whose handler returning `true` has Qliro release the widget itself on the first order it reports (PLIN-419)
+- A Qliro order the embedded iframe creates carries the email a guest typed in the shipping step. Magento keeps it in the browser until `set-payment-information`, which the payment step sends at the same moment as the snippet fetch, so the Qliro order was created without it and the widget identified the buyer with `email: null`. The snippet fetch now sends it, and `Model/Quote/GuestEmail` puts it on the billing address of the quote the order is built from, only for a guest, only when Magento's own address validator accepts it, internationalised domains included, and only when the quote holds no email yet. A Qliro order that already exists, one created before this release or reused on a reload, does not get it, because the update request carries no customer (PLIN-419)
+- A quote change made while the snippet is loading reaches Qliro. The payment step dropped a shipping method, address or cart change until the widget was mounted, so on a checkout that shows both on one page the widget came up with the total of the moment it was requested. Such a change is now held and sent once the widget is on the page (PLIN-419)
+
+### Added
+
+- Unit tests for `Model/Quote/GuestEmail`: the email reaching a guest's billing address, an internationalised address accepted, a logged in buyer keeping the account email, an email already on the quote winning, and what is not an email being ignored (PLIN-419)
+- An end to end spec, `Test/E2e/tests/checkout-iframe-unlock.spec.ts`, runs a guest checkout into the iframe against a Qliro test merchant. It fails while the widget's first field cannot be clicked or the widget keeps polling, and while Qliro is not handed the email typed in the shipping step. It is off unless `QLIRO_CHECKOUT_E2E=1` is set (PLIN-419)
+
 ## [1.7.48] - 2026-09-22
 
 ### Fixed

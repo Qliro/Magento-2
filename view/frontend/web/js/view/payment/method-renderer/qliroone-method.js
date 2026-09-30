@@ -30,6 +30,9 @@ define([
             iframeLoading: false,
             iframeMounted: false,
 
+            /** A quote change arrived while the snippet was loading, so the order it builds is stale. */
+            quoteChangedWhileLoading: false,
+
             /** @inheritdoc */
             initialize: function () {
                 var self = this;
@@ -69,8 +72,8 @@ define([
                         return;
                     }
 
-                    if (self.iframeMounted) {
-                        qliro.updateCart();
+                    if (self.iframeMounted || self.isSnippetPending()) {
+                        self.quoteChanged();
                     } else {
                         self.loadSnippet();
                     }
@@ -79,9 +82,7 @@ define([
                 // The buyer can step back and edit the address after the iframe is mounted. The
                 // standalone checkout watches this for the same reason.
                 this.shippingAddressSubscription = quote.shippingAddress.subscribe(function () {
-                    if (self.iframeMounted && self.isSelected()) {
-                        qliro.updateCart();
-                    }
+                    self.quoteChanged();
                 });
 
                 // Magento rewrites this section for reasons that are not a cart change, a reload of
@@ -97,13 +98,35 @@ define([
                     }
 
                     self.cartRevision = revision;
-
-                    if (self.iframeMounted && self.isSelected()) {
-                        qliro.updateCart();
-                    }
+                    self.quoteChanged();
                 });
 
                 return this;
+            },
+
+            /**
+             * Send a quote change to Qliro, or hold it until the widget the pending fetch builds is
+             * on the page.
+             */
+            quoteChanged: function () {
+                if (!this.isSelected()) {
+                    return;
+                }
+
+                if (this.iframeMounted) {
+                    qliro.updateCart();
+                } else if (this.isSnippetPending()) {
+                    this.quoteChangedWhileLoading = true;
+                }
+            },
+
+            /**
+             * Fetched or on its way, and not on the page yet.
+             *
+             * @returns {Boolean}
+             */
+            isSnippetPending: function () {
+                return !this.iframeMounted && (this.iframeLoading || !!this.snippetHtml);
             },
 
             /**
@@ -171,12 +194,15 @@ define([
                 }
 
                 this.iframeLoading = true;
+                this.quoteChangedWhileLoading = false;
                 this.isIframeBusy(true);
                 qliro.registerCallbacks();
 
                 $.ajax({
                     url: config.getSnippetUrl + '?token=' + encodeURIComponent(config.securityToken),
-                    method: 'POST'
+                    method: 'POST',
+                    // Core stores a guest's email only with set-payment-information, sent alongside
+                    data: {email: quote.guestEmail || ''}
                 }).always(function () {
                     self.iframeLoading = false;
                     self.isIframeBusy(false);
@@ -263,6 +289,11 @@ define([
                 // Set last: a throw above leaves the flag down, so the buyer can retry by
                 // choosing the method again instead of facing an empty panel for good.
                 this.iframeMounted = true;
+
+                if (this.quoteChangedWhileLoading) {
+                    this.quoteChangedWhileLoading = false;
+                    qliro.updateCart();
+                }
             },
 
             /**
@@ -306,6 +337,7 @@ define([
 
                 this.iframeMounted = false;
                 this.iframeLoading = false;
+                this.quoteChangedWhileLoading = false;
                 this.snippetHtml = null;
             },
 
