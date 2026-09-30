@@ -138,11 +138,17 @@ class Agent
 
             try {
                 $merchantReference = $this->cookieManager->getCookie(self::COOKIE_NAME);
-                $link = $this->linkRepository->getByReference($merchantReference);
-                $this->logManager->setMerchantReference($merchantReference);
 
-                /** @var \Magento\Quote\Model\Quote $quote */
-                $quote = $this->quoteRepository->get($link->getQuoteId());
+                // No cookie is an ordinary visit to the page rather than a failure, and a lookup
+                // for a reference of `null` can only throw. It threw at a critical, once per
+                // visitor whose browser blocks the cookie
+                if ($merchantReference) {
+                    $link = $this->linkRepository->getByReference($merchantReference);
+                    $this->logManager->setMerchantReference($merchantReference);
+
+                    /** @var \Magento\Quote\Model\Quote $quote */
+                    $quote = $this->quoteRepository->get($link->getQuoteId());
+                }
             } catch (\Exception $exception) {
                 $this->logManager->critical(
                     $exception,
@@ -158,7 +164,11 @@ class Agent
             $this->relevantQuote = $quote;
         }
 
-        $this->logManager->debug('Relevant quote fetched' . $this->relevantQuote->getId());
+        // The method is documented as returning null and every caller branches on that, but this
+        // line did not: a visitor with no checkout to resume got a fatal instead of the redirect
+        if ($this->relevantQuote) {
+            $this->logManager->debug('Relevant quote fetched ' . $this->relevantQuote->getId());
+        }
 
         return $this->relevantQuote;
     }

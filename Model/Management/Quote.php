@@ -20,6 +20,9 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Fee;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
+use Qliro\QliroOne\Model\Exception\TerminalException;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Method\QliroOne;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CreateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder;
@@ -330,6 +333,7 @@ class Quote extends AbstractManagement
                 $this->logManager->debug('Order created ' . $orderId);
             } catch (\Exception $exception) {
                 $this->logManager->debug('Order creation failed: ' . $exception->getMessage());
+                $this->refuseUnconfiguredCountry($exception, $request->getCountry());
                 $orderId = null;
             }
 
@@ -408,7 +412,7 @@ class Quote extends AbstractManagement
                     $quote = $this->quoteRepository->get($quoteId);
                     $this->completeQuoteLoading($quote);
 
-                    $hash = $this->generateUpdateHash($quote);
+                    [$hash, $request] = $this->buildUpdateRequest($quote);
 
                     $this->logManager->debug(
                         sprintf(
@@ -418,7 +422,6 @@ class Quote extends AbstractManagement
                     );     // @todo: remove
 
                     if ($force || $this->canUpdateOrder($hash, $link)) {
-                        $request = $this->updateRequestBuilder->setQuote($quote)->create();
                         $this->merchantApi->updateOrder($orderId, $request);
                         $link->setQuoteSnapshot($hash);
                         $this->linkRepository->save($link);
@@ -504,6 +507,61 @@ class Quote extends AbstractManagement
      */
     private function generateUpdateHash($quote)
     {
+        return $this->buildUpdateRequest($quote)[0];
+    }
+
+    /**
+     * Say so when Qliro has no payment method for the country the order was created for
+     *
+     * The country comes from the country selector and the currency from the store view, and
+     * nothing pairs them, so a buyer switching country on a store view priced in another currency
+     * asks Qliro for a combination the merchant has no methods for. The create is refused, the
+     * link is saved without an order id, and every call after it fails on that missing id, which
+     * is how thirty-two buyers in nine days got a checkout page with an empty widget and nothing
+     * to read. The refusal is theirs to act on, so it is said in the widget's place.
+     *
+     * @param \Exception $exception
+     * @param string|null $country
+     * @return void
+     * @throws UnsupportedQuoteException
+     */
+    private function refuseUnconfiguredCountry(\Exception $exception, $country): void
+    {
+        // Read from the chain rather than the message. Every API failure leaves `Service::call()`
+        // as a TerminalException carrying Qliro's own error code, and the client wraps that in a
+        // ClientException whose message is the same sentence for every refusal there is
+        $code = null;
+
+        for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+            if ($cause instanceof TerminalException) {
+                $code = $cause->getQliroErrorCode();
+
+                break;
+            }
+        }
+
+        if ($code !== 'PAYMENT_METHOD_NOT_CONFIGURED') {
+            return;
+        }
+
+        throw new UnsupportedQuoteException(
+            __('Qliro is not available for orders to %1 in this store. Please pick another country.', $country)
+        );
+    }
+
+    /**
+     * Build the update payload once and hash it
+     *
+     * Building it is what rates the quote: `UpdateRequestBuilder` collects the totals and asks
+     * every carrier, and on a store whose carrier calls an external service that is a second or
+     * more each time. Hashing the payload and then building it again to send doubled that for
+     * every update, so the payload the hash was taken from is the one that goes out.
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @return array{0: string|null, 1: \Qliro\QliroOne\Api\Data\UpdateRequestInterface}
+     */
+    private function buildUpdateRequest($quote): array
+    {
         $request = $this->updateRequestBuilder->setQuote($quote)->create();
         $data = $this->containerMapper->toArray($request);
 
@@ -525,7 +583,7 @@ class Quote extends AbstractManagement
             ['extra' => ['request' => $data]]
         );     // @todo: remove
 
-        return $hash;
+        return [$hash, $request];
     }
 
     /**
@@ -556,6 +614,7 @@ class Quote extends AbstractManagement
      */
     public function updateShippingPrice($price)
     {
+        $refuseAfterValidation = $this->isOrderValidated();
         if (is_null($price)) {
             $this->logManager->debug(
                 'AJAX:UPDATE_SHIPPING_PRICE: skip reason',
@@ -590,6 +649,9 @@ class Quote extends AbstractManagement
             [
                 'shipping_price' => $price,
                 'can_save_quote' => false,
+                // So an observer of its own can see that the order is already validated. The
+                // module can refuse its own writes below, but not one an observer makes directly
+                'qliro_order_validated' => (bool)$refuseAfterValidation,
             ]
         );
         // @codingStandardsIgnoreEnd
@@ -603,9 +665,27 @@ class Quote extends AbstractManagement
             ]
         );
         $this->logManager->debug('Starting to update shipping price in Qliro quote ' . $quote->getId());
-        $this->updateReceivedAmount($container);
+        $this->updateReceivedAmount($container, $refuseAfterValidation);
 
         if ($container->getCanSaveQuote()) {
+            /*
+             * Refused here and not by the caller. Whether this payload writes anything is only
+             * known once the store's own observers have seen it, and a caller guessing at it
+             * beforehand refused calls that write nothing, which is what put an error dialog in
+             * front of a buyer whose delivery price had not moved at all. An integration that
+             * carries the amount has already refused above, before writing it.
+             */
+            if ($refuseAfterValidation) {
+                $this->logManager->debug(
+                    'AJAX:UPDATE_SHIPPING_PRICE: refusing a write after Qliro validated the order',
+                    ['extra' => ['quote_id' => $quote->getId()]]
+                );
+
+                throw new QuoteValidatedException(
+                    __('Shipping price cannot be updated after validation. The quote is locked.')
+                );
+            }
+
             $this->recalculateAndSaveQuote();
             $this->logManager->debug('Finished to update shipping price in Qliro quote ' . $quote->getId());
 
@@ -620,13 +700,18 @@ class Quote extends AbstractManagement
      *
      * @param $container
      */
-    public function updateReceivedAmount($container)
+    public function updateReceivedAmount($container, $refuseAfterValidation = null)
     {
+        $refuseAfterValidation = $refuseAfterValidation ?? $this->isOrderValidated();
+
         try {
             $quote = $this->getQuote();
             if ($this->qliroConfig->isUnifaunEnabled($quote->getStoreId())) {
                 $link = $this->linkRepository->getByQuoteId($quote->getId());
                 if ($link->getUnifaunShippingAmount() != $container->getData('shipping_price')) {
+                    // Before the write, not after it: the amount is saved to the link here, and a
+                    // refusal that came later left the link carrying a price the quote never took
+                    $this->refuseAfterValidation($refuseAfterValidation);
                     $link->setUnifaunShippingAmount($container->getData('shipping_price'));
                     $this->linkRepository->save($link);
                     $container->setData('can_save_quote', true);
@@ -635,13 +720,52 @@ class Quote extends AbstractManagement
             if ($this->qliroConfig->isIngridEnabled($quote->getStoreId())) {
                 $link = $this->linkRepository->getByQuoteId($quote->getId());
                 if ($link->getIngridShippingAmount() != $container->getData('shipping_price')) {
+                    $this->refuseAfterValidation($refuseAfterValidation);
                     $link->setIngridShippingAmount($container->getData('shipping_price'));
                     $this->linkRepository->save($link);
                     $container->setData('can_save_quote', true);
                 }
             }
+        } catch (QuoteValidatedException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
         }
+    }
+
+    /**
+     * Whether Qliro has already validated the order this quote is being paid for
+     *
+     * Read here rather than taken from the caller, so the public interface keeps its signature
+     * and every writer answers the same way.
+     *
+     * @return bool
+     */
+    private function isOrderValidated(): bool
+    {
+        try {
+            return $this->linkRepository->getByQuoteId($this->getQuote()->getId())->getValidatedAt() !== null;
+        } catch (\Exception $exception) {
+            // No link yet, so nothing has been validated
+            return false;
+        }
+    }
+
+    /**
+     * Refuse a write to a quote Qliro has already validated the order for
+     *
+     * @param bool $refuseAfterValidation
+     * @return void
+     * @throws QuoteValidatedException
+     */
+    private function refuseAfterValidation($refuseAfterValidation): void
+    {
+        if (!$refuseAfterValidation) {
+            return;
+        }
+
+        throw new QuoteValidatedException(
+            __('Shipping price cannot be updated after validation. The quote is locked.')
+        );
     }
 
     /**
@@ -658,12 +782,25 @@ class Quote extends AbstractManagement
             //$this->fee->setQlirooneFeeInclTax($this->getQuote(), $fee);
             $this->recalculateAndSaveQuote();
         } catch (\Exception $exception) {
-            $link = $this->getLinkFromQuote();
+            /*
+             * The lookup is only here to name the order in the log, and it creates the Qliro
+             * order when the quote has none, so it can refuse a country or a cart of its own.
+             * Letting that refusal out would replace the failure being reported and turn a method
+             * documented to return false into one that throws.
+             */
+            $orderId = null;
+
+            try {
+                $orderId = $this->getLinkFromQuote()->getOrderId();
+            } catch (\Exception $lookupException) {
+                $orderId = null;
+            }
+
             $this->logManager->critical(
                 $exception,
                 [
                     'extra' => [
-                        'qliro_order_id' => $link->getOrderId(),
+                        'qliro_order_id' => $orderId,
                     ],
                 ]
             );

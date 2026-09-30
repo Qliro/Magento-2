@@ -112,4 +112,14 @@ interface LinkRepositoryInterface
      * @throws NoSuchEntityException
      */
     public function unlock(int $quoteId) : LinkInterface;
+
+    /**
+     * Mark the link as validated by Qliro, after which the quote must not change any more
+     *
+     * @param int $quoteId
+     * @return LinkInterface
+     * @throws AlreadyExistsException
+     * @throws NoSuchEntityException
+     */
+    public function markValidated(int $quoteId) : LinkInterface;
 }

@@ -67,6 +67,19 @@ class CustomerConverter
             $applied = true;
         }
 
+        /*
+         * The customer data object above never reaches a guest's quote: only `Quote::setCustomer()`
+         * copies `customer_account.email` onto `customer_email`, and the assignment it runs through
+         * is skipped for a quote with no customer id. Left empty, `customer_email` makes Magento
+         * render the checkout with no validated email, so every core call that carries the guest's
+         * address goes out with `email: null` and is refused. A logged in buyer is left alone: that
+         * address belongs to the account, and Qliro lets the buyer type another one in the widget.
+         */
+        if ($email !== null && $email !== '' && !$quote->getCustomerId() && $quote->getCustomerEmail() != $email) {
+            $quote->setCustomerEmail($email);
+            $applied = true;
+        }
+
         // The address is applied on its own: Qliro can send it before the email is known,
         // and skipping it here left the quote without a postcode to rate shipping on.
         $qliroAddress = $qliroCustomer->getAddress() ?? null;

@@ -119,6 +119,10 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      */
     public function post($endpoint, $data = [], $storeId = null, $profile = null)
     {
+        // No POST endpoint carries a placeholder today, and the guard is here so that the day
+        // one does, it is refused rather than sent with the placeholder in the path
+        $this->applyParams($endpoint, $data);
+
         return $this->call(self::METHOD_POST, $endpoint, $data, $storeId, $profile);
     }
 
@@ -160,7 +164,21 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
             }
         }
 
-        $endpoint = preg_replace('/\{[^}]+\}/', '*', $endpoint);
+        /*
+         * A placeholder still standing means the caller had nothing to put in it: `is_scalar()`
+         * is false for null, so an order id that was never assigned is skipped by the loop above.
+         * Sending the call anyway spent a round trip on `orders/*` and came back
+         * `The value '*' is not valid`, which then replaced the failure that left the id empty in
+         * the first place. Refusing here keeps the original error the one the operator reads.
+         */
+        if (preg_match('/\{([^}]+)\}/', (string)$endpoint, $matches)) {
+            // A TerminalException and not an argument one, because the client logs anything else
+            // at critical, and a call that was never made is not worse news than the failure that
+            // left the placeholder empty
+            throw new TerminalException(
+                __('Endpoint %1 has no value for %2', $endpoint, $matches[1])
+            );
+        }
     }
 
     /**

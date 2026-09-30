@@ -10,11 +10,10 @@ use Magento\Checkout\Model\Session;
 use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\ResponseInterface;
-use Magento\Framework\Exception\NoSuchEntityException;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Framework\App\ProductMetadataInterface;
@@ -47,8 +46,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         readonly private Session $checkoutSession,
         readonly private LogManager $logManager,
         readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper,
-        readonly private LinkRepositoryInterface $linkRepository
+        readonly private TaxHelper $taxHelper
     ) {
         parent::__construct($context);
     }
@@ -92,25 +90,32 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
             );
         }
 
-        try {
-            $link = $this->linkRepository->getByQuoteId($quote->getId());
-            if ($link->getIsLocked()) {
-                return $this->dataHelper->sendPreparedPayload(
-                    [
-                        'status' => 'LOCKED',
-                        'error' => (string)__('Shipping method cannot be updated after validation. The quote is locked.')
-                    ],
-                    423,
-                    null,
-                    'AJAX:UPDATE_SHIPPING_METHOD:LOCKED'
-                );
-            }
-        } catch (NoSuchEntityException $e) {
-            // No link found — allow the update to proceed
-        }
 
         $this->logManager->debug('Starting to read prepared payload');
-        $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
+
+        // Guarded, because anything raised while reading it left the controller as Magento's
+        // error page in place of the JSON the widget's own error handler expects
+        try {
+            $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_METHOD');
+        } catch (\Exception $exception) {
+            // Logged here, because the answer below replaces the error page this used to be and
+            // a support case on this endpoint would otherwise have nothing at all to read
+            $this->logManager->debug(
+                'AJAX:UPDATE_SHIPPING_METHOD: could not read the payload',
+                ['extra' => ['quote_id' => $quote->getId(), 'reason' => $exception->getMessage()]]
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'FAILED',
+                    'error' => (string)__('Cannot update shipping method option in quote.')
+                ],
+                400,
+                null,
+                'AJAX:UPDATE_SHIPPING_METHOD:ERROR'
+            );
+        }
+
         $this->logManager->debug('Finished to read prepared payload');
 
         try {
@@ -139,7 +144,25 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
                 $shippingMethodCode = $data['method'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
             }
-            $result = $this->qliroManagement->setQuote($quote)->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
+            /*
+             * Only after Qliro validated the order, and refused where the write is rather than
+             * here: Qliro re-sends its delivery choice during identity verification, and a
+             * refusal made before reading the payload turned a choice the quote already carried
+             * into an error dialog in front of a buyer mid payment.
+             */
+            $result = $this->qliroManagement
+                ->setQuote($quote)
+                ->updateShippingMethod($shippingMethodCode, $secondaryOption, $shippingPrice);
+        } catch (QuoteValidatedException $exception) {
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'LOCKED',
+                    'error' => $exception->getMessage(),
+                ],
+                423,
+                null,
+                'AJAX:UPDATE_SHIPPING_METHOD:LOCKED'
+            );
         } catch (\Exception $exception) {
             $this->logManager->debug('Failed to update shipping method in quote: ' .
                 $quote->getId() . ' error: ' . $exception->getMessage()

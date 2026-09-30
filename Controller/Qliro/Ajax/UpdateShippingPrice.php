@@ -16,10 +16,10 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\Data\CartInterface;
 use Magento\Quote\Model\Quote;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Magento\Framework\App\ProductMetadataInterface;
@@ -57,8 +57,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         readonly private Session $checkoutSession,
         readonly private Manager $logManager,
         readonly private ProductMetadataInterface $productMetadata,
-        readonly private TaxHelper $taxHelper,
-        readonly private LinkRepositoryInterface $linkRepository
+        readonly private TaxHelper $taxHelper
     ) {
         parent::__construct($context);
     }
@@ -114,25 +113,51 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
             );
         }
 
+        // Read once, because reading it twice logs the body twice, and inside a guard, because
+        // anything raised while reading it used to leave the controller as Magento's error page
+        // in place of the JSON the widget's own error handler expects
         try {
-            $link = $this->linkRepository->getByQuoteId($quote->getId());
-            if ($link->getIsLocked()) {
-                return $this->dataHelper->sendPreparedPayload(
-                    [
-                        'status' => 'LOCKED',
-                        'error' => (string)__('Shipping price cannot be updated after validation. The quote is locked.')
-                    ],
-                    423,
-                    null,
-                    'AJAX:UPDATE_SHIPPING_PRICE:LOCKED'
-                );
-            }
-        } catch (NoSuchEntityException $e) {
-            // No link found — allow the update to proceed
+            $shippingPrice = $this->getShippingPrice();
+        } catch (\Exception $exception) {
+            // Logged here, because the answer below replaces the error page this used to be and
+            // a support case on this endpoint would otherwise have nothing at all to read
+            $this->logManager->debug(
+                'AJAX:UPDATE_SHIPPING_PRICE: could not read the payload',
+                ['extra' => ['quote_id' => $quote->getId(), 'reason' => $exception->getMessage()]]
+            );
+
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'FAILED',
+                    'error' => (string)__('Cannot update shipping method option in quote.')
+                ],
+                400,
+                null,
+                'AJAX:UPDATE_SHIPPING_PRICE:ERROR'
+            );
         }
 
+
         try {
-            $result = $this->qliroManagement->setQuote($quote)->updateShippingPrice($this->getShippingPrice());
+            /*
+             * Only after Qliro validated the order, not while the payment is merely in progress:
+             * Qliro sends its final delivery choice during identity verification, and refusing it
+             * left the quote without a shipping method to validate against. The refusal itself is
+             * made where the write is, because whether this payload writes anything is only known
+             * once the store's own observers have seen it, and refusing beforehand put an error
+             * dialog in front of a buyer over a call that changed nothing.
+             */
+            $result = $this->qliroManagement->setQuote($quote)->updateShippingPrice($shippingPrice);
+        } catch (QuoteValidatedException $exception) {
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'status' => 'LOCKED',
+                    'error' => $exception->getMessage(),
+                ],
+                423,
+                null,
+                'AJAX:UPDATE_SHIPPING_PRICE:LOCKED'
+            );
         } catch (\Exception $exception) {
             return $this->dataHelper->sendPreparedPayload(
                 [
@@ -172,9 +197,10 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
      * Calculate and retrieve the shipping price from the request payload.
      * Adjusts the shipping price to exclude/including tax if certain conditions are met.
      *
-     * @return float The calculated shipping price, excluding tax if applicable.
+     * @return float|null The calculated shipping price, excluding tax if applicable, null when the
+     *                    payload carries none
      */
-    protected function getShippingPrice(): float
+    protected function getShippingPrice(): ?float
     {
         /** @var Http $request */
         $request = $this->getRequest();
@@ -182,6 +208,13 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_PRICE');
         $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);
 
+        // A payload with no price at all is a bad request, not a price of zero, and the declared
+        // float made it a TypeError instead
+        if ($shippingPrice === null) {
+            return null;
+        }
+
+        $shippingPrice = (float)$shippingPrice;
         $taxPercentage = $this->getTaxPercentage();
 
         if (!$shippingPrice || $taxPercentage <= 0) {

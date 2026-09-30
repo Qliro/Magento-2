@@ -20,6 +20,7 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface;
+use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromShippingMethodsConverter;
 
@@ -128,6 +129,20 @@ class ShippingMethod extends AbstractManagement
     }
 
     /**
+     * Whether Qliro has already validated the order this quote is being paid for
+     *
+     * @return bool
+     */
+    private function isOrderValidated(): bool
+    {
+        try {
+            return $this->linkRepository->getByQuoteId($this->getQuote()->getId())->getValidatedAt() !== null;
+        } catch (\Exception $exception) {
+            return false;
+        }
+    }
+
+    /**
      * Update quote with received data in the container and return a list of available shipping methods
      *
      * @param \Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface $updateContainer
@@ -228,6 +243,7 @@ class ShippingMethod extends AbstractManagement
      */
     public function update($code, $secondaryOption = null, $price = null)
     {
+        $refuseAfterValidation = $this->isOrderValidated();
         $this->logManager->debug('Starting to update shipping method for quote: ' . $this->getQuote()->getId());
         $quote = $this->getQuote();
 
@@ -263,6 +279,10 @@ class ShippingMethod extends AbstractManagement
                     'secondary_option' => $secondaryOption,
                     'shipping_price' => $price,
                     'can_save_quote' => $shippingAddress->getShippingMethod() !== $code,
+                    // So an observer of its own can see that the order is already validated. The
+                    // module can refuse its own writes below, but not one an observer makes
+                    // directly, and the price event carries the same flag for the same reason
+                    'qliro_order_validated' => (bool)$refuseAfterValidation,
                 ]
             );
             // @codingStandardsIgnoreEnd
@@ -275,7 +295,9 @@ class ShippingMethod extends AbstractManagement
                     'container' => $container,
                 ]
             );
-            $this->quoteManagement->setQuote($this->getQuote())->updateReceivedAmount($container);
+            $this->quoteManagement
+                ->setQuote($this->getQuote())
+                ->updateReceivedAmount($container, $refuseAfterValidation);
 
             if (!$container->getCanSaveQuote()) {
                 $this->logManager->debug(
@@ -289,6 +311,23 @@ class ShippingMethod extends AbstractManagement
                     ]
                 );
                 return false;
+            }
+
+            /*
+             * Refused here and not by the caller, for the same reason the shipping price is:
+             * Qliro re-sends its delivery choice during identity verification, and a caller
+             * refusing every call after validation put an error dialog in front of a buyer over
+             * a choice the quote already carried. Above this line nothing has been written.
+             */
+            if ($refuseAfterValidation) {
+                $this->logManager->debug(
+                    'AJAX:UPDATE_SHIPPING_METHOD: refusing a write after Qliro validated the order',
+                    ['extra' => ['quote_id' => $quote->getId(), 'qliro_method' => $code]]
+                );
+
+                throw new QuoteValidatedException(
+                    __('Shipping method cannot be updated after validation. The quote is locked.')
+                );
             }
 
             $shippingAddress->setShippingMethod($container->getShippingMethod());

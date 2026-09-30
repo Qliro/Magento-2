@@ -112,6 +112,26 @@ define([
         return !!rates && rates().length > 0;
     }
 
+    /**
+     * Give the native checkout the buyer's email, which only its own email form would fill
+     *
+     * `quote.guestEmail` is seeded once, at page render, from the quote's `customer_email`, and a
+     * Qliro checkout learns the email long after that and only on the server. Left empty, every
+     * core call that carries it goes out with `email: null`: `set-payment-information`, which the
+     * automatic selection of a single payment method triggers on each totals refresh, and
+     * `place-order`. Magento answers both with `"email" is required` and the buyer sees a failed
+     * checkout over a field they filled in minutes ago.
+     */
+    function syncGuestEmail(email) {
+        if (!email || quote.guestEmail === email) {
+            return;
+        }
+
+        quote.guestEmail = email;
+        checkoutData.setValidatedEmailValue(email);
+        qliroDebug('Guest email applied to the quote model');
+    }
+
     function syncShippingAddress(addressData) {
         if (!addressData || !addressData.postcode) {
             qliroDebug('No address stored for the quote yet', addressData);
@@ -314,6 +334,7 @@ define([
             .then(
                 function(data) {
                     expectedTotalPrice = data && data.order ? data.order.totalPrice : null;
+                    syncGuestEmail(data && data.email);
                     bindOrderUpdated();
                     armUnlockWatchdog();
                     settleRefresh();
@@ -360,6 +381,8 @@ define([
         },
 
         onCustomerInfoChanged: function(customer) {
+            syncGuestEmail(customer && customer.email);
+
             sendAjaxAsJson(config.updateCustomerUrl, customer).then(
                 function(data) {
                     qliroSuccessDebug('onCustomerInfoChanged', data);
