@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
@@ -129,11 +130,11 @@ class ShippingOrderItemBuilder
         $container->setMerchantReference($code);
         $container->setType(\Qliro\QliroOne\Api\Data\QliroOrderItemInterface::TYPE_SHIPPING);
         $container->setQuantity(1);
-        $container->setPricePerItemIncVat($priceIncVat);
-        $container->setPricePerItemExVat($priceExVat);
+        $container->setPricePerItemIncVat((float)$priceIncVat);
+        $container->setPricePerItemExVat((float)$priceExVat);
         // The tax helper rounds both amounts, so the rate is asked for rather than read off them
         $container->setVatRate($this->getVatRate());
-        $container->setDescription($rate->getMethodTitle());
+        $container->setDescription((string)$rate->getMethodTitle());
 
         $this->eventManager->dispatch(
             'qliroone_order_item_build_after',

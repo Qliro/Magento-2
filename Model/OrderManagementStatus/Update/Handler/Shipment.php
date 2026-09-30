@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler;
 
@@ -158,7 +159,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                     ],
                 ]
             );
-            throw new TerminalException('Could not handle Shipment Success', $exception->getCode(), $exception);
+            throw new TerminalException('Could not handle Shipment Success', (int)$exception->getCode(), $exception);
         }
     }
 
@@ -259,7 +260,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
         }
     }
 
@@ -292,7 +293,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
         }
     }
 
@@ -325,7 +326,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 ]
             );
 
-            throw new TerminalException($exception->getMessage(), $exception->getCode(), $exception);
+            throw new TerminalException($exception->getMessage(), (int)$exception->getCode(), $exception);
         }
     }
 }

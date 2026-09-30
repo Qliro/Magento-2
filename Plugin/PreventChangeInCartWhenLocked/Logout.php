@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 /**
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.

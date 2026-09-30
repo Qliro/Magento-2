@@ -3,6 +3,7 @@
  * Copyright © Qliro AB. All rights reserved.
  * See LICENSE.txt for license details.
  */
+declare(strict_types=1);
 
 namespace Qliro\QliroOne\Helper;
 
@@ -196,7 +197,8 @@ class Data extends AbstractHelper
      */
     public function formatPrice($value)
     {
-        return \number_format($value, 2, '.', false);
+        // Only a DB value is converted; anything weak mode rejected still fails here
+        return \number_format($value === null || is_numeric($value) ? (float)$value : $value, 2, '.', '');
     }
 
     /**
@@ -271,7 +273,6 @@ class Data extends AbstractHelper
             'email' => $address1->getEmail(),
             'firstname' => $address1->getFirstname(),
             'lastname' => $address1->getLastname(),
-            'care_of' => $address1->getCareOf(),
             'company' => $address1->getCompany(),
             'street' => $address1->getStreetFull(),
             'city' => $address1->getCity(),
@@ -286,7 +287,6 @@ class Data extends AbstractHelper
             'email' => $address2->getEmail(),
             'firstname' => $address2->getFirstname(),
             'lastname' => $address2->getLastname(),
-            'care_of' => $address2->getCareOf(),
             'company' => $address2->getCompany(),
             'street' => $address2->getStreetFull(),
             'city' => $address2->getCity(),

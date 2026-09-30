@@ -1,4 +1,7 @@
 <?php
+
+declare(strict_types=1);
+
 namespace Qliro\QliroOne\Model\Product\Type\Handler;
 
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;

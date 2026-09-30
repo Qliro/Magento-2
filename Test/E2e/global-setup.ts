@@ -1,7 +1,6 @@
-import { execFileSync } from 'node:child_process';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { config } from './playwright.config';
+import { runSeeder } from './seeder';
 
 export type SeededOrder = {
   orderId: number;
@@ -22,13 +21,7 @@ export type SeededOrder = {
  * credentials are needed.
  */
 function seed(args: string[]): SeededOrder {
-  const output = execFileSync(
-    'docker',
-    ['exec', config.container, 'sh', '-c', `cd /var/www/html && php var/seed-qliro-order.php ${args.join(' ')}`],
-    { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024 }
-  );
-
-  return JSON.parse(output.slice(output.indexOf('{')));
+  return runSeeder<SeededOrder>('seed-qliro-order.php', args);
 }
 
 export default async function globalSetup() {
