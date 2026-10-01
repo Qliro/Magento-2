@@ -14,9 +14,13 @@ use Magento\Quote\Model\Quote;
  * Put the email a guest typed in the native checkout on the quote a new Qliro order is built from.
  *
  * Core stores it only with set-payment-information, sent alongside the snippet fetch (PLIN-419).
+ * Kept on the quote object only, under a key no table has a column for: touching an address would
+ * have the snippet's quote save write its stale copy over the one set-payment-information saved.
  */
 class GuestEmail
 {
+    public const QUOTE_KEY = 'qliro_guest_email';
+
     /**
      * @param EmailAddress $emailValidator the one core validates a quote address email with
      */
@@ -47,11 +51,11 @@ class GuestEmail
 
         $billingAddress = $quote->getBillingAddress();
 
-        if (!$billingAddress || $billingAddress->getEmail()) {
+        if ($billingAddress && $billingAddress->getEmail()) {
             return false;
         }
 
-        $billingAddress->setEmail($email);
+        $quote->setData(self::QUOTE_KEY, $email);
 
         return true;
     }

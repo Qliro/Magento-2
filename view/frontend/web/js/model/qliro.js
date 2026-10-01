@@ -264,8 +264,7 @@ define([
             // and silently, since the message only shows on the fourth mismatch. So the iframe
             // stays locked and says why.
             if (sawMismatch) {
-                qliroDebug('Order updates arrived and none matched, keeping the checkout locked');
-                showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
+                giveUpOnMismatch();
 
                 return;
             }
@@ -292,6 +291,26 @@ define([
                 showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
             }
         }
+    }
+
+    // Only unlock() stops Qliro polling, so release and lock again: still frozen, no longer polling.
+    // The next quote update subscribes afresh
+    function giveUpOnMismatch() {
+        clearTimeout(unlockWatchdog);
+        unlockWatchdog = null;
+        unmatchCount = 0;
+        sawMismatch = false;
+        expectedTotalPrice = null;
+        qliroDebug('Order updates arrived and none matched, keeping the checkout locked');
+
+        var checkout = qliroCheckout();
+
+        if (checkout) {
+            checkout.unlock();
+            checkout.lock();
+        }
+
+        showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
     }
 
     // Subscribing is what starts Qliro polling the order (lock() does not, unlock() stops it), so

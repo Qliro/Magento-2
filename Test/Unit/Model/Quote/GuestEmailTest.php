@@ -15,8 +15,8 @@ use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Model\Quote\GuestEmail;
 
 /**
- * The email a guest typed before the payment step reaches the Qliro order, and nothing the quote
- * already holds is replaced by what the browser sent.
+ * The email a guest typed before the payment step reaches the Qliro order, nothing the quote
+ * already holds is replaced by what the browser sent, and no address is touched.
  *
  * @see \Qliro\QliroOne\Model\Quote\GuestEmail
  */
@@ -29,12 +29,19 @@ class GuestEmailTest extends TestCase
         $this->guestEmail = new GuestEmail(new EmailAddress());
     }
 
-    public function testAGuestEmailGoesOnTheBillingAddress(): void
+    /**
+     * An address set dirty would be saved over the one set-payment-information saves alongside
+     */
+    public function testAGuestEmailIsKeptOnTheQuoteAndNoAddressIsTouched(): void
     {
         $billing = $this->address(null);
-        $billing->expects(self::once())->method('setEmail')->with('buyer@example.com');
+        $billing->expects(self::never())->method('setEmail');
+        $shipping = $this->address(null);
+        $shipping->expects(self::never())->method('setEmail');
+        $quote = $this->quote(null, $shipping, $billing);
 
-        self::assertTrue($this->guestEmail->apply($this->quote(null, $this->address(null), $billing), ' buyer@example.com '));
+        self::assertTrue($this->guestEmail->apply($quote, ' buyer@example.com '));
+        self::assertSame('buyer@example.com', $quote->getData(GuestEmail::QUOTE_KEY));
     }
 
     /**
@@ -42,10 +49,10 @@ class GuestEmailTest extends TestCase
      */
     public function testAnInternationalisedAddressIsAccepted(): void
     {
-        $billing = $this->address(null);
-        $billing->expects(self::once())->method('setEmail')->with('köpare@kök.se');
+        $quote = $this->quote(null, $this->address(null), $this->address(null));
 
-        self::assertTrue($this->guestEmail->apply($this->quote(null, $this->address(null), $billing), 'köpare@kök.se'));
+        self::assertTrue($this->guestEmail->apply($quote, 'köpare@kök.se'));
+        self::assertSame('köpare@kök.se', $quote->getData(GuestEmail::QUOTE_KEY));
     }
 
     public function testALoggedInBuyerKeepsTheAccountEmail(): void
@@ -53,7 +60,10 @@ class GuestEmailTest extends TestCase
         $billing = $this->address(null);
         $billing->expects(self::never())->method('setEmail');
 
-        self::assertFalse($this->guestEmail->apply($this->quote(7, $this->address(null), $billing), 'other@example.com'));
+        $quote = $this->quote(7, $this->address(null), $billing);
+
+        self::assertFalse($this->guestEmail->apply($quote, 'other@example.com'));
+        self::assertNull($quote->getData(GuestEmail::QUOTE_KEY));
     }
 
     public function testAnEmailAlreadyOnTheQuoteWins(): void
@@ -82,7 +92,10 @@ class GuestEmailTest extends TestCase
         $billing = $this->address(null);
         $billing->expects(self::never())->method('setEmail');
 
-        self::assertFalse($this->guestEmail->apply($this->quote(null, $this->address(null), $billing), $email));
+        $quote = $this->quote(null, $this->address(null), $billing);
+
+        self::assertFalse($this->guestEmail->apply($quote, $email));
+        self::assertNull($quote->getData(GuestEmail::QUOTE_KEY));
     }
 
     public static function notAnEmail(): array
