@@ -8,6 +8,9 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Builder;
 
 use Magento\Quote\Model\CustomerManagement;
+use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Store\Model\App\Emulation as StoreEmulation;
+use Magento\Store\Model\StoreManagerInterface;
 use Magento\Quote\Model\Quote;
 use Magento\Quote\Model\Quote\Item as QuoteItem;
 use Magento\Quote\Model\SubmitQuoteValidator;
@@ -121,7 +124,12 @@ class ValidateOrderBuilderQuantityTest extends TestCase
             $this->createMock(SubmitQuoteValidator::class),
             $this->createMock(CustomerManagement::class),
             $this->createMock(Config::class),
-            new WholeQuantityValidator(new LineQuantity())
+            new WholeQuantityValidator(new LineQuantity()),
+            // The last three are optional on the constructor and fall back to the object manager,
+            // which a unit test has none of, so they are handed over here
+            $this->createMock(CartRepositoryInterface::class),
+            $this->createMock(StoreManagerInterface::class),
+            $this->createMock(StoreEmulation::class)
         );
 
         $builder->setQuote($this->quote($quoteItems));

@@ -110,6 +110,7 @@ interface ManagementInterface
      *
      * @param float|null $price
      * @return bool
+     * @throws \Qliro\QliroOne\Model\Exception\QuoteValidatedException
      */
     public function updateShippingPrice($price);
 

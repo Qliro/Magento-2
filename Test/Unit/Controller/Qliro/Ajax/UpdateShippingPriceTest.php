@@ -38,9 +38,12 @@ class UpdateShippingPriceTest extends TestCase
         $this->assertSame(49.5, $this->shippingPrice(['newShippingPrice' => 49.5]));
     }
 
+    /**
+     * Refused rather than read as a price of zero, the controller answers it as a bad request
+     */
     public function testANonNumericPriceStillFails(): void
     {
-        $this->expectException(\TypeError::class);
+        $this->expectException(\InvalidArgumentException::class);
 
         $this->shippingPrice(['newShippingPrice' => 'free']);
     }
