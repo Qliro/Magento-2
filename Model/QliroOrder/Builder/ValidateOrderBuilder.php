@@ -310,10 +310,13 @@ class ValidateOrderBuilder
         }
 
         try {
+            $ratesAreFresh = false;
+
             if (!$shippingAddress->getShippingRateByCode($code)) {
                 // The saved rates can predate the address the carriers answer for now (PLIN-376)
                 $shippingAddress->setCollectShippingRates(true);
                 $shippingAddress->collectShippingRates();
+                $ratesAreFresh = true;
             }
 
             if (!$shippingAddress->getShippingRateByCode($code)) {
@@ -343,10 +346,7 @@ class ValidateOrderBuilder
                 return $unplaceable;
             }
 
-            // A price disagreement, like one on a product line, not a delivery the address cannot get
-            return $this->switchToSelectedMethod($code, $quoteMethod)
-                ? null
-                : ValidateOrderResponseInterface::REASON_OTHER;
+            return $this->switchToSelectedMethod($code, $quoteMethod, $ratesAreFresh);
         } catch (\Exception $exception) {
             $this->logValidateError(
                 'applySelectedShippingMethod',
@@ -367,15 +367,42 @@ class ValidateOrderBuilder
      *
      * @param string $code
      * @param string $quoteMethod
-     * @return bool False when the store prices that method differently than Qliro
+     * @param bool $ratesAreFresh Whether the rates were just collected for the current address
+     * @return string|null The decline reason, null when the quote is on the method
      */
-    private function switchToSelectedMethod(string $code, string $quoteMethod): bool
+    private function switchToSelectedMethod(string $code, string $quoteMethod, bool $ratesAreFresh): ?string
     {
         $shippingAddress = $this->quote->getShippingAddress();
         $this->putQuoteOnMethod($code);
 
+        // Saved rates price only the address they were rated for, the carriers are asked again otherwise
+        $collectRates = $shippingAddress->getCollectShippingRates();
+        $reRate = !$ratesAreFresh && $this->hasRatedAddressChanged();
+        $shippingAddress->setCollectShippingRates($reRate);
         $this->quote->setTotalsCollectedFlag(false);
         $this->quote->collectTotals();
+
+        // A cart rule can grant free shipping only once the totals are collected, saved rates predate it
+        if (!$reRate && $shippingAddress->dataHasChangedFor('free_shipping')) {
+            $shippingAddress->setCollectShippingRates(true);
+            $this->quote->setTotalsCollectedFlag(false);
+            $this->quote->collectTotals();
+        }
+
+        $shippingAddress->setCollectShippingRates($collectRates);
+
+        // Rated again for the new address, core clears a method the carriers no longer offer.
+        // Not getShippingRateByCode(), which still finds the rates the rating marked deleted
+        if ((string)$shippingAddress->getShippingMethod() !== $code) {
+            $this->logValidateError(
+                'applySelectedShippingMethod',
+                'the method Qliro selected is not among the rates for the changed address',
+                ['qliro_method' => $code]
+            );
+            $this->putQuoteOnMethod($quoteMethod === '' ? null : $quoteMethod);
+
+            return ValidateOrderResponseInterface::REASON_SHIPPING;
+        }
 
         $quotePrice = (float)$shippingAddress->getShippingInclTax();
         $qliroPrice = $this->getQliroShippingPrice();
@@ -390,7 +417,8 @@ class ValidateOrderBuilder
             // Nothing is saved on a decline, and the quote in memory is not left on the refused method
             $this->putQuoteOnMethod($quoteMethod === '' ? null : $quoteMethod);
 
-            return false;
+            // A price disagreement, like one on a product line, not a delivery the address cannot get
+            return ValidateOrderResponseInterface::REASON_OTHER;
         }
 
         // Saved, so placing the order starts from it even when the Qliro order has no shipping line.
@@ -410,7 +438,27 @@ class ValidateOrderBuilder
             ['extra' => ['quote_id' => $this->quote->getId(), 'quote_method' => $quoteMethod, 'qliro_method' => $code]]
         );
 
-        return true;
+        return null;
+    }
+
+    /**
+     * Whether the address differs from the one loaded with the quote, which the saved rates were rated for
+     *
+     * The validate callback writes Qliro's address on the quote before this builder runs.
+     *
+     * @return bool
+     */
+    private function hasRatedAddressChanged(): bool
+    {
+        $shippingAddress = $this->quote->getShippingAddress();
+
+        foreach (['country_id', 'region_id', 'region', 'postcode', 'city', 'street'] as $field) {
+            if ($shippingAddress->dataHasChangedFor($field)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

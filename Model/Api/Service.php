@@ -176,8 +176,9 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
             // A TerminalException and not an argument one, because the client logs anything else
             // at critical, and a call that was never made is not worse news than the failure that
             // left the placeholder empty
+            // Cast, \Exception takes no Phrase under strict types
             throw new TerminalException(
-                __('Endpoint %1 has no value for %2', $endpoint, $matches[1])
+                (string)__('Endpoint %1 has no value for %2', $endpoint, $matches[1])
             );
         }
     }

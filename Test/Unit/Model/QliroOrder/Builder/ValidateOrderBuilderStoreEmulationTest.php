@@ -187,6 +187,16 @@ class ValidateOrderBuilderStoreEmulationTest extends TestCase
 
             private ?string $method = null;
 
+            public function getCollectShippingRates(): bool
+            {
+                return false;
+            }
+
+            public function dataHasChangedFor($field): bool
+            {
+                return false;
+            }
+
             public function setCollectShippingRates($flag): self
             {
                 return $this;

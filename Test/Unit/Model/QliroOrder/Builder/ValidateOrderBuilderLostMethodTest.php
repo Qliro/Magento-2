@@ -43,6 +43,24 @@ class ValidateOrderBuilderLostMethodTest extends TestCase
     /** @var bool Whether the quote was saved after the code was applied */
     private bool $quoteSaved = false;
 
+    /** @var bool[] The address's collect rates flag at each totals collection */
+    private array $collectFlagsAtTotals = [];
+
+    /** @var object|null The shipping address double of the last quote built */
+    private ?object $addressDouble = null;
+
+    /** @var string[] Address fields that differ from the loaded quote */
+    private array $changedFields = [];
+
+    /** @var string[]|null What the carriers return when the totals rate again, null for the same */
+    private ?array $ratesAfterReRate = null;
+
+    /** Read by the address double */
+    public function hasFieldChanged(string $field): bool
+    {
+        return \in_array($field, $this->changedFields, true);
+    }
+
     /** Read by the address double, which cannot reach a private property */
     public function readAppliedMethod(): ?string
     {
@@ -75,6 +93,57 @@ class ValidateOrderBuilderLostMethodTest extends TestCase
         );
         self::assertSame('dhl_pickup_A', $this->appliedMethod);
         self::assertTrue($this->quoteSaved, 'the applied method was not saved on the quote');
+    }
+
+    /**
+     * A code already in the saved rates is priced from them, the carriers are not asked again
+     * inside the seconds Qliro waits for the answer.
+     */
+    public function testTotalsDoNotAskTheCarriersAgainForASavedRate(): void
+    {
+        $this->validate('dhl_pickup_A', ['dhl_pickup_A', 'dhl_pickup_B']);
+
+        self::assertSame([false], $this->collectFlagsAtTotals);
+        self::assertTrue($this->addressDouble->getCollectShippingRates(), 'the flag the quote had was not put back');
+    }
+
+    /**
+     * The validate callback wrote Qliro's address on the quote, the saved price is for the old one.
+     */
+    public function testTotalsAskTheCarriersWhenTheAddressChanged(): void
+    {
+        $this->changedFields = ['postcode'];
+
+        $this->validate('dhl_pickup_A', ['dhl_pickup_A']);
+
+        self::assertSame([true], $this->collectFlagsAtTotals);
+    }
+
+    /**
+     * The new address loses the code, which is a delivery refusal, and nothing is saved.
+     */
+    public function testDeclinesAsShippingWhenTheNewAddressLosesTheMethod(): void
+    {
+        $this->changedFields = ['postcode'];
+        $this->ratesAfterReRate = ['dhl_pickup_B'];
+
+        $response = $this->validate('dhl_pickup_A', ['dhl_pickup_A']);
+
+        self::assertSame(ValidateOrderResponseInterface::REASON_SHIPPING, $response->getDeclineReason());
+        self::assertNull($this->appliedMethod);
+        self::assertFalse($this->quoteSaved);
+    }
+
+    /**
+     * The saved price predates a free shipping rule the collected totals granted.
+     */
+    public function testTotalsAskTheCarriersAgainWhenFreeShippingChanged(): void
+    {
+        $this->changedFields = ['free_shipping'];
+
+        $this->validate('dhl_pickup_A', ['dhl_pickup_A']);
+
+        self::assertSame([false, true], $this->collectFlagsAtTotals);
     }
 
     public function testDeclinesWhenTheSelectedMethodIsNoLongerOffered(): void
@@ -211,13 +280,46 @@ class ValidateOrderBuilderLostMethodTest extends TestCase
         // A double rather than a mock: the address methods the builder uses are magic ones on
         // DataObject, and PHPUnit cannot configure what the class does not declare.
         $address = new class ($offeredRates, $test) {
+            /** Set on a quote the storefront saved, which is the usual state */
+            private bool $collectRates = true;
+
             /** @param string[] $offeredRates */
             public function __construct(private array $offeredRates, private $test)
             {
             }
 
+            public function getCollectShippingRates(): bool
+            {
+                return $this->collectRates;
+            }
+
+            public function dataHasChangedFor($field): bool
+            {
+                return $this->test->hasFieldChanged($field);
+            }
+
+            /** @var string[] Rates a rating marked deleted, which core's lookup by code still finds */
+            private array $deletedRates = [];
+
+            /**
+             * Rate again as core does: the old rates stay findable by code, a method no longer offered is cleared
+             *
+             * @param string[] $offeredRates
+             */
+            public function replaceRates(array $offeredRates): void
+            {
+                $this->deletedRates = \array_merge($this->deletedRates, $this->offeredRates);
+                $this->offeredRates = $offeredRates;
+
+                if (!\in_array($this->test->readAppliedMethod(), $offeredRates, true)) {
+                    $this->test->recordAppliedMethod('');
+                }
+            }
+
             public function setCollectShippingRates($flag): self
             {
+                $this->collectRates = (bool)$flag;
+
                 return $this;
             }
 
@@ -229,7 +331,9 @@ class ValidateOrderBuilderLostMethodTest extends TestCase
             /** @return DataObject|false */
             public function getShippingRateByCode($code)
             {
-                return \in_array($code, $this->offeredRates, true) ? new DataObject(['code' => $code]) : false;
+                return \in_array($code, \array_merge($this->offeredRates, $this->deletedRates), true)
+                    ? new DataObject(['code' => $code])
+                    : false;
             }
 
             /** @return DataObject[] */
@@ -291,6 +395,16 @@ class ValidateOrderBuilderLostMethodTest extends TestCase
         $quote->method('isVirtual')->willReturn(false);
         $quote->method('getIsActive')->willReturn(true);
         $quote->method('getShippingAddress')->willReturn($address);
+        $quote->method('collectTotals')->willReturnCallback(function () use ($address, $quote) {
+            $this->collectFlagsAtTotals[] = $address->getCollectShippingRates();
+
+            if ($address->getCollectShippingRates() && $this->ratesAfterReRate !== null) {
+                $address->replaceRates($this->ratesAfterReRate);
+            }
+
+            return $quote;
+        });
+        $this->addressDouble = $address;
 
         return $quote;
     }
