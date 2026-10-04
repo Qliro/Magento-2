@@ -45,12 +45,12 @@ class CreditMemoItemsBuilderTest extends TestCase
     {
         $lines = $this->build(
             [
-                $this->buildLine('518:Kanalplast', 25.0),
-                $this->buildLine('519:Kanalplast', 25.0),
+                $this->buildLine('518:SKU-CABLE', 25.0),
+                $this->buildLine('519:SKU-CABLE', 25.0),
             ],
             [
-                $this->buildCreditMemoItem('Kanalplast', 518, 10.0),
-                $this->buildCreditMemoItem('Kanalplast', 519, 4.0),
+                $this->buildCreditMemoItem('SKU-CABLE', 518, 10.0),
+                $this->buildCreditMemoItem('SKU-CABLE', 519, 4.0),
             ],
             true
         );
@@ -66,12 +66,12 @@ class CreditMemoItemsBuilderTest extends TestCase
     public function testAnOrderFromBeforeTheStampKeepsTheBareSku(): void
     {
         $lines = $this->build(
-            [$this->buildLine('518:Kanalplast', 25.0)],
-            [$this->buildCreditMemoItem('Kanalplast', 518, 25.0)],
+            [$this->buildLine('518:SKU-CABLE', 25.0)],
+            [$this->buildCreditMemoItem('SKU-CABLE', 518, 25.0)],
             false
         );
 
-        self::assertSame('Kanalplast', $lines[0]->getMerchantReference());
+        self::assertSame('SKU-CABLE', $lines[0]->getMerchantReference());
     }
 
     /**
@@ -80,12 +80,12 @@ class CreditMemoItemsBuilderTest extends TestCase
     public function testAStampedOrderKeepsTheReferenceWithTheItemId(): void
     {
         $lines = $this->build(
-            [$this->buildLine('518:Kanalplast', 25.0)],
-            [$this->buildCreditMemoItem('Kanalplast', 518, 25.0)],
+            [$this->buildLine('518:SKU-CABLE', 25.0)],
+            [$this->buildCreditMemoItem('SKU-CABLE', 518, 25.0)],
             true
         );
 
-        self::assertSame('518:Kanalplast', $lines[0]->getMerchantReference());
+        self::assertSame('518:SKU-CABLE', $lines[0]->getMerchantReference());
     }
 
     /**
@@ -95,7 +95,7 @@ class CreditMemoItemsBuilderTest extends TestCase
     public function testALineTheCreditMemoDoesNotHoldIsDropped(): void
     {
         $lines = $this->build(
-            [$this->buildLine('518:Kanalplast', 25.0)],
+            [$this->buildLine('518:SKU-CABLE', 25.0)],
             [$this->buildCreditMemoItem('skylthallare 5mm', 520, 50.0)],
             true
         );

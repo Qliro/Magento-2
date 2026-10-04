@@ -7,8 +7,9 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ResponseInterface;
 use Magento\Framework\Controller\ResultInterface;
 use Qliro\QliroOne\Helper\Data;
@@ -17,6 +18,7 @@ use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\HtmlSnippet;
+use Qliro\QliroOne\Model\Quote\GuestEmail;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
 /**
@@ -27,29 +29,36 @@ use Qliro\QliroOne\Model\Security\AjaxToken;
  * but the snippet. Keeping this off the native checkout page is the point: a Qliro order is created
  * when the buyer chooses Qliro, not for everyone who reaches the payment step.
  */
-class GetSnippet extends \Magento\Framework\App\Action\Action
+class GetSnippet implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * Inject dependencies
      *
-     * @param Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param Config $qliroConfig
      * @param Data $dataHelper
      * @param AjaxToken $ajaxToken
      * @param HtmlSnippet $htmlSnippet
      * @param Session $checkoutSession
      * @param Manager $logManager
+     * @param GuestEmail $guestEmail
      */
     public function __construct(
-        Context $context,
+        Http $request,
         private readonly Config $qliroConfig,
         private readonly Data $dataHelper,
         private readonly AjaxToken $ajaxToken,
         private readonly HtmlSnippet $htmlSnippet,
         private readonly Session $checkoutSession,
-        private readonly Manager $logManager
+        private readonly Manager $logManager,
+        private readonly GuestEmail $guestEmail
     ) {
-        parent::__construct($context);
+        $this->request = $request;
     }
 
     /**
@@ -72,7 +81,7 @@ class GetSnippet extends \Magento\Framework\App\Action\Action
         $this->logManager->setMerchantReferenceFromQuote($quote);
         $this->ajaxToken->setQuote($quote);
 
-        if (!$this->ajaxToken->verifyToken($this->getRequest()->getParam('token'))) {
+        if (!$this->ajaxToken->verifyToken($this->request->getParam('token'))) {
             return $this->dataHelper->sendPreparedPayload(
                 ['error' => (string)__('Security token is incorrect.')],
                 401,
@@ -80,6 +89,8 @@ class GetSnippet extends \Magento\Framework\App\Action\Action
                 'AJAX:GET_SNIPPET:ERROR_TOKEN'
             );
         }
+
+        $this->guestEmail->apply($quote, (string)$this->request->getParam('email'));
 
         try {
             // The same fetch the checkout page makes, including the unlock of a link the buyer
