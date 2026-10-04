@@ -225,7 +225,13 @@ class ShippingMethodsBuilderTest extends TestCase
     {
         $address = $this->getMockBuilder(Address::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['collectShippingRates', 'getGroupedAllShippingRates', 'getAllShippingRates'])
+            ->onlyMethods([
+                'collectShippingRates',
+                'getGroupedAllShippingRates',
+                'getAllShippingRates',
+                'removeAllShippingRates',
+                'save',
+            ])
             ->getMock();
 
         $address->method('getGroupedAllShippingRates')->willReturn([]);

@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\Link;
 
+use Magento\Framework\Stdlib\DateTime\DateTime;
 use Magento\Framework\Exception\NoSuchEntityException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
@@ -44,12 +45,15 @@ class RepositoryTest extends TestCase
         $this->linkResourceModel = $this->createMock(LinkResourceModel::class);
         $this->linkFactory = $this->createMock(LinkInterfaceFactory::class);
         $this->collectionFactory = $this->createMock(CollectionFactory::class);
+        $dateTime = $this->createMock(DateTime::class);
+        $dateTime->method('gmtDate')->willReturn('2026-09-20 08:38:37');
 
         $this->repository = new Repository(
             $this->linkResourceModel,
             $this->linkFactory,
             $this->createMock(LinkSearchResultInterfaceFactory::class),
-            $this->collectionFactory
+            $this->collectionFactory,
+            $dateTime
         );
     }
 
@@ -226,6 +230,66 @@ class RepositoryTest extends TestCase
      * @param int|null $linkId
      * @return LinkInterface&MockObject
      */
+    /**
+     * The mark is what closes the quote to changes, and it is written once.
+     */
+    public function testMarksTheLinkValidatedOnce(): void
+    {
+        $link = $this->givenCollectionReturnsLink(7);
+        $link->method('getValidatedAt')->willReturn(null);
+        $link->expects(self::once())->method('setValidatedAt')->with('2026-09-20 08:38:37');
+        $this->linkResourceModel->expects(self::once())->method('save')->with($link);
+
+        self::assertSame($link, $this->repository->markValidated(11));
+    }
+
+    /**
+     * A link already marked is left alone, so a repeated validation does not rewrite the row.
+     */
+    public function testDoesNotMarkALinkThatIsAlreadyValidated(): void
+    {
+        $link = $this->givenCollectionReturnsLink(7);
+        $link->method('getValidatedAt')->willReturn('2026-09-20 08:38:37');
+        $link->expects(self::never())->method('setValidatedAt');
+        $this->linkResourceModel->expects(self::never())->method('save');
+
+        $this->repository->markValidated(11);
+    }
+
+    /**
+     * Unlocking clears the validation mark as well. A payment that ended without an order leaves
+     * the buyer in the checkout, and the delivery they pick next has to reach the quote.
+     */
+    public function testUnlockClearsTheValidationMark(): void
+    {
+        $link = $this->givenCollectionReturnsLink(7);
+        $link->method('getIsLocked')->willReturn(false);
+        $link->method('getValidatedAt')->willReturn('2026-09-20 08:38:37');
+        $link->expects(self::once())->method('setIsLocked')->with(false);
+        $link->expects(self::once())->method('setValidatedAt')->with(null);
+        $this->linkResourceModel->expects(self::once())->method('save')->with($link);
+
+        $this->repository->unlock(11);
+    }
+
+    /**
+     * Unlock answers an endpoint anyone can call and every snippet fetch, so a checkout that has
+     * already produced an order must not be reopened by it: there is nothing left for the buyer
+     * to change, and the delivery endpoints would accept writes to the quote it was placed from.
+     */
+    public function testUnlockKeepsTheValidationMarkOnceAnOrderExists(): void
+    {
+        $link = $this->givenCollectionReturnsLink(7);
+        $link->method('getIsLocked')->willReturn(true);
+        $link->method('getValidatedAt')->willReturn('2026-09-20 08:38:37');
+        $link->method('getOrderId')->willReturn(900016);
+        $link->expects(self::once())->method('setIsLocked')->with(false);
+        $link->expects(self::never())->method('setValidatedAt');
+        $this->linkResourceModel->expects(self::once())->method('save')->with($link);
+
+        $this->repository->unlock(11);
+    }
+
     private function givenCollectionReturnsLink(?int $linkId): LinkInterface&MockObject
     {
         $link = $this->createMock(Link::class);

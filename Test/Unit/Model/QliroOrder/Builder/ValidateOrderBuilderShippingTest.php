@@ -322,9 +322,13 @@ class ValidateOrderBuilderShippingTest extends TestCase
 
         $address = $this->getMockBuilder(Address::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getShippingMethod', 'getShippingRateByCode'])
-            ->addMethods(['setShippingMethod', 'getShippingInclTax'])
+            ->onlyMethods(['getShippingMethod', 'getShippingRateByCode', 'collectShippingRates', 'getAllShippingRates', 'getStreetLine'])
+            ->addMethods(['setShippingMethod', 'getShippingInclTax', 'setCollectShippingRates'])
             ->getMock();
+        // A code missing from the saved rates is rated again, and the carriers answer with the same set
+        $address->method('collectShippingRates')->willReturnSelf();
+        $address->method('setCollectShippingRates')->willReturnSelf();
+        $address->method('getAllShippingRates')->willReturn([]);
         $address->method('getShippingMethod')->willReturnCallback(fn() => $this->quoteMethod);
         $address->method('setShippingMethod')->willReturnCallback(function ($code) use ($address) {
             $this->quoteMethod = $code;
