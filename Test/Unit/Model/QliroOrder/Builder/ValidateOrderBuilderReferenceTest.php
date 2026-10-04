@@ -48,8 +48,8 @@ class ValidateOrderBuilderReferenceTest extends TestCase
     public function testACartHoldingOneSkuOnTwoLinesIsAccepted(): void
     {
         $lines = [
-            $this->buildLine('518:Kanalplast', 25.0, 14.25, 11.4),
-            $this->buildLine('519:Kanalplast', 25.0, 14.25, 11.4),
+            $this->buildLine('518:SKU-CABLE', 25.0, 14.25, 11.4),
+            $this->buildLine('519:SKU-CABLE', 25.0, 14.25, 11.4),
         ];
 
         $response = $this->buildBuilder($lines, $lines)->create();
@@ -64,8 +64,8 @@ class ValidateOrderBuilderReferenceTest extends TestCase
     public function testACartWithARepeatedReferenceIsDeclined(): void
     {
         $lines = [
-            $this->buildLine('Kanalplast', 25.0, 14.25, 11.4),
-            $this->buildLine('Kanalplast', 25.0, 14.25, 11.4),
+            $this->buildLine('SKU-CABLE', 25.0, 14.25, 11.4),
+            $this->buildLine('SKU-CABLE', 25.0, 14.25, 11.4),
         ];
 
         $response = $this->buildBuilder($lines, $lines)->create();
@@ -80,11 +80,11 @@ class ValidateOrderBuilderReferenceTest extends TestCase
     public function testAMergedQliroLineIsDeclined(): void
     {
         $quoteLines = [
-            $this->buildLine('Kanalplast', 25.0, 14.25, 11.4),
+            $this->buildLine('SKU-CABLE', 25.0, 14.25, 11.4),
         ];
         $qliroLines = [
-            $this->buildLine('Kanalplast', 25.0, 14.25, 11.4),
-            $this->buildLine('Kanalplast', 25.0, 14.25, 11.4),
+            $this->buildLine('SKU-CABLE', 25.0, 14.25, 11.4),
+            $this->buildLine('SKU-CABLE', 25.0, 14.25, 11.4),
         ];
 
         $response = $this->buildBuilder($quoteLines, $qliroLines)->create();
@@ -98,8 +98,8 @@ class ValidateOrderBuilderReferenceTest extends TestCase
     public function testADisagreeingQuantityIsStillDeclined(): void
     {
         $response = $this->buildBuilder(
-            [$this->buildLine('518:Kanalplast', 25.0, 14.25, 11.4)],
-            [$this->buildLine('518:Kanalplast', 50.0, 14.25, 11.4)]
+            [$this->buildLine('518:SKU-CABLE', 25.0, 14.25, 11.4)],
+            [$this->buildLine('518:SKU-CABLE', 50.0, 14.25, 11.4)]
         )->create();
 
         self::assertSame(ValidateOrderResponseInterface::REASON_OTHER, $response->getDeclineReason());
@@ -163,7 +163,7 @@ class ValidateOrderBuilderReferenceTest extends TestCase
             ->onlyMethods(['getProduct', 'getSku', 'getTotalQty', 'getProductType', 'getChildren'])
             ->getMock();
         $quoteItem->method('getProduct')->willReturn($product);
-        $quoteItem->method('getSku')->willReturn('Kanalplast');
+        $quoteItem->method('getSku')->willReturn('SKU-CABLE');
         $quoteItem->method('getTotalQty')->willReturn(50.0);
         $quoteItem->method('getProductType')->willReturn('simple');
         $quoteItem->method('getChildren')->willReturn([]);

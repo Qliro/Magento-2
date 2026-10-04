@@ -67,11 +67,11 @@ class OrganizationNumberTest extends TestCase
 
         $this->organizationNumber->apply(
             $this->order($billing, $shipping),
-            $this->qliroOrder('964969124 Gloppen Kommune', '964969124')
+            $this->qliroOrder('123456785 Test Kommune', '123456785')
         );
 
-        self::assertSame('964969124', $billing->getVatId());
-        self::assertSame('964969124', $shipping->getVatId());
+        self::assertSame('123456785', $billing->getVatId());
+        self::assertSame('123456785', $shipping->getVatId());
         self::assertCount(2, $this->saved);
     }
 
@@ -84,10 +84,10 @@ class OrganizationNumberTest extends TestCase
 
         $this->organizationNumber->apply(
             $this->order($billing, null),
-            $this->qliroOrder('964969124 Gloppen Kommune', '964969124')
+            $this->qliroOrder('123456785 Test Kommune', '123456785')
         );
 
-        self::assertSame('964969124', $billing->getVatId());
+        self::assertSame('123456785', $billing->getVatId());
         self::assertCount(1, $this->saved);
     }
 
@@ -118,7 +118,7 @@ class OrganizationNumberTest extends TestCase
 
         $this->organizationNumber->apply(
             $this->order($billing, null),
-            $this->qliroOrder('964969124 Gloppen Kommune', '964969124')
+            $this->qliroOrder('123456785 Test Kommune', '123456785')
         );
 
         self::assertSame('SE556036079301', $billing->getVatId());
@@ -141,7 +141,7 @@ class OrganizationNumberTest extends TestCase
 
         $organizationNumber->apply(
             $this->order($this->orderAddress(), null),
-            $this->qliroOrder('964969124 Gloppen Kommune', '964969124')
+            $this->qliroOrder('123456785 Test Kommune', '123456785')
         );
     }
 

@@ -7,8 +7,9 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
@@ -23,12 +24,17 @@ use Magento\Tax\Helper\Data as TaxHelper;
 /**
  * Update shipping method AJAX controller action class
  */
-class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
+class UpdateShippingMethod implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * Inject dependnecies
      *
-     * @param Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param Config $qliroConfig
      * @param Data $dataHelper
      * @param AjaxToken $ajaxToken
@@ -39,7 +45,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
      * @param TaxHelper $taxHelper
      */
     public function __construct(
-        Context $context,
+        Http $request,
         readonly private Config $qliroConfig,
         readonly private Data $dataHelper,
         readonly private AjaxToken $ajaxToken,
@@ -49,7 +55,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         readonly private ProductMetadataInterface $productMetadata,
         readonly private TaxHelper $taxHelper
     ) {
-        parent::__construct($context);
+        $this->request = $request;
     }
 
     /**
@@ -72,7 +78,7 @@ class UpdateShippingMethod extends \Magento\Framework\App\Action\Action
         }
 
         /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         $quote = $this->checkoutSession->getQuote();
         $this->logManager->debug('Starting to update shipping method for quote: ' . $quote->getId());

@@ -265,7 +265,7 @@ class AddressConverter
     /**
      * Take the organisation number off the front of the company name Qliro sent
      *
-     * Qliro sends a business buyer as one string, `964969124 Gloppen Kommune`, so the number
+     * Qliro sends a business buyer as one string, `123456785 Test Kommune`, so the number
      * reached the order printed on the company line. It is stripped only where the name really
      * starts with one of the numbers, digit by digit, so a name Qliro sends on its own is left
      * alone, and a name that is nothing but the number is kept as it is rather than emptied.
@@ -287,7 +287,7 @@ class AddressConverter
                 continue;
             }
 
-            // The lookahead is what keeps 964969124 off the front of "9649691240 AB": without it
+            // The lookahead is what keeps 123456785 off the front of "1234567850 AB": without it
             // the shorter number matches the longer one and leaves the rest of it on the name
             $pattern = sprintf(
                 '/^\s*%s(?![\s.,:;\/-]*\d)[\s.,:;\/-]*/',
