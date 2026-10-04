@@ -104,11 +104,11 @@ class DefaultHandlerTest extends TestCase
     {
         $handler = $this->buildHandler();
 
-        $first = $handler->getQliroOrderItem($this->buildSourceItem(14.25, 11.4, 25.0, itemId: 518, sku: 'Kanalplast'));
-        $second = $handler->getQliroOrderItem($this->buildSourceItem(14.25, 11.4, 25.0, itemId: 519, sku: 'Kanalplast'));
+        $first = $handler->getQliroOrderItem($this->buildSourceItem(14.25, 11.4, 25.0, itemId: 518, sku: 'SKU-CABLE'));
+        $second = $handler->getQliroOrderItem($this->buildSourceItem(14.25, 11.4, 25.0, itemId: 519, sku: 'SKU-CABLE'));
 
-        self::assertSame('518:Kanalplast', $first->getMerchantReference());
-        self::assertSame('519:Kanalplast', $second->getMerchantReference());
+        self::assertSame('518:SKU-CABLE', $first->getMerchantReference());
+        self::assertSame('519:SKU-CABLE', $second->getMerchantReference());
         self::assertNotSame($first->getMerchantReference(), $second->getMerchantReference());
     }
 

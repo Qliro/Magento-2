@@ -20,6 +20,7 @@ use Qliro\QliroOne\Model\QliroOrder\Address\Address as QliroAddress;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CustomerAddressBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\CustomerBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Customer;
+use Qliro\QliroOne\Model\Quote\GuestEmail;
 
 /**
  * @see \Qliro\QliroOne\Model\QliroOrder\Builder\CustomerBuilder::create
@@ -99,5 +100,32 @@ class CustomerBuilderTest extends TestCase
 
         self::assertSame(QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY, $customer->getJuridicalType());
         self::assertSame('Buyer AS', $customer->getAddress()->getCompanyName());
+    }
+
+    /**
+     * PLIN-419: a guest's email the snippet fetch brought along, held on the quote and not on an address
+     */
+    public function testTheGuestEmailKeptOnTheQuoteIsSent(): void
+    {
+        $this->shippingAddress->addData(['firstname' => 'Kristine', 'lastname' => 'Moen']);
+        $this->quote->method('getData')->willReturnCallback(
+            fn ($key = '') => $key === GuestEmail::QUOTE_KEY ? 'buyer@example.com' : null
+        );
+
+        $customer = $this->builder->setQuote($this->quote)->setCustomer(null)->create();
+
+        self::assertSame('buyer@example.com', $customer->getEmail());
+    }
+
+    public function testAnEmailOnTheAddressWinsOverTheGuestEmail(): void
+    {
+        $this->shippingAddress->addData(['firstname' => 'Kristine', 'lastname' => 'Moen', 'email' => 'stored@example.com']);
+        $this->quote->method('getData')->willReturnCallback(
+            fn ($key = '') => $key === GuestEmail::QUOTE_KEY ? 'buyer@example.com' : null
+        );
+
+        $customer = $this->builder->setQuote($this->quote)->setCustomer(null)->create();
+
+        self::assertSame('stored@example.com', $customer->getEmail());
     }
 }

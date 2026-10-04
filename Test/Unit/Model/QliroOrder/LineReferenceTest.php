@@ -33,7 +33,7 @@ class LineReferenceTest extends TestCase
      */
     public function testTheItemIdGoesInFrontOfTheSku(): void
     {
-        self::assertSame('519:Kanalplast', $this->lineReference->forItem(519, 'Kanalplast'));
+        self::assertSame('519:SKU-CABLE', $this->lineReference->forItem(519, 'SKU-CABLE'));
     }
 
     /**
@@ -42,8 +42,8 @@ class LineReferenceTest extends TestCase
      */
     public function testWithoutAnItemIdTheSkuStandsAlone(): void
     {
-        self::assertSame('Kanalplast', $this->lineReference->forItem(null, 'Kanalplast'));
-        self::assertSame('Kanalplast', $this->lineReference->forItem('', 'Kanalplast'));
+        self::assertSame('SKU-CABLE', $this->lineReference->forItem(null, 'SKU-CABLE'));
+        self::assertSame('SKU-CABLE', $this->lineReference->forItem('', 'SKU-CABLE'));
     }
 
     /**
@@ -86,8 +86,8 @@ class LineReferenceTest extends TestCase
      */
     public function testAReferenceWithoutAnIdIsAllSku(): void
     {
-        self::assertNull($this->lineReference->itemIdOf('Kanalplast'));
-        self::assertSame('Kanalplast', $this->lineReference->skuOf('Kanalplast'));
+        self::assertNull($this->lineReference->itemIdOf('SKU-CABLE'));
+        self::assertSame('SKU-CABLE', $this->lineReference->skuOf('SKU-CABLE'));
     }
 
     /**
@@ -105,11 +105,11 @@ class LineReferenceTest extends TestCase
     public function testAnOrderFromBeforeTheStampKeepsTheBareSku(): void
     {
         $lines = $this->lineReference->alignWithReservation(
-            [$this->buildLine('519:Kanalplast', QliroOrderItemInterface::TYPE_PRODUCT)],
+            [$this->buildLine('519:SKU-CABLE', QliroOrderItemInterface::TYPE_PRODUCT)],
             $this->buildOrder(false)
         );
 
-        self::assertSame('Kanalplast', $lines[0]->getMerchantReference());
+        self::assertSame('SKU-CABLE', $lines[0]->getMerchantReference());
     }
 
     /**
@@ -118,11 +118,11 @@ class LineReferenceTest extends TestCase
     public function testAStampedOrderKeepsItsReferences(): void
     {
         $lines = $this->lineReference->alignWithReservation(
-            [$this->buildLine('519:Kanalplast', QliroOrderItemInterface::TYPE_PRODUCT)],
+            [$this->buildLine('519:SKU-CABLE', QliroOrderItemInterface::TYPE_PRODUCT)],
             $this->buildOrder(true)
         );
 
-        self::assertSame('519:Kanalplast', $lines[0]->getMerchantReference());
+        self::assertSame('519:SKU-CABLE', $lines[0]->getMerchantReference());
     }
 
     /**
