@@ -7,8 +7,8 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
+use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\App\ResponseInterface;
@@ -29,8 +29,13 @@ use Magento\Tax\Helper\Data as TaxHelper;
 /**
  * Update shipping method options AJAX controller action class
  */
-class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
+class UpdateShippingPrice implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var Quote|CartInterface
      */
@@ -39,7 +44,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
     /**
      * Inject dependnecies
      *
-     * @param Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param Config $qliroConfig
      * @param Data $dataHelper
      * @param AjaxToken $ajaxToken
@@ -50,7 +55,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
      * @param TaxHelper $taxHelper
      */
     public function __construct(
-        Context $context,
+        Http $request,
         readonly private Config $qliroConfig,
         readonly private Data $dataHelper,
         readonly private AjaxToken $ajaxToken,
@@ -61,7 +66,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         readonly private TaxHelper $taxHelper,
         readonly private LinkRepositoryInterface $linkRepository
     ) {
-        parent::__construct($context);
+        $this->request = $request;
     }
 
     /**
@@ -84,7 +89,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
         }
 
         /** @var Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         try {
             $quote = $this->getQuote();
@@ -178,7 +183,7 @@ class UpdateShippingPrice extends \Magento\Framework\App\Action\Action
     protected function getShippingPrice(): float
     {
         /** @var Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         $data = $this->dataHelper->readPreparedPayload($request, 'AJAX:UPDATE_SHIPPING_PRICE');
         $shippingPrice = $data['price'] ?? ($data['newShippingPrice'] ?? null);

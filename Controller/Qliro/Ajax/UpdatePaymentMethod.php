@@ -7,8 +7,9 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 
+use Magento\Framework\App\Action\HttpPostActionInterface;
+use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ResponseInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
@@ -19,8 +20,13 @@ use Qliro\QliroOne\Model\Logger\Manager;
 /**
  * Update payment method AJAX controller action class
  */
-class UpdatePaymentMethod extends \Magento\Framework\App\Action\Action
+class UpdatePaymentMethod implements HttpPostActionInterface
 {
+    /**
+     * @var \Magento\Framework\App\Request\Http
+     */
+    private Http $request;
+
     /**
      * @var \Qliro\QliroOne\Helper\Data
      */
@@ -54,7 +60,7 @@ class UpdatePaymentMethod extends \Magento\Framework\App\Action\Action
     /**
      * Inject dependnecies
      *
-     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Framework\App\Request\Http $request
      * @param \Qliro\QliroOne\Model\Config $qliroConfig
      * @param \Qliro\QliroOne\Helper\Data $dataHelper
      * @param \Qliro\QliroOne\Model\Security\AjaxToken $ajaxToken
@@ -63,7 +69,7 @@ class UpdatePaymentMethod extends \Magento\Framework\App\Action\Action
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      */
     public function __construct(
-        Context $context,
+        Http $request,
         Config $qliroConfig,
         Data $dataHelper,
         AjaxToken $ajaxToken,
@@ -71,7 +77,7 @@ class UpdatePaymentMethod extends \Magento\Framework\App\Action\Action
         Session $checkoutSession,
         Manager $logManager
     ) {
-        parent::__construct($context);
+        $this->request = $request;
         $this->dataHelper = $dataHelper;
         $this->ajaxToken = $ajaxToken;
         $this->qliroConfig = $qliroConfig;
@@ -100,7 +106,7 @@ class UpdatePaymentMethod extends \Magento\Framework\App\Action\Action
         }
 
         /** @var \Magento\Framework\App\Request\Http $request */
-        $request = $this->getRequest();
+        $request = $this->request;
 
         $quote = $this->checkoutSession->getQuote();
         $this->logManager->setMerchantReferenceFromQuote($quote);

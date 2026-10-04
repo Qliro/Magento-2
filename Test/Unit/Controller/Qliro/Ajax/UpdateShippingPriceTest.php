@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Controller\Qliro\Ajax;
 
 use Magento\Checkout\Model\Session;
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Quote\Model\Quote;
@@ -47,9 +46,6 @@ class UpdateShippingPriceTest extends TestCase
 
     private function shippingPrice(array $payload): float
     {
-        $context = $this->createMock(Context::class);
-        $context->method('getRequest')->willReturn($this->createMock(Http::class));
-
         $dataHelper = $this->createMock(Data::class);
         $dataHelper->method('readPreparedPayload')->willReturn($payload);
 
@@ -61,7 +57,7 @@ class UpdateShippingPriceTest extends TestCase
         $session->method('getQuote')->willReturn($quote);
 
         $controller = new UpdateShippingPrice(
-            $context,
+            $this->createMock(Http::class),
             $this->createMock(Config::class),
             $dataHelper,
             $this->createMock(AjaxToken::class),
