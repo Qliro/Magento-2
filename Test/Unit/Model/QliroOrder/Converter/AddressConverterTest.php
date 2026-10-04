@@ -217,7 +217,7 @@ class AddressConverterTest extends TestCase
     }
 
     /**
-     * Qliro sends a B2B buyer as one string, `964969124 Gloppen Kommune`, and the order was
+     * Qliro sends a B2B buyer as one string, `123456785 Test Kommune`, and the order was
      * printed with the organisation number in front of the company on both addresses. Magento
      * has a field of its own for the number, so the two are stored apart.
      */
@@ -226,11 +226,11 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
 
         self::assertTrue($this->converter->convert(
-            $this->qliroAddress('964969124 Gloppen Kommune'),
-            $this->qliroCustomer('964969124'),
+            $this->qliroAddress('123456785 Test Kommune'),
+            $this->qliroCustomer('123456785'),
             $address
         ));
-        self::assertSame('Gloppen Kommune', $this->addressData['company']);
+        self::assertSame('Test Kommune', $this->addressData['company']);
     }
 
     /**
@@ -244,8 +244,8 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
 
         $this->converter->convert(
-            $this->qliroAddress('964969124 Gloppen Kommune'),
-            $this->qliroCustomer('964969124'),
+            $this->qliroAddress('123456785 Test Kommune'),
+            $this->qliroCustomer('123456785'),
             $address
         );
 
@@ -258,16 +258,16 @@ class AddressConverterTest extends TestCase
     public function testReadsTheOrganisationNumberForTheOrder(): void
     {
         self::assertSame(
-            '964969124',
+            '123456785',
             $this->converter->organizationNumber(
-                $this->qliroAddress('964969124 Gloppen Kommune'),
-                $this->qliroCustomer('964969124')
+                $this->qliroAddress('123456785 Test Kommune'),
+                $this->qliroCustomer('123456785')
             )
         );
     }
 
     /**
-     * A shorter number must not eat the front of a longer one: 964969124 against `9649691240 AB`
+     * A shorter number must not eat the front of a longer one: 123456785 against `1234567850 AB`
      * left `0 AB` behind as the company name.
      */
     public function testKeepsANameWhoseNumberOnlyStartsWithTheOneQliroSent(): void
@@ -275,12 +275,12 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
 
         $this->converter->convert(
-            $this->qliroAddress('9649691240 AB'),
-            $this->qliroCustomer('964969124'),
+            $this->qliroAddress('1234567850 AB'),
+            $this->qliroCustomer('123456785'),
             $address
         );
 
-        self::assertSame('9649691240 AB', $this->addressData['company']);
+        self::assertSame('1234567850 AB', $this->addressData['company']);
     }
 
     /**
@@ -292,12 +292,12 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
 
         $this->converter->convert(
-            $this->qliroAddress('964969-1240 AB'),
-            $this->qliroCustomer('964969124'),
+            $this->qliroAddress('123456-7850 AB'),
+            $this->qliroCustomer('123456785'),
             $address
         );
 
-        self::assertSame('964969-1240 AB', $this->addressData['company']);
+        self::assertSame('123456-7850 AB', $this->addressData['company']);
     }
 
     /**
@@ -326,12 +326,12 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
 
         $this->converter->convert(
-            $this->qliroAddress('Gloppen Kommune'),
-            $this->qliroCustomer('964969124'),
+            $this->qliroAddress('Test Kommune'),
+            $this->qliroCustomer('123456785'),
             $address
         );
 
-        self::assertSame('Gloppen Kommune', $this->addressData['company']);
+        self::assertSame('Test Kommune', $this->addressData['company']);
     }
 
     /**
@@ -343,12 +343,12 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
 
         $this->converter->convert(
-            $this->qliroAddress('964969124'),
-            $this->qliroCustomer('964969124'),
+            $this->qliroAddress('123456785'),
+            $this->qliroCustomer('123456785'),
             $address
         );
 
-        self::assertSame('964969124', $this->addressData['company']);
+        self::assertSame('123456785', $this->addressData['company']);
     }
 
     /**
@@ -414,7 +414,7 @@ class AddressConverterTest extends TestCase
     public function testClearsACompanyTheIdentifiedBuyerDoesNotHave(): void
     {
         $address = $this->address();
-        $this->addressData['company'] = 'Batterigiganten AB';
+        $this->addressData['company'] = 'Example Store AB';
         $this->addressData['vat_id'] = '5560360793';
 
         self::assertTrue(
@@ -452,7 +452,7 @@ class AddressConverterTest extends TestCase
         $address = $this->address();
         $address->method('getCustomerAddressId')->willReturn(7);
         $address->expects(self::once())->method('setCustomerAddressId')->with(null);
-        $this->addressData['company'] = 'Batterigiganten AB';
+        $this->addressData['company'] = 'Example Store AB';
 
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
     }

@@ -172,18 +172,20 @@ define([
     //   and no onOrderUpdated to release the lock. Without the watchdog below the customer is
     //   left with a permanently frozen checkout, and since eager_checkout_refresh defaults to
     //   off, locking is the default path rather than an edge case.
-    // - The handler is registered ONCE and compares against the CURRENT expected total. Keeping
-    //   the counter and the total inside the callback gave every refresh its own copy of both,
-    //   so a second refresh compared Qliro's order against a total captured earlier and counted
+    // - There is ONE handler and it compares against the CURRENT expected total. Keeping the
+    //   counter and the total inside the callback gave every refresh its own copy of both, so a
+    //   second refresh compared Qliro's order against a total captured earlier and counted
     //   mismatches on a counter nobody else could reset.
     var unlockWatchdog = null;
     var expectedTotalPrice = null;
     var unmatchCount = 0;
-    var orderUpdatedBound = false;
+    var watchPending = false;
     var lockDeferred = false;
     var sawMismatch = false;
     var refreshInFlight = false;
     var refreshQueued = false;
+    // Bumped when a widget is taken off the page, so an answer meant for it is not applied to the next
+    var checkoutGeneration = 0;
 
     /**
      * window.q1 is created by Qliro's own script, loaded by the snippet on this page, and nothing
@@ -262,8 +264,7 @@ define([
             // and silently, since the message only shows on the fourth mismatch. So the iframe
             // stays locked and says why.
             if (sawMismatch) {
-                qliroDebug('Order updates arrived and none matched, keeping the checkout locked');
-                showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
+                giveUpOnMismatch();
 
                 return;
             }
@@ -272,47 +273,71 @@ define([
         }, UNLOCK_WATCHDOG_MS);
     }
 
-    function bindOrderUpdated() {
-        if (orderUpdatedBound) {
+    function handleOrderUpdate(order) {
+        if (expectedTotalPrice === null) {
             return;
         }
+
+        if (Math.abs(order.totalPrice - expectedTotalPrice) < 0.005) {
+            unmatchCount = 0;
+            sawMismatch = false;
+            unlockCheckout('totals match');
+        } else {
+            sawMismatch = true;
+            unmatchCount++;
+
+            if (unmatchCount > 3) {
+                unmatchCount = 0;
+                showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
+            }
+        }
+    }
+
+    // Only unlock() stops Qliro polling, so release and lock again: still frozen, no longer polling.
+    // The next quote update subscribes afresh
+    function giveUpOnMismatch() {
+        clearTimeout(unlockWatchdog);
+        unlockWatchdog = null;
+        unmatchCount = 0;
+        sawMismatch = false;
+        expectedTotalPrice = null;
+        qliroDebug('Order updates arrived and none matched, keeping the checkout locked');
 
         var checkout = qliroCheckout();
 
+        if (checkout) {
+            checkout.unlock();
+            checkout.lock();
+        }
+
+        showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
+    }
+
+    // Subscribing is what starts Qliro polling the order (lock() does not, unlock() stops it), so
+    // this runs once per quote update and never on load with nothing pending
+    function watchOrderUpdates() {
+        var checkout = qliroCheckout();
+
         if (!checkout) {
-            // Bound from onCheckoutLoaded instead, which cannot run before the script exists.
-            qliroDebug('Qliro checkout not initialised yet, order updates not bound');
+            // Done from onCheckoutLoaded instead, which cannot run before the script exists.
+            watchPending = true;
+            qliroDebug('Qliro checkout not initialised yet, order updates not watched');
 
             return;
         }
 
-        orderUpdatedBound = true;
+        watchPending = false;
 
-        checkout.onOrderUpdated(function(order) {
-            if (config.isEagerCheckoutRefresh) {
-                qliroDebug('Skipping checkout update polling.');
-
+        if (config.isEagerCheckoutRefresh) {
+            // This mode never unlocks, so Qliro releases the widget itself on the first order
+            checkout.getOrderUpdates(function() {
                 return true;
-            }
+            });
 
-            if (expectedTotalPrice === null) {
-                return true;
-            }
+            return;
+        }
 
-            if (Math.abs(order.totalPrice - expectedTotalPrice) < 0.005) {
-                unmatchCount = 0;
-                sawMismatch = false;
-                unlockCheckout('totals match');
-            } else {
-                sawMismatch = true;
-                unmatchCount++;
-
-                if (unmatchCount > 3) {
-                    unmatchCount = 0;
-                    showErrorMessage(__('Store and Qliro One totals don\'t match. Refresh the page.'));
-                }
-            }
-        });
+        checkout.onOrderUpdated(handleOrderUpdate);
     }
 
     /**
@@ -333,6 +358,8 @@ define([
             return;
         }
 
+        var generation = checkoutGeneration;
+
         refreshInFlight = true;
         // Locked while it waits too, so the buyer cannot pay the total it is about to change. What the
         // previous refresh left behind could unlock it before this one is sent
@@ -344,13 +371,25 @@ define([
         enqueue(sendUpdateQuote)
             .then(
                 function(data) {
+                    if (generation !== checkoutGeneration) {
+                        settleRefresh();
+
+                        return;
+                    }
+
                     expectedTotalPrice = data && data.order ? data.order.totalPrice : null;
-                    bindOrderUpdated();
+                    watchOrderUpdates();
                     armUnlockWatchdog();
                     settleRefresh();
                 },
                 function(response, state, reason) {
                     var data = response.responseJSON || {};
+
+                    if (generation !== checkoutGeneration) {
+                        settleRefresh();
+
+                        return;
+                    }
 
                     unlockCheckout('quote update failed');
                     showErrorMessage(data.error || reason);
@@ -378,19 +417,20 @@ define([
         onCheckoutLoaded: function() {
             qliroSuccessDebug('onCheckoutLoaded', window.q1);
 
-            // The script exists by definition here, so anything that had to wait for it is applied
-            // now: an order-update handler that could not be bound, and a lock that was asked for
-            // before the iframe was on the page. The watchdog is re-armed with the lock so a
-            // deferred one cannot outlive the update it was taken for.
-            bindOrderUpdated();
+            // Apply what had to wait for the script, re-arming the watchdog so it cannot dangle
+            var deferred = lockDeferred || watchPending;
 
             if (lockDeferred) {
                 lockCheckout();
+            }
 
-                // A refresh still queued or in flight arms it on its answer, a timer now could unlock before that
-                if (!refreshInFlight) {
-                    armUnlockWatchdog();
-                }
+            if (watchPending) {
+                watchOrderUpdates();
+            }
+
+            // An update still in flight arms it with its answer, so a slow one is not cut short
+            if (deferred && !refreshInFlight) {
+                armUnlockWatchdog();
             }
         },
 
@@ -519,17 +559,17 @@ define([
     };
 
     /**
-     * Forget the widget that has just been taken off the page. What is bound above belongs to that
-     * instance of window.q1, so the next one has to be bound again: without this its order updates
-     * reach nothing and every quote update sits locked until the watchdog releases it.
+     * Forget the widget that has just been taken off the page. Its lock, its watch, the total it
+     * was compared against and any quote update still answering for it belong to that instance.
      *
      * A quote update already in flight is left to settle on its own, only the one queued behind it
      * is dropped, because it was asked for by a widget that is no longer on the page.
      */
     qliroModel.forgetCheckout = function() {
+        checkoutGeneration++;
         clearTimeout(unlockWatchdog);
         unlockWatchdog = null;
-        orderUpdatedBound = false;
+        watchPending = false;
         lockDeferred = false;
         expectedTotalPrice = null;
         unmatchCount = 0;

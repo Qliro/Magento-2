@@ -14,6 +14,7 @@ use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterfaceFactory;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Quote\GuestEmail;
 
 /**
  * QliroOne Order Customer builder class
@@ -202,7 +203,9 @@ class CustomerBuilder
             return $this->quote->getBillingAddress()->getEmail();
         }
 
-        return null;
+        $guestEmail = $this->quote->getData(GuestEmail::QUOTE_KEY);
+
+        return is_string($guestEmail) && $guestEmail !== '' ? $guestEmail : null;
     }
 
     /**

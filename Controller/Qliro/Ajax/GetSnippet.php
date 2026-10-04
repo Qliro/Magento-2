@@ -18,6 +18,7 @@ use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\HtmlSnippet;
+use Qliro\QliroOne\Model\Quote\GuestEmail;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
 /**
@@ -45,6 +46,7 @@ class GetSnippet implements HttpPostActionInterface
      * @param HtmlSnippet $htmlSnippet
      * @param Session $checkoutSession
      * @param Manager $logManager
+     * @param GuestEmail $guestEmail
      */
     public function __construct(
         Http $request,
@@ -53,7 +55,8 @@ class GetSnippet implements HttpPostActionInterface
         private readonly AjaxToken $ajaxToken,
         private readonly HtmlSnippet $htmlSnippet,
         private readonly Session $checkoutSession,
-        private readonly Manager $logManager
+        private readonly Manager $logManager,
+        private readonly GuestEmail $guestEmail
     ) {
         $this->request = $request;
     }
@@ -86,6 +89,8 @@ class GetSnippet implements HttpPostActionInterface
                 'AJAX:GET_SNIPPET:ERROR_TOKEN'
             );
         }
+
+        $this->guestEmail->apply($quote, (string)$this->request->getParam('email'));
 
         try {
             // The same fetch the checkout page makes, including the unlock of a link the buyer

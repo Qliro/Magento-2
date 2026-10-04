@@ -56,6 +56,42 @@ class ActionInterfacesTest extends TestCase
     }
 
     /**
+     * A helper or property of the old base, `$this->getRequest()` above all, is a fatal on a class off it, and
+     * a branch written against the old base can bring one back in a merge without a conflict
+     */
+    public function testNoControllerUsesAMemberItDoesNotHave(): void
+    {
+        $missing = [];
+
+        foreach ($this->controllerClasses() as $class) {
+            $reflection = new \ReflectionClass($class);
+
+            if ($reflection->isInterface()) {
+                continue;
+            }
+
+            $source = (string)file_get_contents((string)$reflection->getFileName());
+            preg_match_all('/\$this->(\w+)\(/', $source, $calls);
+            // A property of the old base, $this->messageManager say, is a call on null just the same
+            preg_match_all('/\$this->(\w+)(?![\w(])/', $source, $reads);
+
+            foreach (array_unique($calls[1]) as $method) {
+                if (!method_exists($class, $method)) {
+                    $missing[] = $class . '::' . $method . '()';
+                }
+            }
+
+            foreach (array_unique($reads[1]) as $property) {
+                if (!property_exists($class, $property)) {
+                    $missing[] = $class . '::$' . $property;
+                }
+            }
+        }
+
+        self::assertSame([], $missing);
+    }
+
+    /**
      * The storefront controllers are the ones the buyer's browser calls, and each needs the plugin
      * that keeps the vary cookie, or a buyer in a second currency gets cached pages in the default
      */

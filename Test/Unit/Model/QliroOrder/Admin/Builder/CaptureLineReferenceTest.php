@@ -38,22 +38,22 @@ class CaptureLineReferenceTest extends TestCase
 {
     public function testTheInvoiceCaptureOfAStampedOrderNamesTheCartItem(): void
     {
-        self::assertSame(['518:Kanalplast'], $this->captureFromInvoice(true));
+        self::assertSame(['518:SKU-CABLE'], $this->captureFromInvoice(true));
     }
 
     public function testTheInvoiceCaptureOfAnOlderOrderKeepsTheBareSku(): void
     {
-        self::assertSame(['Kanalplast'], $this->captureFromInvoice(false));
+        self::assertSame(['SKU-CABLE'], $this->captureFromInvoice(false));
     }
 
     public function testTheShipmentCaptureOfAStampedOrderNamesTheCartItem(): void
     {
-        self::assertSame(['518:Kanalplast'], $this->captureFromShipment(true));
+        self::assertSame(['518:SKU-CABLE'], $this->captureFromShipment(true));
     }
 
     public function testTheShipmentCaptureOfAnOlderOrderKeepsTheBareSku(): void
     {
-        self::assertSame(['Kanalplast'], $this->captureFromShipment(false));
+        self::assertSame(['SKU-CABLE'], $this->captureFromShipment(false));
     }
 
     /**
@@ -152,7 +152,7 @@ class CaptureLineReferenceTest extends TestCase
     private function buildTypeResolver(): TypePoolHandler
     {
         $line = new Item();
-        $line->setMerchantReference('518:Kanalplast');
+        $line->setMerchantReference('518:SKU-CABLE');
         $line->setType(QliroOrderItemInterface::TYPE_PRODUCT);
 
         $typeResolver = $this->createMock(TypePoolHandler::class);
