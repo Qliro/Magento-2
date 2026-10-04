@@ -25,6 +25,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
@@ -116,6 +117,11 @@ class PlaceOrder extends AbstractManagement
     private $organizationNumber;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp|null
+     */
+    private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -134,6 +140,7 @@ class PlaceOrder extends AbstractManagement
      * @param Payment $paymentManagement
      * @param RecurringDataService $recurringDataService
      * @param OrganizationNumber $organizationNumber
+     * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      */
     public function __construct(
         Config $qliroConfig,
@@ -151,7 +158,8 @@ class PlaceOrder extends AbstractManagement
         Quote $quoteManagement,
         Payment $paymentManagement,
         RecurringDataService $recurringDataService,
-        OrganizationNumber $organizationNumber
+        OrganizationNumber $organizationNumber,
+        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -169,6 +177,8 @@ class PlaceOrder extends AbstractManagement
         $this->paymentManagement = $paymentManagement;
         $this->recurringDataService = $recurringDataService;
         $this->organizationNumber = $organizationNumber;
+        // Optional so a store constructing this class with the old signature keeps working
+        $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
     }
 
     /**
@@ -352,7 +362,11 @@ class PlaceOrder extends AbstractManagement
 
                     // The delivery Qliro charged for, not the one the quote's last update left (PLIN-461)
                     $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
-                    $this->addAdditionalInfoToQuote($link, $qliroOrder->getPaymentMethod());
+                    $this->addAdditionalInfoToQuote(
+                        $link,
+                        $qliroOrder->getPaymentMethod(),
+                        $qliroOrder->getOrderItems() ?? []
+                    );
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
                     $this->logShippingMismatch($qliroOrder);
@@ -586,9 +600,10 @@ class PlaceOrder extends AbstractManagement
      *
      * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
      * @param \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface $paymentMethod
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $reservationItems
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    private function addAdditionalInfoToQuote($link, $paymentMethod)
+    private function addAdditionalInfoToQuote($link, $paymentMethod, array $reservationItems = [])
     {
         $payment = $this->getQuote()->getPayment();
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_QLIRO_ORDER_ID, $link->getQliroOrderId());
@@ -601,6 +616,7 @@ class PlaceOrder extends AbstractManagement
             Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID,
             true
         );
+        $this->roundingAdjustmentStamp?->record($this->getQuote(), $reservationItems);
 
         if ($paymentMethod) {
             $payment->setAdditionalInformation(
