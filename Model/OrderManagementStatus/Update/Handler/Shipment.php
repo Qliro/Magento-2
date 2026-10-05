@@ -118,18 +118,28 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
                 $invoiceItems[$shipmentItem->getOrderItemId()] = $qty;
             }
 
+            // What the store already invoiced itself is left out above, and may be all of it
+            $leftToInvoice = array_sum($invoiceItems) > 0;
+
             /*
              * Capture online is selected, to make use of all the functions that it runs (payment
              * transactions etc). "qliro_skip_actual_capture" is set to avoid doing the capture
              * inside, since it was already done by the shipment
              */
-            if ($order->canInvoice()) {
+            if ($order->canInvoice() && $leftToInvoice) {
                 $invoice = $order->prepareInvoice($invoiceItems);
                 $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
                 $payment->setTransactionId($qliroOrderManagementStatus->getPaymentTransactionId());
                 $payment->setData(\Qliro\QliroOne\Model\Management::QLIRO_SKIP_ACTUAL_CAPTURE, 1);
                 $invoice->register()->pay();
                 $this->invoiceRepository->save($invoice);
+            } elseif (!$leftToInvoice && !$order->isCanceled()) {
+                // The store invoiced the order itself before Qliro confirmed, and that invoice took
+                // this capture's transaction, so there is nothing left to invoice
+                $this->logManager->info(
+                    'Shipment capture confirmed for an order the store already invoiced',
+                    ['extra' => ['order_id' => $order->getId(), 'shipment_id' => $shipment->getId()]]
+                );
             } else {
                 throw new \Magento\Framework\Exception\LocalizedException(
                     __('Order does not allow to capture')

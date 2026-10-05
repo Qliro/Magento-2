@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.8.2] - 2026-10-06
+
+### Fixed
+
+- An order whose shipment and invoice are created in separate requests is captured once again. Capture on shipment and capture on invoice are both on by default, and since 1.7.6 nothing stopped the second trigger when the first had fired in an earlier request: the flag of 1.7.17 lives on the order object of a single request. A store whose ERP or shipping integration ships first and invoices a moment later sent the capture twice. Qliro refused the second one with "Another transaction is already in process", which rolled the invoice back and left the order shipped but not invoiced, or with "All items already shipped", which was already accepted. The invoice now takes the transaction of a shipment capture that ships every line it invoices and that no other invoice took yet, and sends nothing. A shipment whose every line invoices already captured at Qliro sends nothing either. What was captured is read from what is saved: the shipment capture records, where a capture Qliro failed counts for nothing, and the invoices carrying a Qliro capture, which leaves out an invoice captured offline and one Magento named itself because the capture never reached Qliro. Anything that does not match exactly, an invoice spanning two shipment captures or a shipment of lines not yet captured, still sends its own capture as before
+- Qliro's "Another transaction is already in process" no longer reaches the merchant as Qliro's raw error. The document fails with a message that names the Qliro order and says to try again in a minute
+- An invoice with nothing Qliro can capture is no longer sent as an empty request, which Qliro refused as invalid input. An invoice of nothing completes without a call, any other one fails with a message saying nothing in it can be captured
+- Qliro's confirmation of a shipment capture no longer fails when the store already invoiced everything that shipment shipped. It used to answer "Order does not allow to capture"; it now records the capture and creates no second invoice. A shipment with lines still to invoice that Magento refuses to invoice still fails
+- A capture accepted as already done at Qliro records its status row against the payment, as every other capture row does, instead of the order. The row is how Qliro's later confirmation finds what it confirms, and the payment confirmation read the order id as a payment id
+
+### Added
+
+- `Model/QliroOrder/Admin/CaptureCoverage`, and unit tests for it, for the two capture paths and for the shipment confirmation: an invoice after a captured shipment, a shipment capture Qliro failed, an invoice of more than was shipped, a shipment capture an invoice already took, invoices taking shipment captures in turn, an invoice spanning two captures, a configurable's child line, a shipment after an invoice captured at Qliro, captured offline and captured by Magento alone, a cancelled invoice, an earlier shipment saved without registering it, the refusal while another transaction runs, an invoice with nothing to capture, and an order already invoiced when Qliro confirms
+
 ## [1.8.1] - 2026-10-05
 
 ### Added
