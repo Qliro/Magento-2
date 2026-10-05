@@ -1,6 +1,13 @@
 
 # Change Log
 
+## [1.8.1] - 2026-10-05
+
+### Added
+
+- Every call to Qliro carries the module version in an `x-module-version` header, next to `x-platform: Magento`, so Qliro can tell which release a merchant runs when its calls start failing. The version is read once from the module's own `composer.json`, and a file that cannot be read sends `unknown` rather than failing the call
+- Unit tests for the version read, what cannot be read reported as unknown, and the header on a capture call
+
 ## [1.8.0] - 2026-09-30
 
 ### Fixed
