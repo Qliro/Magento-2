@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.8.1] - 2026-09-30
+## [1.8.3] - 2026-10-12
 
 ### Fixed
 
@@ -13,6 +13,13 @@
 - The adjustment is bounded by what rounding can honestly produce, half an öre per unit plus the öre the store's own total is rounded by. A larger disagreement is not rounding and is left to the checkout guard rather than absorbed into a line, because a line that hid it would let the customer pay a total nothing checked (PLIN-408)
 - An order the module places is stamped with the adjustment its reservation holds, `qliro_rounding_adjustment` on the payment, and the first capture replays that line rather than deriving a new one. The amount belongs to the cart as a whole, like the discount, so it goes out once and whole. A reservation that needs no adjustment clears the stamp instead of leaving the one an earlier, failed placement attempt wrote. An order placed before this release carries no stamp and is captured exactly as it was reserved, without one, because Qliro refuses a capture whose lines disagree with the reservation and refuses it terminally (PLIN-408)
 - A fee line the module sent itself is no longer read back as one of Qliro's, `Model/QliroOrder/Converter/OrderItemsConverter.php`. Qliro's own fee lines become a fee on the Magento order, and an adjustment that went out as a fee would have been added to the order a second time (PLIN-408)
+
+## [1.8.1] - 2026-10-05
+
+### Added
+
+- Every call to Qliro carries the module version in an `x-module-version` header, next to `x-platform: Magento`, so Qliro can tell which release a merchant runs when its calls start failing. The version is read once from the module's own `composer.json`, and a file that cannot be read sends `unknown` rather than failing the call
+- Unit tests for the version read, what cannot be read reported as unknown, and the header on a capture call
 
 ## [1.8.0] - 2026-09-30
 

@@ -10,6 +10,7 @@ namespace Qliro\QliroOne\Model\Api;
 use GuzzleHttp\Exception\ClientException;
 use Psr\Http\Message\ResponseInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\ModuleVersion;
 use Qliro\QliroOne\Model\Logger\Redactor;
 use GuzzleHttp\Client;
 use GuzzleHttp\RequestOptions;
@@ -33,6 +34,7 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     const HEADER_AUTHENTICATION = 'Authorization';
     const HEADER_PLATFORM = 'x-platform';
     const HEADER_PLATFORM_VALUE = 'Magento';
+    const HEADER_MODULE_VERSION = 'x-module-version';
     const QLIRO_SANDBOX_API_URL = 'https://pago.qit.nu';
     const QLIRO_PROD_API_URL = 'https://payments.qit.nu';
 
@@ -194,6 +196,8 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
             self::HEADER_CONTENT_TYPE => self::HEADER_CONTENT_TYPE_JSON,
             self::HEADER_AUTHENTICATION => $this->getAuthenticationToken($payload, $method, $storeId),
             self::HEADER_PLATFORM => self::HEADER_PLATFORM_VALUE,
+            // Tells Qliro which release a merchant runs when its calls start failing
+            self::HEADER_MODULE_VERSION => ModuleVersion::get(),
         ];
 
         $options[RequestOptions::HEADERS] = $headers;
