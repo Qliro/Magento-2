@@ -10,6 +10,7 @@
 - An invoice with nothing Qliro can capture is no longer sent as an empty request, which Qliro refused as invalid input. An invoice of nothing completes without a call, any other one fails with a message saying nothing in it can be captured
 - Qliro's confirmation of a shipment capture no longer fails when the store already invoiced everything that shipment shipped. It used to answer "Order does not allow to capture"; it now records the capture and creates no second invoice. A shipment with lines still to invoice that Magento refuses to invoice still fails
 - A capture accepted as already done at Qliro records its status row against the payment, as every other capture row does, instead of the order. The row is how Qliro's later confirmation finds what it confirms, and the payment confirmation read the order id as a payment id
+- A capture Qliro refuses as already shipped takes the capture transaction from the order at Qliro instead of the id in the refusal, which is the preauthorization and could not be refunded against. An invoice skips captures other invoices carry, and of several takes the one of its amount; anything else is left unidentified as before. A capture read that way which a shipment row already records gets no payment row on top, so Qliro's confirmation still reaches the shipment
 
 ### Added
 

@@ -20,6 +20,7 @@ use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Api\OrderManagementStatusSearchResultInterface;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureCoverage;
+use Qliro\QliroOne\Model\QliroOrder\Admin\OrderPaymentTransaction;
 
 /**
  * Both capture triggers are on by default, and a shipment and an invoice created in separate requests
@@ -234,6 +235,102 @@ class CaptureCoverageTest extends TestCase
         self::assertFalse($this->coverage()->isCoveredByInvoices($this->shipment(6, [1 => 1]), $this->order()));
     }
 
+    // ---- the capture Qliro holds after a refusal as already shipped ---------------------------
+
+    /**
+     * Qliro's refusal names the preauthorization, and AddItemsToInvoice refuses anything but a capture
+     */
+    public function testThePreauthorizationIsNeverTaken(): void
+    {
+        $transactions = [
+            $this->transaction(324964039, 'Preauthorization', 'Success', 527.0),
+            $this->transaction(331743203, 'Capture', 'Success', 527.0),
+        ];
+
+        self::assertSame(331743203, $this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [])));
+    }
+
+    /**
+     * Qliro confirms a capture a while after it accepts it, and a pending one moved the money all the same
+     */
+    public function testACaptureQliroHasNotConfirmedYetIsTaken(): void
+    {
+        $transactions = [$this->transaction(331743203, 'Capture', 'InProcess', 527.0)];
+
+        self::assertSame(331743203, $this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [])));
+    }
+
+    public function testAnOrderWithoutTransactionsHasNoCapture(): void
+    {
+        self::assertNull($this->coverage()->captureAtQliro([], $this->order(), $this->invoice(9, [])));
+    }
+
+    public function testATransactionOnAShipmentRowIsAShipmentCapture(): void
+    {
+        $this->shipments[] = $this->shipment(5, []);
+        $this->statusRow(5, 331743203, QliroOrderManagementStatusInterface::STATUS_CREATED);
+
+        self::assertTrue($this->coverage()->isShipmentCapture($this->order(), 331743203));
+        self::assertFalse($this->coverage()->isShipmentCapture($this->order(), 331750001));
+    }
+
+    public function testACaptureQliroFailedIsNotTaken(): void
+    {
+        $transactions = [$this->transaction(331743203, 'Capture', 'Error', 527.0)];
+
+        self::assertNull($this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [])));
+    }
+
+    public function testAnInvoiceSkipsTheCaptureAnotherInvoiceCarries(): void
+    {
+        $this->invoices[] = $this->invoice(8, [], '331743203');
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 200.0),
+            $this->transaction(331750001, 'Capture', 'Success', 327.0),
+        ];
+
+        self::assertSame(331750001, $this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [])));
+    }
+
+    public function testOfSeveralCapturesTheInvoiceTakesTheOneOfItsAmount(): void
+    {
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 200.0),
+            $this->transaction(331750001, 'Capture', 'Success', 327.0),
+        ];
+
+        self::assertSame(
+            331750001,
+            $this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [], grandTotal: 327.0))
+        );
+    }
+
+    /**
+     * Two captures neither of which is the invoice's amount: guessing would make a refund go to the wrong one
+     */
+    public function testSeveralCapturesThatDoNotMatchAreNotGuessed(): void
+    {
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 200.0),
+            $this->transaction(331750001, 'Capture', 'Success', 327.0),
+        ];
+
+        self::assertNull(
+            $this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [], grandTotal: 527.0))
+        );
+    }
+
+    /**
+     * A shipment Qliro refused was captured by an invoice, so the invoices do not rule its capture out
+     */
+    public function testAShipmentTakesTheCaptureAnInvoiceCarries(): void
+    {
+        $this->invoices[] = $this->invoice(8, [], '331743203');
+        $transactions = [$this->transaction(331743203, 'Capture', 'Success', 527.0)];
+
+        self::assertSame(331743203, $this->coverage()->captureAtQliro($transactions, $this->order()));
+    }
+
     // ---- harness ------------------------------------------------------------------------------
 
     private function coverage(): CaptureCoverage
@@ -297,10 +394,16 @@ class CaptureCoverageTest extends TestCase
     /**
      * @param array<int, float> $quantities per order item id
      */
-    private function invoice(int $id, array $quantities, ?string $transactionId = null, int $state = Invoice::STATE_PAID): Invoice&MockObject
-    {
+    private function invoice(
+        int $id,
+        array $quantities,
+        ?string $transactionId = null,
+        int $state = Invoice::STATE_PAID,
+        float $grandTotal = 0.0
+    ): Invoice&MockObject {
         $invoice = $this->createMock(Invoice::class);
         $invoice->method('getId')->willReturn($id);
+        $invoice->method('getGrandTotal')->willReturn($grandTotal);
         $invoice->method('getTransactionId')->willReturn($transactionId);
         $invoice->method('getState')->willReturn($state);
         $invoice->method('getAllItems')->willReturn($this->documentItems(Invoice\Item::class, $quantities));
@@ -334,5 +437,14 @@ class CaptureCoverageTest extends TestCase
         $row->method('getTransactionId')->willReturn($transactionId);
         $row->method('getTransactionStatus')->willReturn($status);
         $this->statusRows[] = $row;
+    }
+
+    private function transaction(int $id, string $type, string $status, float $amount): OrderPaymentTransaction
+    {
+        return (new OrderPaymentTransaction())
+            ->setPaymentTransactionId($id)
+            ->setType($type)
+            ->setStatus($status)
+            ->setAmount($amount);
     }
 }

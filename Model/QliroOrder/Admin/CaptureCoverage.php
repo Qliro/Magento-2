@@ -12,6 +12,7 @@ use Magento\Framework\Api\SortOrder;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Invoice;
 use Magento\Sales\Model\Order\Shipment;
+use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
@@ -30,6 +31,8 @@ use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 class CaptureCoverage
 {
     private const EPSILON = 0.000001;
+
+    private const TYPE_CAPTURE = 'Capture';
 
     private const FAILED = [
         QliroOrderManagementStatusInterface::STATUS_ERROR,
@@ -80,6 +83,53 @@ class CaptureCoverage
         }
 
         return null;
+    }
+
+    /**
+     * The capture Qliro holds for a document it refused as already shipped, null unless one fits.
+     *
+     * The refusal names the preauthorization, and AddItemsToInvoice refuses any id that is not a
+     * capture, so only a capture Qliro has not failed counts. An invoice skips captures other
+     * invoices carry, and of several left takes the one of its own amount.
+     *
+     * @param AdminOrderPaymentTransactionInterface[] $transactions
+     * @param Order $order
+     * @param Invoice|null $invoice
+     * @return int|null
+     */
+    public function captureAtQliro(array $transactions, Order $order, ?Invoice $invoice = null): ?int
+    {
+        $spent = $invoice ? $this->invoiceTransactions($order, (int)$invoice->getId()) : [];
+        $open = [];
+
+        foreach ($transactions as $transaction) {
+            $id = (int)$transaction->getPaymentTransactionId();
+
+            if ($id && $transaction->getType() === self::TYPE_CAPTURE && !isset($spent[$id])
+                && !in_array($transaction->getStatus(), self::FAILED, true)
+            ) {
+                $open[$id] = (float)$transaction->getAmount();
+            }
+        }
+
+        if (count($open) > 1 && $invoice !== null) {
+            $total = (float)$invoice->getGrandTotal();
+            $open = array_filter($open, fn (float $amount) => abs($amount - $total) < 0.005);
+        }
+
+        return count($open) === 1 ? (int)array_key_first($open) : null;
+    }
+
+    /**
+     * Whether a shipment capture of this order, one Qliro has not failed, holds this transaction
+     *
+     * @param Order $order
+     * @param int $transactionId
+     * @return bool
+     */
+    public function isShipmentCapture(Order $order, int $transactionId): bool
+    {
+        return in_array($transactionId, $this->capturedShipmentTransactions($order), true);
     }
 
     /**
