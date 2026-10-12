@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.8.2] - 2026-09-30
+## [1.8.4] - 2026-10-12
 
 ### Fixed
 
@@ -39,6 +39,13 @@
 - Only the process that took the lock releases it. The status check throws before the lock is taken and its handler released one anyway, which freed the lock of whoever was placing that order at the time (PLIN-376)
 - The decline log names the area of a postcode instead of the postcode. `postcode` is a key the redaction masks by name, so the one field the line exists to show read `[redacted]` and a decline could not be told from any other (PLIN-376)
 - `UpdateShippingPrice::getShippingPrice()` returns null for a payload that carries no price, rather than raising a `TypeError` against its own return type (PLIN-376)
+
+## [1.8.1] - 2026-10-05
+
+### Added
+
+- Every call to Qliro carries the module version in an `x-module-version` header, next to `x-platform: Magento`, so Qliro can tell which release a merchant runs when its calls start failing. The version is read once from the module's own `composer.json`, and a file that cannot be read sends `unknown` rather than failing the call
+- Unit tests for the version read, what cannot be read reported as unknown, and the header on a capture call
 
 ## [1.8.0] - 2026-09-30
 
