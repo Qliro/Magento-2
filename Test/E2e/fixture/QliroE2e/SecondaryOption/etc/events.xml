@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <event name="qliroone_shipping_method_build_after">
+        <observer name="qliro_e2e_add_pickup_points" instance="QliroE2e\SecondaryOption\Observer\AddPickupPoints"/>
+    </event>
+    <event name="qliroone_shipping_method_update_before">
+        <observer name="qliro_e2e_record_selected_option" instance="QliroE2e\SecondaryOption\Observer\RecordSelectedOption"/>
+    </event>
+</config>
