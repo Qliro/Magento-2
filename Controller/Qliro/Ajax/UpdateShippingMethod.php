@@ -144,7 +144,6 @@ class UpdateShippingMethod implements HttpPostActionInterface
                 }
             } else {
                 $shippingMethodCode = $data['method'] ?? null;
-                // Secondary options a merchant adds on qliroone_shipping_method_build_after
                 $secondaryOption = $data['secondaryOption'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
             }

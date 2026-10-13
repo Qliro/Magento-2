@@ -26,9 +26,6 @@ use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
-/**
- * The secondary option the customer selects in Qliro's widget reaches updateShippingMethod()
- */
 class UpdateShippingMethodTest extends TestCase
 {
     private const PAYLOAD = [
