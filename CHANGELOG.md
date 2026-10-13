@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.8.5] - 2026-10-13
+
+### Fixed
+
+- The secondary option a customer selects for a shipping method that is not Unifaun or Ingrid was lost. A merchant can add secondary options, pickup points for example, to any shipping method on `qliroone_shipping_method_build_after`, and Qliro's widget posts the selected one as `secondaryOption`. Since 1.5.7 `UpdateShippingMethod` read it only when Unifaun was enabled, so `qliroone_shipping_method_update_before` got `secondary_option` null for every other method and an observer could not tell which option the customer chose. The controller now passes `secondaryOption` on for these methods too. Unifaun and Ingrid are unchanged. When the customer changes only the option and keeps the method, `can_save_quote` is still false, and the observer that saves the option has to set it (PLIN-492)
+
+### Added
+
+- `Test/Unit/Controller/Qliro/Ajax/UpdateShippingMethodTest` covers the option passed on for a custom method, a missing option passed as null, and Unifaun and Ingrid as before (PLIN-492)
+
 ## [1.8.1] - 2026-10-05
 
 ### Added
