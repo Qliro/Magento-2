@@ -87,4 +87,4 @@ with the e2e product so a manual checkout on the same store is left alone, and o
 `var/qliro-e2e/secondary-option-<quote id>.json`, setting `can_save_quote` when the option differs
 from the last one recorded. One test reads the pickup points from the shipping methods callback,
 the others select an option through the checkout's own model and read what was recorded.
-Reverting the fix turns two of the four red.
+Reverting the fix turns three of the five red.

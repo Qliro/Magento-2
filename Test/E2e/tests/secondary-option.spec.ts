@@ -102,6 +102,19 @@ test.describe('a secondary option of a merchant\'s own shipping method', () => {
     ]);
   });
 
+  test('the same option sent again leaves the quote alone', async ({ page }) => {
+    const cart = await guestCart(page);
+
+    await selectInWidget(page, cart.ajaxToken, { method: PAID, secondaryOption: 'pickup-point-1', price: 5 });
+    const answer = await selectInWidget(page, cart.ajaxToken, { method: PAID, secondaryOption: 'pickup-point-1', price: 5 });
+
+    expect(answer.status).toBe('SKIPPED');
+    expect(recorded(cart.quoteId)).toEqual([
+      { method: PAID, option: 'pickup-point-1', canSaveQuote: true },
+      { method: PAID, option: 'pickup-point-1', canSaveQuote: false },
+    ]);
+  });
+
   test('a method without options passes none', async ({ page }) => {
     const cart = await guestCart(page);
 
