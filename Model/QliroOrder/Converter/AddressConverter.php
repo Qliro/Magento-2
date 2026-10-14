@@ -127,6 +127,11 @@ class AddressConverter
      */
     public function organizationNumber($qliroAddress, $qliroCustomer)
     {
+        // A private buyer with a company on the address (a workplace delivery) has a personal number
+        if ($qliroCustomer && strcasecmp((string)$qliroCustomer->getJuridicalType(), 'Physical') === 0) {
+            return null;
+        }
+
         $company = $qliroAddress ? $qliroAddress->getCompanyName() : null;
 
         return $this->getOrganizationNumbers($qliroCustomer, $company)[0] ?? null;
@@ -136,8 +141,8 @@ class AddressConverter
      * Read the numbers a company buyer was identified by, empty for a buyer who is not a company
      *
      * Qliro carries the organisation number in the customer's `PersonalNumber`, and the company
-     * name is what says the number belongs to a company: that is the same rule `CustomerBuilder`
-     * sends the juridical type by. Without a company the number is the buyer's own identity
+     * name is what says the number belongs to a company (`organizationNumber()` also drops it for
+     * a `Physical` buyer). Without a company the number is the buyer's own identity
      * number, which must never be written to `vat_id`. `VatNumber` is the field Qliro has for
      * this and wins where it is filled, but both are kept, because the one that answers for the
      * order is not always the one the company name was glued to.
@@ -189,10 +194,9 @@ class AddressConverter
                 continue;
             }
 
-            // The lookahead is what keeps 123456785 off the front of "1234567850 AB": without it
-            // the shorter number matches the longer one and leaves the rest of it on the name
+            // Not a longer number ("1234567850", "123456-7850"); a space then a digit starts the name ("3M")
             $pattern = sprintf(
-                '/^\s*%s(?![\s.,:;\/-]*\d)[\s.,:;\/-]*/',
+                '/^\s*%s(?![.\/-]?\d)[\s.,:;\/-]*/',
                 implode('[\s.-]*', str_split($digits))
             );
             $stripped = trim((string)preg_replace($pattern, '', (string)$company));

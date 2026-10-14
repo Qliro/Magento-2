@@ -1,6 +1,13 @@
 
 # Change Log
 
+## [1.8.7] - 2026-10-15
+
+### Fixed
+
+- A private buyer with a company on the address, such as a delivery to a workplace, no longer gets their personal number in `vat_id`: Qliro's juridical type `Physical` now rules the number out
+- A company name that starts with a digit, `5560011982 3M Svenska AB`, now loses the organisation number in front of it. A number that goes on after a hyphen, dot or slash, `964969-1240 AB`, is still read as one longer number and kept
+
 ## [1.8.1] - 2026-10-05
 
 ### Added
