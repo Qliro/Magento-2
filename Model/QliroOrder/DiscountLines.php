@@ -13,12 +13,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Helper\Data as QliroHelper;
 
 /**
- * The discount lines of a cart, one per product line, so that a capture can take the discount of
- * the items it captures
- *
- * Qliro matches a capture line to a reserved line by reference and price per item, and its
- * quantities are whole, so the discount of a product line goes out per unit. The öre a row discount
- * does not divide into goes on a remainder line of its own, captured with the last unit.
+ * Discount lines per product line and unit, since Qliro matches captures by price per item and whole quantities
  */
 class DiscountLines
 {
@@ -67,10 +62,7 @@ class DiscountLines
     }
 
     /**
-     * The cart or order item that carries the discount of a product line, or null when another does
-     *
-     * A configurable's discount is on its parent, which has no line of its own. A bundle priced by
-     * its children carries their discounts summed up, and its own line is priced at nothing.
+     * The item carrying a line's discount: a configurable's parent, none for a bundle priced by its children
      *
      * @param \Magento\Quote\Model\Quote\Item\AbstractItem|\Magento\Sales\Model\Order\Item $item
      * @return DataObject|null
@@ -205,8 +197,7 @@ class DiscountLines
     }
 
     /**
-     * What a capture needs to know of the reservation: each discount line, and the quantity of each
-     * product line, to tell when the last unit of a line is captured
+     * The reserved discount lines, and product quantities to tell when a line's last unit is captured
      *
      * @param QliroOrderItemInterface[] $qliroOrderItems the lines of the Qliro order
      * @return array{products: array<string, int>, discounts: array<string, array>}
@@ -242,10 +233,7 @@ class DiscountLines
     }
 
     /**
-     * The reservation to record for a cart, or null when the lines read hold none of its discount
-     *
-     * Recording an empty one would make the capture send no discount at all. Left unrecorded, the
-     * order is captured the way an order placed before this was, with one order level line.
+     * The reservation to record, or null when it holds none of the cart's discount, so capture falls back to one line
      *
      * @param QliroOrderItemInterface[] $qliroOrderItems
      * @param \Magento\Quote\Model\Quote $quote

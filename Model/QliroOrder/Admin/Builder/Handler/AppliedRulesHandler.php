@@ -13,12 +13,7 @@ use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 
 /**
- * The discount lines a capture takes of the reservation
- *
- * A per line discount goes with the units of its product line this capture takes, and its
- * remainder with the last of them. An order level line, the shipping discount or the single line an
- * order placed before 1.8.6 was reserved with, cannot be split, so it goes whole with the first
- * capture that stays positive with it, or with the last capture when none did.
+ * The discount lines a capture takes; an order level line cannot be split, so it waits for a capture that stays positive
  */
 final class AppliedRulesHandler implements OrderItemHandlerInterface
 {
@@ -73,8 +68,7 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
 
         $products = $reservation['products'] ?? [];
         $recorded = $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS);
-        // Nothing recorded on a later capture: the earlier ones ran before 1.8.6, which sent the
-        // order level line with the first of them
+        // Nothing recorded on a later capture: an older release sent the line with the first one
         $capturedBeforeRecording = $isLegacy && !is_array($recorded) && !$order->getFirstCaptureFlag();
         // Read only, the payment records what Qliro accepted, see Management\Payment
         $captured = is_array($recorded) ? $recorded : [];

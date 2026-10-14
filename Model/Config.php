@@ -114,8 +114,7 @@ class Config
     const QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID = 'qliro_line_reference_carries_item_id';
 
     /**
-     * The discount lines Qliro reserved, and the quantity of each product line, recorded when the
-     * order is placed. Absent on an order placed before 1.8.6, reserved with one discount line
+     * Discount lines Qliro reserved and product line quantities, absent on orders with one discount line
      */
     const QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT = 'qliro_reserved_discount';
 

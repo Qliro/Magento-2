@@ -334,8 +334,7 @@ class Payment extends AbstractManagement
     }
 
     /**
-     * Add the units of each line this capture sent to the count on the payment, so the next capture
-     * knows which discount lines are left. Saved with the order, which a refused capture is not.
+     * Count the units Qliro accepted, so the next capture knows which discount lines are left
      *
      * @param Order $order
      * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface $request

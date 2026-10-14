@@ -131,8 +131,7 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
     }
 
     /**
-     * The discount the lines leave out, on an order level line, so the customer is never charged
-     * more than Magento's total. Each line rounds its own VAT, so the sum can be off by an öre.
+     * The discount the lines leave out, so the customer is never charged more than Magento's total
      *
      * @param \Magento\Quote\Model\Quote\Address $address
      * @param Quote $quote

@@ -525,9 +525,6 @@ class PlaceRecurringOrder extends AbstractManagement
     /**
      * Record the discount lines the merchant payment reserved, a capture repeats them exactly
      *
-     * A fresh merchant payment holds its reserve actions only. The type is still asked for, and
-     * when no action names it every action is read, rather than recording nothing.
-     *
      * @param AdminOrderInterface $qliroOrder
      */
     private function recordReservedDiscount(AdminOrderInterface $qliroOrder): void
