@@ -8,26 +8,30 @@ use Magento\Framework\Event\ManagerInterface;
 use Magento\Quote\Model\Quote;
 use Qliro\QliroOne\Api\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
-use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
-use Qliro\QliroOne\Helper\Data as QliroHelper;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
+use Qliro\QliroOne\Model\Quote\ItemsLimitValidator;
 
+/**
+ * The cart discount as lines of its own, one per product line, see {@see DiscountLines}
+ */
 final class AppliedRulesHandler implements OrderItemHandlerInterface
 {
-    private const DISCOUNT_REFERENCE_PREFIX = 'DSC';
-    private const DEFAULT_DISCOUNT_REFERENCE = 'DSC_QUOTE_DISCOUNT';
-
     /**
-     * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
-     * @param QliroHelper $qliroHelper
      * @param ManagerInterface $eventManager
      * @param DiscountAmountResolver $discountAmountResolver
+     * @param DiscountLines $discountLines
+     * @param LineReference $lineReference
+     * @param LogManager $logManager
      */
     public function __construct(
-        private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
-        private readonly QliroHelper                    $qliroHelper,
-        private readonly ManagerInterface               $eventManager,
-        private readonly DiscountAmountResolver         $discountAmountResolver
+        private readonly ManagerInterface       $eventManager,
+        private readonly DiscountAmountResolver $discountAmountResolver,
+        private readonly DiscountLines          $discountLines,
+        private readonly LineReference          $lineReference,
+        private readonly LogManager             $logManager
     )
     {
     }
@@ -49,45 +53,122 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             return $orderItems;
         }
 
-        [$discountInclVat, $discountExclVat] = $this->discountAmountResolver->resolve(
+        $storeId = (int)$quote->getStoreId();
+        $discountLines = [];
+
+        foreach ($orderItems as $orderItem) {
+            if ($orderItem->getType() !== QliroOrderItemInterface::TYPE_PRODUCT) {
+                continue;
+            }
+
+            $reference = $orderItem->getMerchantReference();
+            $itemId = $this->lineReference->itemIdOf($reference);
+            $item = $itemId === null ? null : $quote->getItemById($itemId);
+            $discountItem = $item ? $this->discountLines->discountItemOf($item) : null;
+
+            if ($discountItem === null) {
+                continue;
+            }
+
+            array_push(
+                $discountLines,
+                ...$this->discountLines->forProductLine($reference, (int)$orderItem->getQuantity(), $discountItem, $storeId)
+            );
+        }
+
+        if (!$quote->isVirtual()) {
+            $shippingLine = $this->discountLines->forShipping($address, $storeId);
+
+            if ($shippingLine) {
+                $discountLines[] = $shippingLine;
+            }
+        }
+
+        $missing = $this->getMissingDiscount($address, $quote, $discountLines);
+
+        if ($missing) {
+            $discountLines[] = $missing;
+        }
+
+        // Qliro takes so many lines and no more, past that the cart keeps one discount line
+        if (count($orderItems) + count($discountLines) > ItemsLimitValidator::MAX_ITEMS) {
+            $discountLines = [$this->getWholeDiscount($address, $quote)];
+        }
+
+        foreach ($discountLines as $discountLine) {
+            $this->eventManager->dispatch(
+                'qliroone_order_item_build_after',
+                [
+                    'quote' => $quote,
+                    'container' => $discountLine,
+                ]
+            );
+
+            if ($discountLine->getMerchantReference()) {
+                $orderItems[] = $discountLine;
+            }
+        }
+
+        return $orderItems;
+    }
+
+    /**
+     * The whole cart discount as one order level line
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @param Quote $quote
+     * @return QliroOrderItemInterface
+     */
+    private function getWholeDiscount($address, Quote $quote): QliroOrderItemInterface
+    {
+        [$incVat, $exVat] = $this->discountAmountResolver->resolve(
             $address,
             $this->getLineVatRates($quote),
             (int)$quote->getStoreId()
         );
-        $vatRate = $this->discountAmountResolver->getVatRate($discountInclVat, $discountExclVat);
-        $merchantReference = $this->getMerchantReference($quote);
 
-        /** @var QliroOrderItemInterface $qliroOrderItem */
-        $qliroOrderItem = $this->qliroOrderItemFactory->create();
+        return $this->discountLines->orderLevelLine(DiscountLines::ORDER_REFERENCE, $incVat, $exVat);
+    }
 
-        $qliroOrderItem->setMerchantReference($merchantReference);
-        $qliroOrderItem->setDescription($merchantReference);
-        $qliroOrderItem->setType(QliroOrderItemInterface::TYPE_DISCOUNT);
-        $qliroOrderItem->setQuantity(1);
-        $qliroOrderItem->setPricePerItemIncVat(
-            -abs((float)$this->qliroHelper->formatPrice($discountInclVat))
-        );
-        $qliroOrderItem->setPricePerItemExVat(
-            -abs((float)$this->qliroHelper->formatPrice($discountExclVat))
-        );
-        $qliroOrderItem->setVatRate($vatRate);
-        $qliroOrderItem->setMetadata([
-            'qliro' => 'checkout'
-        ]);
-
-        $this->eventManager->dispatch(
-            'qliroone_order_item_build_after',
-            [
-                'quote' => $quote,
-                'container' => $qliroOrderItem,
-            ]
+    /**
+     * The discount the lines leave out, on an order level line, so the customer is never charged
+     * more than Magento's total. Each line rounds its own VAT, so the sum can be off by an öre.
+     *
+     * @param \Magento\Quote\Model\Quote\Address $address
+     * @param Quote $quote
+     * @param QliroOrderItemInterface[] $discountLines
+     * @return QliroOrderItemInterface|null
+     */
+    private function getMissingDiscount($address, Quote $quote, array $discountLines): ?QliroOrderItemInterface
+    {
+        [$totalIncVat, $totalExVat] = $this->discountAmountResolver->resolve(
+            $address,
+            $this->getLineVatRates($quote),
+            (int)$quote->getStoreId()
         );
 
-        if ($qliroOrderItem->getMerchantReference()) {
-            $orderItems[] = $qliroOrderItem;
+        $sent = 0.0;
+
+        foreach ($discountLines as $discountLine) {
+            $sent += abs($discountLine->getPricePerItemIncVat()) * $discountLine->getQuantity();
         }
 
-        return $orderItems;
+        $missing = round($totalIncVat - $sent, 2);
+
+        if ($missing < 0.01) {
+            if ($missing <= -0.01) {
+                $this->logManager->warning(
+                    'The discount lines add up to more than the cart discount',
+                    ['extra' => ['quote_id' => $quote->getId(), 'discount' => $totalIncVat, 'lines' => $sent]]
+                );
+            }
+
+            return null;
+        }
+
+        $exVat = $totalIncVat > 0 ? round($missing * $totalExVat / $totalIncVat, 2) : $missing;
+
+        return $this->discountLines->orderLevelLine(DiscountLines::ORDER_REFERENCE, $missing, $exVat);
     }
 
     /**
@@ -103,27 +184,6 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
         return array_map(
             static fn($item): float => (float)$item->getTaxPercent(),
             $quote->getAllItems()
-        );
-    }
-
-    /**
-     * Generates a merchant reference based on the applied rule IDs of the given quote.
-     *
-     * @param Quote $quote The quote containing the applied rule IDs.
-     * @return string The generated merchant reference.
-     */
-    private function getMerchantReference(Quote $quote): string
-    {
-        $ruleIds = trim((string)$quote->getAppliedRuleIds());
-
-        if ($ruleIds === '') {
-            return self::DEFAULT_DISCOUNT_REFERENCE;
-        }
-
-        return sprintf(
-            '%s_%s',
-            self::DISCOUNT_REFERENCE_PREFIX,
-            str_replace(',', '_', $ruleIds)
         );
     }
 }

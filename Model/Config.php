@@ -113,6 +113,17 @@ class Config
      */
     const QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID = 'qliro_line_reference_carries_item_id';
 
+    /**
+     * The discount lines Qliro reserved, and the quantity of each product line, recorded when the
+     * order is placed. Absent on an order placed before 1.8.6, reserved with one discount line
+     */
+    const QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT = 'qliro_reserved_discount';
+
+    /**
+     * How many units of each line the captures have taken so far, by merchant reference
+     */
+    const QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS = 'qliro_captured_units';
+
     const CONFIG_FEE_AMOUNT = 'fee';
     const CONFIG_FEE_TITLE = 'description';
 

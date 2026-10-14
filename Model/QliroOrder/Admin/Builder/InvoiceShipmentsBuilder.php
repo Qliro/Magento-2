@@ -9,6 +9,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
 use Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
@@ -165,6 +166,8 @@ class InvoiceShipmentsBuilder
             $this->order->setFirstCaptureFlag(true);
         }
 
+        $this->order->setData(AppliedRulesHandler::FINAL_CAPTURE_FLAG, $this->isFinalInvoice());
+
         foreach ($this->handlers as $handler) {
             if ($handler instanceof OrderItemHandlerInterface) {
                 $shipmentOrderItems = $handler->handle($shipmentOrderItems, $this->order);
@@ -202,5 +205,20 @@ class InvoiceShipmentsBuilder
         }
         return true;
     }
-}
 
+    /**
+     * Whether this invoice leaves nothing of the order to capture, Magento counts it in already
+     *
+     * @return bool
+     */
+    private function isFinalInvoice()
+    {
+        foreach ($this->order->getAllItems() ?: [] as $item) {
+            if (!$item->isDummy() && $item->getQtyToInvoice() > 0) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}

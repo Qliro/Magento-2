@@ -22,6 +22,9 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\OrderManagementApiException;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
+use Qliro\QliroOne\Model\QliroOrder\Item as QliroOrderItem;
+use Qliro\QliroOne\Model\QliroOrder\Shipment as QliroShipment;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -169,6 +172,36 @@ class PaymentCaptureTest extends TestCase
 
         self::assertTrue((bool)$this->order->getData(AbstractManagement::QLIRO_CAPTURE_SUBMITTED));
         self::assertSame(325188256, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+    }
+
+    /**
+     * What Qliro accepted is counted on the payment, so the next capture knows which discount
+     * lines are left, and an order level line an earlier version sent is counted with it.
+     */
+    public function testAnAcceptedCaptureCountsItsLinesOnThePayment(): void
+    {
+        $capture = $this->buildCapture();
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $payment = $this->getMockBuilder(Payment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getOrder'])
+            ->getMock();
+        $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS, ['5:SKU' => 1, 'DSC_5:SKU' => 1]);
+        $this->order->method('getPayment')->willReturn($payment);
+        $this->order->setData(AppliedRulesHandler::SENT_BEFORE_RECORDING, ['DSC_10' => 1]);
+
+        $line = static fn(string $reference, int $quantity) => (new QliroOrderItem())
+            ->setMerchantReference($reference)
+            ->setQuantity($quantity);
+        $this->shipmentLines = [(new QliroShipment())->setOrderItems([$line('5:SKU', 2), $line('DSC_5:SKU', 2), $line('DSC_5:SKU_R', 1)])];
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertSame(
+            ['5:SKU' => 3, 'DSC_5:SKU' => 3, 'DSC_10' => 1, 'DSC_5:SKU_R' => 1],
+            $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS)
+        );
     }
 
     /**
@@ -499,7 +532,7 @@ class PaymentCaptureTest extends TestCase
     {
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getId', 'getStoreId', 'getData', 'setData', 'addStatusHistoryComment'])
+            ->onlyMethods(['getId', 'getStoreId', 'getData', 'setData', 'addStatusHistoryComment', 'getPayment'])
             ->getMock();
 
         // By reference in both, an arrow function would snapshot the array as it is now and the

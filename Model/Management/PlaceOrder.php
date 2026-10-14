@@ -24,6 +24,7 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -116,6 +117,11 @@ class PlaceOrder extends AbstractManagement
     private $organizationNumber;
 
     /**
+     * @var DiscountLines
+     */
+    private $discountLines;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -134,6 +140,7 @@ class PlaceOrder extends AbstractManagement
      * @param Payment $paymentManagement
      * @param RecurringDataService $recurringDataService
      * @param OrganizationNumber $organizationNumber
+     * @param DiscountLines $discountLines
      */
     public function __construct(
         Config $qliroConfig,
@@ -151,7 +158,8 @@ class PlaceOrder extends AbstractManagement
         Quote $quoteManagement,
         Payment $paymentManagement,
         RecurringDataService $recurringDataService,
-        OrganizationNumber $organizationNumber
+        OrganizationNumber $organizationNumber,
+        DiscountLines $discountLines
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -169,6 +177,7 @@ class PlaceOrder extends AbstractManagement
         $this->paymentManagement = $paymentManagement;
         $this->recurringDataService = $recurringDataService;
         $this->organizationNumber = $organizationNumber;
+        $this->discountLines = $discountLines;
     }
 
     /**
@@ -353,6 +362,7 @@ class PlaceOrder extends AbstractManagement
                     // The delivery Qliro charged for, not the one the quote's last update left (PLIN-461)
                     $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
                     $this->addAdditionalInfoToQuote($link, $qliroOrder->getPaymentMethod());
+                    $this->recordReservedDiscount($qliroOrder);
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
                     $this->logShippingMismatch($qliroOrder);
@@ -611,6 +621,23 @@ class PlaceOrder extends AbstractManagement
             $payment->setAdditionalInformation(
                 Config::QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME,
                 $paymentMethod->getPaymentMethodName()
+            );
+        }
+    }
+
+    /**
+     * Record the discount lines Qliro reserved, a capture repeats them exactly
+     *
+     * @param QliroOrderInterface $qliroOrder
+     */
+    private function recordReservedDiscount(QliroOrderInterface $qliroOrder): void
+    {
+        $reservation = $this->discountLines->reservationFor($qliroOrder->getOrderItems() ?? [], $this->getQuote());
+
+        if ($reservation !== null) {
+            $this->getQuote()->getPayment()->setAdditionalInformation(
+                Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT,
+                $reservation
             );
         }
     }

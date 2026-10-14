@@ -31,6 +31,7 @@ use Qliro\QliroOne\Model\Management\PlaceRecurringOrder;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
@@ -73,7 +74,8 @@ class PlaceRecurringOrderTest extends TestCase
             $this->createMock(RecurringDataService::class),
             $this->createMock(CartManagementInterface::class),
             $this->createMock(Order::class),
-            $this->createMock(OrganizationNumber::class)
+            $this->createMock(OrganizationNumber::class),
+            $this->createMock(DiscountLines::class)
         );
         $this->placeRecurringOrder->setQuote($quote);
     }

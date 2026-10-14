@@ -14,9 +14,11 @@ use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
+use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
@@ -266,6 +268,7 @@ class Payment extends AbstractManagement
         }
 
         $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
+        $this->recordCapturedUnits($order, $request);
 
         try {
             /** @var OrderManagementStatus $omStatus */
@@ -328,6 +331,43 @@ class Payment extends AbstractManagement
         );
 
         return true;
+    }
+
+    /**
+     * Add the units of each line this capture sent to the count on the payment, so the next capture
+     * knows which discount lines are left. Saved with the order, which a refused capture is not.
+     *
+     * @param Order $order
+     * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface $request
+     * @return void
+     */
+    private function recordCapturedUnits(Order $order, $request)
+    {
+        $payment = $order->getPayment();
+
+        if ($payment === null) {
+            return;
+        }
+
+        $captured = $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS);
+        $captured = is_array($captured) ? $captured : [];
+
+        foreach ((array)$order->getData(AppliedRulesHandler::SENT_BEFORE_RECORDING) as $reference => $quantity) {
+            $captured[$reference] = ($captured[$reference] ?? 0) + (int)$quantity;
+        }
+
+        foreach ($request->getShipments() ?: [] as $shipment) {
+            if (!$shipment instanceof QliroShipmentInterface) {
+                continue;
+            }
+
+            foreach ($shipment->getOrderItems() as $line) {
+                $reference = $line->getMerchantReference();
+                $captured[$reference] = ($captured[$reference] ?? 0) + (int)$line->getQuantity();
+            }
+        }
+
+        $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS, $captured);
     }
 
     /**
@@ -562,6 +602,7 @@ class Payment extends AbstractManagement
         }
 
         $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
+        $this->recordCapturedUnits($order, $request);
 
         try {
             /** @var OrderManagementStatus $omStatus */
