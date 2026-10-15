@@ -75,7 +75,7 @@ class PlaceRecurringOrderTest extends TestCase
             $this->createMock(CartManagementInterface::class),
             $this->createMock(Order::class),
             $this->createMock(OrganizationNumber::class),
-            $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class)
         );
         $this->placeRecurringOrder->setQuote($quote);
     }

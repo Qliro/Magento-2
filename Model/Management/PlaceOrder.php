@@ -24,8 +24,10 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
@@ -117,9 +119,14 @@ class PlaceOrder extends AbstractManagement
     private $organizationNumber;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp|null
+     */
+    private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
+
+    /**
      * @var DiscountLines
      */
-    private $discountLines;
+    private DiscountLines $discountLines;
 
     /**
      * Inject dependencies
@@ -140,7 +147,8 @@ class PlaceOrder extends AbstractManagement
      * @param Payment $paymentManagement
      * @param RecurringDataService $recurringDataService
      * @param OrganizationNumber $organizationNumber
-     * @param DiscountLines $discountLines
+     * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
+     * @param DiscountLines|null $discountLines
      */
     public function __construct(
         Config $qliroConfig,
@@ -159,7 +167,8 @@ class PlaceOrder extends AbstractManagement
         Payment $paymentManagement,
         RecurringDataService $recurringDataService,
         OrganizationNumber $organizationNumber,
-        DiscountLines $discountLines
+        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
+        ?DiscountLines $discountLines = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -177,7 +186,9 @@ class PlaceOrder extends AbstractManagement
         $this->paymentManagement = $paymentManagement;
         $this->recurringDataService = $recurringDataService;
         $this->organizationNumber = $organizationNumber;
-        $this->discountLines = $discountLines;
+        // Optional so a store constructing this class with the old signature keeps working
+        $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
+        $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
     }
 
     /**
@@ -199,6 +210,11 @@ class PlaceOrder extends AbstractManagement
             $this->logManager->setMerchantReference($link->getReference());
 
             if (empty($orderId)) {
+                // Only the process that took the lock may release it. The status check below
+                // throws before the lock is taken, and releasing one we never held freed the
+                // lock of whoever was placing the order at that moment
+                $holdsLock = false;
+
                 try {
                     $this->logManager->debug('Order id is empty: ' . $orderId . ' sending request to Qliro to get order: ' . $qliroOrderId);
                     // The pending page polls until the order exists, so this answer is worth
@@ -218,16 +234,27 @@ class PlaceOrder extends AbstractManagement
                         $this->logManager->debug('Lock failed for order id: ' . $qliroOrderId);
                         throw new FailToLockException((string) __('Failed to aquire lock when placing order'));
                     }
+                    $holdsLock = true;
 
                     $this->prepareQuoteRecurringInfo();
                     $order = $this->execute($responseContainer);
                     $this->handlePlacedOrderRecurringInfo($order, $responseContainer->getCustomer()->getPersonalNumber());
 
                     $this->lock->unlock($qliroOrderId);
+                    $holdsLock = false;
 
                 } catch (FailToLockException $exception) {
-                    $this->logManager->critical(
-                        $exception,
+                    /*
+                     * The lock belongs to whoever is placing this order right now, and that is the
+                     * callback from Qliro: it takes the lock before the browser starts polling and
+                     * holds it for the seconds the placement takes. The poller losing the race is
+                     * the designed outcome, `Controller\Qliro\Ajax\PollPending` answers PENDING on
+                     * it and the buyer's page polls again, so a debug line is the whole story.
+                     * The catch itself has to stay: without it the exception reaches the general
+                     * catch below, which releases the lock, and the loser would free the winner's.
+                     */
+                    $this->logManager->debug(
+                        'Order placement is already in progress for Qliro order id: ' . $qliroOrderId,
                         [
                             'extra' => [
                                 'quote_id' => $quoteId,
@@ -238,8 +265,10 @@ class PlaceOrder extends AbstractManagement
 
                     throw $exception;
                 } catch (OrderPlacementPendingException $exception) {
-                    $this->logManager->critical(
-                        $exception,
+                    // Qliro still reports the checkout as in process, so there is nothing to place
+                    // yet and the browser is told to ask again. Expected, like the lock race above
+                    $this->logManager->debug(
+                        'Qliro order is still in process, nothing to place yet: ' . $qliroOrderId,
                         [
                             'extra' => [
                                 'quote_id' => $quoteId,
@@ -247,7 +276,9 @@ class PlaceOrder extends AbstractManagement
                             ],
                         ]
                     );
-                    $this->lock->unlock($qliroOrderId);
+                    if ($holdsLock) {
+                        $this->lock->unlock($qliroOrderId);
+                    }
 
                     throw $exception;
                 } catch (\Exception $exception) {
@@ -260,13 +291,24 @@ class PlaceOrder extends AbstractManagement
                             ],
                         ]
                     );
-                    $this->lock->unlock($qliroOrderId);
+                    if ($holdsLock) {
+                        $this->lock->unlock($qliroOrderId);
+                    }
 
                     throw new TerminalException('Order placement failed', (int) $exception->getCode(), $exception);
                 }
             } else {
                 $order = $this->orderRepository->get($orderId);
             }
+        } catch (FailToLockException | OrderPlacementPendingException $exception) {
+            // Both mean the order is on its way and the browser should ask again, which is what
+            // PollPending answers on them, so neither is a critical. Wrapped rather than rethrown
+            // because PollPending reads the previous of a TerminalException to tell them apart
+            throw new TerminalException(
+                'Order placement is already in progress',
+                $exception->getCode(),
+                $exception
+            );
         } catch (NoSuchEntityException $exception) {
             $this->logManager->critical(
                 $exception,
@@ -361,7 +403,11 @@ class PlaceOrder extends AbstractManagement
 
                     // The delivery Qliro charged for, not the one the quote's last update left (PLIN-461)
                     $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
-                    $this->addAdditionalInfoToQuote($link, $qliroOrder->getPaymentMethod());
+                    $this->addAdditionalInfoToQuote(
+                        $link,
+                        $qliroOrder->getPaymentMethod(),
+                        $qliroOrder->getOrderItems() ?? []
+                    );
                     $this->recordReservedDiscount($qliroOrder);
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
@@ -596,9 +642,10 @@ class PlaceOrder extends AbstractManagement
      *
      * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
      * @param \Qliro\QliroOne\Api\Data\QliroOrderPaymentMethodInterface $paymentMethod
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $reservationItems
      * @throws \Magento\Framework\Exception\LocalizedException
      */
-    private function addAdditionalInfoToQuote($link, $paymentMethod)
+    private function addAdditionalInfoToQuote($link, $paymentMethod, array $reservationItems = [])
     {
         $payment = $this->getQuote()->getPayment();
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_QLIRO_ORDER_ID, $link->getQliroOrderId());
@@ -611,6 +658,7 @@ class PlaceOrder extends AbstractManagement
             Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID,
             true
         );
+        $this->roundingAdjustmentStamp?->record($this->getQuote(), $reservationItems);
 
         if ($paymentMethod) {
             $payment->setAdditionalInformation(

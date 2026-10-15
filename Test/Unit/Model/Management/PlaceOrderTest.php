@@ -87,7 +87,7 @@ class PlaceOrderTest extends TestCase
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
-            $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class)
         );
     }
 
@@ -168,7 +168,7 @@ class PlaceOrderTest extends TestCase
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
-            $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class)
         );
 
         $payment = $this->createMock(Payment::class);

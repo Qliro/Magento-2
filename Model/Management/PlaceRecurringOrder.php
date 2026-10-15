@@ -23,8 +23,10 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
@@ -126,9 +128,14 @@ class PlaceRecurringOrder extends AbstractManagement
     private $organizationNumber;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp|null
+     */
+    private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
+
+    /**
      * @var DiscountLines
      */
-    private $discountLines;
+    private DiscountLines $discountLines;
 
     /**
      * Inject dependencies
@@ -151,7 +158,8 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param \Magento\Quote\Api\CartManagementInterface $cartManagementInterface
      * @param \Magento\Sales\Model\Order $order
      * @param OrganizationNumber $organizationNumber
-     * @param DiscountLines $discountLines
+     * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
+     * @param DiscountLines|null $discountLines
      */
     public function __construct(
         Config $qliroConfig,
@@ -172,7 +180,8 @@ class PlaceRecurringOrder extends AbstractManagement
         \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
         \Magento\Sales\Model\Order $order,
         OrganizationNumber $organizationNumber,
-        DiscountLines $discountLines
+        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
+        ?DiscountLines $discountLines = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -192,7 +201,9 @@ class PlaceRecurringOrder extends AbstractManagement
         $this->cartManagementInterface = $cartManagementInterface;
         $this->order = $order;
         $this->organizationNumber = $organizationNumber;
-        $this->discountLines = $discountLines;
+        // Optional so a store constructing this class with the old signature keeps working
+        $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
+        $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
     }
 
     /**
@@ -212,6 +223,11 @@ class PlaceRecurringOrder extends AbstractManagement
             $this->logManager->setMerchantReference($link->getReference());
 
             if (empty($orderId)) {
+                // Only the process that took the lock may release it. The status check below
+                // throws before the lock is taken, and releasing one we never held freed the
+                // lock of whoever was placing that order at the time
+                $holdsLock = false;
+
                 try {
                     // A recurring order is placed with nobody in front of it
                     $responseContainer = $this->merchantApi->getOrder(
@@ -227,8 +243,10 @@ class PlaceRecurringOrder extends AbstractManagement
                     if (!$this->lock->lock($qliroOrderId)) {
                         throw new FailToLockException((string) __('Failed to aquire lock when placing order'));
                     }
+                    $holdsLock = true;
 
                     $this->lock->unlock($qliroOrderId);
+                    $holdsLock = false;
 
                 } catch (FailToLockException $exception) {
                     $this->logManager->critical(
@@ -252,7 +270,9 @@ class PlaceRecurringOrder extends AbstractManagement
                             ],
                         ]
                     );
-                    $this->lock->unlock($qliroOrderId);
+                    if ($holdsLock) {
+                        $this->lock->unlock($qliroOrderId);
+                    }
 
                     throw $exception;
                 } catch (\Exception $exception) {
@@ -265,7 +285,9 @@ class PlaceRecurringOrder extends AbstractManagement
                             ],
                         ]
                     );
-                    $this->lock->unlock($qliroOrderId);
+                    if ($holdsLock) {
+                        $this->lock->unlock($qliroOrderId);
+                    }
 
                     throw new TerminalException('Order placement failed', (int) $exception->getCode(), $exception);
                 }
@@ -567,6 +589,10 @@ class PlaceRecurringOrder extends AbstractManagement
         $payment->setAdditionalInformation(
             Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID,
             true
+        );
+        $this->roundingAdjustmentStamp?->record(
+            $this->getQuote(),
+            $qliroOrder->getOrderItemActions() ?? []
         );
 
         $paymentMethod = $qliroOrder->getPaymentMethod();
