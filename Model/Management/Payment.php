@@ -27,6 +27,7 @@ use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureCoverage;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
@@ -106,6 +107,11 @@ class Payment extends AbstractManagement
     private $reservationFormat;
 
     /**
+     * @var CaptureCoverage
+     */
+    private $captureCoverage;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -122,6 +128,7 @@ class Payment extends AbstractManagement
      * @param CaptureRefundAllocator $captureRefundAllocator
      * @param SequentialRefundProcessor $sequentialRefundProcessor
      * @param ReservationFormat $reservationFormat
+     * @param CaptureCoverage $captureCoverage
      */
     public function __construct(
         Config $qliroConfig,
@@ -137,7 +144,8 @@ class Payment extends AbstractManagement
         AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder,
         CaptureRefundAllocator $captureRefundAllocator,
         SequentialRefundProcessor $sequentialRefundProcessor,
-        ReservationFormat $reservationFormat
+        ReservationFormat $reservationFormat,
+        CaptureCoverage $captureCoverage
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -153,6 +161,7 @@ class Payment extends AbstractManagement
         $this->captureRefundAllocator = $captureRefundAllocator;
         $this->sequentialRefundProcessor = $sequentialRefundProcessor;
         $this->reservationFormat = $reservationFormat;
+        $this->captureCoverage = $captureCoverage;
     }
 
     /**
@@ -241,23 +250,52 @@ class Payment extends AbstractManagement
             return;
         }
 
+        // A shipment capture made in an earlier request, which the flag above cannot see
+        $invoice = $payment->getInvoice();
+        $shipmentTransaction = $invoice ? $this->captureCoverage->shipmentCaptureFor($invoice, $order) : null;
+
+        if ($shipmentTransaction !== null) {
+            // Its own OM status row already holds the transaction, and Qliro's confirmation finds the
+            // shipment by it, so nothing is recorded here, and nothing marks this request as captured
+            $payment->setTransactionId($shipmentTransaction);
+            $this->logManager->info(
+                'Invoice covered by an earlier shipment capture, adopting its transaction',
+                ['extra' => ['order_id' => $order->getId(), 'transaction_id' => $shipmentTransaction]]
+            );
+
+            return;
+        }
+
         $this->reservationFormat->stamp($order, $link->getQliroOrderId());
 
         $this->invoiceMarkItemsAsShippedRequestBuilder->setPayment($payment);
         $this->invoiceMarkItemsAsShippedRequestBuilder->setAmount($amount);
 
         $request = $this->invoiceMarkItemsAsShippedRequestBuilder->create();
+
+        // Qliro refuses an empty request as invalid input, so it is never sent
+        if (count($request->getShipments() ?: []) === 0) {
+            if ((float)$amount <= 0.0) {
+                return;
+            }
+
+            throw new LocalizedException(
+                __('Nothing in this invoice can be captured at Qliro, so the invoice was not created.')
+            );
+        }
+
         $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
 
         try {
             $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
         } catch (ClientException $exception) {
             if ($this->isAlreadyShipped($exception)) {
+                $fromQliroOrder = !$order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
                 $order->setData(
                     self::QLIRO_CAPTURE_TRANSACTION_ID,
-                    $this->refusedTransactionId($exception, $order)
+                    $this->refusedTransactionId($order, $link->getQliroOrderId(), $invoice)
                 );
-                $this->adoptCaptureTransaction($order, $payment, $link, 'invoice');
+                $this->adoptCaptureTransaction($order, $payment, $link, 'invoice', $fromQliroOrder);
 
                 return;
             }
@@ -359,9 +397,10 @@ class Payment extends AbstractManagement
      * @param \Magento\Payment\Model\InfoInterface|null $payment
      * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
      * @param string $trigger
+     * @param bool $fromQliroOrder whether the id was read from the order at Qliro, not from this request
      * @return void
      */
-    private function adoptCaptureTransaction(Order $order, $payment, $link, $trigger)
+    private function adoptCaptureTransaction(Order $order, $payment, $link, $trigger, $fromQliroOrder = false)
     {
         $transactionId = $order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
 
@@ -369,7 +408,13 @@ class Payment extends AbstractManagement
             $payment->setTransactionId($transactionId);
         }
 
-        $this->recordCaptureStatus($order, $link, $transactionId, $trigger);
+        // A shipment's own row already holds it, and a newer payment row would take Qliro's
+        // confirmation of it away from the shipment handler
+        if (!$transactionId || !$fromQliroOrder
+            || !$this->captureCoverage->isShipmentCapture($order, (int)$transactionId)
+        ) {
+            $this->recordCaptureStatus($order, $link, $transactionId, $trigger);
+        }
 
         if ($transactionId) {
             $this->logManager->info(
@@ -410,16 +455,15 @@ class Payment extends AbstractManagement
     }
 
     /**
-     * Qliro names the transaction it already shipped in the refusal itself ("All items already
-     * shipped for transaction 'N'"), which is the only place the id is available when the capture
-     * happened in an earlier request. Read from Qliro's own answer rather than guessed, and absent
-     * rather than invented when the wording does not match.
+     * The capture behind a refusal as already shipped. The refusal names the preauthorization,
+     * which cannot be refunded against, so the capture is read from the order at Qliro.
      *
-     * @param ClientException $exception
      * @param Order $order
+     * @param int $qliroOrderId
+     * @param \Magento\Sales\Model\Order\Invoice|null $invoice
      * @return int|null
      */
-    private function refusedTransactionId(ClientException $exception, Order $order)
+    private function refusedTransactionId(Order $order, $qliroOrderId, $invoice = null)
     {
         $fromThisRequest = $order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
 
@@ -427,10 +471,27 @@ class Payment extends AbstractManagement
             return (int)$fromThisRequest;
         }
 
-        $previous = $exception->getPrevious();
-        $message = $previous instanceof TerminalException ? (string)$previous->getQliroErrorMessage() : '';
+        try {
+            $qliroOrder = $this->orderManagementApi->getOrder(
+                $qliroOrderId,
+                $order->getStoreId(),
+                Config::API_PROFILE_BACKGROUND
+            );
+        } catch (\Throwable $exception) {
+            // The document still completes, adoptCaptureTransaction escalates the unknown id
+            $this->logManager->warning(
+                'The Qliro order could not be read, the capture it already holds is unknown',
+                ['extra' => ['qliro_order_id' => $qliroOrderId, 'error' => $exception->getMessage()]]
+            );
 
-        return preg_match("/transaction '(\\d+)'/", $message, $matches) ? (int)$matches[1] : null;
+            return null;
+        }
+
+        return $this->captureCoverage->captureAtQliro(
+            $qliroOrder ? ($qliroOrder->getPaymentTransactions() ?: []) : [],
+            $order,
+            $invoice
+        );
     }
 
     /**
@@ -445,7 +506,8 @@ class Payment extends AbstractManagement
         try {
             /** @var OrderManagementStatus $omStatus */
             $omStatus = $this->orderManagementStatusInterfaceFactory->create();
-            $omStatus->setRecordId($order->getId());
+            // The payment handler reads the record id as a payment id
+            $omStatus->setRecordId($order->getPayment() ? $order->getPayment()->getId() : $order->getId());
             $omStatus->setRecordType(OrderManagementStatusInterface::RECORD_TYPE_PAYMENT);
             $omStatus->setTransactionId($transactionId);
             $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
@@ -471,6 +533,20 @@ class Payment extends AbstractManagement
      */
     private function describeCaptureFailure(ClientException $exception, Order $order, $qliroOrderId)
     {
+        if ($this->qliroErrorCode($exception) === self::QLIRO_ERROR_OPERATION_NOT_SUPPORTED
+            && stripos($this->qliroErrorMessage($exception), 'already in process') !== false
+        ) {
+            // Usually our own capture of this order a moment earlier: a retry then adopts it
+            return new LocalizedException(
+                __(
+                    'Qliro is still processing another transaction on order %1. Wait a minute and '
+                    . 'try again.',
+                    $qliroOrderId
+                ),
+                $exception
+            );
+        }
+
         if ($this->qliroErrorCode($exception) !== self::QLIRO_ERROR_ORDER_NOT_FOUND) {
             return $exception;
         }
@@ -508,6 +584,17 @@ class Payment extends AbstractManagement
     }
 
     /**
+     * @param ClientException $exception
+     * @return string
+     */
+    private function qliroErrorMessage(ClientException $exception): string
+    {
+        $previous = $exception->getPrevious();
+
+        return $previous instanceof TerminalException ? (string)$previous->getQliroErrorMessage() : '';
+    }
+
+    /**
      * @param \Magento\Sales\Model\Order\Shipment $shipment
      * @return void
      * @throws \Exception
@@ -527,6 +614,16 @@ class Payment extends AbstractManagement
 
         $link = $this->linkRepository->getByOrderId($order->getId());
         $this->logManager->setMerchantReference($link->getReference());
+
+        // An invoice captured in an earlier request, which the flag above cannot see
+        if ($this->captureCoverage->isCoveredByInvoices($shipment, $order)) {
+            $this->logManager->info(
+                'Skipping the shipment capture, invoices already captured everything it ships',
+                ['extra' => ['order_id' => $order->getId(), 'shipment_id' => $shipment->getId()]]
+            );
+
+            return;
+        }
 
         $this->shipmentMarkItemsAsShippedRequestBuilder->setShipment($shipment);
         $request = $this->shipmentMarkItemsAsShippedRequestBuilder->create();
@@ -549,11 +646,12 @@ class Payment extends AbstractManagement
             $result = $this->orderManagementApi->markItemsAsShipped($request, $order->getStoreId());
         } catch (ClientException $exception) {
             if ($this->isAlreadyShipped($exception)) {
+                $fromQliroOrder = !$order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
                 $order->setData(
                     self::QLIRO_CAPTURE_TRANSACTION_ID,
-                    $this->refusedTransactionId($exception, $order)
+                    $this->refusedTransactionId($order, $link->getQliroOrderId())
                 );
-                $this->adoptCaptureTransaction($order, null, $link, 'shipment');
+                $this->adoptCaptureTransaction($order, null, $link, 'shipment', $fromQliroOrder);
 
                 return;
             }
