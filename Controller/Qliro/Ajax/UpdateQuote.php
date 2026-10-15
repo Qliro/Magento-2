@@ -16,7 +16,9 @@ use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\TerminalException;
+use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
+use Qliro\QliroOne\Model\QliroOrder\LinesTotal;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 
 /**
@@ -60,6 +62,11 @@ class UpdateQuote implements HttpPostActionInterface
     private $logManager;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\LinesTotal
+     */
+    private LinesTotal $linesTotal;
+
+    /**
      * Inject dependnecies
      *
      * @param \Magento\Framework\App\Request\Http $request
@@ -69,6 +76,7 @@ class UpdateQuote implements HttpPostActionInterface
      * @param \Qliro\QliroOne\Api\ManagementInterface $qliroManagement
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
+     * @param \Qliro\QliroOne\Model\QliroOrder\LinesTotal|null $linesTotal
      */
     public function __construct(
         Http $request,
@@ -77,7 +85,8 @@ class UpdateQuote implements HttpPostActionInterface
         AjaxToken $ajaxToken,
         ManagementInterface $qliroManagement,
         Session $checkoutSession,
-        Manager $logManager
+        Manager $logManager,
+        ?LinesTotal $linesTotal = null
     ) {
         $this->request = $request;
         $this->dataHelper = $dataHelper;
@@ -86,6 +95,8 @@ class UpdateQuote implements HttpPostActionInterface
         $this->qliroManagement = $qliroManagement;
         $this->checkoutSession = $checkoutSession;
         $this->logManager = $logManager;
+        // Optional so a store constructing this controller with the old signature keeps working
+        $this->linesTotal = $linesTotal ?? new LinesTotal();
     }
 
     /**
@@ -125,6 +136,20 @@ class UpdateQuote implements HttpPostActionInterface
 
         try {
             $this->qliroManagement->setQuote($quote)->getQliroOrder();
+        } catch (UnsupportedQuoteException $exception) {
+            /*
+             * The cart or the country is what the buyer has to change, and the message says which,
+             * so it is passed on rather than replaced. Without this the exception left the
+             * controller as a Magento error page, and the browser showed `Internal Server Error`
+             * in place of the sentence the refusal exists to deliver. This refresh runs on every
+             * checkout, so the same was true of the fractional quantity refusal (PLIN-367).
+             */
+            return $this->dataHelper->sendPreparedPayload(
+                ['error' => $exception->getMessage()],
+                400,
+                null,
+                'AJAX:UPDATE_QUOTE:UNSUPPORTED'
+            );
         } catch (TerminalException $exception) {
             return $this->dataHelper->sendPreparedPayload(
                 ['error' => (string)__('Cannot fetch Qliro One order.')],
@@ -134,21 +159,23 @@ class UpdateQuote implements HttpPostActionInterface
             );
         }
 
-        if ($quote->isVirtual()) {
-            $billingAddress = $quote->getBillingAddress();
-            $fee = $billingAddress->getQlirooneFee();
-            $shippingCost = 0;
-        } else {
-            $shippingAddress = $quote->getShippingAddress();
-            $fee = $shippingAddress->getQlirooneFee();
-            $shippingCost = $shippingAddress->getShippingInclTax();
-        }
-
         return $this->dataHelper->sendPreparedPayload(
             [
                 'order' => [
-                    'totalPrice' => $quote->getGrandTotal() - $fee - $shippingCost,
+                    // The same figure the order lines are built to add up to, see LinesTotal:
+                    // the browser compares it against the Qliro order and keeps the checkout
+                    // locked while the two disagree
+                    'totalPrice' => $this->linesTotal->ofQuote($quote),
                 ],
+                /*
+                 * The buyer's email reaches the browser here as well as through the customer
+                 * callback, because this response is handled on the cart refresh, which every
+                 * checkout runs and which a store that replaces the customer handler with one of
+                 * its own still calls. Without it the native checkout's own email stays empty and
+                 * every core call carrying it is refused. The key is one the log redaction masks
+                 * by name, so it is written to the browser and not to the log.
+                 */
+                'email' => $quote->getCustomerEmail(),
             ],
             200,
             null,

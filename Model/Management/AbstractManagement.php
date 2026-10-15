@@ -50,6 +50,12 @@ abstract class AbstractManagement
      */
     const QLIRO_ERROR_ORDER_NOT_FOUND = 'ORDER_NOT_FOUND';
 
+    /**
+     * Qliro's answer while another transaction on the order is still being processed, "Another
+     * transaction is already in process. Please retry shortly"
+     */
+    const QLIRO_ERROR_OPERATION_NOT_SUPPORTED = 'OPERATION_NOT_SUPPORTED';
+
     // CheckoutStatus can only create an order, if POLL was unsuccessful for 1 minute
     const QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT = 60;
 
