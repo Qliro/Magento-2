@@ -213,6 +213,11 @@ class PlaceRecurringOrder extends AbstractManagement
             $this->logManager->setMerchantReference($link->getReference());
 
             if (empty($orderId)) {
+                // Only the process that took the lock may release it. The status check below
+                // throws before the lock is taken, and releasing one we never held freed the
+                // lock of whoever was placing that order at the time
+                $holdsLock = false;
+
                 try {
                     // A recurring order is placed with nobody in front of it
                     $responseContainer = $this->merchantApi->getOrder(
@@ -228,8 +233,10 @@ class PlaceRecurringOrder extends AbstractManagement
                     if (!$this->lock->lock($qliroOrderId)) {
                         throw new FailToLockException((string) __('Failed to aquire lock when placing order'));
                     }
+                    $holdsLock = true;
 
                     $this->lock->unlock($qliroOrderId);
+                    $holdsLock = false;
 
                 } catch (FailToLockException $exception) {
                     $this->logManager->critical(
@@ -253,7 +260,9 @@ class PlaceRecurringOrder extends AbstractManagement
                             ],
                         ]
                     );
-                    $this->lock->unlock($qliroOrderId);
+                    if ($holdsLock) {
+                        $this->lock->unlock($qliroOrderId);
+                    }
 
                     throw $exception;
                 } catch (\Exception $exception) {
@@ -266,7 +275,9 @@ class PlaceRecurringOrder extends AbstractManagement
                             ],
                         ]
                     );
-                    $this->lock->unlock($qliroOrderId);
+                    if ($holdsLock) {
+                        $this->lock->unlock($qliroOrderId);
+                    }
 
                     throw new TerminalException('Order placement failed', (int) $exception->getCode(), $exception);
                 }
