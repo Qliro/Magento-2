@@ -12,11 +12,9 @@ use Magento\Framework\App\ProductMetadata;
 use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\Controller\Result\Json;
-use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Model\Quote;
 use Magento\Tax\Helper\Data as TaxHelper;
 use PHPUnit\Framework\TestCase;
-use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Controller\Qliro\Ajax\UpdateShippingMethod;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Carrier\Ingrid;
@@ -87,9 +85,6 @@ class UpdateShippingMethodTest extends TestCase
         $session = $this->createMock(Session::class);
         $session->method('getQuote')->willReturn($quote);
 
-        $linkRepository = $this->createMock(LinkRepositoryInterface::class);
-        $linkRepository->method('getByQuoteId')->willThrowException(new NoSuchEntityException());
-
         $productMetadata = $this->createMock(ProductMetadataInterface::class);
         $productMetadata->method('getEdition')->willReturn(ProductMetadata::EDITION_NAME);
         $taxHelper = $this->createMock(TaxHelper::class);
@@ -114,8 +109,7 @@ class UpdateShippingMethodTest extends TestCase
             $session,
             $this->createMock(Manager::class),
             $productMetadata,
-            $taxHelper,
-            $linkRepository
+            $taxHelper
         );
         $controller->execute();
 
