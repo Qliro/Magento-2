@@ -215,11 +215,15 @@ class DiscountLines
         }
 
         foreach ($qliroOrderItems as $line) {
-            if ($line->getType() !== QliroOrderItemInterface::TYPE_DISCOUNT) {
+            $reference = $line->getMerchantReference();
+
+            // The rounding line is replayed by its own handler
+            if ($line->getType() !== QliroOrderItemInterface::TYPE_DISCOUNT
+                || $reference === RoundingAdjustment::MERCHANT_REFERENCE
+            ) {
                 continue;
             }
 
-            $reference = $line->getMerchantReference();
             $discounts[$reference] = [
                 'inc' => $line->getPricePerItemIncVat(),
                 'ex' => $line->getPricePerItemExVat(),

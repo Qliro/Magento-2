@@ -292,6 +292,28 @@ class AppliedRulesHandlerTest extends TestCase
         self::assertSame(-1500.0, $lines[150]->getPricePerItemIncVat());
     }
 
+    /**
+     * Exactly at the limit the cart collapses too, the rounding line added after this needs room.
+     */
+    public function testKeepsOneDiscountLineWhenTheLinesWouldReachTheLimit(): void
+    {
+        $products = [];
+        $items = [];
+
+        for ($id = 1; $id <= 100; $id++) {
+            $products[] = $this->product($id . ':SKU', 3);
+            $items[$id] = $this->quoteItem($id, ['discount_amount' => '30.0000', 'discount_tax_compensation_amount' => '6.0000']);
+        }
+
+        $lines = $this->handler->handle($products, $this->buildQuote(
+            ['discount_amount' => '-3000.0000', 'discount_tax_compensation_amount' => '600.0000'],
+            $items
+        ));
+
+        self::assertCount(101, $lines);
+        self::assertSame('DSC_ORDER', $lines[100]->getMerchantReference());
+    }
+
     private function product(string $reference, int $quantity): Item
     {
         return (new Item())

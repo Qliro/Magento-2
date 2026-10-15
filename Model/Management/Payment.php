@@ -17,6 +17,8 @@ use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
+use Magento\Framework\App\ObjectManager;
+use Magento\Sales\Api\OrderPaymentRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -114,6 +116,11 @@ class Payment extends AbstractManagement
     private $captureCoverage;
 
     /**
+     * @var OrderPaymentRepositoryInterface
+     */
+    private $paymentRepository;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -131,6 +138,7 @@ class Payment extends AbstractManagement
      * @param SequentialRefundProcessor $sequentialRefundProcessor
      * @param ReservationFormat $reservationFormat
      * @param CaptureCoverage $captureCoverage
+     * @param OrderPaymentRepositoryInterface|null $paymentRepository
      */
     public function __construct(
         Config $qliroConfig,
@@ -147,7 +155,8 @@ class Payment extends AbstractManagement
         CaptureRefundAllocator $captureRefundAllocator,
         SequentialRefundProcessor $sequentialRefundProcessor,
         ReservationFormat $reservationFormat,
-        CaptureCoverage $captureCoverage
+        CaptureCoverage $captureCoverage,
+        ?OrderPaymentRepositoryInterface $paymentRepository = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -164,6 +173,8 @@ class Payment extends AbstractManagement
         $this->sequentialRefundProcessor = $sequentialRefundProcessor;
         $this->reservationFormat = $reservationFormat;
         $this->captureCoverage = $captureCoverage;
+        $this->paymentRepository = $paymentRepository
+            ?? ObjectManager::getInstance()->get(OrderPaymentRepositoryInterface::class);
     }
 
     /**
@@ -700,6 +711,10 @@ class Payment extends AbstractManagement
 
         $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
         $this->recordCapturedUnits($order, $request);
+        // A shipment saved through its repository alone never saves the order, the count would be lost
+        if ($order->getPayment()) {
+            $this->paymentRepository->save($order->getPayment());
+        }
 
         try {
             /** @var OrderManagementStatus $omStatus */

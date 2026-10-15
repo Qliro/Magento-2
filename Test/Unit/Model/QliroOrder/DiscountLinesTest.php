@@ -19,6 +19,7 @@ use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
+use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustment;
 
 /**
  * What the placement records of the reservation
@@ -47,6 +48,20 @@ class DiscountLinesTest extends TestCase
         self::assertSame(DiscountLines::SCOPE_ORDER, $reservation['discounts']['DSC_10']['scope']);
         self::assertSame(-33.33, $reservation['discounts']['DSC_5:SKU']['inc']);
         self::assertSame(3, $reservation['discounts']['DSC_5:SKU']['quantity']);
+    }
+
+    /**
+     * The rounding line has a handler of its own that replays it, recording it here would send it twice.
+     */
+    public function testLeavesTheRoundingLineOut(): void
+    {
+        $reservation = $this->discountLines()->reservation([
+            $this->line('5:SKU', QliroOrderItemInterface::TYPE_PRODUCT, 3, 199.0),
+            $this->line('DSC_5:SKU', QliroOrderItemInterface::TYPE_DISCOUNT, 3, -33.33),
+            $this->line(RoundingAdjustment::MERCHANT_REFERENCE, QliroOrderItemInterface::TYPE_DISCOUNT, 1, -0.01),
+        ]);
+
+        self::assertSame(['DSC_5:SKU'], array_keys($reservation['discounts']));
     }
 
     /**

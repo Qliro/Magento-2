@@ -90,8 +90,8 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             $discountLines[] = $missing;
         }
 
-        // Qliro takes so many lines and no more, past that the cart keeps one discount line
-        if (count($orderItems) + count($discountLines) > ItemsLimitValidator::MAX_ITEMS) {
+        // Qliro takes so many lines and no more; one is left for the rounding line added after this
+        if (count($orderItems) + count($discountLines) >= ItemsLimitValidator::MAX_ITEMS) {
             $discountLines = [$this->getWholeDiscount($address, $quote)];
         }
 
