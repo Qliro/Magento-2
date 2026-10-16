@@ -149,6 +149,7 @@ class UpdateShippingMethod implements HttpPostActionInterface
                 }
             } else {
                 $shippingMethodCode = $data['method'] ?? null;
+                $secondaryOption = $data['secondaryOption'] ?? null;
                 $shippingPrice = $data['price'] ?? null;
             }
             /*
