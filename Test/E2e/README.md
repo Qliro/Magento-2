@@ -28,6 +28,9 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
 - `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
+- `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
+- Unifaun and Ingrid off, they take the shipping update down their own paths
+- `SE` left out of `general/region/state_required`. The seeded addresses carry no region, so a store that requires one for Sweden refuses to place the order with `"regionId" is required`
 
 ## Running
 
@@ -106,3 +109,14 @@ Qliro side says free shipping, the tests send the validate callback to the store
 from that Qliro order. The browser test holds the first of two delivery updates back on the network,
 which is how the second one used to overtake it, and reads which delivery the quote ended on.
 Reverting the fix turns all four red.
+
+## A secondary option of the merchant's own
+
+`tests/secondary-option.spec.ts` covers PLIN-492. The fixture module stands in for a merchant's code:
+it adds two pickup points to Flat Rate on `qliroone_shipping_method_build_after`, only for a quote
+with the e2e product so a manual checkout on the same store is left alone, and on
+`qliroone_shipping_method_update_before` records the option it got in
+`var/qliro-e2e/secondary-option-<quote id>.json`, setting `can_save_quote` when the option differs
+from the last one recorded. One test reads the pickup points from the shipping methods callback,
+the others select an option through the checkout's own model and read what was recorded.
+Reverting the fix turns three of the five red.
