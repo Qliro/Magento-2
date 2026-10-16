@@ -20,6 +20,7 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\QliroOrder\DiscountAmountResolver;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 
@@ -135,17 +136,6 @@ class AppliedRulesHandlerTest extends TestCase
     }
 
     /**
-     * Only the first capture carries the order level lines, the rest would double them.
-     */
-    public function testSkipsAnOrderThatIsNotOnItsFirstCapture(): void
-    {
-        $order = $this->buildOrder([]);
-        $order->setData('first_capture_flag', false);
-
-        self::assertSame([], $this->handler->handle([], $order));
-    }
-
-    /**
      * Without a discount there is nothing to add.
      */
     public function testSkipsOrderWithoutDiscount(): void
@@ -159,6 +149,236 @@ class AppliedRulesHandlerTest extends TestCase
     public function testIgnoresNonOrderSubject(): void
     {
         self::assertSame(['untouched'], $this->handler->handle(['untouched'], null));
+    }
+
+    /**
+     * The ticket's order: 319.50 off the cart, and a first invoice of one product and the shipping
+     * worth 211.10. With the discount it is -108.40, which Qliro refuses, so the line waits.
+     */
+    public function testKeepsTheSingleReservedLineFromAFirstCaptureItWouldTurnNegative(): void
+    {
+        $order = $this->buildOrder($this->ticketTotals() + [AppliedRulesHandler::FINAL_CAPTURE_FLAG => false]);
+
+        $lines = $this->handler->handle([$this->product('7:SKU-A', 1, 152.10), $this->shipping(59.00)], $order);
+
+        self::assertSame(['7:SKU-A', 'flatrate_flatrate'], $this->references($lines));
+    }
+
+    /**
+     * The first capture large enough to carry it takes the line whole, as it was reserved.
+     */
+    public function testSendsTheSingleReservedLineWithTheFirstCaptureThatStaysPositive(): void
+    {
+        $order = $this->buildOrder(
+            $this->ticketTotals() + ['first_capture_flag' => false, AppliedRulesHandler::FINAL_CAPTURE_FLAG => false],
+            true,
+            [Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => ['7:SKU-A' => 1, 'flatrate_flatrate' => 1]]
+        );
+
+        $lines = $this->handler->handle([$this->product('8:SKU-B', 3, 152.10)], $order);
+
+        self::assertSame(['8:SKU-B', 'DSC_10'], $this->references($lines));
+        self::assertSame(-319.5, $lines[1]->getPricePerItemIncVat());
+        self::assertSame(1.0, $lines[1]->getQuantity());
+    }
+
+    /**
+     * Once recorded as sent, a later capture does not send it again.
+     */
+    public function testDoesNotSendTheSingleReservedLineTwice(): void
+    {
+        $order = $this->buildOrder(
+            $this->ticketTotals() + ['first_capture_flag' => false],
+            true,
+            [Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => ['DSC_10' => 1]]
+        );
+
+        self::assertSame(['8:SKU-B'], $this->references($this->handler->handle([$this->product('8:SKU-B', 1, 152.10)], $order)));
+    }
+
+    /**
+     * Nothing recorded on a later capture means the earlier one ran on a version that sent the line
+     * with the first capture. It is not sent again, and it is handed to the payment to count.
+     */
+    public function testTakesTheLineAsSentWhenAnEarlierVersionCapturedFirst(): void
+    {
+        $order = $this->buildOrder($this->ticketTotals() + ['first_capture_flag' => false]);
+
+        $lines = $this->handler->handle([$this->product('8:SKU-B', 3, 152.10)], $order);
+
+        self::assertSame(['8:SKU-B'], $this->references($lines));
+        self::assertSame(['DSC_10' => 1], $order->getData(AppliedRulesHandler::SENT_BEFORE_RECORDING));
+    }
+
+    /**
+     * The last capture takes what is left, even when that turns it negative: leaving the discount
+     * out would charge the customer more than the order.
+     */
+    public function testTheLastCaptureTakesTheSingleLineWhateverItsTotal(): void
+    {
+        $order = $this->buildOrder($this->ticketTotals());
+
+        $lines = $this->handler->handle([$this->product('7:SKU-A', 1, 152.10)], $order);
+
+        self::assertSame(['7:SKU-A', 'DSC_10'], $this->references($lines));
+    }
+
+    /**
+     * A new order: the discount of each product line goes with the units captured, at the price
+     * Qliro reserved, and the shipping discount with the first capture.
+     */
+    public function testAFirstPartialCaptureTakesTheDiscountOfItsOwnUnits(): void
+    {
+        $order = $this->buildOrder(
+            ['first_capture_flag' => true, AppliedRulesHandler::FINAL_CAPTURE_FLAG => false],
+            true,
+            [Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => $this->reservation()]
+        );
+
+        $lines = $this->handler->handle([$this->product('5:SKU', 1, 199.00), $this->shipping(59.00)], $order);
+
+        self::assertSame(['5:SKU', 'flatrate_flatrate', 'DSC_5:SKU', 'DSC_SHIPPING'], $this->references($lines));
+        self::assertSame(1.0, $lines[2]->getQuantity());
+        self::assertSame(-33.33, $lines[2]->getPricePerItemIncVat());
+        self::assertSame(-26.66, $lines[2]->getPricePerItemExVat());
+        self::assertSame(214.67, round($this->total($lines), 2));
+    }
+
+    /**
+     * A new order shipped after an invoice that captured nothing is not flagged as its first
+     * capture, and still takes its order level lines: only an order without a recorded
+     * reservation can have been captured by an earlier release.
+     */
+    public function testANewOrderNeverTakesItsLinesAsSentByAnEarlierRelease(): void
+    {
+        $order = $this->buildOrder(
+            ['first_capture_flag' => false, AppliedRulesHandler::FINAL_CAPTURE_FLAG => false],
+            true,
+            [Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => $this->reservation()]
+        );
+
+        $lines = $this->handler->handle([$this->product('5:SKU', 1, 199.00), $this->shipping(59.00)], $order);
+
+        self::assertSame(['5:SKU', 'flatrate_flatrate', 'DSC_5:SKU', 'DSC_SHIPPING'], $this->references($lines));
+        self::assertNull($order->getData(AppliedRulesHandler::SENT_BEFORE_RECORDING));
+    }
+
+    /**
+     * The capture of the last units of a line takes the öre the per unit discount left over.
+     */
+    public function testTheLastUnitsOfALineTakeTheRemainder(): void
+    {
+        $order = $this->buildOrder(
+            ['first_capture_flag' => false, AppliedRulesHandler::FINAL_CAPTURE_FLAG => true],
+            true,
+            [
+                Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => $this->reservation(),
+                Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => ['5:SKU' => 1, 'DSC_5:SKU' => 1, 'DSC_SHIPPING' => 1],
+            ]
+        );
+
+        $lines = $this->handler->handle([$this->product('5:SKU', 2, 199.00)], $order);
+
+        self::assertSame(['5:SKU', 'DSC_5:SKU', 'DSC_5:SKU_R'], $this->references($lines));
+        self::assertSame(2.0, $lines[1]->getQuantity());
+        self::assertSame(-0.01, $lines[2]->getPricePerItemIncVat());
+        self::assertSame(round(2 * 199.00 - 2 * 33.33 - 0.01, 2), round($this->total($lines), 2));
+    }
+
+    /**
+     * An invoice for the whole order takes every discount line, the full discount as before.
+     */
+    public function testAWholeOrderCaptureTakesTheWholeDiscount(): void
+    {
+        $order = $this->buildOrder(
+            ['first_capture_flag' => true, AppliedRulesHandler::FINAL_CAPTURE_FLAG => true],
+            true,
+            [Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => $this->reservation()]
+        );
+
+        $lines = $this->handler->handle([$this->product('5:SKU', 3, 199.00), $this->shipping(59.00)], $order);
+
+        self::assertSame(
+            ['5:SKU', 'flatrate_flatrate', 'DSC_5:SKU', 'DSC_5:SKU_R', 'DSC_SHIPPING'],
+            $this->references($lines)
+        );
+        self::assertSame(round(3 * 199.00 + 59.00 - 100.00 - 10.00, 2), round($this->total($lines), 2));
+    }
+
+    /**
+     * Totals of the ticket's order, prices including VAT with the VAT part stated.
+     *
+     * @return array<string, string>
+     */
+    private function ticketTotals(): array
+    {
+        return [
+            'discount_amount' => '-319.5000',
+            'discount_tax_compensation_amount' => '63.9000',
+        ];
+    }
+
+    /**
+     * A product of three units at 199.00 with 100.00 off, and 10.00 off the shipping, as the
+     * placement records it from the Qliro order.
+     */
+    private function reservation(): array
+    {
+        $line = static fn(float $inc, float $ex, int $quantity, string $scope): array => [
+            'inc' => $inc, 'ex' => $ex, 'vat' => 25.0, 'quantity' => $quantity, 'scope' => $scope,
+        ];
+
+        return [
+            'products' => ['5:SKU' => 3],
+            'discounts' => [
+                'DSC_5:SKU' => $line(-33.33, -26.66, 3, DiscountLines::SCOPE_LINE),
+                'DSC_5:SKU_R' => $line(-0.01, -0.01, 1, DiscountLines::SCOPE_LINE),
+                'DSC_SHIPPING' => $line(-10.0, -8.0, 1, DiscountLines::SCOPE_ORDER),
+            ],
+        ];
+    }
+
+    private function product(string $reference, int $quantity, float $price): Item
+    {
+        return (new Item())
+            ->setMerchantReference($reference)
+            ->setType(QliroOrderItemInterface::TYPE_PRODUCT)
+            ->setQuantity($quantity)
+            ->setPricePerItemIncVat($price)
+            ->setPricePerItemExVat(round($price / 1.25, 2));
+    }
+
+    private function shipping(float $price): Item
+    {
+        return (new Item())
+            ->setMerchantReference('flatrate_flatrate')
+            ->setType(QliroOrderItemInterface::TYPE_SHIPPING)
+            ->setQuantity(1)
+            ->setPricePerItemIncVat($price)
+            ->setPricePerItemExVat(round($price / 1.25, 2));
+    }
+
+    /**
+     * @param QliroOrderItemInterface[] $lines
+     * @return string[]
+     */
+    private function references(array $lines): array
+    {
+        return array_map(static fn($line): string => $line->getMerchantReference(), $lines);
+    }
+
+    /**
+     * @param QliroOrderItemInterface[] $lines
+     */
+    private function total(array $lines): float
+    {
+        $total = 0.0;
+
+        foreach ($lines as $line) {
+            $total += $line->getPricePerItemIncVat() * $line->getQuantity();
+        }
+
+        return $total;
     }
 
     /**
@@ -180,10 +400,12 @@ class AppliedRulesHandlerTest extends TestCase
         $taxConfig->method('priceIncludesTax')->willReturn($priceIncludesTax);
         $taxConfig->method('applyTaxAfterDiscount')->willReturn($applyTaxAfterDiscount);
 
+        $resolver = new DiscountAmountResolver($taxConfig, $this->createMock(LogManager::class), new LineVatRate());
+
         return new AppliedRulesHandler(
-            $itemFactory,
-            $qliroHelper,
-            new DiscountAmountResolver($taxConfig, $this->createMock(LogManager::class), new LineVatRate())
+            $resolver,
+            new DiscountLines($itemFactory, $qliroHelper, $resolver, new LineVatRate()),
+            $this->createMock(LogManager::class)
         );
     }
 
@@ -208,13 +430,15 @@ class AppliedRulesHandlerTest extends TestCase
      *
      * @param array<string, string> $totals
      */
-    private function buildOrder(array $totals, bool $reservationCarriesDiscountVat = true): Order&MockObject
-    {
+    private function buildOrder(
+        array $totals,
+        bool $reservationCarriesDiscountVat = true,
+        array $additionalInformation = []
+    ): Order&MockObject {
         $payment = $this->createMock(Payment::class);
         $payment->method('getAdditionalInformation')->willReturnCallback(
-            static fn($key = null) => $key === Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT
-                ? $reservationCarriesDiscountVat
-                : null
+            static fn($key = null) => $additionalInformation[$key]
+                ?? ($key === Config::QLIROONE_ADDITIONAL_INFO_DISCOUNT_CARRIES_VAT ? $reservationCarriesDiscountVat : null)
         );
 
         $order = $this->getMockBuilder(Order::class)
@@ -226,6 +450,7 @@ class AppliedRulesHandlerTest extends TestCase
         $order->method('getPayment')->willReturn($payment);
         $order->setData($totals + [
             'first_capture_flag' => true,
+            AppliedRulesHandler::FINAL_CAPTURE_FLAG => true,
             'applied_rule_ids' => '10',
             'store_id' => 1,
             'discount_amount' => '-10.0000',

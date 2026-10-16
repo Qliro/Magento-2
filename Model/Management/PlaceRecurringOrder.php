@@ -23,6 +23,8 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Magento\Framework\App\ObjectManager;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -131,6 +133,11 @@ class PlaceRecurringOrder extends AbstractManagement
     private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
 
     /**
+     * @var DiscountLines
+     */
+    private DiscountLines $discountLines;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -152,6 +159,7 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param \Magento\Sales\Model\Order $order
      * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
+     * @param DiscountLines|null $discountLines
      */
     public function __construct(
         Config $qliroConfig,
@@ -172,7 +180,8 @@ class PlaceRecurringOrder extends AbstractManagement
         \Magento\Quote\Api\CartManagementInterface $cartManagementInterface,
         \Magento\Sales\Model\Order $order,
         OrganizationNumber $organizationNumber,
-        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null
+        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
+        ?DiscountLines $discountLines = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -194,6 +203,7 @@ class PlaceRecurringOrder extends AbstractManagement
         $this->organizationNumber = $organizationNumber;
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
+        $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
     }
 
     /**
@@ -365,6 +375,7 @@ class PlaceRecurringOrder extends AbstractManagement
 
                     $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
                     $this->addAdditionalInfoToQuote($link, $qliroOrder);
+                    $this->recordReservedDiscount($qliroOrder);
                     $this->addAdditionalShippingInfoToQuote($qliroOrder);
                     $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
 
@@ -530,6 +541,32 @@ class PlaceRecurringOrder extends AbstractManagement
             );
 
             return false;
+        }
+    }
+
+    /**
+     * Record the discount lines the merchant payment reserved, a capture repeats them exactly
+     *
+     * @param AdminOrderInterface $qliroOrder
+     */
+    private function recordReservedDiscount(AdminOrderInterface $qliroOrder): void
+    {
+        $actions = $qliroOrder->getOrderItemActions() ?: [];
+        $reserved = array_filter(
+            $actions,
+            static fn($action): bool => strtolower((string)$action->getActionType()) === 'reserve'
+        );
+
+        $reservation = $this->discountLines->reservationFor(
+            array_values($reserved ?: $actions),
+            $this->getQuote()
+        );
+
+        if ($reservation !== null) {
+            $this->getQuote()->getPayment()->setAdditionalInformation(
+                Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT,
+                $reservation
+            );
         }
     }
 

@@ -30,6 +30,7 @@ use Qliro\QliroOne\Model\Management\PlaceOrder;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
@@ -85,7 +86,8 @@ class PlaceOrderTest extends TestCase
             $this->createMock(QuoteManagement::class),
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
-            $this->createMock(OrganizationNumber::class)
+            $this->createMock(OrganizationNumber::class),
+            discountLines: $this->createMock(DiscountLines::class)
         );
     }
 
@@ -165,7 +167,8 @@ class PlaceOrderTest extends TestCase
             $this->createMock(QuoteManagement::class),
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
-            $this->createMock(OrganizationNumber::class)
+            $this->createMock(OrganizationNumber::class),
+            discountLines: $this->createMock(DiscountLines::class)
         );
 
         $payment = $this->createMock(Payment::class);
