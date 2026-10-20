@@ -40,7 +40,7 @@ use Qliro\QliroOne\Model\Success\Session as SuccessSession;
  *
  * PLIN-390: this page is where purchase tracking happens, and the event it dispatches is the
  * integration point partners build on. It has to carry the order the way core's success page
- * does, and it has to stay fire-once so a reload cannot count a second purchase.
+ * does, and it stays fire-once. A render the buyer may never have seen gets the repeat event.
  */
 class SuccessTest extends TestCase
 {
@@ -66,7 +66,8 @@ class SuccessTest extends TestCase
      */
     public function testDispatchesTheOrderAlongWithTheOrderIds(): void
     {
-        $controller = $this->controller($this->successSession(false));
+        $controller = $this->controller($this->successSession(1));
+        $this->quoteAgent->expects(self::once())->method('clear');
 
         $this->eventManager->expects(self::once())
             ->method('dispatch')
@@ -94,15 +95,32 @@ class SuccessTest extends TestCase
                 ['order_ids' => [self::ORDER_ID], 'order' => null]
             );
 
-        $this->controller($this->successSession(false))->execute();
+        $this->controller($this->successSession(1))->execute();
     }
 
     /**
-     * A reload of the success page must not count a second purchase.
+     * The first render never reported that it loaded: browser tracking gets the order again, core's
+     * event and the cookie clear stay with the first render.
      */
-    public function testDoesNotDispatchAgainOnceTheSuccessPageWasDisplayed(): void
+    public function testARepeatRenderDispatchesTheRepeatEventOnly(): void
     {
-        $controller = $this->controller($this->successSession(true));
+        $this->eventManager->expects(self::once())
+            ->method('dispatch')
+            ->with(
+                'qliroone_checkout_success_repeat',
+                ['order_ids' => [self::ORDER_ID], 'order' => $this->order]
+            );
+        $this->quoteAgent->expects(self::never())->method('clear');
+
+        $this->controller($this->successSession(2))->execute();
+    }
+
+    /**
+     * Reported, or both events used: a reload must not count another purchase.
+     */
+    public function testDoesNotDispatchOnceNoEventIsLeft(): void
+    {
+        $controller = $this->controller($this->successSession(0));
 
         $this->eventManager->expects(self::never())->method('dispatch');
         $this->quoteAgent->expects(self::never())->method('clear');
@@ -124,15 +142,15 @@ class SuccessTest extends TestCase
     }
 
     /**
-     * @param bool $displayed Whether the success page was already shown for this order
+     * @param int $event The event the render claims, 0 for none
      * @return \Qliro\QliroOne\Model\Success\Session&\PHPUnit\Framework\MockObject\MockObject
      */
-    private function successSession(bool $displayed): SuccessSession&MockObject
+    private function successSession(int $event): SuccessSession&MockObject
     {
         $successSession = $this->createMock(SuccessSession::class);
         $successSession->method('getSuccessIncrementId')->willReturn('1001211998');
         $successSession->method('getSuccessOrderId')->willReturn(self::ORDER_ID);
-        $successSession->method('hasSuccessDisplayed')->willReturn($displayed);
+        $successSession->method('claimSuccessEvent')->willReturn($event);
 
         return $successSession;
     }

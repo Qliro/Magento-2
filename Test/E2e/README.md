@@ -29,6 +29,8 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
 - `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
+- `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
+- `google/gtag/analytics4/active 1` and any `google/gtag/analytics4/measurement_id`, for the same spec, which reads the purchase Magento's own GA4 module pushes
 - Unifaun and Ingrid off, they take the shipping update down their own paths
 - `SE` left out of `general/region/state_required`. The seeded addresses carry no region, so a store that requires one for Sweden refuses to place the order with `"regionId" is required`
 
@@ -120,3 +122,13 @@ with the e2e product so a manual checkout on the same store is left alone, and o
 from the last one recorded. One test reads the pickup points from the shipping methods callback,
 the others select an option through the checkout's own model and read what was recorded.
 Reverting the fix turns three of the five red.
+
+## Purchase tracking on the success page
+
+`tests/success-page-tracking.spec.ts` checks the purchase `Magento_GoogleGtag` pushes to
+`window.dataLayer`. The fixture module puts a seeded order on the success session, which is the last
+step of `PollPending`, and records each success event a server-side listener would get in
+`var/qliro-e2e/success-events-<order id>.log`. A success page request whose page never ran in a
+browser, as when the buyer is still in a bank app on mobile, must leave the purchase for the page
+they see, while core's event stays once per order. A page that has loaded must not count the
+purchase again on a reload, and one whose report never arrives counts it at most twice.

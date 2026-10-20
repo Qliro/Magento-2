@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.9] - 2026-10-21
+
+### Fixed
+
+- A purchase is no longer lost to analytics when the first render of the success page never reached the buyer. The page dispatched `checkout_onepage_controller_success_action` once and marked itself as shown in the same request, before the browser ran it. On mobile that request often lands in a tab nobody sees (the buyer is still in the bank app, iOS reloads a discarded tab, a payment app opens a second tab), so the page the buyer did see had no purchase. The page now reports to `checkout/qliro_ajax/successDisplayed` once it has loaded, from its own block so a theme that overrides `checkout/success.phtml` keeps it. A render before that report dispatches `qliroone_checkout_success_repeat`, once per order, which the module hooks Magento's own GA4 block onto and other page tracking can be hooked onto, see README. Core's event still fires once per order, so server-side listeners do not see the order twice
+
+### Added
+
+- `Test/Unit/Controller/Qliro/Ajax/SuccessDisplayedTest`, `Test/Unit/Observer/RepeatGoogleGtagPurchaseTest` and cases in `SuccessTest` and `SessionTest` for the report, the repeat, and a second poll of the same order
+- `Test/E2e/tests/success-page-tracking.spec.ts` with the fixture module `QliroE2e_SuccessPage`, reading the purchase `Magento_GoogleGtag` pushes to `dataLayer`
+
 ## [1.8.5] - 2026-10-13
 
 ### Fixed
