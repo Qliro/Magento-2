@@ -8,5 +8,8 @@
         <job instance="Qliro\QliroOne\Cron\PruneLog" method="execute" name="qliroone_prune_log">
             <schedule>30 3 * * *</schedule>
         </job>
+        <job instance="Qliro\QliroOne\Cron\ReconcileShipmentCaptures" method="execute" name="qliroone_reconcile_shipment_captures">
+            <schedule>*/5 * * * *</schedule>
+        </job>
     </group>
 </config>

@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.8.8] - 2026-10-21
+
+### Fixed
+
+- A shipment whose capture Qliro confirmed is invoiced. Qliro confirms a capture on shipment about half a second after `MarkItemsAsShipped`, while Magento is still saving the shipment, so the callback found no record of the capture, was answered `received` and was never sent again. The order kept a shipment and no invoice, and stayed in processing although Qliro had captured the money. Such a callback is still stored, and the new cron job `qliroone_reconcile_shipment_captures` reads the capture from Qliro once the shipment is saved and handles its status as the callback would have, every five minutes, so the invoice follows within minutes. A callback skipped because another handling held the lock is picked up the same way
+- A status is handled once. The row is saved as handled before the lock is released, and the check is repeated under the lock. The latest handled row is read by id rather than by date, which the capture row and its callback often share to the second. Qliro's callback and the reconciliation can both reach the handler for the same capture, and the second one would invoice the shipment twice. A callback that finds the lock taken waits up to three seconds for it instead of being dropped at once
+
+### Added
+
+- `bin/magento qliroone:capture:reconcile` does the same for captures the cron job does not cover, those older than three days and those from before this release. `--from` and `--to` limit the period, `--order` takes increment ids, `--dry-run` asks Qliro and lists without changing anything. Only a capture Qliro reports as Success is applied, one it reports as Error or Cancelled is listed for a manual check. It also retries a capture whose handling failed, which the cron job leaves alone so as not to add an order comment every run. Invoices it creates carry today's date
+- `Test/E2e/tests/capture-confirmed-early.spec.ts` ships a real sandbox order over REST while the fixture module `QliroE2e_EarlyCaptureCallback` sends Qliro's capture callback from inside the shipment save. The cron job invoices it, a late callback and a second run do not invoice it again, and a capture older than three days is left to the command
+
 ## [1.8.5] - 2026-10-13
 
 ### Fixed
