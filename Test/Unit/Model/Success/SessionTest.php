@@ -97,15 +97,37 @@ class SessionTest extends TestCase
     }
 
     /**
-     * The first event, one repeat while the page has not reported, then none.
+     * The first event, then a repeat for every render while the page has not reported, since more
+     * than one render can go unseen before the one the buyer looks at.
      */
-    public function testClaimsTheFirstEventAndOneRepeat(): void
+    public function testClaimsTheFirstEventThenARepeatPerRender(): void
     {
         $this->successSession->save('<p>Qliro</p>', $this->order());
 
         self::assertSame(1, $this->successSession->claimSuccessEvent());
         self::assertSame(2, $this->successSession->claimSuccessEvent());
-        self::assertSame(0, $this->successSession->claimSuccessEvent());
+        self::assertSame(3, $this->successSession->claimSuccessEvent());
+    }
+
+    /**
+     * A render whose listener failed gives its event back, so the next render dispatches the same one.
+     */
+    public function testAReleasedEventIsClaimedAgain(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+        $this->successSession->releaseSuccessEvent();
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+    }
+
+    public function testReleasingWithNothingClaimedLeavesTheCountAlone(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+        $this->successSession->releaseSuccessEvent();
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
     }
 
     public function testClaimsNothingOnceThePageReported(): void

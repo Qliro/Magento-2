@@ -123,16 +123,25 @@ class Success extends \Magento\Checkout\Controller\Onepage
 
         $event = $this->successSession->claimSuccessEvent();
 
-        if ($event === 1) {
-            $this->quoteAgent->clear();
-            $this->_eventManager->dispatch('checkout_onepage_controller_success_action', $this->eventData());
-        } elseif ($event > 1) {
-            /*
-             * The first render never reported that it loaded, which on mobile often means the buyer
-             * never saw it, the bank app still in front. Core's event stays once per order for
-             * server-side listeners, browser tracking hooks onto this one, see README.
-             */
-            $this->_eventManager->dispatch('qliroone_checkout_success_repeat', $this->eventData());
+        try {
+            if ($event === 1) {
+                $this->quoteAgent->clear();
+                $this->_eventManager->dispatch('checkout_onepage_controller_success_action', $this->eventData());
+            } elseif ($event > 1) {
+                /*
+                 * No render before this one reported that it loaded, which on mobile often means the
+                 * buyer never saw it, the bank app still in front. Core's event stays once per order
+                 * for server-side listeners, browser tracking hooks onto this one, see README.
+                 */
+                $this->_eventManager->dispatch(
+                    'qliroone_checkout_success_repeat',
+                    $this->eventData() + ['repeat' => $event - 1]
+                );
+            }
+        } catch (\Throwable $exception) {
+            // Claimed before the dispatch, so the listeners after the one that failed run on the next render
+            $this->successSession->releaseSuccessEvent();
+            throw $exception;
         }
 
         return $resultPage;

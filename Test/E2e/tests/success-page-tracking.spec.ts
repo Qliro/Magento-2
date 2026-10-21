@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { test, expect, Page, BrowserContext } from '@playwright/test';
 import { config } from '../playwright.config';
 import { seeded } from './support';
@@ -13,8 +14,21 @@ const DISPLAYED = '/checkout/qliro_ajax/successDisplayed';
 const CORE_EVENT = 'checkout_onepage_controller_success_action';
 const REPEAT_EVENT = 'qliroone_checkout_success_repeat';
 
+/** The fixture answers only to this run's secret, left in the store's var/ directory. */
+const SECRET = randomUUID();
+
+test.beforeAll(() => {
+  execFileSync('docker', ['exec', config.container, 'sh', '-c', `printf %s ${SECRET} > /var/www/html/var/qliro-e2e-secret`]);
+});
+
+test.afterAll(() => {
+  execFileSync('docker', ['exec', config.container, 'rm', '-f', '/var/www/html/var/qliro-e2e-secret']);
+});
+
 async function prime(context: BrowserContext, incrementId: string): Promise<void> {
-  const response = await context.request.get(`/qliroe2e/success/prime?order=${incrementId}`);
+  const response = await context.request.get(`/qliroe2e/success/prime?order=${incrementId}`, {
+    headers: { 'X-Qliro-E2e-Secret': SECRET },
+  });
   expect(await response.json()).toEqual({ primed: true });
 }
 
@@ -107,18 +121,24 @@ test('a report that fails is sent again', async ({ context, page }) => {
   expect(calls).toBe(3);
 });
 
-test('a page that can never report counts the purchase at most twice', async ({ context, page }) => {
+test('a page that can never report repeats the purchase on every render', async ({ context, page }) => {
   const order = seeded.withName.incrementId;
   await prime(context, order);
   await page.route((url) => url.pathname.includes(DISPLAYED), (route) => route.abort());
 
+  // two renders nobody saw are as likely as one, GA4 deduplicates the repeats by transaction_id
   await openSuccess(page);
   expect(await purchases(page)).toEqual([order]);
   await openSuccess(page);
   expect(await purchases(page)).toEqual([order]);
   await openSuccess(page);
-  expect(await purchases(page)).toEqual([]);
-  expect(serverEvents(seeded.withName.orderId)).toEqual([CORE_EVENT, REPEAT_EVENT]);
+  expect(await purchases(page)).toEqual([order]);
+  expect(serverEvents(seeded.withName.orderId)).toEqual([CORE_EVENT, REPEAT_EVENT, REPEAT_EVENT]);
+});
+
+test('the fixture refuses a caller without the run secret', async ({ context }) => {
+  const response = await context.request.get(`/qliroe2e/success/prime?order=${seeded.withName.incrementId}`);
+  expect(response.status()).toBe(404);
 });
 
 test('the same order polled again from another tab stays reported', async ({ context, page }) => {

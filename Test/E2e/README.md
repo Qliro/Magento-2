@@ -131,4 +131,8 @@ step of `PollPending`, and records each success event a server-side listener wou
 `var/qliro-e2e/success-events-<order id>.log`. A success page request whose page never ran in a
 browser, as when the buyer is still in a bank app on mobile, must leave the purchase for the page
 they see, while core's event stays once per order. A page that has loaded must not count the
-purchase again on a reload, and one whose report never arrives counts it at most twice.
+purchase again on a reload, and one whose report never arrives repeats it on every render.
+
+The fixture puts any order on the caller's session, so besides developer mode it wants the secret
+the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
+file answers 404.

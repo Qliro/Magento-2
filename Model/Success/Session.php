@@ -15,12 +15,6 @@ use Magento\Checkout\Model\Session as SuccessSession;
 class Session
 {
     /**
-     * A second render covers the one the buyer never saw, and a page that can never report, its
-     * request blocked, cannot repeat the purchase on every reload
-     */
-    public const MAX_SUCCESS_EVENTS = 2;
-
-    /**
      * @var SuccessSession
      */
     private $checkoutSession;
@@ -106,22 +100,37 @@ class Session
     }
 
     /**
-     * Claim the next success event for the order: 1 is the first, 2 the repeat a render gets while
-     * the page has not reported it loaded, 0 means none is left
+     * Claim the next success event for the order: 1 is the first, every one after it a repeat a
+     * render gets while the page has not reported it loaded, 0 once it has
+     *
+     * Not capped: a render the buyer never saw can follow another, two discarded tabs on the way
+     * back from the bank, and the page they do see still needs the purchase. GA4 deduplicates the
+     * repeats by transaction id, other tracking reads `repeat`, see README.
      *
      * @return int
      */
     public function claimSuccessEvent()
     {
-        $count = (int)$this->checkoutSession->getSuccessEventCount();
-
-        if ($this->hasSuccessDisplayed() || $count >= self::MAX_SUCCESS_EVENTS) {
+        if ($this->hasSuccessDisplayed()) {
             return 0;
         }
 
-        $this->checkoutSession->setSuccessEventCount(++$count);
+        $count = (int)$this->checkoutSession->getSuccessEventCount() + 1;
+        $this->checkoutSession->setSuccessEventCount($count);
 
         return $count;
+    }
+
+    /**
+     * Give back an event whose dispatch failed, so the next render dispatches it again
+     */
+    public function releaseSuccessEvent()
+    {
+        $count = (int)$this->checkoutSession->getSuccessEventCount();
+
+        if ($count > 0) {
+            $this->checkoutSession->setSuccessEventCount($count - 1);
+        }
     }
 
     /**

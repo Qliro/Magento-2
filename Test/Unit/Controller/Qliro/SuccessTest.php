@@ -108,7 +108,7 @@ class SuccessTest extends TestCase
             ->method('dispatch')
             ->with(
                 'qliroone_checkout_success_repeat',
-                ['order_ids' => [self::ORDER_ID], 'order' => $this->order]
+                ['order_ids' => [self::ORDER_ID], 'order' => $this->order, 'repeat' => 1]
             );
         $this->quoteAgent->expects(self::never())->method('clear');
 
@@ -116,7 +116,46 @@ class SuccessTest extends TestCase
     }
 
     /**
-     * Reported, or both events used: a reload must not count another purchase.
+     * Every render before the page reports repeats, and says which repeat it is for tracking that
+     * does not deduplicate by order.
+     */
+    public function testALaterRepeatSaysWhichItIs(): void
+    {
+        $this->eventManager->expects(self::once())
+            ->method('dispatch')
+            ->with(
+                'qliroone_checkout_success_repeat',
+                ['order_ids' => [self::ORDER_ID], 'order' => $this->order, 'repeat' => 2]
+            );
+
+        $this->controller($this->successSession(3))->execute();
+    }
+
+    /**
+     * A listener that throws must not use up the order's only core event: the claim is given back,
+     * so the listeners after it run on the next render.
+     */
+    public function testAFailedDispatchGivesTheEventBack(): void
+    {
+        $successSession = $this->successSession(1);
+        $successSession->expects(self::once())->method('releaseSuccessEvent');
+        $this->eventManager->method('dispatch')->willThrowException(new \RuntimeException('listener failed'));
+
+        $this->expectException(\RuntimeException::class);
+
+        $this->controller($successSession)->execute();
+    }
+
+    public function testASuccessfulDispatchKeepsTheEvent(): void
+    {
+        $successSession = $this->successSession(1);
+        $successSession->expects(self::never())->method('releaseSuccessEvent');
+
+        $this->controller($successSession)->execute();
+    }
+
+    /**
+     * Reported: a reload must not count another purchase.
      */
     public function testDoesNotDispatchOnceNoEventIsLeft(): void
     {

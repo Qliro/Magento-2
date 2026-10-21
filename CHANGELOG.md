@@ -5,12 +5,12 @@
 
 ### Fixed
 
-- A purchase is no longer lost to analytics when the first render of the success page never reached the buyer. The page dispatched `checkout_onepage_controller_success_action` once and marked itself as shown in the same request, before the browser ran it. On mobile that request often lands in a tab nobody sees (the buyer is still in the bank app, iOS reloads a discarded tab, a payment app opens a second tab), so the page the buyer did see had no purchase. The page now reports to `checkout/qliro_ajax/successDisplayed` once it has loaded, from its own block so a theme that overrides `checkout/success.phtml` keeps it. A render before that report dispatches `qliroone_checkout_success_repeat`, once per order, which the module hooks Magento's own GA4 block onto and other page tracking can be hooked onto, see README. Core's event still fires once per order, so server-side listeners do not see the order twice
+- A purchase is no longer lost to analytics when the first render of the success page never reached the buyer. The page dispatched `checkout_onepage_controller_success_action` once and marked itself as shown in the same request, before the browser ran it. On mobile that request often lands in a tab nobody sees (the buyer is still in the bank app, iOS reloads a discarded tab, a payment app opens a second tab), so the page the buyer did see had no purchase. The page now reports to `checkout/qliro_ajax/successDisplayed` once it has loaded, from its own block so a theme that overrides `checkout/success.phtml` keeps it. Every render before that report dispatches `qliroone_checkout_success_repeat` with `repeat`, 1 for the first, which the module hooks Magento's own GA4 block onto and other page tracking can be hooked onto, see README. It is not capped, because more than one render can go unseen on the way back from a bank. Core's event still fires once per order, so server-side listeners do not see the order twice, and a render whose listener throws gives the event back, so the listeners after it run on the next render instead of never
 
 ### Added
 
 - `Test/Unit/Controller/Qliro/Ajax/SuccessDisplayedTest`, `Test/Unit/Observer/RepeatGoogleGtagPurchaseTest` and cases in `SuccessTest` and `SessionTest` for the report, the repeat, and a second poll of the same order
-- `Test/E2e/tests/success-page-tracking.spec.ts` with the fixture module `QliroE2e_SuccessPage`, reading the purchase `Magento_GoogleGtag` pushes to `dataLayer`
+- `Test/E2e/tests/success-page-tracking.spec.ts` with the fixture module `QliroE2e_SuccessPage`, reading the purchase `Magento_GoogleGtag` pushes to `dataLayer`. The fixture answers only in developer mode and only to the secret the spec writes to the store's `var/` directory for its run
 
 ## [1.8.5] - 2026-10-13
 
