@@ -27,6 +27,7 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringPaymentsDataServic
 class CheckoutConfigProviderTest extends TestCase
 {
     private Http&MockObject $request;
+    private Config&MockObject $qliroConfig;
     private CheckoutConfigProvider $provider;
 
     protected function setUp(): void
@@ -44,12 +45,13 @@ class CheckoutConfigProviderTest extends TestCase
         $checkoutSession->method('getQuote')->willReturn($this->createMock(Quote::class));
 
         $this->request = $this->createMock(Http::class);
+        $this->qliroConfig = $this->createMock(Config::class);
 
         $this->provider = new CheckoutConfigProvider(
             $storeManager,
             $ajaxToken,
             $checkoutSession,
-            $this->createMock(Config::class),
+            $this->qliroConfig,
             $this->createMock(Fee::class),
             $this->createMock(CountrySelect::class),
             $this->createMock(RecurringPaymentsDataService::class),
@@ -74,6 +76,24 @@ class CheckoutConfigProviderTest extends TestCase
         $this->request->method('getFullActionName')->willReturn($fullActionName);
 
         $this->assertFalse($this->provider->getConfig()['qliro']['isQliroCheckoutPage']);
+    }
+
+    public function testItSaysIframeOnlyForTheEmbeddedMode(): void
+    {
+        $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
+
+        $this->assertSame('iframe', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
+    }
+
+    /**
+     * An iframe mode left stored after "show as payment method" was turned off
+     */
+    public function testItSaysRedirectForAStoredIframeModeWithoutTheEmbeddedMode(): void
+    {
+        $this->qliroConfig->method('getPaymentMethodRenderMode')->willReturn('iframe');
+        $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(false);
+
+        $this->assertSame('redirect', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
     }
 
     public static function otherPages(): array

@@ -16,7 +16,8 @@ define([
     'Magento_Checkout/js/model/address-converter',
     'Magento_Checkout/js/action/select-shipping-address',
     'Magento_Checkout/js/action/get-payment-information',
-    'Magento_Checkout/js/model/shipping-service'
+    'Magento_Checkout/js/model/shipping-service',
+    'Magento_Checkout/js/action/select-shipping-method'
 ], function(
     $,
     config,
@@ -27,7 +28,8 @@ define([
     addressConverter,
     selectShippingAddress,
     getPaymentInformationAction,
-    shippingService
+    shippingService,
+    selectShippingMethodAction
 ) {
     function sendUpdateQuote() {
         return (
@@ -101,6 +103,24 @@ define([
 
     function updateTotals() {
         getPaymentInformationAction();
+    }
+
+    // So the summary names the delivery the buyer chose in Qliro, not the one rated first
+    function syncShippingMethod(code) {
+        var rates = shippingService.getShippingRates()();
+        var current = quote.shippingMethod();
+
+        if (!code || isIframeMode() || (current && current.carrier_code + '_' + current.method_code === code)) {
+            return;
+        }
+
+        var rate = rates.find(function(candidate) {
+            return candidate.carrier_code + '_' + candidate.method_code === code;
+        });
+
+        if (rate) {
+            selectShippingMethodAction(rate);
+        }
     }
 
     function joinStreet(street) {
@@ -539,6 +559,7 @@ define([
             sendQueuedUpdate(config.updateShippingMethodUrl, shipping).then(
                 function(data) {
                     qliroSuccessDebug('onShippingMethodChanged', data);
+                    syncShippingMethod(data && data.shippingMethod);
                     updateTotals();
                 },
                 function(response) {
@@ -553,7 +574,11 @@ define([
             sendQueuedUpdate(config.updateShippingPriceUrl, {newShippingPrice: newShippingPrice}).then(
                 function(data) {
                     qliroSuccessDebug('onShippingPriceChanged', data);
-                    updateTotals();
+
+                    // Skipped means nothing was written, so the totals have not moved
+                    if (!data || data.status !== 'SKIPPED') {
+                        updateTotals();
+                    }
                 },
                 function(response) {
                     var data = response.responseJSON || {};
