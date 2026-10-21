@@ -120,6 +120,20 @@
                                                 <item name="componentDisabled" xsi:type="boolean">true</item>
                                             </item>
                                         </item>
+                                        <item name="summary" xsi:type="array">
+                                            <item name="children" xsi:type="array">
+                                                <item name="totals" xsi:type="array">
+                                                    <item name="children" xsi:type="array">
+                                                        <item name="shipping" xsi:type="array">
+                                                            <item name="config" xsi:type="array">
+                                                                <!-- The buyer picks the delivery in Qliro, so before that nothing is unavailable yet -->
+                                                                <item name="notCalculatedMessage" xsi:type="string" translate="true">Not yet calculated</item>
+                                                            </item>
+                                                        </item>
+                                                    </item>
+                                                </item>
+                                            </item>
+                                        </item>
                                     </item>
                                 </item>
                             </item>

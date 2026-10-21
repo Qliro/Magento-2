@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.8.8] - 2026-10-21
+## [1.8.13] - 2026-10-21
 
 ### Fixed
 
@@ -12,6 +12,24 @@
 
 - `bin/magento qliroone:capture:reconcile` does the same for captures the cron job does not cover, those older than three days and those from before this release. `--from` and `--to` limit the period, `--order` takes increment ids, `--dry-run` asks Qliro and lists without changing anything. Only a capture Qliro reports as Success is applied, one it reports as Error or Cancelled is listed for a manual check. It also retries a capture whose handling failed, every time, where the cron job stops after three attempts at a Success and leaves an Error or Cancelled alone. It asks for `--from` or `--order`, since every capture is a call to Qliro and a store's whole history is several thousand of them, `--from=2000-01-01` is that run. Invoices it creates carry today's date
 - `Test/E2e/tests/capture-confirmed-early.spec.ts` ships a real sandbox order over REST while the fixture module `QliroE2e_EarlyCaptureCallback` sends Qliro's capture callback from inside the shipment save. The cron job invoices it, a late callback and a second run do not invoice it again, and a capture older than three days is left to the command
+
+## [1.8.10] - 2026-10-21
+
+### Fixed
+
+- The order summary on the QliroOne checkout page showed only the products. Core shows subtotal, discount, shipping and grand total only after the shipping step, which this page never passes. A buyer who applied a discount code could not see it taken off
+- The shipping line in that summary names the delivery chosen in Qliro. `updateShippingMethod` now answers with the method the quote ended up with, and the page selects that rate. Before a delivery is chosen the line says "Not yet calculated" instead of "Selected shipping method is not available"
+- The method is selected again when the rates for the buyer's address arrive after the answer, which they can, since the two requests start together. Without it the core resolver fell back to the method the page was rendered with, or to none. A quote the store answers with no method, or with one the rates do not offer, clears the selection rather than keeping a delivery the quote no longer has
+- The summary is reloaded after a quote update whose total moved. That update can change the quote by itself, from what Qliro reports, and nothing else reloaded the totals for it
+- The storefront gets the iframe mode only when "Show as payment method" is on too, and never on the QliroOne checkout page, which stays reachable in that mode. A store that left the stored mode at iframe after turning that off, or a buyer opening the page in the embedded mode, had the page skip the address sync, so no shipping rates were loaded for the summary
+
+### Changed
+
+- The totals are not reloaded after a shipping price update that wrote nothing, one request less per delivery change on a store without Unifaun or Ingrid
+
+### Added
+
+- Unit tests for the method in the `updateShippingMethod` answer, for the render mode sent to the storefront and for `Config::isEmbeddedIframeMode()`
 
 ## [1.8.5] - 2026-10-13
 

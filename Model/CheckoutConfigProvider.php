@@ -12,6 +12,7 @@ use Magento\Checkout\Model\Session;
 use Magento\Framework\App\RequestInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Block\Checkout\ShippingStepLayoutProcessor;
+use Qliro\QliroOne\Model\Config\Source\PaymentMethodRenderMode;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringPaymentsDataService;
@@ -107,7 +108,12 @@ class CheckoutConfigProvider implements ConfigProviderInterface
                 'hideNativeShippingStep' => $this->qliroConfig->isHideNativeShippingStep(),
                 // The native checkout and the cart page read this config too, so the mixin asks the page and not the URL
                 'isQliroCheckoutPage' => $this->isQliroCheckoutPage(),
-                'paymentMethodRenderMode' => $this->qliroConfig->getPaymentMethodRenderMode(),
+                // The stored mode outlives "show as payment method", so it alone does not say iframe,
+                // and the QliroOne checkout page stays reachable in that mode but is never the iframe
+                'paymentMethodRenderMode' => $this->qliroConfig->isEmbeddedIframeMode()
+                    && !$this->isQliroCheckoutPage()
+                    ? PaymentMethodRenderMode::MODE_IFRAME
+                    : PaymentMethodRenderMode::MODE_REDIRECT,
                 'checkoutTitle' => $this->qliroConfig->getTitle(),
                 'securityToken' => $this->ajaxToken->setQuote($this->quote)->getToken(),
                 'getSnippetUrl' => $this->getUrl('checkout/qliro_ajax/getSnippet'),
