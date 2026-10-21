@@ -114,6 +114,16 @@ class Config
     const QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID = 'qliro_line_reference_carries_item_id';
 
     /**
+     * Discount lines Qliro reserved and product line quantities, absent on orders with one discount line
+     */
+    const QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT = 'qliro_reserved_discount';
+
+    /**
+     * How many units of each line the captures have taken so far, by merchant reference
+     */
+    const QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS = 'qliro_captured_units';
+
+    /**
      * The rounding adjustment line the reservation of this order holds, or absent when it holds
      * none. Its amount belongs to the cart as a whole rather than to any one line, so the capture
      * replays the reserved line instead of deriving a new one, the way the discount line is

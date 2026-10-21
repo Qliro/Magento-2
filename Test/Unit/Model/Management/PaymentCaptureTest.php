@@ -23,7 +23,11 @@ use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\OrderManagementApiException;
+use Magento\Sales\Api\OrderPaymentRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
+use Qliro\QliroOne\Model\QliroOrder\Item as QliroOrderItem;
+use Qliro\QliroOne\Model\QliroOrder\Shipment as QliroShipment;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -46,6 +50,8 @@ use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
  */
 class PaymentCaptureTest extends TestCase
 {
+    private OrderPaymentRepositoryInterface&MockObject $paymentRepository;
+
     private const QLIRO_ORDER_ID = 5478412;
 
     private OrderManagementInterface&MockObject $orderManagementApi;
@@ -177,6 +183,38 @@ class PaymentCaptureTest extends TestCase
 
         self::assertTrue((bool)$this->order->getData(AbstractManagement::QLIRO_CAPTURE_SUBMITTED));
         self::assertSame(325188256, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+    }
+
+    /**
+     * What Qliro accepted is counted on the payment, so the next capture knows which discount
+     * lines are left, and an order level line an earlier version sent is counted with it.
+     */
+    public function testAnAcceptedCaptureCountsItsLinesOnThePayment(): void
+    {
+        $capture = $this->buildCapture();
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $payment = $this->getMockBuilder(Payment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getOrder'])
+            ->getMock();
+        $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS, ['5:SKU' => 1, 'DSC_5:SKU' => 1]);
+        $this->order->method('getPayment')->willReturn($payment);
+        $this->order->setData(AppliedRulesHandler::SENT_BEFORE_RECORDING, ['DSC_10' => 1]);
+        // The order may never be saved after a shipment saved through its repository alone
+        $this->paymentRepository->expects(self::once())->method('save')->with($payment);
+
+        $line = static fn(string $reference, int $quantity) => (new QliroOrderItem())
+            ->setMerchantReference($reference)
+            ->setQuantity($quantity);
+        $this->shipmentLines = [(new QliroShipment())->setOrderItems([$line('5:SKU', 2), $line('DSC_5:SKU', 2), $line('DSC_5:SKU_R', 1)])];
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertSame(
+            ['5:SKU' => 3, 'DSC_5:SKU' => 3, 'DSC_10' => 1, 'DSC_5:SKU_R' => 1],
+            $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS)
+        );
     }
 
     /**
@@ -682,6 +720,7 @@ class PaymentCaptureTest extends TestCase
         $this->order = $this->buildOrder();
         $this->reservationFormat = $this->createMock(ReservationFormat::class);
         $this->captureCoverage = $this->createMock(CaptureCoverage::class);
+        $this->paymentRepository = $this->createMock(OrderPaymentRepositoryInterface::class);
 
         return new \Qliro\QliroOne\Model\Management\Payment(
             $config,
@@ -698,7 +737,8 @@ class PaymentCaptureTest extends TestCase
             $this->createMock(CaptureRefundAllocator::class),
             $this->createMock(SequentialRefundProcessor::class),
             $this->reservationFormat,
-            $this->captureCoverage
+            $this->captureCoverage,
+            $this->paymentRepository
         );
     }
 
