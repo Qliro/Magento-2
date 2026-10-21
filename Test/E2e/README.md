@@ -120,3 +120,23 @@ with the e2e product so a manual checkout on the same store is left alone, and o
 from the last one recorded. One test reads the pickup points from the shipping methods callback,
 the others select an option through the checkout's own model and read what was recorded.
 Reverting the fix turns three of the five red.
+
+## A capture confirmed before the shipment is saved
+
+`tests/capture-confirmed-early.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and
+seeds its own orders, so `MAGENTO_SKIP_SEED=1` is fine. `seed/seed-sandbox-order.php` places a real
+sandbox order: the module creates the Qliro order, the buyer's side is completed over Qliro's checkout
+webapi with invoice and the staging pass-through personal number, and the module places the order.
+The test then ships it over REST, which captures it at Qliro. The store needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/api/capture_on_shipment 1`
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/capture-reconciliation.php` in `var/`
+- `Test/E2e/fixture/QliroE2e/EarlyCaptureCallback` copied to `app/code/QliroE2e/EarlyCaptureCallback`
+  and enabled. It sends Qliro's capture callback from inside the shipment save, which is what Qliro
+  does half a second after the capture and what the sandbox cannot do to a local store
+- `MAGENTO_INTERNAL_URL`, the store as the container reaches it, when it is not the app container on
+  port 8443
+
+The callback then finds no record of the capture, as it did in production. Without the fix the
+order stays without an invoice and both tests fail at the reconciliation.
