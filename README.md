@@ -62,6 +62,26 @@ On the success page the module provides what core provides:
 Magento's own GA4 block needs nothing, it is declared in `Magento_GoogleGtag`'s `default.xml` and
 therefore renders on every page, this one included.
 
+On mobile the first request for the success page often reaches a tab the buyer never sees, the bank
+app still in front, and the page they come back to was a reload without the purchase. The page
+reports to the store once it has loaded, and every render before that report gets
+**`qliroone_checkout_success_repeat`**, with the same `order_ids` and `order` and `repeat`, 1 for the
+first. It is for tracking that only writes the purchase into the page: the module hooks Magento's
+own GA4 block onto it, and an extension that pushes the purchase to the dataLayer from core's event
+is hooked on the same way. Server-side listeners stay on core's event, which does not repeat.
+
+A repeat can also reach a page the buyer did see, reloaded before it reported, so tracking hooked
+onto it has to deduplicate by order. GA4 does that by `transaction_id` on its own. A pixel that
+counts every hit, an affiliate network that pays per conversion among them, should act on `repeat`
+1 only or carry the order id as its own deduplication key.
+
+```xml
+<!-- etc/frontend/events.xml -->
+<event name="qliroone_checkout_success_repeat">
+    <observer name="vendor_tracking_purchase_repeat" instance="Vendor\Tracking\Observer\SuccessPage"/>
+</event>
+```
+
 **Client side tracking undercounts on this checkout.** An order can be placed by Qliro's
 `checkoutStatus` callback while the buyer is still in the Qliro iframe, so a buyer who closes the
 tab or never returns from a bank app produces a paid order and no browser event at all. If the
