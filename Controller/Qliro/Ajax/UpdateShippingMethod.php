@@ -187,7 +187,11 @@ class UpdateShippingMethod implements HttpPostActionInterface
         }
 
         return $this->dataHelper->sendPreparedPayload(
-            ['status' => $result ? 'OK' : 'SKIPPED'],
+            [
+                'status' => $result ? 'OK' : 'SKIPPED',
+                // What the quote ended up with, so the checkout summary can name it
+                'shippingMethod' => $quote->getShippingAddress()?->getShippingMethod(),
+            ],
             200,
             null,
             'AJAX:UPDATE_SHIPPING_METHOD'
