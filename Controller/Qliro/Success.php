@@ -119,30 +119,48 @@ class Success extends \Magento\Checkout\Controller\Onepage
             return $this->resultRedirectFactory->create()->setPath('checkout/cart');
         }
 
-        if (!$this->successSession->hasSuccessDisplayed()) {
-            $this->quoteAgent->clear();
-        }
-
         $resultPage = $this->resultPageFactory->create();
 
-        if (!$this->successSession->hasSuccessDisplayed()) {
-            /*
-             * The order goes out with the ids because core's own success page sends both, and a
-             * tracking extension that reads the order instead of loading it by id gets null
-             * without it. It comes from the id this page owns rather than from the session, so
-             * the two can never describe different orders.
-             */
-            $this->_eventManager->dispatch(
-                'checkout_onepage_controller_success_action',
-                [
-                    'order_ids' => [$this->successSession->getSuccessOrderId()],
-                    'order' => $this->getOrder(),
-                ]
-            );
-            $this->successSession->setSuccessDisplayed();
+        $event = $this->successSession->claimSuccessEvent();
+
+        try {
+            if ($event === 1) {
+                $this->quoteAgent->clear();
+                $this->_eventManager->dispatch('checkout_onepage_controller_success_action', $this->eventData());
+            } elseif ($event > 1) {
+                /*
+                 * No render before this one reported that it loaded, which on mobile often means the
+                 * buyer never saw it, the bank app still in front. Core's event stays once per order
+                 * for server-side listeners, browser tracking hooks onto this one, see README.
+                 */
+                $this->_eventManager->dispatch(
+                    'qliroone_checkout_success_repeat',
+                    $this->eventData() + ['repeat' => $event - 1]
+                );
+            }
+        } catch (\Throwable $exception) {
+            // Claimed before the dispatch, so the listeners after the one that failed run on the next render
+            $this->successSession->releaseSuccessEvent();
+            throw $exception;
         }
 
         return $resultPage;
+    }
+
+    /**
+     * The order goes out with the ids because core's own success page sends both, and a tracking
+     * extension that reads the order instead of loading it by id gets null without it. It comes
+     * from the id this page owns rather than from the session, so the two can never describe
+     * different orders.
+     *
+     * @return array
+     */
+    private function eventData()
+    {
+        return [
+            'order_ids' => [$this->successSession->getSuccessOrderId()],
+            'order' => $this->getOrder(),
+        ];
     }
 
     /**

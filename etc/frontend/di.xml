@@ -60,6 +60,9 @@
     <type name="Qliro\QliroOne\Controller\Qliro\Ajax\SetRecurring">
         <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
     </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Ajax\SuccessDisplayed">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
     <type name="Qliro\QliroOne\Controller\Qliro\Ajax\UpdateCountry">
         <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
     </type>

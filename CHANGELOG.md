@@ -1,12 +1,35 @@
 
 # Change Log
 
-## [1.8.12] - 2026-10-21
+## [1.8.14] - 2026-10-21
 
 ### Fixed
 
 - A private buyer with a company on the address, such as a delivery to a workplace, no longer gets their personal number in `vat_id`: Qliro's juridical type `Physical` now rules the number out
 - A company name that starts with a digit, `5560011982 3M Svenska AB`, now loses the organisation number in front of it. A number that goes on after a hyphen, dot or slash, `964969-1240 AB`, is still read as one longer number and kept
+
+## [1.8.12] - 2026-10-21
+
+### Fixed
+
+- A purchase is no longer lost to analytics when the first render of the success page never reached the buyer. The page dispatched `checkout_onepage_controller_success_action` once and marked itself as shown in the same request, before the browser ran it. On mobile that request often lands in a tab nobody sees (the buyer is still in the bank app, iOS reloads a discarded tab, a payment app opens a second tab), so the page the buyer did see had no purchase. The page now reports to `checkout/qliro_ajax/successDisplayed` once it has loaded, from its own block so a theme that overrides `checkout/success.phtml` keeps it. Every render before that report dispatches `qliroone_checkout_success_repeat` with `repeat`, 1 for the first, which the module hooks Magento's own GA4 block onto and other page tracking can be hooked onto, see README. It is not capped, because more than one render can go unseen on the way back from a bank. Core's event still fires once per order, so server-side listeners do not see the order twice, and a render whose listener throws gives the event back, so the listeners after it run on the next render instead of never
+
+### Added
+
+- `Test/Unit/Controller/Qliro/Ajax/SuccessDisplayedTest`, `Test/Unit/Observer/RepeatGoogleGtagPurchaseTest` and cases in `SuccessTest` and `SessionTest` for the report, the repeat, and a second poll of the same order
+- `Test/E2e/tests/success-page-tracking.spec.ts` with the fixture module `QliroE2e_SuccessPage`, reading the purchase `Magento_GoogleGtag` pushes to `dataLayer`. The fixture answers only in developer mode and only to the secret the spec writes to the store's `var/` directory for its run
+
+## [1.8.11] - 2026-10-21
+
+### Fixed
+
+- A shipment whose capture Qliro confirmed is invoiced. Qliro confirms a capture on shipment about half a second after `MarkItemsAsShipped`, while Magento is still saving the shipment, so the callback found no record of the capture, was answered `received` and was never sent again. The order kept a shipment and no invoice, and stayed in processing although Qliro had captured the money. Such a callback is still stored, and the new cron job `qliroone_reconcile_captures` reads the capture from Qliro once the shipment is saved and handles its status as the callback would have, every five minutes, so the invoice follows within minutes. A callback skipped because another handling held the lock is picked up the same way, and so is a capture with no callback stored at all, once fifteen minutes have passed: one that never arrived, or failed before it was stored and was answered so that Qliro stopped sending it, leaves nothing else to find. A capture on invoice is reconciled the same way. The REST API invoices inside one transaction, so its capture row is just as unsaved when Qliro calls back, and the confirmation is what stores `captured_amount`, which a refund split over several captures reads. A Success whose handling failed is tried again, up to three times: it adds nothing to the order until it invoices. A failed Error or Cancelled is not, it holds the order and comments on it
+- A status is handled once. The row is saved as handled before the lock is released, and the check is repeated under the lock. The latest handled row is read by id rather than by date, which the capture row and its callback often share to the second. Qliro's callback and the reconciliation can both reach the handler for the same capture, and the second one would invoice the shipment twice. A callback that finds the lock taken waits up to three seconds for it instead of being dropped at once
+
+### Added
+
+- `bin/magento qliroone:capture:reconcile` does the same for captures the cron job does not cover, those older than three days and those from before this release. `--from` and `--to` limit the period, `--order` takes increment ids, `--dry-run` asks Qliro and lists without changing anything. Only a capture Qliro reports as Success is applied, one it reports as Error or Cancelled is listed for a manual check. It also retries a capture whose handling failed, every time, where the cron job stops after three attempts at a Success and leaves an Error or Cancelled alone. It asks for `--from` or `--order`, since every capture is a call to Qliro and a store's whole history is several thousand of them, `--from=2000-01-01` is that run. Invoices it creates carry today's date
+- `Test/E2e/tests/capture-confirmed-early.spec.ts` ships a real sandbox order over REST while the fixture module `QliroE2e_EarlyCaptureCallback` sends Qliro's capture callback from inside the shipment save. The cron job invoices it, a late callback and a second run do not invoice it again, and a capture older than three days is left to the command
 
 ## [1.8.10] - 2026-10-21
 
