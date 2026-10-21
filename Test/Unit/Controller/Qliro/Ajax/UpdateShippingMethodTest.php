@@ -13,6 +13,7 @@ use Magento\Framework\App\ProductMetadataInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Framework\Controller\Result\Json;
 use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Address;
 use Magento\Tax\Helper\Data as TaxHelper;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Controller\Qliro\Ajax\UpdateShippingMethod;
@@ -33,6 +34,9 @@ class UpdateShippingMethodTest extends TestCase
         'price' => 49,
         'priceExVat' => 39.2,
     ];
+
+    /** What the controller answered the widget */
+    private ?array $answer = null;
 
     public function testACustomShippingMethodPassesTheSecondaryOption(): void
     {
@@ -66,8 +70,29 @@ class UpdateShippingMethodTest extends TestCase
         );
     }
 
-    private function updateArguments(array $payload, bool $unifaun = false, bool $ingrid = false): array
+    public function testAnswersWithTheMethodTheQuoteEndedUpWith(): void
     {
+        $this->updateArguments(self::PAYLOAD, shippingMethod: 'freeshipping_freeshipping');
+
+        $this->assertSame(
+            ['status' => 'OK', 'shippingMethod' => 'freeshipping_freeshipping'],
+            $this->answer
+        );
+    }
+
+    public function testAnswersWithoutAMethodForAQuoteWithoutAShippingAddress(): void
+    {
+        $this->updateArguments(self::PAYLOAD);
+
+        $this->assertSame(['status' => 'OK', 'shippingMethod' => null], $this->answer);
+    }
+
+    private function updateArguments(
+        array $payload,
+        bool $unifaun = false,
+        bool $ingrid = false,
+        ?string $shippingMethod = null
+    ): array {
         $config = $this->createMock(Config::class);
         $config->method('isActive')->willReturn(true);
         $config->method('isUnifaunEnabled')->willReturn($unifaun);
@@ -75,13 +100,23 @@ class UpdateShippingMethodTest extends TestCase
 
         $dataHelper = $this->createMock(Data::class);
         $dataHelper->method('readPreparedPayload')->willReturn($payload);
-        $dataHelper->method('sendPreparedPayload')->willReturn($this->createMock(Json::class));
+        $dataHelper->method('sendPreparedPayload')->willReturnCallback(function (array $answer) {
+            $this->answer = $answer;
+            return $this->createMock(Json::class);
+        });
 
         $ajaxToken = $this->createMock(AjaxToken::class);
         $ajaxToken->method('verifyToken')->willReturn(true);
 
         $quote = $this->createMock(Quote::class);
         $quote->method('getId')->willReturn(1);
+
+        if ($shippingMethod !== null) {
+            $address = $this->createMock(Address::class);
+            $address->method('getShippingMethod')->willReturn($shippingMethod);
+            $quote->method('getShippingAddress')->willReturn($address);
+        }
+
         $session = $this->createMock(Session::class);
         $session->method('getQuote')->willReturn($quote);
 

@@ -27,6 +27,7 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringPaymentsDataServic
 class CheckoutConfigProviderTest extends TestCase
 {
     private Http&MockObject $request;
+    private Config&MockObject $qliroConfig;
     private CheckoutConfigProvider $provider;
 
     protected function setUp(): void
@@ -44,12 +45,13 @@ class CheckoutConfigProviderTest extends TestCase
         $checkoutSession->method('getQuote')->willReturn($this->createMock(Quote::class));
 
         $this->request = $this->createMock(Http::class);
+        $this->qliroConfig = $this->createMock(Config::class);
 
         $this->provider = new CheckoutConfigProvider(
             $storeManager,
             $ajaxToken,
             $checkoutSession,
-            $this->createMock(Config::class),
+            $this->qliroConfig,
             $this->createMock(Fee::class),
             $this->createMock(CountrySelect::class),
             $this->createMock(RecurringPaymentsDataService::class),
@@ -74,6 +76,34 @@ class CheckoutConfigProviderTest extends TestCase
         $this->request->method('getFullActionName')->willReturn($fullActionName);
 
         $this->assertFalse($this->provider->getConfig()['qliro']['isQliroCheckoutPage']);
+    }
+
+    public function testItSaysIframeForTheEmbeddedModeInTheNativeCheckout(): void
+    {
+        $this->request->method('getFullActionName')->willReturn('checkout_index_index');
+        $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
+
+        $this->assertSame('iframe', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
+    }
+
+    public function testItSaysRedirectWithoutTheEmbeddedMode(): void
+    {
+        $this->request->method('getFullActionName')->willReturn('checkout_index_index');
+        $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(false);
+
+        $this->assertSame('redirect', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
+    }
+
+    /**
+     * The page stays reachable in the embedded mode, by a bookmark or an old link, and has to sync
+     * the address and the delivery like any other visit to it
+     */
+    public function testItSaysRedirectOnTheQliroCheckoutPageInTheEmbeddedMode(): void
+    {
+        $this->request->method('getFullActionName')->willReturn('checkout_qliro_index');
+        $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
+
+        $this->assertSame('redirect', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
     }
 
     public static function otherPages(): array
