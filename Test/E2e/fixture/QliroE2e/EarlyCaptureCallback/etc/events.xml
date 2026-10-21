@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<!--
+/**
+ * Copyright © Qliro AB. All rights reserved.
+ * See LICENSE.txt for license details.
+ */
+-->
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:framework:Event/etc/events.xsd">
+    <!-- Runs after the module's capture on the same event, so inside the shipment's transaction -->
+    <event name="sales_order_shipment_save_after">
+        <observer name="qliro_e2e_early_capture_callback" instance="QliroE2e\EarlyCaptureCallback\Observer\SendCallback"/>
+    </event>
+</config>

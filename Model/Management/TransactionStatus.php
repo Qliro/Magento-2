@@ -23,6 +23,10 @@ use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
  */
 class TransactionStatus extends AbstractManagement
 {
+    private const LOCK_ATTEMPTS = 10;
+
+    private const LOCK_WAIT_MICROSECONDS = 300000;
+
     /**
      * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
      */
@@ -178,18 +182,15 @@ class TransactionStatus extends AbstractManagement
                 if ($omStatusParent) {
                     $omStatus->setRecordId($omStatusParent->getRecordId());
                     $omStatus->setRecordType($omStatusParent->getRecordType());
+                } else {
+                    // A shipment capture whose shipment is still being saved, the cron reconciles it
+                    $this->logManager->info(
+                        'No record for transaction {transaction_id}, if it is a shipment capture still being saved the capture reconciliation applies it',
+                        ['transaction_id' => $omStatus->getTransactionId()]
+                    );
                 }
 
-                /** @var \Qliro\QliroOne\Model\OrderManagementStatus $omStatusPrevious */
-                $omStatusPrevious = $this->orderManagementStatusRepository->getPrevious(
-                    $qliroOrderManagementStatus->getPaymentTransactionId()
-                );
-
-                if ($omStatusPrevious) {
-                    if ($omStatus->getTransactionStatus() == $omStatusPrevious->getTransactionStatus()) {
-                        $handleTransaction = false;
-                    }
-                }
+                $handleTransaction = !$this->isHandled($omStatus->getTransactionId(), $omStatus->getTransactionStatus());
             } catch (\Exception $exception) {
                 $this->logManager->debug(
                     $exception,
@@ -207,13 +208,32 @@ class TransactionStatus extends AbstractManagement
             }
 
             if ($handleTransaction) {
-                if ($this->lock->lock($qliroOrderId)) {
-                    $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_NEW);
-                    $this->orderManagementStatusRepository->save($omStatus);
-                    if ($this->statusUpdateHandlerPool->handle($qliroOrderManagementStatus, $omStatus)) {
-                        $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
+                if ($this->acquireLock($qliroOrderId)) {
+                    // The shipment may have been committed while this waited for the lock
+                    if (!$omStatus->getRecordType()) {
+                        $parent = $this->orderManagementStatusRepository->getParent($omStatus->getTransactionId());
+
+                        if ($parent) {
+                            $omStatus->setRecordId($parent->getRecordId());
+                            $omStatus->setRecordType($parent->getRecordType());
+                        }
                     }
+
+                    // The reconciliation and Qliro's own callback can both get this far
+                    if ($this->isHandled($omStatus->getTransactionId(), $omStatus->getTransactionStatus())) {
+                        $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_SKIPPED);
+                    } else {
+                        $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_NEW);
+                        $this->orderManagementStatusRepository->save($omStatus);
+                        if ($this->statusUpdateHandlerPool->handle($qliroOrderManagementStatus, $omStatus)) {
+                            $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
+                        }
+                    }
+                    // Saved before the unlock, so the next one in sees it handled
+                    $this->orderManagementStatusRepository->save($omStatus);
                     $this->lock->unlock($qliroOrderId);
+
+                    return $result;
                 } else {
                     $omStatus->setMessage('Skipped due to lock');
                     $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_SKIPPED);
@@ -254,6 +274,39 @@ class TransactionStatus extends AbstractManagement
         }
 
         return $result;
+    }
+
+    /**
+     * The lock is held for one handling, so a short wait beats dropping the status
+     *
+     * @param int $qliroOrderId
+     * @return bool
+     */
+    private function acquireLock($qliroOrderId)
+    {
+        for ($attempt = 1; $attempt < self::LOCK_ATTEMPTS; $attempt++) {
+            if ($this->lock->lock($qliroOrderId)) {
+                return true;
+            }
+
+            usleep(self::LOCK_WAIT_MICROSECONDS);
+        }
+
+        return $this->lock->lock($qliroOrderId);
+    }
+
+    /**
+     * Whether this status is the last one handled for the transaction
+     *
+     * @param int|string $transactionId
+     * @param string $status
+     * @return bool
+     */
+    public function isHandled($transactionId, $status): bool
+    {
+        $previous = $this->orderManagementStatusRepository->getPrevious($transactionId);
+
+        return $previous && $previous->getTransactionStatus() == $status;
     }
 
     /**
