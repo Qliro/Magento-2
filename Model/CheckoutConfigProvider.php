@@ -108,8 +108,10 @@ class CheckoutConfigProvider implements ConfigProviderInterface
                 'hideNativeShippingStep' => $this->qliroConfig->isHideNativeShippingStep(),
                 // The native checkout and the cart page read this config too, so the mixin asks the page and not the URL
                 'isQliroCheckoutPage' => $this->isQliroCheckoutPage(),
-                // The stored mode outlives "show as payment method", so it alone does not say iframe
+                // The stored mode outlives "show as payment method", so it alone does not say iframe,
+                // and the QliroOne checkout page stays reachable in that mode but is never the iframe
                 'paymentMethodRenderMode' => $this->qliroConfig->isEmbeddedIframeMode()
+                    && !$this->isQliroCheckoutPage()
                     ? PaymentMethodRenderMode::MODE_IFRAME
                     : PaymentMethodRenderMode::MODE_REDIRECT,
                 'checkoutTitle' => $this->qliroConfig->getTitle(),

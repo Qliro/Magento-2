@@ -78,20 +78,30 @@ class CheckoutConfigProviderTest extends TestCase
         $this->assertFalse($this->provider->getConfig()['qliro']['isQliroCheckoutPage']);
     }
 
-    public function testItSaysIframeOnlyForTheEmbeddedMode(): void
+    public function testItSaysIframeForTheEmbeddedModeInTheNativeCheckout(): void
     {
+        $this->request->method('getFullActionName')->willReturn('checkout_index_index');
         $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
 
         $this->assertSame('iframe', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
     }
 
-    /**
-     * An iframe mode left stored after "show as payment method" was turned off
-     */
-    public function testItSaysRedirectForAStoredIframeModeWithoutTheEmbeddedMode(): void
+    public function testItSaysRedirectWithoutTheEmbeddedMode(): void
     {
-        $this->qliroConfig->method('getPaymentMethodRenderMode')->willReturn('iframe');
+        $this->request->method('getFullActionName')->willReturn('checkout_index_index');
         $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(false);
+
+        $this->assertSame('redirect', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
+    }
+
+    /**
+     * The page stays reachable in the embedded mode, by a bookmark or an old link, and has to sync
+     * the address and the delivery like any other visit to it
+     */
+    public function testItSaysRedirectOnTheQliroCheckoutPageInTheEmbeddedMode(): void
+    {
+        $this->request->method('getFullActionName')->willReturn('checkout_qliro_index');
+        $this->qliroConfig->method('isEmbeddedIframeMode')->willReturn(true);
 
         $this->assertSame('redirect', $this->provider->getConfig()['qliro']['paymentMethodRenderMode']);
     }

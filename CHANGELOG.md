@@ -7,7 +7,9 @@
 
 - The order summary on the QliroOne checkout page showed only the products. Core shows subtotal, discount, shipping and grand total only after the shipping step, which this page never passes. A buyer who applied a discount code could not see it taken off
 - The shipping line in that summary names the delivery chosen in Qliro. `updateShippingMethod` now answers with the method the quote ended up with, and the page selects that rate. Before a delivery is chosen the line says "Not yet calculated" instead of "Selected shipping method is not available"
-- The storefront gets the iframe mode only when "Show as payment method" is on too. A store that left the stored mode at iframe after turning that off had the QliroOne checkout page skip the address sync, so no shipping rates were loaded for the summary
+- The method is selected again when the rates for the buyer's address arrive after the answer, which they can, since the two requests start together. Without it the core resolver fell back to the method the page was rendered with, or to none. A quote the store answers with no method, or with one the rates do not offer, clears the selection rather than keeping a delivery the quote no longer has
+- The summary is reloaded after a quote update whose total moved. That update can change the quote by itself, from what Qliro reports, and nothing else reloaded the totals for it
+- The storefront gets the iframe mode only when "Show as payment method" is on too, and never on the QliroOne checkout page, which stays reachable in that mode. A store that left the stored mode at iframe after turning that off, or a buyer opening the page in the embedded mode, had the page skip the address sync, so no shipping rates were loaded for the summary
 
 ### Changed
 
@@ -15,7 +17,7 @@
 
 ### Added
 
-- Unit tests for the method in the `updateShippingMethod` answer and for the render mode sent to the storefront
+- Unit tests for the method in the `updateShippingMethod` answer, for the render mode sent to the storefront and for `Config::isEmbeddedIframeMode()`
 
 ## [1.8.5] - 2026-10-13
 

@@ -105,23 +105,49 @@ define([
         getPaymentInformationAction();
     }
 
-    // So the summary names the delivery the buyer chose in Qliro, not the one rated first
-    function syncShippingMethod(code) {
-        var rates = shippingService.getShippingRates()();
-        var current = quote.shippingMethod();
+    function rateCode(rate) {
+        return rate.carrier_code + '_' + rate.method_code;
+    }
 
-        if (!code || isIframeMode() || (current && current.carrier_code + '_' + current.method_code === code)) {
+    // The method the store last answered the quote is on, undefined until it has answered
+    var quoteShippingMethod;
+
+    /**
+     * Select the rate the quote is on, so the summary names the delivery the buyer chose in Qliro
+     * and not the one rated first
+     *
+     * Applied again whenever the rates change: the answer can arrive before the rates for the
+     * buyer's address do, and the core resolver then falls back to the method the page was
+     * rendered with. A quote on no method, or on one the rates do not offer, clears the selection,
+     * so the summary does not name a delivery the quote no longer has.
+     */
+    function applyQuoteShippingMethod() {
+        if (quoteShippingMethod === undefined || isIframeMode()) {
             return;
         }
 
-        var rate = rates.find(function(candidate) {
-            return candidate.carrier_code + '_' + candidate.method_code === code;
+        var current = quote.shippingMethod();
+
+        if (current && rateCode(current) === quoteShippingMethod) {
+            return;
+        }
+
+        var rate = shippingService.getShippingRates()().find(function(candidate) {
+            return rateCode(candidate) === quoteShippingMethod;
         });
 
-        if (rate) {
-            selectShippingMethodAction(rate);
+        if (rate || current) {
+            selectShippingMethodAction(rate || null);
         }
     }
+
+    function syncShippingMethod(code) {
+        quoteShippingMethod = code || '';
+        applyQuoteShippingMethod();
+    }
+
+    // Before the core resolver, which keeps a selected method the new rates still offer
+    shippingService.getShippingRates().subscribe(applyQuoteShippingMethod);
 
     function joinStreet(street) {
         return Array.isArray(street) ? street.join(', ') : (street || '');
@@ -218,6 +244,8 @@ define([
     //   mismatches on a counter nobody else could reset.
     var unlockWatchdog = null;
     var expectedTotalPrice = null;
+    // The total the last quote update answered with, undefined so the first one reloads the summary
+    var answeredTotalPrice;
     var unmatchCount = 0;
     var watchPending = false;
     var lockDeferred = false;
@@ -419,6 +447,13 @@ define([
 
                     expectedTotalPrice = data && data.order ? data.order.totalPrice : null;
                     syncGuestEmail(data && data.email);
+
+                    // The update can change the quote itself, from what Qliro reports, and the summary shows its totals
+                    if (expectedTotalPrice !== answeredTotalPrice) {
+                        answeredTotalPrice = expectedTotalPrice;
+                        updateTotals();
+                    }
+
                     watchOrderUpdates();
                     armUnlockWatchdog();
                     settleRefresh();
