@@ -124,7 +124,7 @@ class Repository implements OrderManagementStatusRepositoryInterface
         /** @var \Magento\Framework\Api\SearchCriteria $search */
         $search = $this->searchCriteriaBuilder
             ->addFilter('transaction_id',$id, 'eq')
-            ->addFilter('record_type', 'null', 'neq')
+            ->addFilter('record_type', true, 'notnull')
             ->addSortOrder($sortOrder)
             ->create();
 

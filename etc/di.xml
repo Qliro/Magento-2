@@ -295,9 +295,9 @@
     <type name="Qliro\QliroOne\Console\ReconcileCapturesCommand">
         <arguments>
             <!-- Built for every bin/magento call, as the prune command below -->
-            <argument name="captures" xsi:type="object">Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedShipmentCaptures\Proxy</argument>
+            <argument name="captures" xsi:type="object">Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedCaptures\Proxy</argument>
             <argument name="statusRepository" xsi:type="object">Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface\Proxy</argument>
-            <argument name="reconciler" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler\Proxy</argument>
+            <argument name="reconciler" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler\Proxy</argument>
             <argument name="logManager" xsi:type="object">Qliro\QliroOne\Model\Logger\Manager\Proxy</argument>
         </arguments>
     </type>

@@ -12,15 +12,15 @@ use Magento\Framework\App\State;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface as QliroStatus;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler;
-use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedShipmentCaptures;
+use Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler;
+use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedCaptures;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
- * Applies what Qliro holds for shipment captures that never got their status, older ones included
+ * Applies what Qliro holds for captures that never got their status, older ones included
  */
 class ReconcileCapturesCommand extends Command
 {
@@ -34,17 +34,17 @@ class ReconcileCapturesCommand extends Command
     private const PAGE = 100;
 
     /**
-     * @param UnconfirmedShipmentCaptures $captures
+     * @param UnconfirmedCaptures $captures
      * @param OrderManagementStatusRepositoryInterface $statusRepository
-     * @param ShipmentCaptureReconciler $reconciler
+     * @param CaptureReconciler $reconciler
      * @param State $appState
      * @param LogManager $logManager
      * @param string|null $name
      */
     public function __construct(
-        private readonly UnconfirmedShipmentCaptures $captures,
+        private readonly UnconfirmedCaptures $captures,
         private readonly OrderManagementStatusRepositoryInterface $statusRepository,
-        private readonly ShipmentCaptureReconciler $reconciler,
+        private readonly CaptureReconciler $reconciler,
         private readonly State $appState,
         private readonly LogManager $logManager,
         ?string $name = null
@@ -58,7 +58,7 @@ class ReconcileCapturesCommand extends Command
     protected function configure()
     {
         $this->setName(self::COMMAND_RUN);
-        $this->setDescription('Invoice shipments whose Qliro capture confirmation was lost');
+        $this->setDescription('Apply Qliro capture confirmations that were lost');
         $this->addOption(self::OPTION_FROM, null, InputOption::VALUE_REQUIRED, 'Captures requested on or after this UTC date, Y-m-d');
         $this->addOption(self::OPTION_TO, null, InputOption::VALUE_REQUIRED, 'Captures requested before this UTC date, Y-m-d');
         $this->addOption(
@@ -88,6 +88,15 @@ class ReconcileCapturesCommand extends Command
             return 1;
         }
 
+        $orders = $input->getOption(self::OPTION_ORDER) ?: [];
+
+        // Every capture is a call to Qliro, so the whole history is asked for by name, not by default
+        if ($from === null && $orders === []) {
+            $output->writeln('<error>Give --from, or --order, a store\'s whole history is --from=2000-01-01</error>');
+
+            return 1;
+        }
+
         try {
             $this->appState->setAreaCode(Area::AREA_ADMINHTML);
         } catch (\Magento\Framework\Exception\LocalizedException $exception) {
@@ -95,7 +104,6 @@ class ReconcileCapturesCommand extends Command
         }
 
         $dryRun = (bool)$input->getOption(self::OPTION_DRY_RUN);
-        $orders = $input->getOption(self::OPTION_ORDER) ?: [];
         $counts = ['applied' => 0, 'pending' => 0, 'manual' => 0, 'failed' => 0];
         $afterId = 0;
 
@@ -132,7 +140,12 @@ class ReconcileCapturesCommand extends Command
 
         try {
             $capture = $this->statusRepository->get($id);
-            $line = sprintf('Shipment %d, transaction %d: ', $capture->getRecordId(), $capture->getTransactionId());
+            $line = sprintf(
+                '%s %d, transaction %d: ',
+                ucfirst((string)$capture->getRecordType()),
+                $capture->getRecordId(),
+                $capture->getTransactionId()
+            );
             $transaction = $this->reconciler->findSettled($capture);
 
             if ($transaction === null) {

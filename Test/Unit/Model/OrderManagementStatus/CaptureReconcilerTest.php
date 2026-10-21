@@ -7,25 +7,26 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\OrderManagementStatus;
 
-use Magento\Sales\Api\ShipmentRepositoryInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
-use Magento\Sales\Model\Order\Shipment;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\AdminOrderInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterfaceFactory;
+use Qliro\QliroOne\Api\LinkRepositoryInterface;
+use Qliro\QliroOne\Model\Link;
 use Qliro\QliroOne\Model\Api\Client\OrderManagement;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Management\TransactionStatus;
 use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
-use Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler;
+use Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler;
 
 /**
- * @see \Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler
+ * @see \Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler
  */
-class ShipmentCaptureReconcilerTest extends TestCase
+class CaptureReconcilerTest extends TestCase
 {
     private OrderManagement&MockObject $api;
     private TransactionStatus&MockObject $transactionStatus;
@@ -37,7 +38,7 @@ class ShipmentCaptureReconcilerTest extends TestCase
     }
 
     /**
-     * The capture is read from Qliro in the background profile, in the shipment's store
+     * The capture is read from Qliro in the background profile, in the order's store
      */
     public function testFindsTheCaptureQliroSettled(): void
     {
@@ -51,6 +52,23 @@ class ShipmentCaptureReconcilerTest extends TestCase
         $found = $this->buildReconciler()->findSettled($this->capture());
 
         self::assertSame(329624897, $found->getPaymentTransactionId());
+    }
+
+    /**
+     * A capture on invoice is requested inside the REST API's transaction too, and its record is the
+     * payment rather than a shipment, so the order is found through the link for both
+     */
+    public function testFindsAnInvoiceCaptureThroughTheLink(): void
+    {
+        $this->api->expects(self::once())->method('getOrder')
+            ->with(281424605, 3, Config::API_PROFILE_BACKGROUND)
+            ->willReturn($this->qliroOrder([$this->transaction(329624897, 'Capture', 'Success')]));
+
+        $capture = $this->capture();
+        $capture->setData('record_type', 'payment');
+        $capture->setData('record_id', 5);
+
+        self::assertSame(329624897, $this->buildReconciler()->findSettled($capture)->getPaymentTransactionId());
     }
 
     /**
@@ -171,23 +189,27 @@ class ShipmentCaptureReconcilerTest extends TestCase
     }
 
     /**
-     * @return ShipmentCaptureReconciler
+     * @return CaptureReconciler
      */
-    private function buildReconciler(): ShipmentCaptureReconciler
+    private function buildReconciler(): CaptureReconciler
     {
         $order = $this->createMock(Order::class);
         $order->method('getIncrementId')->willReturn('000246718');
-        $shipment = $this->createMock(Shipment::class);
-        $shipment->method('getStoreId')->willReturn(3);
-        $shipment->method('getOrder')->willReturn($order);
-        $shipments = $this->createMock(ShipmentRepositoryInterface::class);
-        $shipments->method('get')->with(12)->willReturn($shipment);
+        $order->method('getStoreId')->willReturn(3);
+        $orders = $this->createMock(OrderRepositoryInterface::class);
+        $orders->method('get')->with(77)->willReturn($order);
+
+        $link = $this->createMock(Link::class);
+        $link->method('getOrderId')->willReturn(77);
+        $links = $this->createMock(LinkRepositoryInterface::class);
+        $links->method('getByQliroOrderId')->with(281424605, false)->willReturn($link);
 
         $factory = $this->createMock(QliroOrderManagementStatusInterfaceFactory::class);
         $factory->method('create')->willReturnCallback(fn () => new QliroOrderManagementStatus());
 
-        return new ShipmentCaptureReconciler(
-            $shipments,
+        return new CaptureReconciler(
+            $links,
+            $orders,
             $this->api,
             $factory,
             $this->transactionStatus

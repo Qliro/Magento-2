@@ -9,32 +9,32 @@ namespace Qliro\QliroOne\Test\Unit\Cron;
 
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
-use Qliro\QliroOne\Cron\ReconcileShipmentCaptures;
+use Qliro\QliroOne\Cron\ReconcileCaptures;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\OrderManagementStatus;
-use Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler;
-use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedShipmentCaptures;
+use Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler;
+use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedCaptures;
 
 /**
- * @see \Qliro\QliroOne\Cron\ReconcileShipmentCaptures
+ * @see \Qliro\QliroOne\Cron\ReconcileCaptures
  */
-class ReconcileShipmentCapturesTest extends TestCase
+class ReconcileCapturesTest extends TestCase
 {
     /**
-     * Only captures Qliro reported on in the last days are read, so the job never sweeps the
+     * Only captures requested in the last days are read, past a grace period for their callback, so the job never sweeps the
      * whole history, a capture that fails does not hold up the rest, and one not applied is logged
      */
     public function testReconcilesRecentlyReportedCapturesAndGoesOnAfterAFailure(): void
     {
-        $captures = $this->createMock(UnconfirmedShipmentCaptures::class);
-        $captures->expects(self::once())->method('reportedWithin')->with(3 * 86400, 50)->willReturn([5, 9]);
+        $captures = $this->createMock(UnconfirmedCaptures::class);
+        $captures->expects(self::once())->method('due')->with(3 * 86400, 15 * 60, 50)->willReturn([5, 9]);
 
         $rows = [5 => $this->createMock(OrderManagementStatus::class), 9 => $this->createMock(OrderManagementStatus::class)];
         $repository = $this->createMock(OrderManagementStatusRepositoryInterface::class);
         $repository->method('get')->willReturnCallback(fn ($id) => $rows[$id]);
 
         $reconciled = [];
-        $reconciler = $this->createMock(ShipmentCaptureReconciler::class);
+        $reconciler = $this->createMock(CaptureReconciler::class);
         $reconciler->method('reconcile')->willReturnCallback(function ($row) use (&$reconciled, $rows) {
             $reconciled[] = array_search($row, $rows, true);
             if ($row === $rows[5]) {
@@ -47,7 +47,7 @@ class ReconcileShipmentCapturesTest extends TestCase
         $logManager->expects(self::once())->method('warning');
         $logManager->expects(self::once())->method('info')->with(self::stringContains('not applied'));
 
-        (new ReconcileShipmentCaptures($captures, $repository, $reconciler, $logManager))->execute();
+        (new ReconcileCaptures($captures, $repository, $reconciler, $logManager))->execute();
 
         self::assertSame([5, 9], $reconciled);
     }

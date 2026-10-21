@@ -71,7 +71,7 @@ switch ($command) {
         break;
 
     case 'cron':
-        $om->get(\Qliro\QliroOne\Cron\ReconcileShipmentCaptures::class)->execute();
+        $om->get(\Qliro\QliroOne\Cron\ReconcileCaptures::class)->execute();
         $result = ['ran' => true];
         break;
 

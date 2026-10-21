@@ -7,23 +7,25 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\OrderManagementStatus;
 
-use Magento\Sales\Api\ShipmentRepositoryInterface;
+use Magento\Sales\Api\Data\OrderInterface;
+use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface as QliroStatus;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterfaceFactory;
+use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\OrderManagement;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Management\TransactionStatus;
 
 /**
- * Applies the status Qliro holds for a shipment capture whose callback was lost.
+ * Applies the status Qliro holds for a capture whose callback was lost.
  *
- * Qliro confirms a capture within a second, while the shipment that requested it is still being
- * saved, so the callback finds no record and Qliro does not send it again. The status is read from
- * Qliro and handled as that callback would have been.
+ * Qliro confirms a capture within a second, while the shipment or invoice that requested it may
+ * still be being saved, so the callback finds no record and Qliro does not send it again. The
+ * status is read from Qliro and handled as that callback would have been.
  */
-class ShipmentCaptureReconciler
+class CaptureReconciler
 {
     public const SETTLED = [
         QliroStatus::STATUS_SUCCESS,
@@ -32,13 +34,15 @@ class ShipmentCaptureReconciler
     ];
 
     /**
-     * @param ShipmentRepositoryInterface $shipmentRepository
+     * @param LinkRepositoryInterface $linkRepository
+     * @param OrderRepositoryInterface $orderRepository
      * @param OrderManagement $orderManagementApi
      * @param QliroOrderManagementStatusInterfaceFactory $notificationFactory
      * @param TransactionStatus $transactionStatus
      */
     public function __construct(
-        private readonly ShipmentRepositoryInterface $shipmentRepository,
+        private readonly LinkRepositoryInterface $linkRepository,
+        private readonly OrderRepositoryInterface $orderRepository,
         private readonly OrderManagement $orderManagementApi,
         private readonly QliroOrderManagementStatusInterfaceFactory $notificationFactory,
         private readonly TransactionStatus $transactionStatus
@@ -54,10 +58,9 @@ class ShipmentCaptureReconciler
      */
     public function findSettled(OrderManagementStatusInterface $capture): ?AdminOrderPaymentTransactionInterface
     {
-        $shipment = $this->shipmentRepository->get($capture->getRecordId());
         $qliroOrder = $this->orderManagementApi->getOrder(
             $capture->getQliroOrderId(),
-            $shipment->getStoreId(),
+            $this->order($capture)->getStoreId(),
             Config::API_PROFILE_BACKGROUND
         );
 
@@ -82,12 +85,10 @@ class ShipmentCaptureReconciler
         OrderManagementStatusInterface $capture,
         AdminOrderPaymentTransactionInterface $transaction
     ): bool {
-        $order = $this->shipmentRepository->get($capture->getRecordId())->getOrder();
-
         /** @var \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $notification */
         $notification = $this->notificationFactory->create();
         $notification->setOrderId($capture->getQliroOrderId())
-            ->setMerchantReference($order->getIncrementId())
+            ->setMerchantReference($this->order($capture)->getIncrementId())
             ->setPaymentTransactionId($capture->getTransactionId())
             ->setPaymentType($transaction->getType())
             ->setStatus($transaction->getStatus())
@@ -109,5 +110,20 @@ class ShipmentCaptureReconciler
         $transaction = $this->findSettled($capture);
 
         return $transaction !== null && $this->apply($capture, $transaction);
+    }
+
+    /**
+     * The order through the link, as the callback finds it, so a shipment and an invoice capture
+     * are read the same way
+     *
+     * @param OrderManagementStatusInterface $capture
+     * @return OrderInterface
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     */
+    private function order(OrderManagementStatusInterface $capture): OrderInterface
+    {
+        $link = $this->linkRepository->getByQliroOrderId($capture->getQliroOrderId(), false);
+
+        return $this->orderRepository->get($link->getOrderId());
     }
 }

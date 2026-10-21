@@ -9,28 +9,31 @@ namespace Qliro\QliroOne\Cron;
 
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler;
-use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedShipmentCaptures;
+use Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler;
+use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedCaptures;
 
 /**
- * Applies the shipment captures Qliro confirmed before the shipment was saved, see etc/crontab.xml
+ * Applies the captures Qliro confirmed before the shipment or invoice was saved, see etc/crontab.xml
  */
-class ReconcileShipmentCaptures
+class ReconcileCaptures
 {
     private const WINDOW_SECONDS = 3 * 86400;
+
+    // Long past the second a callback takes, so a capture is not read from Qliro while its callback is on the way
+    private const GRACE_SECONDS = 15 * 60;
 
     private const BATCH = 50;
 
     /**
-     * @param UnconfirmedShipmentCaptures $captures
+     * @param UnconfirmedCaptures $captures
      * @param OrderManagementStatusRepositoryInterface $statusRepository
-     * @param ShipmentCaptureReconciler $reconciler
+     * @param CaptureReconciler $reconciler
      * @param LogManager $logManager
      */
     public function __construct(
-        private readonly UnconfirmedShipmentCaptures $captures,
+        private readonly UnconfirmedCaptures $captures,
         private readonly OrderManagementStatusRepositoryInterface $statusRepository,
-        private readonly ShipmentCaptureReconciler $reconciler,
+        private readonly CaptureReconciler $reconciler,
         private readonly LogManager $logManager
     ) {
     }
@@ -40,21 +43,22 @@ class ReconcileShipmentCaptures
      */
     public function execute(): void
     {
-        foreach ($this->captures->reportedWithin(self::WINDOW_SECONDS, self::BATCH) as $id) {
+        foreach ($this->captures->due(self::WINDOW_SECONDS, self::GRACE_SECONDS, self::BATCH) as $id) {
             // A reference left by the previous capture would tag this one's log lines
             $this->logManager->setMerchantReference(null);
 
             try {
                 if (!$this->reconciler->reconcile($this->statusRepository->get($id))) {
                     $this->logManager->info(
-                        'Shipment capture not applied: Qliro has not settled it, which the next run retries, '
-                        . 'or handling it failed, which qliroone:capture:reconcile retries',
+                        'Capture not applied: Qliro has not settled it, or handling it failed, both of '
+                        . 'which the next run retries, a failed Success up to '
+                        . UnconfirmedCaptures::SUCCESS_ATTEMPTS . ' times and qliroone:capture:reconcile after that',
                         ['extra' => ['om_status_id' => $id]]
                     );
                 }
             } catch (\Throwable $exception) {
                 $this->logManager->warning(
-                    'Shipment capture reconciliation failed, the next run retries',
+                    'Capture reconciliation failed, the next run retries',
                     ['extra' => ['om_status_id' => $id, 'error' => $exception->getMessage()]]
                 );
             }

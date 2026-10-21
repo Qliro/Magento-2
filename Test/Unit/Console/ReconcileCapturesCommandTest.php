@@ -14,8 +14,8 @@ use Qliro\QliroOne\Api\Data\AdminOrderPaymentTransactionInterface;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Console\ReconcileCapturesCommand;
 use Qliro\QliroOne\Model\OrderManagementStatus;
-use Qliro\QliroOne\Model\OrderManagementStatus\ShipmentCaptureReconciler;
-use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedShipmentCaptures;
+use Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler;
+use Qliro\QliroOne\Model\ResourceModel\OrderManagementStatus\UnconfirmedCaptures;
 use Symfony\Component\Console\Tester\CommandTester;
 
 /**
@@ -23,13 +23,13 @@ use Symfony\Component\Console\Tester\CommandTester;
  */
 class ReconcileCapturesCommandTest extends TestCase
 {
-    private UnconfirmedShipmentCaptures&MockObject $captures;
-    private ShipmentCaptureReconciler&MockObject $reconciler;
+    private UnconfirmedCaptures&MockObject $captures;
+    private CaptureReconciler&MockObject $reconciler;
 
     protected function setUp(): void
     {
-        $this->captures = $this->createMock(UnconfirmedShipmentCaptures::class);
-        $this->reconciler = $this->createMock(ShipmentCaptureReconciler::class);
+        $this->captures = $this->createMock(UnconfirmedCaptures::class);
+        $this->reconciler = $this->createMock(CaptureReconciler::class);
     }
 
     /**
@@ -73,7 +73,7 @@ class ReconcileCapturesCommandTest extends TestCase
         );
         $this->reconciler->expects(self::exactly(2))->method('apply')->willReturnOnConsecutiveCalls(true, false);
 
-        $tester = $this->runCommand([]);
+        $tester = $this->runCommand(['--from' => '2000-01-01']);
 
         self::assertSame([0, 2, 4], $pages);
         self::assertSame(1, $tester->getStatusCode());
@@ -92,9 +92,22 @@ class ReconcileCapturesCommandTest extends TestCase
         $this->reconciler->method('findSettled')->willReturn($this->transaction());
         $this->reconciler->method('apply')->willReturn(true);
 
-        $tester = $this->runCommand([]);
+        $tester = $this->runCommand(['--order' => ['000246718']]);
 
         self::assertStringContainsString('Applied 1, not settled at Qliro 0, to check by hand 0, failed 1', $tester->getDisplay());
+    }
+
+    /**
+     * Every capture is a call to Qliro, so a run over the whole history has to be asked for
+     */
+    public function testRefusesARunWithNeitherAPeriodNorAnOrder(): void
+    {
+        $this->captures->expects(self::never())->method('find');
+
+        $tester = $this->runCommand(['--to' => '2026-10-17']);
+
+        self::assertSame(1, $tester->getStatusCode());
+        self::assertStringContainsString('--from=2000-01-01', $tester->getDisplay());
     }
 
     public function testRefusesADateItCannotRead(): void
