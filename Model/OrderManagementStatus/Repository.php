@@ -118,12 +118,13 @@ class Repository implements OrderManagementStatusRepositoryInterface
     public function getParent($id)
     {
         /** @var \Magento\Framework\Api\SortOrder $sortOrder */
-        $sortOrder = $this->sortOrderBuilder->setField('date')->setDirection(SortOrder::SORT_DESC)->create();
+        // By id, rows written in the same second share a date
+        $sortOrder = $this->sortOrderBuilder->setField('id')->setDirection(SortOrder::SORT_DESC)->create();
 
         /** @var \Magento\Framework\Api\SearchCriteria $search */
         $search = $this->searchCriteriaBuilder
             ->addFilter('transaction_id',$id, 'eq')
-            ->addFilter('record_type', 'null', 'neq')
+            ->addFilter('record_type', true, 'notnull')
             ->addSortOrder($sortOrder)
             ->create();
 
@@ -144,7 +145,8 @@ class Repository implements OrderManagementStatusRepositoryInterface
     public function getPrevious($id)
     {
         /** @var \Magento\Framework\Api\SortOrder $sortOrder */
-        $sortOrder = $this->sortOrderBuilder->setField('date')->setDirection(SortOrder::SORT_DESC)->create();
+        // By id, rows written in the same second share a date
+        $sortOrder = $this->sortOrderBuilder->setField('id')->setDirection(SortOrder::SORT_DESC)->create();
 
         /** @var \Magento\Framework\Api\SearchCriteria $search */
         $search = $this->searchCriteriaBuilder

@@ -1,12 +1,19 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Page, expect } from '@playwright/test';
 import { config } from '../playwright.config';
 import type { SeededOrder } from '../global-setup';
 
-export const seeded: { withName: SeededOrder; withoutName: SeededOrder } = JSON.parse(
-  readFileSync(join(__dirname, '..', '.seeded.json'), 'utf8')
-);
+const seededFile = join(__dirname, '..', '.seeded.json');
+
+// Missing under MAGENTO_SKIP_SEED, which the specs that seed their own orders run with
+export const seeded: { withName: SeededOrder; withoutName: SeededOrder } = existsSync(seededFile)
+  ? JSON.parse(readFileSync(seededFile, 'utf8'))
+  : new Proxy({} as never, {
+      get: () => {
+        throw new Error('.seeded.json is missing, run this spec without MAGENTO_SKIP_SEED');
+      },
+    });
 
 export async function loginToAdmin(page: Page): Promise<void> {
   await page.goto(`${config.adminPath}`);

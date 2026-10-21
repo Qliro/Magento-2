@@ -72,6 +72,74 @@ class SessionTest extends TestCase
     }
 
     /**
+     * A second poll for the same order, from another tab, keeps the page marked as shown.
+     */
+    public function testSavingTheSameOrderAgainKeepsTheDisplayedFlag(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+        $this->successSession->setSuccessDisplayed();
+
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+
+        self::assertTrue($this->successSession->hasSuccessDisplayed());
+    }
+
+    public function testSavingAnotherOrderStartsItsEventsAfresh(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+        $this->successSession->claimSuccessEvent();
+        $this->successSession->setSuccessDisplayed();
+
+        $this->successSession->save('<p>Qliro</p>', $this->order('1001211999', 43));
+
+        self::assertFalse($this->successSession->hasSuccessDisplayed());
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+    }
+
+    /**
+     * The first event, then a repeat for every render while the page has not reported, since more
+     * than one render can go unseen before the one the buyer looks at.
+     */
+    public function testClaimsTheFirstEventThenARepeatPerRender(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+        self::assertSame(2, $this->successSession->claimSuccessEvent());
+        self::assertSame(3, $this->successSession->claimSuccessEvent());
+    }
+
+    /**
+     * A render whose listener failed gives its event back, so the next render dispatches the same one.
+     */
+    public function testAReleasedEventIsClaimedAgain(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+        $this->successSession->releaseSuccessEvent();
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+    }
+
+    public function testReleasingWithNothingClaimedLeavesTheCountAlone(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+        $this->successSession->releaseSuccessEvent();
+
+        self::assertSame(1, $this->successSession->claimSuccessEvent());
+    }
+
+    public function testClaimsNothingOnceThePageReported(): void
+    {
+        $this->successSession->save('<p>Qliro</p>', $this->order());
+        $this->successSession->claimSuccessEvent();
+        $this->successSession->setSuccessDisplayed();
+
+        self::assertSame(0, $this->successSession->claimSuccessEvent());
+    }
+
+    /**
      * Entering the checkout again clears the module's keys. The core ones are left alone, exactly
      * as a core checkout leaves them, so a tracking script that runs late still finds its order.
      */
@@ -87,11 +155,11 @@ class SessionTest extends TestCase
         self::assertSame(42, $this->checkoutSession->getLastOrderId());
     }
 
-    private function order(): Order
+    private function order(string $incrementId = '1001211998', int $id = 42): Order
     {
         $order = $this->createMock(Order::class);
-        $order->method('getId')->willReturn(42);
-        $order->method('getIncrementId')->willReturn('1001211998');
+        $order->method('getId')->willReturn($id);
+        $order->method('getIncrementId')->willReturn($incrementId);
         $order->method('getQuoteId')->willReturn(17);
         $order->method('getStatus')->willReturn('pending');
 

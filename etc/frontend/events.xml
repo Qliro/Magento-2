@@ -8,6 +8,10 @@
         <observer name="qliroone_checkout_redirect" instance="Qliro\QliroOne\Observer\QliroCheckoutRedirect" />
     </event>
 
+    <event name="qliroone_checkout_success_repeat">
+        <observer name="qliroone_repeat_google_gtag_purchase" instance="Qliro\QliroOne\Observer\RepeatGoogleGtagPurchase" />
+    </event>
+
     <event name="customer_login">
         <observer name="qliroone_customer_login_observer" instance="Qliro\QliroOne\Observer\CustomerLogin" />
     </event>
