@@ -1,6 +1,16 @@
 
 # Change Log
 
+## [1.8.18] - 2026-10-23
+
+### Fixed
+
+- `HtmlSnippet::get()` returned a `Phrase` instead of a string when the checkout failed to load. It now returns the message with the reload link as a string, and `get()` and `fetch()` declare a `string` return type
+
+### Added
+
+- `Test/Unit/Model/Management/HtmlSnippetTest` for the snippet, the pending-page redirect, the unsupported cart message and the failure message
+
 ## [1.8.12] - 2026-10-21
 
 ### Fixed
