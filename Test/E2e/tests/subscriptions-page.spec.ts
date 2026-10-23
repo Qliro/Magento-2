@@ -42,7 +42,7 @@ test('a logged in customer sees the subscriptions page', async ({ page }) => {
   await page.fill('#email_address', `qliro.e2e.${randomUUID()}@example.com`);
   await page.fill('#password', 'Qliro-e2e-123');
   await page.fill('#password-confirmation', 'Qliro-e2e-123');
-  await page.click('form#form-validate button[type="submit"]');
+  await page.click('form.form-create-account button[type="submit"]');
   await expect(page).toHaveURL(/\/customer\/account\/?$/);
 
   const response = await page.goto(HISTORY);
