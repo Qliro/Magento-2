@@ -78,28 +78,11 @@ class UnlockCommand extends AbstractCommand
             $result = $lockManager->unlock($this->orderId, $this->force);
             $output->writeln(sprintf('<info>%s Unlock of Qliro Order</info>', $result ? 'Successful' : 'Unsuccessful'));
         } catch (\Qliro\QliroOne\Model\Api\Client\Exception\ClientException $exception) {
-            /** @var \GuzzleHttp\Exception\RequestException $origException */
-            $origException = $exception->getPrevious();
+            $this->writeApiFailure($output, $exception);
 
-            fprintf(STDOUT, 'Merchant API exception:');
-
-            fprintf(
-                STDOUT,
-                (string) \json_encode(
-                    [
-                        'request.uri' => $origException->getRequest()->getUri(),
-                        'request.method' => $origException->getRequest()->getMethod(),
-                        'request.headers' => $origException->getRequest()->getHeaders(),
-                        'request.body' => $origException->getRequest()->getBody()->getContents(),
-                        'response.status' => $origException->getResponse()->getStatusCode(),
-                        'response.headers' => $origException->getResponse()->getHeaders(),
-                        'response.body' => $origException->getResponse()->getBody()->getContents(),
-                    ],
-                    JSON_PRETTY_PRINT
-                )
-            );
+            return 1;
         }
 
-        return 0;
+        return $result ? 0 : 1;
     }
 }
