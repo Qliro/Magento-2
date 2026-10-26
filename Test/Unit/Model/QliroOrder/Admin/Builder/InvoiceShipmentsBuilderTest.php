@@ -356,7 +356,7 @@ class InvoiceShipmentsBuilderTest extends TestCase
 
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getItemById', 'getInvoiceCollection', 'getStoreId', 'getPayment'])
+            ->onlyMethods(['getItemById', 'getInvoiceCollection', 'getStoreId', 'getPayment', 'getAllItems'])
             ->addMethods(['setFirstCaptureFlag'])
             ->getMock();
 
@@ -369,6 +369,7 @@ class InvoiceShipmentsBuilderTest extends TestCase
         $order->method('getPayment')->willReturn($payment);
         $order->method('getStoreId')->willReturn(1);
         $order->method('getInvoiceCollection')->willReturn($invoices);
+        $order->method('getAllItems')->willReturn($items);
         $order->method('getItemById')->willReturnCallback(
             static function ($id) use ($items): ?OrderItem {
                 foreach ($items as $item) {

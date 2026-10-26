@@ -36,6 +36,7 @@ use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
+use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 
 /**
  * @see \Qliro\QliroOne\Model\Management\PlaceOrder::execute
@@ -282,7 +283,8 @@ class PlaceOrderRetryTest extends TestCase
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
             null,
-            $withFinder ? $this->placedOrderFinder : null
+            $withFinder ? $this->placedOrderFinder : null,
+            $this->createMock(DiscountLines::class)
         );
     }
 }

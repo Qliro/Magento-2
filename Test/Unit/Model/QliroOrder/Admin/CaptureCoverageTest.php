@@ -306,6 +306,33 @@ class CaptureCoverageTest extends TestCase
     }
 
     /**
+     * A per unit discount is divided to the öre, so a capture can be an öre off its invoice. The
+     * amount the refused request asked for is the capture's own.
+     */
+    public function testOfSeveralCapturesTheOneOfTheAmountSentIsTaken(): void
+    {
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 147.67),
+            $this->transaction(331750001, 'Capture', 'Success', 277.13),
+        ];
+
+        self::assertSame(
+            331750001,
+            $this->coverage()->captureAtQliro($transactions, $this->order(), $this->invoice(9, [], grandTotal: 277.14), 277.13)
+        );
+    }
+
+    public function testAShipmentOfSeveralCapturesTakesTheOneOfTheAmountSent(): void
+    {
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 147.67),
+            $this->transaction(331750001, 'Capture', 'Success', 277.13),
+        ];
+
+        self::assertSame(331743203, $this->coverage()->captureAtQliro($transactions, $this->order(), null, 147.67));
+    }
+
+    /**
      * Two captures neither of which is the invoice's amount: guessing would make a refund go to the wrong one
      */
     public function testSeveralCapturesThatDoNotMatchAreNotGuessed(): void
