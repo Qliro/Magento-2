@@ -137,21 +137,13 @@ class TestCommand extends AbstractCommand
         try {
             $response = $service->post('checkout/merchantapi/orders', $payload);
 
-            print_r([
-                'response' => $response,
-            ]);
+            $this->writeText($output, $this->toJson(['response' => $response]));
 
             $output->writeln('<comment>API connection successful</comment>');
-        } catch (\GuzzleHttp\Exception\RequestException $exception) {
-            print_r([
-                'request.uri' => $exception->getRequest()->getUri(),
-                'request.method' => $exception->getRequest()->getMethod(),
-                'request.headers' => $exception->getRequest()->getHeaders(),
-                'request.body' => $exception->getRequest()->getBody()->getContents(),
-                'response.status' => $exception->getResponse()->getStatusCode(),
-                'response.headers' => $exception->getResponse()->getHeaders(),
-                'response.body' => $exception->getResponse()->getBody()->getContents(),
-            ]);
+        } catch (\Qliro\QliroOne\Model\Exception\TerminalException $exception) {
+            $this->writeApiFailure($output, $exception);
+
+            return 1;
         }
 
         return 0;

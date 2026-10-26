@@ -12,6 +12,7 @@ namespace Qliro\QliroOne\Console;
 
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Management;
+use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -36,7 +37,6 @@ class GetOrderCommand extends AbstractCommand
     private $createMagentoOrder;
 
     /**
-    /**
      * Configure the CLI command
      */
     protected function configure()
@@ -59,7 +59,14 @@ class GetOrderCommand extends AbstractCommand
     {
         parent::initialize($input, $output);
         $this->orderId = $input->getArgument('orderid');
-        $this->createMagentoOrder = $input->getArgument('create');
+        $this->createMagentoOrder = filter_var(
+            $input->getArgument('create'),
+            FILTER_VALIDATE_BOOLEAN,
+            FILTER_NULL_ON_FAILURE
+        );
+        if ($this->createMagentoOrder === null) {
+            throw new InvalidArgumentException('create takes 1, true, yes or on, or 0, false, no or off');
+        }
     }
 
     /**
@@ -83,7 +90,7 @@ class GetOrderCommand extends AbstractCommand
             $responseContainer = $merchant->getOrder($this->orderId);
             $responsePayload = $containerMapper->toArray($responseContainer);
 
-            fprintf(STDOUT, (string) \json_encode($responsePayload, JSON_PRETTY_PRINT));
+            $this->writeText($output, $this->toJson($responsePayload));
 
             if ($this->createMagentoOrder) {
                 /** @var \Qliro\QliroOne\Model\Management $management */
@@ -93,37 +100,20 @@ class GetOrderCommand extends AbstractCommand
                 $output->writeln('<comment>Place order successfull</comment>');
             }
         } catch (\Qliro\QliroOne\Model\Exception\TerminalException $exception) {
-            /** @var \GuzzleHttp\Exception\RequestException $origException */
-            $origException = $exception->getPrevious();
+            // Merchant turns its own into a ClientException, so this one comes from the placement
+            $this->writeText($output, 'Order placement failed:');
+            $this->writeFailure($output, $exception);
 
-            fprintf(STDOUT, 'Merchant API exception:');
-            fprintf(STDOUT, $origException->getMessage());
-
+            return 1;
         } catch (\Qliro\QliroOne\Model\Exception\FailToLockException $exception) {
-            fprintf(STDOUT, 'Locking:');
-            fprintf(STDOUT, $exception->getMessage());
+            $this->writeText($output, 'Locking:');
+            $this->writeText($output, $exception->getMessage());
 
+            return 1;
         } catch (\Qliro\QliroOne\Model\Api\Client\Exception\ClientException $exception) {
-            /** @var \GuzzleHttp\Exception\RequestException $origException */
-            $origException = $exception->getPrevious();
+            $this->writeApiFailure($output, $exception);
 
-            fprintf(STDOUT, 'Merchant API exception:');
-
-            fprintf(
-                STDOUT,
-                (string) \json_encode(
-                    [
-                        'request.uri' => $origException->getRequest()->getUri(),
-                        'request.method' => $origException->getRequest()->getMethod(),
-                        'request.headers' => $origException->getRequest()->getHeaders(),
-                        'request.body' => $origException->getRequest()->getBody()->getContents(),
-                        'response.status' => $origException->getResponse()->getStatusCode(),
-                        'response.headers' => $origException->getResponse()->getHeaders(),
-                        'response.body' => $origException->getResponse()->getBody()->getContents(),
-                    ],
-                    JSON_PRETTY_PRINT
-                )
-            );
+            return 1;
         }
 
         return 0;

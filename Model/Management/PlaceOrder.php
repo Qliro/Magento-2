@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
@@ -24,6 +25,7 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -122,6 +124,11 @@ class PlaceOrder extends AbstractManagement
     private ?RoundingAdjustmentStamp $roundingAdjustmentStamp;
 
     /**
+     * @var \Qliro\QliroOne\Model\Order\PlacedOrderFinder|null
+     */
+    private ?PlacedOrderFinder $placedOrderFinder;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -141,6 +148,7 @@ class PlaceOrder extends AbstractManagement
      * @param RecurringDataService $recurringDataService
      * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
+     * @param PlacedOrderFinder|null $placedOrderFinder
      */
     public function __construct(
         Config $qliroConfig,
@@ -159,7 +167,8 @@ class PlaceOrder extends AbstractManagement
         Payment $paymentManagement,
         RecurringDataService $recurringDataService,
         OrganizationNumber $organizationNumber,
-        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null
+        ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
+        ?PlacedOrderFinder $placedOrderFinder = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -179,6 +188,7 @@ class PlaceOrder extends AbstractManagement
         $this->organizationNumber = $organizationNumber;
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
+        $this->placedOrderFinder = $placedOrderFinder;
     }
 
     /**
@@ -271,7 +281,8 @@ class PlaceOrder extends AbstractManagement
                     }
 
                     throw $exception;
-                } catch (\Exception $exception) {
+                } catch (\Throwable $exception) {
+                    // Throwable, so a PHP error does not leave the lock held for its full expiry
                     $this->logManager->critical(
                         $exception,
                         [
@@ -381,32 +392,43 @@ class PlaceOrder extends AbstractManagement
                 } else {
                     $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
 
-                    $this->logManager->debug(
-                        'Placing order',
-                        [
-                            'extra' => [
-                                'qliro_order' => $qliroOrderId,
-                                'quote_id' => $this->getQuote()->getId(),
-                            ],
-                        ]
-                    );
+                    $order = $this->placedOrderFinder?->find((int)$link->getQuoteId(), (string)$qliroOrderId);
 
-                    // The delivery Qliro charged for, not the one the quote's last update left (PLIN-461)
-                    $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
-                    $this->addAdditionalInfoToQuote(
-                        $link,
-                        $qliroOrder->getPaymentMethod(),
-                        $qliroOrder->getOrderItems() ?? []
-                    );
-                    $this->addAdditionalShippingInfoToQuote($qliroOrder);
-                    $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
-                    $this->logShippingMismatch($qliroOrder);
+                    if ($order) {
+                        // Canceled, shipped or invoiced while it had no link, and not ours to take back.
+                        // Linking it would set it to pending payment and then to new
+                        $adoptable = [Order::STATE_NEW, Order::STATE_PENDING_PAYMENT, Order::STATE_HOLDED];
 
-                    $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
-                    $order = $this->orderPlacer->place($this->getQuote());
+                        if (!in_array($order->getState(), $adoptable, true)) {
+                            throw new LocalizedException(__(
+                                'Order %1 placed for this Qliro order is already %2, it is not placed again',
+                                $order->getIncrementId(),
+                                $order->getState()
+                            ));
+                        }
+
+                        // An earlier attempt committed the order and failed after it
+                        $this->logManager->notice(
+                            'Order was already placed from the quote, linking it',
+                            [
+                                'extra' => [
+                                    'qliro_order' => $qliroOrderId,
+                                    'quote_id' => $this->getQuote()->getId(),
+                                    'order_id' => $order->getId(),
+                                ],
+                            ]
+                        );
+                    } else {
+                        $order = $this->placeFromQuote($link, $qliroOrder);
+                    }
+
                     $this->organizationNumber->apply($order, $qliroOrder);
                     $this->logManager->debug('Finished to place order from quote: ' . $this->getQuote()->getId() . ' Order ID: ' . $order->getId());
                     $orderId = $order->getId();
+
+                    // Before the link gets the order id: a retry only finishes an order whose
+                    // link has none, and without this transaction a cancel never reaches Qliro
+                    $this->paymentManagement->createPaymentTransaction($order, $qliroOrder, $state);
 
                     /**
                      * Save the latest Qliro status together with the order id.
@@ -416,8 +438,6 @@ class PlaceOrder extends AbstractManagement
                     $link->setQliroOrderStatus($qliroOrder->getCustomerCheckoutStatus());
                     $link->setOrderId($orderId);
                     $this->linkRepository->save($link);
-
-                    $this->paymentManagement->createPaymentTransaction($order, $qliroOrder, $state);
 
                     $this->logManager->debug(
                         'Order placed successfully',
@@ -437,7 +457,8 @@ class PlaceOrder extends AbstractManagement
                 $this->applyQliroOrderStatus($order, $link);
             } catch (\Exception $exception) {
                 $this->logManager->debug('Failed to place order from quote: ' . $this->getQuote()->getId() . PHP_EOL . $exception->getMessage());
-                $link->setIsActive(false);
+                // The link stays active, so Qliro's next callback or the buyer's next poll tries
+                // again. An inactive link leaves the paid Qliro order out of everyone's reach
                 $link->setMessage($exception->getMessage());
                 $this->linkRepository->save($link);
 
@@ -469,6 +490,42 @@ class PlaceOrder extends AbstractManagement
         }
 
         return $order;
+    }
+
+    /**
+     * Bring the quote in line with the Qliro order and place the Magento order from it
+     *
+     * @param LinkInterface $link
+     * @param QliroOrderInterface $qliroOrder
+     * @return Order
+     * @throws \Exception
+     */
+    private function placeFromQuote(LinkInterface $link, QliroOrderInterface $qliroOrder): Order
+    {
+        $this->logManager->debug(
+            'Placing order',
+            [
+                'extra' => [
+                    'qliro_order' => $qliroOrder->getOrderId(),
+                    'quote_id' => $this->getQuote()->getId(),
+                ],
+            ]
+        );
+
+        // The delivery Qliro charged for, not the one the quote's last update left
+        $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote(), true);
+        $this->addAdditionalInfoToQuote(
+            $link,
+            $qliroOrder->getPaymentMethod(),
+            $qliroOrder->getOrderItems() ?? []
+        );
+        $this->addAdditionalShippingInfoToQuote($qliroOrder);
+        $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+        $this->logShippingMismatch($qliroOrder);
+
+        $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
+
+        return $this->orderPlacer->place($this->getQuote());
     }
 
     /**
