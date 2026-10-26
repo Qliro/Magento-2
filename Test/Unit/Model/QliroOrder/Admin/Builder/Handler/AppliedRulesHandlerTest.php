@@ -264,9 +264,9 @@ class AppliedRulesHandlerTest extends TestCase
     }
 
     /**
-     * The capture of the last units of a line takes the öre the per unit discount left over.
+     * The capture of the last units of a line takes the units an öre more.
      */
-    public function testTheLastUnitsOfALineTakeTheRemainder(): void
+    public function testTheLastUnitsOfALineTakeTheUnitsAnOreMore(): void
     {
         $order = $this->buildOrder(
             ['first_capture_flag' => false, AppliedRulesHandler::FINAL_CAPTURE_FLAG => true],
@@ -280,9 +280,52 @@ class AppliedRulesHandlerTest extends TestCase
         $lines = $this->handler->handle([$this->product('5:SKU', 2, 199.00)], $order);
 
         self::assertSame(['5:SKU', 'DSC_5:SKU', 'DSC_5:SKU_R'], $this->references($lines));
-        self::assertSame(2.0, $lines[1]->getQuantity());
-        self::assertSame(-0.01, $lines[2]->getPricePerItemIncVat());
-        self::assertSame(round(2 * 199.00 - 2 * 33.33 - 0.01, 2), round($this->total($lines), 2));
+        self::assertSame(1.0, $lines[1]->getQuantity());
+        self::assertSame(1.0, $lines[2]->getQuantity());
+        self::assertSame(-33.34, $lines[2]->getPricePerItemIncVat());
+        self::assertSame(round(2 * 199.00 - 33.33 - 33.34, 2), round($this->total($lines), 2));
+    }
+
+    /**
+     * Three units at 10.00 with 29.99 off, captured one at a time: no capture turns negative, and
+     * together they take the whole discount.
+     */
+    public function testNoSingleUnitCaptureTurnsNegative(): void
+    {
+        $reservation = [
+            'products' => ['5:SKU' => 3],
+            'discounts' => [
+                'DSC_5:SKU' => ['inc' => -9.99, 'ex' => -7.99, 'vat' => 25.0, 'quantity' => 1, 'scope' => DiscountLines::SCOPE_LINE],
+                'DSC_5:SKU_R' => ['inc' => -10.0, 'ex' => -8.0, 'vat' => 25.0, 'quantity' => 2, 'scope' => DiscountLines::SCOPE_LINE],
+            ],
+        ];
+        $captured = [];
+        $sum = 0.0;
+
+        for ($capture = 1; $capture <= 3; $capture++) {
+            $order = $this->buildOrder(
+                ['first_capture_flag' => $capture === 1, AppliedRulesHandler::FINAL_CAPTURE_FLAG => $capture === 3],
+                true,
+                [
+                    Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => $reservation,
+                    Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => $captured,
+                ]
+            );
+
+            $lines = $this->handler->handle([$this->product('5:SKU', 1, 10.00)], $order);
+            $total = round($this->total($lines), 2);
+
+            self::assertGreaterThanOrEqual(0.0, $total);
+            $sum += $total;
+
+            foreach ($lines as $line) {
+                $reference = $line->getMerchantReference();
+                $captured[$reference] = ($captured[$reference] ?? 0) + (int)$line->getQuantity();
+            }
+        }
+
+        self::assertSame(0.01, round($sum, 2));
+        self::assertSame(['5:SKU' => 3, 'DSC_5:SKU' => 1, 'DSC_5:SKU_R' => 2], $captured);
     }
 
     /**
@@ -331,8 +374,8 @@ class AppliedRulesHandlerTest extends TestCase
         return [
             'products' => ['5:SKU' => 3],
             'discounts' => [
-                'DSC_5:SKU' => $line(-33.33, -26.66, 3, DiscountLines::SCOPE_LINE),
-                'DSC_5:SKU_R' => $line(-0.01, -0.01, 1, DiscountLines::SCOPE_LINE),
+                'DSC_5:SKU' => $line(-33.33, -26.66, 2, DiscountLines::SCOPE_LINE),
+                'DSC_5:SKU_R' => $line(-33.34, -26.67, 1, DiscountLines::SCOPE_LINE),
                 'DSC_SHIPPING' => $line(-10.0, -8.0, 1, DiscountLines::SCOPE_ORDER),
             ],
         ];

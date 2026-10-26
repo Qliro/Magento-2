@@ -51,7 +51,7 @@ class DiscountLines
     }
 
     /**
-     * The reference of the line that holds the öre the per unit discount leaves over
+     * The reference of the units that take one öre more, so the row discount divides exactly
      *
      * @param string $productReference
      * @return string
@@ -85,7 +85,10 @@ class DiscountLines
     }
 
     /**
-     * The discount lines of one product line: the per unit one, and the remainder when there is one
+     * The discount lines of one product line: the per unit one, and the units an öre more when it does not divide
+     *
+     * A unit never takes more than the row's discount per unit rounded up, which is never more than its price,
+     * so a capture of any of its units stays positive
      *
      * @param string $productReference
      * @param int $quantity
@@ -116,15 +119,25 @@ class DiscountLines
         $vatRate = $this->discountAmountResolver->getVatRate($incVat, $exVat);
         $cents = (int)round($incVat * 100);
         $unitCents = intdiv($cents, $quantity);
-        $remainderCents = $cents - $unitCents * $quantity;
+        $roundedUp = $cents - $unitCents * $quantity;
         $lines = [];
 
         if ($unitCents > 0) {
-            $lines[] = $this->perUnitLine($this->lineReference($productReference), $quantity, $unitCents / 100, $vatRate);
+            $lines[] = $this->perUnitLine(
+                $this->lineReference($productReference),
+                $quantity - $roundedUp,
+                $unitCents / 100,
+                $vatRate
+            );
         }
 
-        if ($remainderCents > 0) {
-            $lines[] = $this->perUnitLine($this->remainderReference($productReference), 1, $remainderCents / 100, $vatRate);
+        if ($roundedUp > 0) {
+            $lines[] = $this->perUnitLine(
+                $this->remainderReference($productReference),
+                $roundedUp,
+                ($unitCents + 1) / 100,
+                $vatRate
+            );
         }
 
         return $lines;
@@ -197,7 +210,7 @@ class DiscountLines
     }
 
     /**
-     * The reserved discount lines, and product quantities to tell when a line's last unit is captured
+     * The reserved discount lines, and product quantities to tell a per line discount from an order level one
      *
      * @param QliroOrderItemInterface[] $qliroOrderItems the lines of the Qliro order
      * @return array{products: array<string, int>, discounts: array<string, array>}

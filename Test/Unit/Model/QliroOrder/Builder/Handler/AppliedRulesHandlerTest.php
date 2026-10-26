@@ -155,8 +155,8 @@ class AppliedRulesHandlerTest extends TestCase
     }
 
     /**
-     * Three units at 199.00 with 100.00 off: 33.33 a unit, and the öre left over on a line of its
-     * own, so a capture of any number of units can take exactly their discount.
+     * Three units at 199.00 with 100.00 off: 33.33 a unit, and the öre left over as one unit at
+     * 33.34 on a line of its own, so a capture of any number of units can take their discount.
      */
     public function testSplitsTheDiscountOfAProductLinePerUnit(): void
     {
@@ -168,12 +168,38 @@ class AppliedRulesHandlerTest extends TestCase
         ));
 
         self::assertSame(['5:SKU', 'DSC_5:SKU', 'DSC_5:SKU_R'], $this->references($lines));
-        self::assertSame(3.0, $lines[1]->getQuantity());
+        self::assertSame(2.0, $lines[1]->getQuantity());
         self::assertSame(-33.33, $lines[1]->getPricePerItemIncVat());
         self::assertSame(-26.66, $lines[1]->getPricePerItemExVat());
         self::assertSame(25.0, $lines[1]->getVatRate());
         self::assertSame(1.0, $lines[2]->getQuantity());
-        self::assertSame(-0.01, $lines[2]->getPricePerItemIncVat());
+        self::assertSame(-33.34, $lines[2]->getPricePerItemIncVat());
+        self::assertSame(-26.67, $lines[2]->getPricePerItemExVat());
+    }
+
+    /**
+     * Three units at 10.00 with 29.99 off. A remainder of 0.02 on one unit would take 10.01 off
+     * the last unit, and a capture of that unit alone would turn negative.
+     */
+    public function testNoUnitTakesMoreDiscountThanItsPrice(): void
+    {
+        $item = $this->quoteItem(5, ['discount_amount' => '29.9900', 'discount_tax_compensation_amount' => '6.0000']);
+
+        $lines = $this->handler->handle([$this->product('5:SKU', 3)], $this->buildQuote(
+            ['discount_amount' => '-29.9900', 'discount_tax_compensation_amount' => '6.0000'],
+            [5 => $item]
+        ));
+
+        self::assertSame(['5:SKU', 'DSC_5:SKU', 'DSC_5:SKU_R'], $this->references($lines));
+        self::assertSame(1.0, $lines[1]->getQuantity());
+        self::assertSame(-9.99, $lines[1]->getPricePerItemIncVat());
+        self::assertSame(2.0, $lines[2]->getQuantity());
+        self::assertSame(-10.0, $lines[2]->getPricePerItemIncVat());
+        self::assertSame(-29.99, round(
+            $lines[1]->getPricePerItemIncVat() * $lines[1]->getQuantity()
+                + $lines[2]->getPricePerItemIncVat() * $lines[2]->getQuantity(),
+            2
+        ));
     }
 
     /**

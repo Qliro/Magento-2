@@ -66,7 +66,6 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
             return $orderItems;
         }
 
-        $products = $reservation['products'] ?? [];
         $recorded = $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS);
         // Nothing recorded on a later capture: an older release sent the line with the first one
         $capturedBeforeRecording = $isLegacy && !is_array($recorded) && !$order->getFirstCaptureFlag();
@@ -81,27 +80,23 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
 
             $reference = $orderItem->getMerchantReference();
             $quantity = (int)$orderItem->getQuantity();
-            $captured[$reference] = ($captured[$reference] ?? 0) + $quantity;
 
-            $lineReference = $this->discountLines->lineReference($reference);
+            // The units an öre more go last, each unit of the line takes one unit of its discount
+            foreach ([
+                $this->discountLines->lineReference($reference),
+                $this->discountLines->remainderReference($reference),
+            ] as $discountReference) {
+                if ($quantity < 1 || !isset($discounts[$discountReference])) {
+                    continue;
+                }
 
-            if (isset($discounts[$lineReference])) {
-                $units = min($quantity, $discounts[$lineReference]['quantity'] - ($captured[$lineReference] ?? 0));
+                $units = min($quantity, $discounts[$discountReference]['quantity'] - ($captured[$discountReference] ?? 0));
 
                 if ($units > 0) {
-                    $added[] = $this->discountLines->fromReservation($lineReference, $discounts[$lineReference], $units);
-                    $captured[$lineReference] = ($captured[$lineReference] ?? 0) + $units;
+                    $added[] = $this->discountLines->fromReservation($discountReference, $discounts[$discountReference], $units);
+                    $captured[$discountReference] = ($captured[$discountReference] ?? 0) + $units;
+                    $quantity -= $units;
                 }
-            }
-
-            $remainderReference = $this->discountLines->remainderReference($reference);
-
-            if (isset($discounts[$remainderReference])
-                && empty($captured[$remainderReference])
-                && $captured[$reference] >= ($products[$reference] ?? PHP_INT_MAX)
-            ) {
-                $added[] = $this->discountLines->fromReservation($remainderReference, $discounts[$remainderReference], 1);
-                $captured[$remainderReference] = 1;
             }
         }
 
