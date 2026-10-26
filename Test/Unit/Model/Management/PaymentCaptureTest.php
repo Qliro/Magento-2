@@ -218,6 +218,36 @@ class PaymentCaptureTest extends TestCase
     }
 
     /**
+     * Qliro has captured once the count is saved, so a payment that cannot be saved leaves the
+     * shipment and its capture record in place rather than failing them
+     */
+    public function testAPaymentThatCannotBeSavedDoesNotFailTheShipment(): void
+    {
+        $capture = $this->buildCapture();
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $payment = $this->getMockBuilder(Payment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getOrder'])
+            ->getMock();
+        $this->order->method('getPayment')->willReturn($payment);
+        $this->paymentRepository->method('save')->willThrowException(new \RuntimeException('Deadlock found'));
+
+        $line = static fn(string $reference, int $quantity) => (new QliroOrderItem())
+            ->setMerchantReference($reference)
+            ->setQuantity($quantity);
+        $this->shipmentLines = [(new QliroShipment())->setOrderItems([$line('5:SKU', 1), $line('DSC_5:SKU', 1)])];
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertCount(1, $this->savedStatuses);
+        self::assertSame(
+            ['5:SKU' => 1, 'DSC_5:SKU' => 1],
+            $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS)
+        );
+    }
+
+    /**
      * Already shipped means the money moved, so the document must be allowed to complete. Throwing
      * left the order permanently unclosable: the reservation is spent, so every retry is refused
      * the same way. Accepting it silently is its own defect though, so the OM status row is

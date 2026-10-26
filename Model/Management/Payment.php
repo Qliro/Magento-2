@@ -736,9 +736,23 @@ class Payment extends AbstractManagement
 
         $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
         $this->recordCapturedUnits($order, $request);
-        // A shipment saved through its repository alone never saves the order, the count would be lost
+        // A shipment saved through its repository alone never saves the order, the count would be lost.
+        // Qliro has captured by now, so failing to save the count must not fail the shipment as well
         if ($order->getPayment()) {
-            $this->paymentRepository->save($order->getPayment());
+            try {
+                $this->paymentRepository->save($order->getPayment());
+            } catch (\Exception $exception) {
+                $this->logManager->critical(
+                    'The captured units could not be saved on the payment, a later capture may send a discount line again',
+                    [
+                        'extra' => [
+                            'order_id' => $order->getId(),
+                            'transaction_id' => $result->getPaymentTransactionId(),
+                            'error' => $exception->getMessage(),
+                        ],
+                    ]
+                );
+            }
         }
 
         try {
