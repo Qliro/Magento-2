@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.17] - 2026-10-23
+
+### Fixed
+
+- The admin order view opens for an order that is not virtual and has no shipping method, for example one created or imported without a delivery choice, and says "No shipping information available". The module replaces core's shipping block on every order view, and its Unifaun and Ingrid checks called a method on the empty value Magento returns for such an order, so the page failed. A shipping method without an underscore no longer fails the page either
+- The order view no longer fails on incomplete shipping details: Ingrid details without a session or a delivery group, Unifaun or Ingrid details stored as something other than an array, a Unifaun order without a shipping address, or an order without a payment record. Unifaun and Ingrid fields that are missing or not text show empty, and the Ingrid session id shows without a delivery group
+
+### Added
+
+- `Test/Unit/ViewModel/Adminhtml/Order/View/ShippingTest` for the carrier checks and the shipping block of the order view
+
 ## [1.8.16] - 2026-10-23
 
 ### Fixed
