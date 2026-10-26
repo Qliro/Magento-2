@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.8.15] - 2026-10-23
+
+### Fixed
+
+- A placement that fails no longer takes the order out of reach. The link was deactivated on any error, so every later callback from Qliro answered that the order was not found, the merchant reference was never updated, and a cancel in Magento never reached Qliro. The link now stays active, and the next callback or poll tries again
+- A retry links the order an earlier attempt already committed instead of placing a second one. Core saves the order before its submit observers run, so an attempt can fail with the order in place. Only such an order still new, pending payment or on hold is linked. One that was canceled, shipped or invoiced in the meantime is not brought back
+- The link gets the order id only after the payment transaction is saved. Without that transaction Magento cancels the order offline and Qliro keeps the reservation
+- A PHP error during placement from the pending page releases the lock at once, instead of leaving callbacks pending for up to ten minutes
+
+### Added
+
+- `Test/Unit/Model/Management/PlaceOrderRetryTest` and `Test/Unit/Model/Order/PlacedOrderFinderTest`
+
 ## [1.8.14] - 2026-10-21
 
 ### Fixed
