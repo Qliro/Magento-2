@@ -384,6 +384,32 @@ class AddressConverterTest extends TestCase
         self::assertSame('123456-7850 AB', $this->addressData['company']);
     }
 
+    public function testSplitsTheNumberOffANameThatStartsWithADigit(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('5560011982 3M Svenska AB'),
+            $this->qliroCustomer('5560011982'),
+            $address
+        );
+
+        self::assertSame('3M Svenska AB', $this->addressData['company']);
+    }
+
+    public function testKeepsANameWhoseNumberGoesOnAfterASeparator(): void
+    {
+        $address = $this->address();
+
+        $this->converter->convert(
+            $this->qliroAddress('964969-1240 AB'),
+            $this->qliroCustomer('964969'),
+            $address
+        );
+
+        self::assertSame('964969-1240 AB', $this->addressData['company']);
+    }
+
     /**
      * The number is written with the separators the country uses, and the company name repeats
      * them or leaves them out. Only the digits decide whether the name starts with the number.
@@ -488,6 +514,41 @@ class AddressConverterTest extends TestCase
         self::assertNull(
             $this->converter->organizationNumber($this->qliroAddress(), $this->qliroCustomer('19800101-1234'))
         );
+    }
+
+    /**
+     * @dataProvider juridicalTypes
+     */
+    public function testReadsTheJuridicalTypeWhateverItsCase(?string $juridicalType, ?string $expected): void
+    {
+        self::assertSame(
+            $expected,
+            $this->converter->organizationNumber(
+                $this->qliroAddress('Test AB'),
+                $this->qliroCustomer('5566778899', null, $juridicalType)
+            )
+        );
+    }
+
+    public static function juridicalTypes(): array
+    {
+        return [
+            'physical' => ['physical', null],
+            'PHYSICAL' => ['PHYSICAL', null],
+            'company' => ['Company', '5566778899'],
+            'none' => [null, '5566778899'],
+        ];
+    }
+
+    public function testGivesAPrivateBuyerWithACompanyAddressNoNumber(): void
+    {
+        $customer = $this->qliroCustomer('5566778899', null, 'Physical');
+        $address = $this->address();
+
+        $this->converter->convert($this->qliroAddress('5566778899 Test AB'), $customer, $address);
+
+        self::assertSame('Test AB', $this->addressData['company']);
+        self::assertNull($this->converter->organizationNumber($this->qliroAddress('5566778899 Test AB'), $customer));
     }
 
     /**
@@ -646,12 +707,14 @@ class AddressConverterTest extends TestCase
      */
     private function qliroCustomer(
         ?string $personalNumber = null,
-        ?string $vatNumber = null
+        ?string $vatNumber = null,
+        ?string $juridicalType = null
     ): QliroOrderCustomerInterface&MockObject {
         $qliroCustomer = $this->createMock($vatNumber === null ? QliroOrderCustomerInterface::class : Customer::class);
         $qliroCustomer->method('getEmail')->willReturn('buyer@example.com');
         $qliroCustomer->method('getMobileNumber')->willReturn('0700000000');
         $qliroCustomer->method('getPersonalNumber')->willReturn($personalNumber);
+        $qliroCustomer->method('getJuridicalType')->willReturn($juridicalType);
 
         if ($vatNumber !== null) {
             $qliroCustomer->method('getVatNumber')->willReturn($vatNumber);
