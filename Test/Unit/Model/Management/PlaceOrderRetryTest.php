@@ -103,9 +103,22 @@ class PlaceOrderRetryTest extends TestCase
         $this->placeOrder()->execute($this->qliroOrder);
     }
 
-    public function testAnOrderAnEarlierAttemptCommittedIsLinkedNotPlacedAgain(): void
+    public static function adoptableStates(): array
+    {
+        return [
+            'new' => [Order::STATE_NEW],
+            'pending payment' => [Order::STATE_PENDING_PAYMENT],
+            'holded' => [Order::STATE_HOLDED],
+        ];
+    }
+
+    /**
+     * @dataProvider adoptableStates
+     */
+    public function testAnOrderAnEarlierAttemptCommittedIsLinkedNotPlacedAgain(string $state): void
     {
         $order = $this->order(31);
+        $order->method('getState')->willReturn($state);
         $this->placedOrderFinder->expects(self::once())->method('find')
             ->with(self::QUOTE_ID, self::QLIRO_ORDER_ID)
             ->willReturn($order);
@@ -125,11 +138,12 @@ class PlaceOrderRetryTest extends TestCase
             'canceled' => [Order::STATE_CANCELED],
             'closed' => [Order::STATE_CLOSED],
             'complete' => [Order::STATE_COMPLETE],
+            'processing' => [Order::STATE_PROCESSING],
         ];
     }
 
     /**
-     * Canceled offline or by the cron while it had no link, so a retry must not bring it back
+     * Canceled, shipped or invoiced while it had no link, so a retry must not bring it back
      *
      * @dataProvider finishedStates
      */

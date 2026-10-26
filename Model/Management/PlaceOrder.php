@@ -395,10 +395,11 @@ class PlaceOrder extends AbstractManagement
                     $order = $this->placedOrderFinder?->find((int)$link->getQuoteId(), (string)$qliroOrderId);
 
                     if ($order) {
-                        // Canceled offline or by cron while it had no link, and not ours to revive
-                        $finished = [Order::STATE_CANCELED, Order::STATE_CLOSED, Order::STATE_COMPLETE];
+                        // Canceled, shipped or invoiced while it had no link, and not ours to take back.
+                        // Linking it would set it to pending payment and then to new
+                        $adoptable = [Order::STATE_NEW, Order::STATE_PENDING_PAYMENT, Order::STATE_HOLDED];
 
-                        if (in_array($order->getState(), $finished, true)) {
+                        if (!in_array($order->getState(), $adoptable, true)) {
                             throw new LocalizedException(__(
                                 'Order %1 placed for this Qliro order is already %2, it is not placed again',
                                 $order->getIncrementId(),
