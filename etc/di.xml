@@ -270,6 +270,7 @@
             <argument name="recurringDataService" xsi:type="object">Qliro\QliroOne\Service\RecurringPayments\Data\Proxy</argument>
             <!-- An optional constructor argument is never auto wired, it is left at its default -->
             <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
+            <argument name="placedOrderFinder" xsi:type="object">Qliro\QliroOne\Model\Order\PlacedOrderFinder</argument>
         </arguments>
     </type>
 
