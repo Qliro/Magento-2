@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.8.18] - 2026-10-23
+## [1.8.20] - 2026-10-23
 
 ### Fixed
 
@@ -11,6 +11,85 @@
 
 - `Test/Unit/Controller/Qliro/Recurring/HistoryTest`, and a case in `ActionInterfacesTest` that keeps every controller off the deprecated base away from core's login plugin
 - `Test/E2e/tests/subscriptions-page.spec.ts` for a guest and a logged in customer on the page. It turns recurring payments on for its run and restores the setting
+
+## [1.8.19] - 2026-10-26
+
+### Fixed
+
+- A partial invoice or partial shipment of an order with a cart discount could not be captured. Since 1.7.6 the checkout reserved the discount as one order level line of quantity 1, and the first capture took all of it whatever items it held, so a first invoice worth less than the discount asked Qliro for a negative total, which it refuses with `EVALUATION_FAILURE`. A first invoice of one product at 152.10 and the shipping at 59.00 against 319.50 off came to -108.40. A capture that stayed positive still took the whole discount, so no partial capture matched its Magento invoice (PLIN-493)
+- The checkout now reserves the discount per product line: `DSC_<line reference>` at the discount per unit, and when the row discount does not divide into the units, `DSC_<line reference>_R` at one öre more for as many units as the öre left over, so no unit takes more discount than its price. A discount on the shipping goes on `DSC_SHIPPING`, and anything the lines leave out on `DSC_ORDER`. The discount of a configurable is taken from its parent, a bundle priced by its children leaves it to them (PLIN-493)
+- When the order is placed, the discount lines Qliro reserved and the quantity of each product line are recorded on the payment. A capture repeats those lines at the reserved prices: one unit of discount for each unit of a product line it captures, the units of `DSC_<line reference>_R` last. An order level line, the shipping discount or the single line of an order placed before this release, goes whole with the first capture that stays positive with it, or with the last capture when none did. The units of each line Qliro accepted are counted on the payment, so a line is never sent twice; on a capture by shipment the payment is saved right away, since a shipment saved through its repository alone never saves the order, and a payment that cannot be saved then is logged as critical rather than failing a shipment Qliro has captured. An order whose first capture ran on an earlier release is taken to have sent its single line then (PLIN-493)
+- An invoice for the whole order sends the same total as before (PLIN-493)
+- What this does not cover. A per unit discount is the row discount divided down to the öre, where Magento rounds each invoice to the nearest öre, so a capture between the first and the last of a line can differ from its Magento invoice by an öre per line; the last units make up the difference. An order placed before this release keeps its single line, so a capture can only take it whole: when no capture but the last is large enough, the last one still turns negative and Qliro refuses it, and the invoices of such an order have to be combined. A checkout open while this release is deployed still holds the old single line, and its validate callback is declined once, until the checkout sends Qliro the new lines. A bundle priced by its children has its discount reserved on the child lines, which the capture does not send, as before for their prices (PLIN-493)
+- A merchant payment of a subscription records its reservation the same way, so its captures repeat the lines it reserved (PLIN-493)
+- The `ROUNDING` line of a reservation is left out of the recorded discount lines, its own handler replays it on the first capture, so a capture never carries it twice (PLIN-493)
+- A cart the per line discounts would take to Qliro's 200 lines keeps one `DSC_ORDER` line for the whole discount, captured as an order level line, which leaves room for the rounding line. A Qliro order whose lines hold none of a discounted cart's discount is not recorded, so its capture sends the one order level line rather than none (PLIN-493)
+- A capture Qliro refuses as already shipped, with more than one capture on the order, is matched by the amount the refused request asked for before the invoice's own amount. A capture of a discounted order need not be its invoice's amount, and the invoice would otherwise complete without its capture's transaction id, which a refund of it looks for (PLIN-493)
+
+### Changed
+
+- The capture handlers run in the order shipping fee, invoice fee, applied rules, so the discount handler sees the full capture total (PLIN-493)
+- The merchant references of discount lines change from `DSC_<rule ids>` and `DSC_QUOTE_DISCOUNT` to `DSC_<line reference>`, `DSC_<line reference>_R`, `DSC_SHIPPING` and `DSC_ORDER`. An export or an integration that reads the old ones has to follow (PLIN-493)
+- `qliroone_order_item_build_after` fires once for every discount line rather than once for the discount. An observer that changes the amount of one changes what Qliro reserves for that line, and no other line makes up for it (PLIN-493)
+- `Qliro\QliroOne\Model\QliroOrder\Builder\Handler\AppliedRulesHandler` and its order management counterpart take new constructor arguments, and `PlaceOrder` and `PlaceRecurringOrder` take an optional `DiscountLines` after the rounding stamp, taken from the object manager when it is not passed. `Management\Payment` takes an optional `OrderPaymentRepositoryInterface` the same way. A store that constructs one of the handlers itself has to follow (PLIN-493)
+
+### Added
+
+- Unit tests for the per unit split and the units an öre more, a discount within an öre a unit of the price, a configurable, a dynamic bundle, the shipping discount, a first partial invoice worth less than the order discount, the units an öre more on the last units, a whole order invoice, an order captured before this release, a new order shipped after an invoice, the last shipment past a virtual item, and the count of accepted units on the payment (PLIN-493)
+
+## [1.8.18] - 2026-10-23
+
+### Fixed
+
+- `HtmlSnippet::get()` returned a `Phrase` instead of a string when the checkout failed to load. It now returns the message with the reload link as a string, and `get()` and `fetch()` declare a `string` return type
+
+### Added
+
+- `Test/Unit/Model/Management/HtmlSnippetTest` for the snippet, the pending-page redirect, the unsupported cart message and the failure message
+
+## [1.8.17] - 2026-10-23
+
+### Fixed
+
+- The admin order view opens for an order that is not virtual and has no shipping method, for example one created or imported without a delivery choice, and says "No shipping information available". The module replaces core's shipping block on every order view, and its Unifaun and Ingrid checks called a method on the empty value Magento returns for such an order, so the page failed. A shipping method without an underscore no longer fails the page either
+- The order view no longer fails on incomplete shipping details: Ingrid details without a session or a delivery group, Unifaun or Ingrid details stored as something other than an array, a Unifaun order without a shipping address, or an order without a payment record. Unifaun and Ingrid fields that are missing or not text show empty, and the Ingrid session id shows without a delivery group
+
+### Added
+
+- `Test/Unit/ViewModel/Adminhtml/Order/View/ShippingTest` for the carrier checks and the shipping block of the order view
+
+## [1.8.16] - 2026-10-23
+
+### Fixed
+
+- The `qliroone:api:*` console commands print Qliro's data as it is. They passed the order payload and the error messages to `fprintf` as the format, so a `%` in an item name or an error ended the command with a PHP error before it printed anything
+- A failed call to Qliro is printed instead of ending in a PHP error. The commands looked for the HTTP exchange right under the exception the client throws, while it is two levels down, and a timeout or refused connection has no response at all. The request URI, which came out as `{}`, and the response body, which came out empty, are printed too, a timeout prints the request it gave up on, and credentials and personal data in them are masked as in the log. `qliroone:api:test` caught an exception the client never throws and now prints the failure the same way
+- The `create` argument of `qliroone:api:getorder` is read as a boolean, so `false` no longer asks for a Magento order, and a value that is not a boolean is refused
+- `getorder` and `test` exit with 1 when the call fails, `lock` and `unlock` when the lock was not taken or released
+
+### Added
+
+- `Test/Unit/Console/ApiCommandOutputTest` for output that contains `100%`, `%s` and a tag, for failures with and without Qliro's response, built as the client builds them, for the masking and for the exit codes
+
+## [1.8.15] - 2026-10-23
+
+### Fixed
+
+- A placement that fails no longer takes the order out of reach. The link was deactivated on any error, so every later callback from Qliro answered that the order was not found, the merchant reference was never updated, and a cancel in Magento never reached Qliro. The link now stays active, and the next callback or poll tries again
+- A retry links the order an earlier attempt already committed instead of placing a second one. Core saves the order before its submit observers run, so an attempt can fail with the order in place. Only such an order still new, pending payment or on hold is linked. One that was canceled, shipped or invoiced in the meantime is not brought back
+- The link gets the order id only after the payment transaction is saved. Without that transaction Magento cancels the order offline and Qliro keeps the reservation
+- A PHP error during placement from the pending page releases the lock at once, instead of leaving callbacks pending for up to ten minutes
+
+### Added
+
+- `Test/Unit/Model/Management/PlaceOrderRetryTest` and `Test/Unit/Model/Order/PlacedOrderFinderTest`
+
+## [1.8.14] - 2026-10-21
+
+### Fixed
+
+- A private buyer with a company on the address, such as a delivery to a workplace, no longer gets their personal number in `vat_id`: Qliro's juridical type `Physical` now rules the number out
+- A company name that starts with a digit, `5560011982 3M Svenska AB`, now loses the organisation number in front of it. A number that goes on after a hyphen, dot or slash, `964969-1240 AB`, is still read as one longer number and kept
 
 ## [1.8.12] - 2026-10-21
 

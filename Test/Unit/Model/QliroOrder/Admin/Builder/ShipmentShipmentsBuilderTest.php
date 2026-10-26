@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Admin\Builder;
 
+use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Magento\Catalog\Model\Product;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Sales\Model\Order;
@@ -54,6 +55,42 @@ class ShipmentShipmentsBuilderTest extends TestCase
         self::assertCount(1, $lines);
         self::assertSame(2.0, $lines[0]->getQuantity());
         self::assertSame(125.0, $lines[0]->getPricePerItemIncVat());
+    }
+
+    /**
+     * A shipment that leaves nothing to ship is the last capture, a virtual item that is never
+     * shipped does not keep it from being one.
+     */
+    public function testFlagsTheLastShipmentPastAVirtualItem(): void
+    {
+        $shipped = $this->orderItem('SKU-1', 2.0);
+        $shipped->method('getQtyToShip')->willReturn(0.0);
+        $virtual = $this->orderItem('SKU-V', 1.0, ['id' => 2]);
+        $virtual->method('getIsVirtual')->willReturn(true);
+        $virtual->method('getQtyToShip')->willReturn(1.0);
+
+        $order = $this->order([$shipped, $virtual]);
+        $builder = $this->builder();
+        $builder->setShipment($this->shipment($order, [1 => 2.0]));
+        $builder->create();
+
+        self::assertTrue($order->getData(AppliedRulesHandler::FINAL_CAPTURE_FLAG));
+    }
+
+    /**
+     * Units left to ship on a physical item mean another capture follows.
+     */
+    public function testDoesNotFlagAShipmentThatLeavesUnitsToShip(): void
+    {
+        $item = $this->orderItem('SKU-1', 3.0);
+        $item->method('getQtyToShip')->willReturn(1.0);
+
+        $order = $this->order([$item]);
+        $builder = $this->builder();
+        $builder->setShipment($this->shipment($order, [1 => 2.0]));
+        $builder->create();
+
+        self::assertFalse($order->getData(AppliedRulesHandler::FINAL_CAPTURE_FLAG));
     }
 
     /**
@@ -207,6 +244,7 @@ class ShipmentShipmentsBuilderTest extends TestCase
                 'getShipmentsCollection',
                 'getStoreId',
                 'getPayment',
+                'getAllItems',
             ])
             ->addMethods(['setFirstCaptureFlag'])
             ->getMock();
@@ -219,6 +257,7 @@ class ShipmentShipmentsBuilderTest extends TestCase
         $order->method('getStoreId')->willReturn(1);
         $order->method('getInvoiceCollection')->willReturn([]);
         $order->method('getShipmentsCollection')->willReturn([]);
+        $order->method('getAllItems')->willReturn($items);
         $order->method('getItemById')->willReturnCallback(
             static function ($id) use ($items): ?OrderItem {
                 foreach ($items as $item) {
