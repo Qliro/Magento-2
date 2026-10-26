@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.20] - 2026-10-23
+
+### Fixed
+
+- A guest who opens My Subscriptions (`checkout/qliro_recurring/history`) is sent to the login page and back to the page after logging in, instead of getting a 500 "Invalid return type". The page relied on core's login plugin for customer account pages, which answers a guest with nothing and leaves the redirect to the deprecated controller base the page no longer extends. It checks the login itself now. With recurring payments off, a guest gets the 404 straight away instead of the login page first
+
+### Added
+
+- `Test/Unit/Controller/Qliro/Recurring/HistoryTest`, and a case in `ActionInterfacesTest` that keeps every controller off the deprecated base away from core's login plugin
+- `Test/E2e/tests/subscriptions-page.spec.ts` for a guest and a logged in customer on the page. It turns recurring payments on for its run and restores the setting
+
 ## [1.8.19] - 2026-10-26
 
 ### Fixed

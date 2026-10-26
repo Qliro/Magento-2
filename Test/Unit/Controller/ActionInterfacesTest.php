@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Controller;
 
 use Magento\Backend\App\AbstractAction as BackendAction;
+use Magento\Customer\Controller\AccountInterface;
 use Magento\Framework\App\Action\Action;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\CsrfAwareActionInterface;
@@ -89,6 +90,23 @@ class ActionInterfacesTest extends TestCase
         }
 
         self::assertSame([], $missing);
+    }
+
+    /**
+     * Core's login plugin on AccountInterface answers a guest with null, which only the old base turns
+     * into a response; off it the guest gets a 500
+     */
+    public function testNoControllerOffTheActionBaseLeavesTheLoginToCore(): void
+    {
+        $offenders = [];
+
+        foreach ($this->controllerClasses() as $class) {
+            if (is_subclass_of($class, AccountInterface::class) && !is_subclass_of($class, Action::class)) {
+                $offenders[] = $class;
+            }
+        }
+
+        self::assertSame([], $offenders);
     }
 
     /**
