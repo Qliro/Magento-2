@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.8.16] - 2026-10-23
+
+### Fixed
+
+- The `qliroone:api:*` console commands print Qliro's data as it is. They passed the order payload and the error messages to `fprintf` as the format, so a `%` in an item name or an error ended the command with a PHP error before it printed anything
+- A failed call to Qliro is printed instead of ending in a PHP error. The commands looked for the HTTP exchange right under the exception the client throws, while it is two levels down, and a timeout or refused connection has no response at all. The request URI, which came out as `{}`, and the response body, which came out empty, are printed too, a timeout prints the request it gave up on, and credentials and personal data in them are masked as in the log. `qliroone:api:test` caught an exception the client never throws and now prints the failure the same way
+- The `create` argument of `qliroone:api:getorder` is read as a boolean, so `false` no longer asks for a Magento order, and a value that is not a boolean is refused
+- `getorder` and `test` exit with 1 when the call fails, `lock` and `unlock` when the lock was not taken or released
+
+### Added
+
+- `Test/Unit/Console/ApiCommandOutputTest` for output that contains `100%`, `%s` and a tag, for failures with and without Qliro's response, built as the client builds them, for the masking and for the exit codes
+
 ## [1.8.15] - 2026-10-23
 
 ### Fixed
