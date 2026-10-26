@@ -90,15 +90,22 @@ class CaptureCoverage
      *
      * The refusal names the preauthorization, and AddItemsToInvoice refuses any id that is not a
      * capture, so only a capture Qliro has not failed counts. An invoice skips captures other
-     * invoices carry, and of several left takes the one of its own amount.
+     * invoices carry, and of several left takes the one of the amount just sent, else the one of
+     * its own amount. A capture of a discounted order need not be its invoice's amount: an order
+     * level discount line goes whole with one capture, and a per unit discount is divided to the öre.
      *
      * @param AdminOrderPaymentTransactionInterface[] $transactions
      * @param Order $order
      * @param Invoice|null $invoice
+     * @param float|null $sentTotal The total of the refused request, null when it is not known
      * @return int|null
      */
-    public function captureAtQliro(array $transactions, Order $order, ?Invoice $invoice = null): ?int
-    {
+    public function captureAtQliro(
+        array $transactions,
+        Order $order,
+        ?Invoice $invoice = null,
+        ?float $sentTotal = null
+    ): ?int {
         $spent = $invoice ? $this->invoiceTransactions($order, (int)$invoice->getId()) : [];
         $open = [];
 
@@ -112,12 +119,31 @@ class CaptureCoverage
             }
         }
 
-        if (count($open) > 1 && $invoice !== null) {
-            $total = (float)$invoice->getGrandTotal();
-            $open = array_filter($open, fn (float $amount) => abs($amount - $total) < 0.005);
+        if (count($open) > 1) {
+            $open = $this->ofAmount($open, $sentTotal)
+                ?? $this->ofAmount($open, $invoice ? (float)$invoice->getGrandTotal() : null)
+                ?? [];
         }
 
         return count($open) === 1 ? (int)array_key_first($open) : null;
+    }
+
+    /**
+     * The one capture of this amount, null when there is no amount or not exactly one
+     *
+     * @param array<int, float> $open
+     * @param float|null $amount
+     * @return array<int, float>|null
+     */
+    private function ofAmount(array $open, ?float $amount): ?array
+    {
+        if ($amount === null) {
+            return null;
+        }
+
+        $matching = array_filter($open, fn (float $captured) => abs($captured - $amount) < 0.005);
+
+        return count($matching) === 1 ? $matching : null;
     }
 
     /**

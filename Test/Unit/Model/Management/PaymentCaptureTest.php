@@ -357,6 +357,35 @@ class PaymentCaptureTest extends TestCase
     }
 
     /**
+     * A capture of a discounted order need not be its invoice's amount, so the amount the refused
+     * request asked for is what picks it out of several
+     */
+    public function testAnAlreadyShippedInvoiceLooksForTheAmountItSent(): void
+    {
+        $capture = $this->buildCapture();
+        $this->invoice = $this->createMock(Invoice::class);
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_NO_ITEMS_LEFT, 'Nothing left to ship');
+        $transactions = $this->qliroAnswers();
+        $line = static fn(string $reference, int $quantity, float $price) => (new QliroOrderItem())
+            ->setMerchantReference($reference)
+            ->setQuantity($quantity)
+            ->setPricePerItemIncVat($price);
+        $this->shipmentLines = [(new QliroShipment())->setOrderItems([
+            $line('5:SKU', 2, 199.00),
+            $line('DSC_5:SKU', 1, -33.33),
+            $line('DSC_5:SKU_R', 1, -33.34),
+        ])];
+        $this->captureCoverage->expects(self::once())
+            ->method('captureAtQliro')
+            ->with($transactions, $this->order, $this->invoice, 331.33)
+            ->willReturn(331743203);
+
+        $capture->captureByInvoice($this->buildPayment(), 331.34);
+
+        self::assertSame(331743203, $this->appliedTransactionId);
+    }
+
+    /**
      * The capture a shipment row already holds gets no payment row on top: the newest row of a
      * transaction is the one Qliro's confirmation is routed by
      */

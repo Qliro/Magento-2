@@ -306,7 +306,7 @@ class Payment extends AbstractManagement
                 $fromQliroOrder = !$order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
                 $order->setData(
                     self::QLIRO_CAPTURE_TRANSACTION_ID,
-                    $this->refusedTransactionId($order, $link->getQliroOrderId(), $invoice)
+                    $this->refusedTransactionId($order, $link->getQliroOrderId(), $invoice, $request)
                 );
                 $this->adoptCaptureTransaction($order, $payment, $link, 'invoice', $fromQliroOrder);
 
@@ -511,9 +511,10 @@ class Payment extends AbstractManagement
      * @param Order $order
      * @param int $qliroOrderId
      * @param \Magento\Sales\Model\Order\Invoice|null $invoice
+     * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface|null $request
      * @return int|null
      */
-    private function refusedTransactionId(Order $order, $qliroOrderId, $invoice = null)
+    private function refusedTransactionId(Order $order, $qliroOrderId, $invoice = null, $request = null)
     {
         $fromThisRequest = $order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
 
@@ -540,8 +541,32 @@ class Payment extends AbstractManagement
         return $this->captureCoverage->captureAtQliro(
             $qliroOrder ? ($qliroOrder->getPaymentTransactions() ?: []) : [],
             $order,
-            $invoice
+            $invoice,
+            $request ? $this->requestTotal($request) : null
         );
+    }
+
+    /**
+     * What a capture request asks Qliro for, null when it holds no lines to add up
+     *
+     * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface $request
+     * @return float|null
+     */
+    private function requestTotal($request)
+    {
+        $total = null;
+
+        foreach ($request->getShipments() ?: [] as $shipment) {
+            if (!$shipment instanceof QliroShipmentInterface) {
+                continue;
+            }
+
+            foreach ($shipment->getOrderItems() ?: [] as $line) {
+                $total = ($total ?? 0.0) + (float)$line->getPricePerItemIncVat() * (float)$line->getQuantity();
+            }
+        }
+
+        return $total === null ? null : round($total, 2);
     }
 
     /**
@@ -699,7 +724,7 @@ class Payment extends AbstractManagement
                 $fromQliroOrder = !$order->getData(self::QLIRO_CAPTURE_TRANSACTION_ID);
                 $order->setData(
                     self::QLIRO_CAPTURE_TRANSACTION_ID,
-                    $this->refusedTransactionId($order, $link->getQliroOrderId())
+                    $this->refusedTransactionId($order, $link->getQliroOrderId(), null, $request)
                 );
                 $this->adoptCaptureTransaction($order, null, $link, 'shipment', $fromQliroOrder);
 

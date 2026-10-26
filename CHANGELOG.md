@@ -13,6 +13,7 @@
 - A merchant payment of a subscription records its reservation the same way, so its captures repeat the lines it reserved (PLIN-493)
 - The `ROUNDING` line of a reservation is left out of the recorded discount lines, its own handler replays it on the first capture, so a capture never carries it twice (PLIN-493)
 - A cart the per line discounts would take to Qliro's 200 lines keeps one `DSC_ORDER` line for the whole discount, captured as an order level line, which leaves room for the rounding line. A Qliro order whose lines hold none of a discounted cart's discount is not recorded, so its capture sends the one order level line rather than none (PLIN-493)
+- A capture Qliro refuses as already shipped, with more than one capture on the order, is matched by the amount the refused request asked for before the invoice's own amount. A capture of a discounted order need not be its invoice's amount, and the invoice would otherwise complete without its capture's transaction id, which a refund of it looks for (PLIN-493)
 
 ### Changed
 
