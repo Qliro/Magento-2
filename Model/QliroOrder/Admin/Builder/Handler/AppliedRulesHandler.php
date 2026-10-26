@@ -23,7 +23,7 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
     public const FINAL_CAPTURE_FLAG = 'qliro_final_capture';
 
     /**
-     * The order level lines a capture before 1.8.13 sent, for the payment to add to its count
+     * The order level lines a capture before 1.8.19 sent, for the payment to add to its count
      */
     public const SENT_BEFORE_RECORDING = 'qliro_discount_sent_before_recording';
 
@@ -139,7 +139,7 @@ final class AppliedRulesHandler implements OrderItemHandlerInterface
     }
 
     /**
-     * The single discount line an order placed before 1.8.13 was reserved with, built as it was then
+     * The single discount line an order placed before 1.8.19 was reserved with, built as it was then
      *
      * @param Order $order
      * @return array

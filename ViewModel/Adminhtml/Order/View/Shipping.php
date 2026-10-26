@@ -81,7 +81,8 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
             $shipInfo = $this->getShippingInfoFromOrder($order);
             $locationData = [];
             if (null !== $shipInfo) {
-                $locationData = $shipInfo->getDataByPath('payload/agent');
+                $agent = $shipInfo->getDataByPath('payload/agent');
+                $locationData = is_array($agent) ? array_filter($agent, 'is_scalar') : [];
             }
             $this->locationObj = $this->dataObjectFactory->create()->setData($locationData);
         }
@@ -97,6 +98,9 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
     public function getPostalAddressLine(Order $order): string
     {
         $address = $this->sourceShippingAddress($order);
+        if (null === $address) {
+            return '';
+        }
         $postalLineFormat = '%s %s';
         if ($address->getCountryId()) {
             $postalLineFormat .= ', %s';
@@ -121,7 +125,7 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
     public function getStreetAddressLines(Order $order): array
     {
         $address = $this->sourceShippingAddress($order);
-        return $address->getStreet();
+        return $address ? $address->getStreet() : [];
     }
 
     /**
@@ -130,7 +134,7 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
      */
     public function isQliroUnifaunShipping(Order $order): bool
     {
-        return (string)$order->getShippingMethod(true)->getCarrierCode() === Unifaun::QLIRO_UNIFAUN_SHIPPING;
+        return $this->getCarrierCode($order) === Unifaun::QLIRO_UNIFAUN_SHIPPING;
     }
 
     /**
@@ -139,16 +143,27 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
      */
     public function isQliroIngridShipping(Order $order): bool
     {
-        return (string)$order->getShippingMethod(true)->getCarrierCode() === Ingrid::QLIRO_INGRID_SHIPPING;
+        return $this->getCarrierCode($order) === Ingrid::QLIRO_INGRID_SHIPPING;
+    }
+
+    /**
+     * Carrier part of the shipping method, empty when the order has none
+     *
+     * @param Order $order
+     * @return string
+     */
+    private function getCarrierCode(Order $order): string
+    {
+        return explode('_', (string)$order->getShippingMethod(), 2)[0];
     }
 
     /**
      * Get shipping address either from order or from shipping location info
      *
      * @param Order $order
-     * @return Address
+     * @return Address|null
      */
-    private function sourceShippingAddress(Order $order): Address
+    private function sourceShippingAddress(Order $order): ?Address
     {
         if (null === $this->sourcedAddress) {
             $address = $order->getShippingAddress();
@@ -165,7 +180,7 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
 
     /**
      * @param Order $order
-     * @return DataObject
+     * @return DataObject|null
      */
     private function getShippingInfoFromOrder(Order $order): ?DataObject
     {
@@ -173,8 +188,8 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
             return null;
         }
 
-        $qliroShippingInfo = $order->getPayment()->getAdditionalInformation()['qliroone_shipping_info'] ?? [];
-        if (count($qliroShippingInfo) < 1) {
+        $qliroShippingInfo = $order->getPayment()?->getAdditionalInformation()['qliroone_shipping_info'] ?? [];
+        if (!is_array($qliroShippingInfo) || count($qliroShippingInfo) < 1) {
             return null;
         }
         return $this->dataObjectFactory->create()->setData($qliroShippingInfo);
@@ -213,30 +228,48 @@ class Shipping implements \Magento\Framework\View\Element\Block\ArgumentInterfac
         if (!$this->isQliroIngridShipping($order)) {
             return [];
         }
-        $ingridShippingInfo = $order->getPayment()->getAdditionalInformation()['qliroone_shipping_info'] ?? [];
-        
-        if (count($ingridShippingInfo) < 1) {
+        $ingridShippingInfo = $order->getPayment()?->getAdditionalInformation()['qliroone_shipping_info'] ?? [];
+        $session = is_array($ingridShippingInfo) ? ($ingridShippingInfo['payload']['session'] ?? null) : null;
+        if (!is_array($session)) {
             return [];
         }
+        $deliveryGroup = $session['delivery_groups'][0] ?? [];
+        $deliveryGroup = is_array($deliveryGroup) ? $deliveryGroup : [];
         $qliroShippingInfo = [
-            'checkout_session_id' => $ingridShippingInfo['payload']['session']['checkout_session_id'],
-            'tos_id' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['tos_id'],
-            'category' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['category']['name'],
-            'carrier' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['carrier'],
-            'carrier_product_id' => $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['carrier_product_id']
+            'checkout_session_id' => $this->toText($session['checkout_session_id'] ?? null),
+            'tos_id' => $this->toText($deliveryGroup['tos_id'] ?? null),
+            'category' => $this->toText($deliveryGroup['category']['name'] ?? null),
+            'carrier' => $this->toText($deliveryGroup['shipping']['carrier'] ?? null),
+            'carrier_product_id' => $this->toText($deliveryGroup['shipping']['carrier_product_id'] ?? null)
         ];
-        if (isset($ingridShippingInfo['payload']['session']['delivery_groups'][0]['addresses']['location'])) {
-            $qliroShippingInfo['location'] = $ingridShippingInfo['payload']['session']['delivery_groups'][0]['addresses']['location']['name'];
-            $qliroShippingInfo['pickup_point_id'] = $ingridShippingInfo['payload']['session']['delivery_groups'][0]['addresses']['location']['external_id'];
+        $location = $deliveryGroup['addresses']['location'] ?? null;
+        if (is_array($location)) {
+            $qliroShippingInfo['location'] = $this->toText($location['name'] ?? null);
+            $qliroShippingInfo['pickup_point_id'] = $this->toText($location['external_id'] ?? null);
         }
-        if (isset($ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['meta']['isb.availability_token'])) {
-            $qliroShippingInfo['instabox_availability_token'] = $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['meta']['isb.availability_token'];
+        $token = $deliveryGroup['shipping']['meta']['isb.availability_token'] ?? null;
+        if (isset($token)) {
+            $qliroShippingInfo['instabox_availability_token'] = $this->toText($token);
         }
-        if (isset($ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['delivery_addons'])) {
-            $qliroShippingInfo['delivery_addons'] = implode(', ', array_map(function($addon) {
-                return $addon['external_addon_id'];
-            }, $ingridShippingInfo['payload']['session']['delivery_groups'][0]['shipping']['delivery_addons']));
+        $addons = $deliveryGroup['shipping']['delivery_addons'] ?? null;
+        if (isset($addons)) {
+            $qliroShippingInfo['delivery_addons'] = is_array($addons)
+                ? implode(', ', array_filter(array_map(function ($addon) {
+                    return $this->toText(is_array($addon) ? ($addon['external_addon_id'] ?? null) : $addon);
+                }, $addons), 'strlen'))
+                : $this->toText($addons);
         }
         return $qliroShippingInfo;
+    }
+
+    /**
+     * Stored value as text, empty when it is missing or not a scalar
+     *
+     * @param mixed $value
+     * @return string
+     */
+    private function toText($value): string
+    {
+        return is_scalar($value) ? (string)$value : '';
     }
 }

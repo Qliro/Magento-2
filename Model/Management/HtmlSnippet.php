@@ -46,7 +46,7 @@ class HtmlSnippet extends AbstractManagement
      * @return string
      * @throws AlreadyPlacedException
      */
-    public function fetch()
+    public function fetch(): string
     {
         try {
             $this->linkRepository->unlock((int)$this->getQuote()->getId());
@@ -62,7 +62,7 @@ class HtmlSnippet extends AbstractManagement
      *
      * @return string
      */
-    public function get()
+    public function get(): string
     {
         try {
             return $this->fetch();
@@ -80,7 +80,7 @@ class HtmlSnippet extends AbstractManagement
              */
             $this->logManager->debug('The cart cannot be paid for with Qliro: ' . $exception->getMessage());
 
-            return $this->escaper->escapeHtml($exception->getMessage());
+            return (string)$this->escaper->escapeHtml($exception->getMessage());
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 sprintf(
@@ -93,7 +93,11 @@ class HtmlSnippet extends AbstractManagement
             $openTag = '<a href="javascript:;" onclick="location.reload(true)">';
             $closeTag = '</a>';
 
-            return __('QliroOne Checkout has failed to load. Please try to %1reload page%2.', $openTag, $closeTag);
+            return (string)__(
+                'QliroOne Checkout has failed to load. Please try to %1reload page%2.',
+                $openTag,
+                $closeTag
+            );
         }
     }
 }

@@ -26,6 +26,53 @@
 
 - Unit tests for the per unit split and the units an öre more, a discount within an öre a unit of the price, a configurable, a dynamic bundle, the shipping discount, a first partial invoice worth less than the order discount, the units an öre more on the last units, a whole order invoice, an order captured before this release, a new order shipped after an invoice, the last shipment past a virtual item, and the count of accepted units on the payment (PLIN-493)
 
+## [1.8.18] - 2026-10-23
+
+### Fixed
+
+- `HtmlSnippet::get()` returned a `Phrase` instead of a string when the checkout failed to load. It now returns the message with the reload link as a string, and `get()` and `fetch()` declare a `string` return type
+
+### Added
+
+- `Test/Unit/Model/Management/HtmlSnippetTest` for the snippet, the pending-page redirect, the unsupported cart message and the failure message
+
+## [1.8.17] - 2026-10-23
+
+### Fixed
+
+- The admin order view opens for an order that is not virtual and has no shipping method, for example one created or imported without a delivery choice, and says "No shipping information available". The module replaces core's shipping block on every order view, and its Unifaun and Ingrid checks called a method on the empty value Magento returns for such an order, so the page failed. A shipping method without an underscore no longer fails the page either
+- The order view no longer fails on incomplete shipping details: Ingrid details without a session or a delivery group, Unifaun or Ingrid details stored as something other than an array, a Unifaun order without a shipping address, or an order without a payment record. Unifaun and Ingrid fields that are missing or not text show empty, and the Ingrid session id shows without a delivery group
+
+### Added
+
+- `Test/Unit/ViewModel/Adminhtml/Order/View/ShippingTest` for the carrier checks and the shipping block of the order view
+
+## [1.8.16] - 2026-10-23
+
+### Fixed
+
+- The `qliroone:api:*` console commands print Qliro's data as it is. They passed the order payload and the error messages to `fprintf` as the format, so a `%` in an item name or an error ended the command with a PHP error before it printed anything
+- A failed call to Qliro is printed instead of ending in a PHP error. The commands looked for the HTTP exchange right under the exception the client throws, while it is two levels down, and a timeout or refused connection has no response at all. The request URI, which came out as `{}`, and the response body, which came out empty, are printed too, a timeout prints the request it gave up on, and credentials and personal data in them are masked as in the log. `qliroone:api:test` caught an exception the client never throws and now prints the failure the same way
+- The `create` argument of `qliroone:api:getorder` is read as a boolean, so `false` no longer asks for a Magento order, and a value that is not a boolean is refused
+- `getorder` and `test` exit with 1 when the call fails, `lock` and `unlock` when the lock was not taken or released
+
+### Added
+
+- `Test/Unit/Console/ApiCommandOutputTest` for output that contains `100%`, `%s` and a tag, for failures with and without Qliro's response, built as the client builds them, for the masking and for the exit codes
+
+## [1.8.15] - 2026-10-23
+
+### Fixed
+
+- A placement that fails no longer takes the order out of reach. The link was deactivated on any error, so every later callback from Qliro answered that the order was not found, the merchant reference was never updated, and a cancel in Magento never reached Qliro. The link now stays active, and the next callback or poll tries again
+- A retry links the order an earlier attempt already committed instead of placing a second one. Core saves the order before its submit observers run, so an attempt can fail with the order in place. Only such an order still new, pending payment or on hold is linked. One that was canceled, shipped or invoiced in the meantime is not brought back
+- The link gets the order id only after the payment transaction is saved. Without that transaction Magento cancels the order offline and Qliro keeps the reservation
+- A PHP error during placement from the pending page releases the lock at once, instead of leaving callbacks pending for up to ten minutes
+
+### Added
+
+- `Test/Unit/Model/Management/PlaceOrderRetryTest` and `Test/Unit/Model/Order/PlacedOrderFinderTest`
+
 ## [1.8.14] - 2026-10-21
 
 ### Fixed

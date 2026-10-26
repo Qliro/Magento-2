@@ -139,7 +139,6 @@ class Management extends AbstractManagement implements ManagementInterface
     /**
      * Fetch an HTML snippet from QliroOne order
      *
-     * @param \Magento\Quote\Model\Quote $quote
      * @return string
      */
     public function getHtmlSnippet()
