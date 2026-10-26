@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.8.13] - 2026-10-21
+## [1.8.19] - 2026-10-26
 
 ### Fixed
 
@@ -24,6 +24,13 @@
 ### Added
 
 - Unit tests for the per unit split and its remainder, a configurable, a dynamic bundle, the shipping discount, a first partial invoice worth less than the order discount, the remainder on the last units, a whole order invoice, an order captured before this release, a new order shipped after an invoice, the last shipment past a virtual item, and the count of accepted units on the payment (PLIN-493)
+
+## [1.8.14] - 2026-10-21
+
+### Fixed
+
+- A private buyer with a company on the address, such as a delivery to a workplace, no longer gets their personal number in `vat_id`: Qliro's juridical type `Physical` now rules the number out
+- A company name that starts with a digit, `5560011982 3M Svenska AB`, now loses the organisation number in front of it. A number that goes on after a hyphen, dot or slash, `964969-1240 AB`, is still read as one longer number and kept
 
 ## [1.8.12] - 2026-10-21
 
