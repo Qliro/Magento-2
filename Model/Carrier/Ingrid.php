@@ -16,6 +16,8 @@ use Magento\Quote\Api\CartRepositoryInterface;
 class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
     \Magento\Shipping\Model\Carrier\CarrierInterface
 {
+    use TitlesFromDescription;
+
     const QLIRO_INGRID_SHIPPING = 'qliroingrid';
     const QLIRO_INGRID_SHIPPING_CODE = self::QLIRO_INGRID_SHIPPING . '_' . self::QLIRO_INGRID_SHIPPING;
 
@@ -138,15 +140,7 @@ class Ingrid extends \Magento\Shipping\Model\Carrier\AbstractCarrier implements
 
         $method->setMethod($this->_code);
         $method->setMethodTitle($this->getConfigData('name'));
-        if(count($request->getAllItems())){
-            $this->quoteId = $request->getAllItems()[0]->getQuoteId();
-            $quote = $this->quoteRepository->get($this->quoteId);
-            if($quote->getShippingAddress()->getShippingDescription() && strpos($quote->getShippingAddress()->getShippingDescription(), 'Ingrid - ') !== false) {
-                $shipingMethod = explode(' - ', $quote->getShippingAddress()->getShippingDescription());
-                $method->setCarrierTitle($shipingMethod[0]);
-                $method->setMethodTitle($shipingMethod[1]);
-            }
-        }
+        $this->applyTitlesFromDescription($this->resolveQuote($request), $method, 'Ingrid');
 
         $amount = $this->getShippingPrice();
 

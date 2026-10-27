@@ -1,6 +1,19 @@
 
 # Change Log
 
+## [1.8.25] - 2026-10-27
+
+### Fixed
+
+- `OrderSourceProvider::getSourceItemByMerchantReference()` returns the order item or null instead of a TypeError when no item has the quote item id of the reference, as with the bare sku of an order placed before 1.7.42. It finds the item by sku, then by the product that has the sku, so a configurable line gets its child, and it skips items whose product is gone. It also reads the line metadata the type handlers pass. Nothing in the module calls it on the order side yet
+- `QuoteSourceProvider`, used by the checkout, finds the cart item of a bare sku in the line metadata instead of failing on it. Both providers read references through `LineReference`, so a sku with a colon stays whole
+- The Unifaun and Ingrid rates no longer fail on a request without items, with items not keyed from 0, or on a description like `Unifaun -X`. The titles are split where the provider name and ` - ` stand, so a service name with ` - ` stays whole, and a request without items no longer prices from the previous quote's link
+
+### Added
+
+- Unit tests for both source providers, `LineReference::fromMetadata()` and the carrier titles
+- `Test/E2e/tests/source-item-lookup.spec.ts` with `seed/seed-configurable-order.php`: lookups on a placed order, a configurable order and a guest cart, and the carrier titles through the guest shipping estimate
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed
