@@ -21,6 +21,7 @@ use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterfaceFactory;
 use Qliro\QliroOne\Api\StockAvailabilityInterface;
+use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -57,6 +58,7 @@ class ValidateOrderBuilder
      * @param CartRepositoryInterface|null $quoteRepository
      * @param StoreManagerInterface|null $storeManager
      * @param Emulation|null $storeEmulation
+     * @param LineDifferences|null $lineDifferences
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -70,7 +72,8 @@ class ValidateOrderBuilder
         private WholeQuantityValidator $wholeQuantityValidator,
         private ?CartRepositoryInterface $quoteRepository = null,
         private ?StoreManagerInterface $storeManager = null,
-        private ?Emulation $storeEmulation = null
+        private ?Emulation $storeEmulation = null,
+        private ?LineDifferences $lineDifferences = null
     ) {
     }
 
@@ -498,7 +501,7 @@ class ValidateOrderBuilder
     }
 
     /**
-     * These three are resolved on first use, Magento passes null for an optional argument instead of injecting it
+     * These are resolved on first use, Magento passes null for an optional argument instead of injecting it
      *
      * @return CartRepositoryInterface
      */
@@ -516,6 +519,11 @@ class ValidateOrderBuilder
     private function getStoreEmulation(): Emulation
     {
         return $this->storeEmulation ??= ObjectManager::getInstance()->get(Emulation::class);
+    }
+
+    private function getLineDifferences(): LineDifferences
+    {
+        return $this->lineDifferences ??= ObjectManager::getInstance()->get(LineDifferences::class);
     }
 
     /**
@@ -563,23 +571,9 @@ class ValidateOrderBuilder
      */
     private function compareQuoteAndQliroOrderItems($quoteItems, $qliroOrderItems)
     {
-        $hashedQuoteItems = [];
-        $hashedQliroItems = [];
-
-        $skipTypes = [QliroOrderItemInterface::TYPE_SHIPPING, QliroOrderItemInterface::TYPE_FEE];
-
         if (!$quoteItems) {
             $this->logValidateError('compareQuoteAndQliroOrderItems','no Cart Items');
             return false;
-        }
-
-        // Gather order items converted from quote and hash them for faster search
-        foreach ($quoteItems as $quoteItem) {
-            if (!in_array($quoteItem->getType(), $skipTypes)) {
-                if (!$this->hashLine($hashedQuoteItems, $quoteItem, 'cart')) {
-                    return false;
-                }
-            }
         }
 
         if (!$qliroOrderItems) {
@@ -587,132 +581,10 @@ class ValidateOrderBuilder
             return false;
         }
 
-        // Gather order items from QliroOne order and hash them for faster search, then try to see a diff
-        foreach ($qliroOrderItems as $qliroOrderItem) {
-            if (!in_array($qliroOrderItem->getType(), $skipTypes)) {
-                $hash = $qliroOrderItem->getMerchantReference();
+        $differences = $this->getLineDifferences()->between($quoteItems, $qliroOrderItems);
 
-                if (!$this->hashLine($hashedQliroItems, $qliroOrderItem, 'Qliro order')) {
-                    return false;
-                }
-
-                if (!isset($hashedQuoteItems[$hash])) {
-                    $this->logValidateError('compareQuoteAndQliroOrderItems','hashedQuoteItems failed');
-                    return false;
-                }
-
-                if (!$this->compareItems($hashedQuoteItems[$hash], $hashedQliroItems[$hash])) {
-                    return false;
-                }
-            }
-        }
-
-        // Try to see a diff between order items converted from quote and from QliroOne order
-        foreach ($quoteItems as $quoteItem) {
-            if (!in_array($quoteItem->getType(), $skipTypes)) {
-                $hash = $quoteItem->getMerchantReference();
-
-                if (!isset($hashedQliroItems[$hash])) {
-                    $this->logValidateError('compareQuoteAndQliroOrderItems','$hashedQliroItems failed');
-                    return false;
-                }
-
-                if (!$this->compareItems($hashedQuoteItems[$hash], $hashedQliroItems[$hash])) {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /**
-     * Index a line by its merchant reference, refusing a reference that stands for two lines
-     *
-     * The comparison below can only tell the two sides apart by this reference, and Qliro merges
-     * lines that share one and sums their quantity, so a repeated reference has to end the
-     * comparison: whichever line the index kept, the amounts of the other one went unchecked and
-     * accepting them is what this callback exists to prevent. The module keeps the reference
-     * unique per cart line, so this is a store's own line builder or a third party (PLIN-408).
-     *
-     * @param QliroOrderItemInterface[] $index
-     * @param QliroOrderItemInterface $item
-     * @param string $side
-     * @return bool
-     */
-    private function hashLine(array &$index, QliroOrderItemInterface $item, string $side): bool
-    {
-        $reference = $item->getMerchantReference();
-
-        if (isset($index[$reference])) {
-            $this->logValidateError(
-                'compareQuoteAndQliroOrderItems',
-                'merchant reference stands for more than one line',
-                ['side' => $side, 'merchant_reference' => $reference]
-            );
-
-            return false;
-        }
-
-        $index[$reference] = $item;
-
-        return true;
-    }
-
-    /**
-     * Compare two QliroOne order items
-     *
-     * @param QliroOrderItemInterface $item1
-     * @param QliroOrderItemInterface $item2
-     * @return bool
-     */
-    private function compareItems(QliroOrderItemInterface $item1, QliroOrderItemInterface $item2): bool
-    {
-        if ($item1->getPricePerItemExVat() != $item2->getPricePerItemExVat()) {
-            $this->logValidateError(
-                'compareItems',
-                'pricePerItemExVat different',
-                [
-                    'item1' => $item1->getPricePerItemExVat(),
-                    'item2' => $item2->getPricePerItemExVat()
-                ]
-            );
-            return false;
-        }
-
-        if ($item1->getPricePerItemIncVat() != $item2->getPricePerItemIncVat()) {
-            $this->logValidateError(
-                'compareItems',
-                'pricePerItemIncVat different',
-                [
-                    'item1' => $item1->getPricePerItemIncVat(),
-                    'item2' => $item2->getPricePerItemIncVat()
-                ]
-            );
-            return false;
-        }
-
-        if ($item1->getQuantity() != $item2->getQuantity()) {
-            $this->logValidateError(
-                'compareItems',
-                'quantity different',
-                [
-                    'item1' => $item1->getQuantity(),
-                    'item2' => $item2->getQuantity()
-                ]
-            );
-            return false;
-        }
-
-        if ($item1->getType() != $item2->getType()) {
-            $this->logValidateError(
-                'compareItems',
-                'type different',
-                [
-                    'item1' => $item1->getType(),
-                    'item2' => $item2->getType()
-                ]
-            );
+        if ($differences) {
+            $this->logValidateError('compareQuoteAndQliroOrderItems', 'lines differ', ['lines' => $differences]);
             return false;
         }
 

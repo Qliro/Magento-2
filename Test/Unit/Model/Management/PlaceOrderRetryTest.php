@@ -37,6 +37,8 @@ use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
+use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 
 /**
  * @see \Qliro\QliroOne\Model\Management\PlaceOrder::execute
@@ -60,6 +62,7 @@ class PlaceOrderRetryTest extends TestCase
     private LinkInterface&MockObject $link;
     private QliroOrderInterface&MockObject $qliroOrder;
     private Quote&MockObject $quote;
+    private OrderItemsBuilder&MockObject $orderItemsBuilder;
 
     protected function setUp(): void
     {
@@ -88,6 +91,10 @@ class PlaceOrderRetryTest extends TestCase
         $this->quote->method('getId')->willReturn(self::QUOTE_ID);
         $this->quote->method('isVirtual')->willReturn(true);
         $this->quote->method('getPayment')->willReturn($this->createMock(QuotePayment::class));
+
+        $this->orderItemsBuilder = $this->createMock(OrderItemsBuilder::class);
+        $this->orderItemsBuilder->method('setQuote')->willReturnSelf();
+        $this->orderItemsBuilder->method('create')->willReturn([]);
     }
 
     public function testFailedPlacementKeepsTheLinkActive(): void
@@ -284,7 +291,10 @@ class PlaceOrderRetryTest extends TestCase
             $this->createMock(OrganizationNumber::class),
             null,
             $withFinder ? $this->placedOrderFinder : null,
-            $this->createMock(DiscountLines::class)
+            $this->createMock(DiscountLines::class),
+            $this->orderItemsBuilder,
+            new LineDifferences()
         );
     }
+
 }
