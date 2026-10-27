@@ -1,6 +1,26 @@
 
 # Change Log
 
+## [1.8.22] - 2026-10-27
+
+### Fixed
+
+- An order whose product lines differ from the Qliro order is placed on hold. Before placing, the module compares the lines of the recalculated quote with the product lines of the Qliro order the same way the validate callback does: by merchant reference, quantity, price and type, shipping and fee lines left out. Anything that changed the quote between the validate callback and placement used to give a Magento order with other items than the customer paid for, and nothing said so. The order now gets a history comment with every line that differs, its reference and the quantity on each side, and both prices for a price difference. The mismatch is logged as critical with both line lists. An order whose lines match is placed as before
+- The held order gets no order confirmation on Completed, it would list other items than the customer paid for. The merchant sends it from the order once the lines are sorted out
+- The hold stays through Qliro's later status callbacks: a Completed or OnHold status is kept as the state the order returns to when the merchant releases it. A Refused status releases the hold and cancels the order, as for any refused order. This holds for any hold, so a hold the merchant set by hand is no longer lifted by a later checkout status callback or by a retry that takes the order over
+- An order a retry takes over from an earlier attempt is compared and held the same way, once: an order held before and released by the merchant is not held again
+- A comparison that cannot run, for example because an observer of `qliroone_order_item_build_after` throws, is logged as critical and the order is placed without a hold. A cart or a Qliro order without lines is not compared, as in the validate callback. A hold that cannot be saved is logged as critical and does not keep the order from its link
+
+### Changed
+
+- `Qliro\QliroOne\Model\Order\HoldAwareState` sets the state of an order on placement and on the checkout status callbacks, keeping a hold
+- `PlaceOrder` takes an optional `OrderItemsBuilder` and `LineDifferences` after the `DiscountLines`, `ValidateOrderBuilder` an optional `LineDifferences` last, all wired in `etc/di.xml`. The comparison of the validate callback moved to `Qliro\QliroOne\Model\QliroOrder\LineDifferences`, it compares prices to the öre now, so a drift below one öre between two computations of the same price no longer declines the callback, and its log entry lists every line that differs, with the quantities and prices on both sides, in one record
+
+### Added
+
+- Unit tests for `LineDifferences` and `HoldAwareState`, and `PlaceOrderLineDifferencesTest`: a line removed from the quote between validation and placement, matching lines, a Completed and a Refused status on the held order, no confirmation for it, an adopted order, an order held before, a Qliro order without lines, a price difference, a comparison that fails and a hold that cannot be saved
+- `Test/E2e/tests/line-differences-hold.spec.ts`, with a part against the Qliro sandbox. `seed-sandbox-order.php` takes `--second` and `--drop`, and the Qliro order `seed-qliro-order.php` places from now carries the product lines too
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed

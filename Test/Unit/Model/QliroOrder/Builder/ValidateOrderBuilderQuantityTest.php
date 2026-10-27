@@ -25,6 +25,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Notification\ValidateOrderResponse;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
@@ -129,7 +130,8 @@ class ValidateOrderBuilderQuantityTest extends TestCase
             // which a unit test has none of, so they are handed over here
             $this->createMock(CartRepositoryInterface::class),
             $this->createMock(StoreManagerInterface::class),
-            $this->createMock(StoreEmulation::class)
+            $this->createMock(StoreEmulation::class),
+            new LineDifferences()
         );
 
         $builder->setQuote($this->quote($quoteItems));

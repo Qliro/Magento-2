@@ -23,10 +23,13 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\HoldAwareState;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
+use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
@@ -136,6 +139,16 @@ class PlaceOrder extends AbstractManagement
     private DiscountLines $discountLines;
 
     /**
+     * @var OrderItemsBuilder|null
+     */
+    private ?OrderItemsBuilder $orderItemsBuilder;
+
+    /**
+     * @var LineDifferences|null
+     */
+    private ?LineDifferences $lineDifferences;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -157,6 +170,8 @@ class PlaceOrder extends AbstractManagement
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      * @param PlacedOrderFinder|null $placedOrderFinder
      * @param DiscountLines|null $discountLines
+     * @param OrderItemsBuilder|null $orderItemsBuilder
+     * @param LineDifferences|null $lineDifferences
      */
     public function __construct(
         Config $qliroConfig,
@@ -177,7 +192,9 @@ class PlaceOrder extends AbstractManagement
         OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
         ?PlacedOrderFinder $placedOrderFinder = null,
-        ?DiscountLines $discountLines = null
+        ?DiscountLines $discountLines = null,
+        ?OrderItemsBuilder $orderItemsBuilder = null,
+        ?LineDifferences $lineDifferences = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -199,6 +216,9 @@ class PlaceOrder extends AbstractManagement
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
         $this->placedOrderFinder = $placedOrderFinder;
         $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
+        // Taken from the object manager on first use when not passed
+        $this->orderItemsBuilder = $orderItemsBuilder;
+        $this->lineDifferences = $lineDifferences;
     }
 
     /**
@@ -428,8 +448,13 @@ class PlaceOrder extends AbstractManagement
                                 ],
                             ]
                         );
+                        // Held once already, the merchant may have released it since
+                        $heldBefore = $order->getPayment()?->getAdditionalInformation(
+                            Config::QLIROONE_ADDITIONAL_INFO_LINES_DIFFER
+                        );
+                        $lineDifferences = $heldBefore ? [] : $this->compareLines($qliroOrder);
                     } else {
-                        $order = $this->placeFromQuote($link, $qliroOrder);
+                        $order = $this->placeFromQuote($link, $qliroOrder, $lineDifferences);
                     }
 
                     $this->organizationNumber->apply($order, $qliroOrder);
@@ -439,6 +464,10 @@ class PlaceOrder extends AbstractManagement
                     // Before the link gets the order id: a retry only finishes an order whose
                     // link has none, and without this transaction a cancel never reaches Qliro
                     $this->paymentManagement->createPaymentTransaction($order, $qliroOrder, $state);
+
+                    if ($lineDifferences) {
+                        $this->holdForLineDifferences($order, $lineDifferences);
+                    }
 
                     /**
                      * Save the latest Qliro status together with the order id.
@@ -507,11 +536,15 @@ class PlaceOrder extends AbstractManagement
      *
      * @param LinkInterface $link
      * @param QliroOrderInterface $qliroOrder
+     * @param array|null $lineDifferences Set to the lines that differ, see compareLines()
      * @return Order
      * @throws \Exception
      */
-    private function placeFromQuote(LinkInterface $link, QliroOrderInterface $qliroOrder): Order
-    {
+    private function placeFromQuote(
+        LinkInterface $link,
+        QliroOrderInterface $qliroOrder,
+        ?array &$lineDifferences = null
+    ): Order {
         $this->logManager->debug(
             'Placing order',
             [
@@ -533,10 +566,142 @@ class PlaceOrder extends AbstractManagement
         $this->addAdditionalShippingInfoToQuote($qliroOrder);
         $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
         $this->logShippingMismatch($qliroOrder);
+        // Placing loads the quote just saved again, so the order holds these lines
+        $lineDifferences = $this->compareLines($qliroOrder);
 
         $this->logManager->debug('Starting to place order from quote: ' . $this->getQuote()->getId());
 
         return $this->orderPlacer->place($this->getQuote());
+    }
+
+    /**
+     * Compare the lines of the recalculated quote with those Qliro reserved, as the validate callback does
+     *
+     * @param QliroOrderInterface $qliroOrder
+     * @return array[] The lines that differ, see LineDifferences::between()
+     */
+    private function compareLines(QliroOrderInterface $qliroOrder): array
+    {
+        $context = ['qliro_order_id' => $qliroOrder->getOrderId(), 'quote_id' => $this->getQuote()->getId()];
+
+        try {
+            $this->orderItemsBuilder ??= ObjectManager::getInstance()->get(OrderItemsBuilder::class);
+            $this->lineDifferences ??= ObjectManager::getInstance()->get(LineDifferences::class);
+            $qliroLines = $qliroOrder->getOrderItems() ?? [];
+
+            $cartLines = $this->orderItemsBuilder->setQuote($this->getQuote())->create();
+
+            // Nothing to compare, as in the validate callback
+            if (!$qliroLines || !$cartLines) {
+                $this->logManager->notice('The order lines are not compared, one side has none', ['extra' => $context]);
+
+                return [];
+            }
+
+            $differences = $this->lineDifferences->between($cartLines, $qliroLines);
+        } catch (\Throwable $exception) {
+            // The order is paid, a check that cannot run does not stop it
+            $this->logManager->critical(
+                'Could not compare the order lines with the Qliro order: ' . $exception->getMessage(),
+                ['extra' => $context]
+            );
+
+            return [];
+        }
+
+        if ($differences) {
+            $this->logManager->critical(
+                'The order lines differ from the Qliro order',
+                [
+                    'extra' => $context + [
+                        'differences' => $differences,
+                        'cart_lines' => $this->describeLines($cartLines),
+                        'qliro_lines' => $this->describeLines($qliroLines),
+                    ],
+                ]
+            );
+        }
+
+        return $differences;
+    }
+
+    /**
+     * @param QliroOrderItemInterface[] $lines
+     * @return array[]
+     */
+    private function describeLines(array $lines): array
+    {
+        $described = [];
+
+        foreach ($lines as $line) {
+            $described[] = [
+                'merchant_reference' => $line->getMerchantReference(),
+                'type' => $line->getType(),
+                'quantity' => $line->getQuantity(),
+                'price_inc_vat' => $line->getPricePerItemIncVat(),
+            ];
+        }
+
+        return $described;
+    }
+
+    /**
+     * Hold the order and say on it which lines differ, the merchant decides what to ship
+     *
+     * @param Order $order
+     * @param array[] $differences
+     */
+    private function holdForLineDifferences(Order $order, array $differences): void
+    {
+        if ($order->canHold()) {
+            $order->hold();
+        }
+
+        // Set even without a hold: the comment is on the order, and no confirmation goes out for it
+        $order->getPayment()->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_LINES_DIFFER, true);
+
+        if ($order->getState() !== Order::STATE_HOLDED) {
+            $this->logManager->critical(
+                'The order with lines that differ from the Qliro order could not be put on hold',
+                ['extra' => ['order_id' => $order->getId(), 'state' => $order->getState()]]
+            );
+        }
+
+        $lines = [];
+
+        foreach ($differences as $difference) {
+            $line = sprintf(
+                '%s: %s in the order, %s in Qliro (%s)',
+                $difference['merchant_reference'],
+                $difference['cart_quantity'] ?? 0,
+                $difference['qliro_quantity'] ?? 0,
+                $difference['reason']
+            );
+
+            if ($difference['reason'] === LineDifferences::REASON_PRICE) {
+                $line .= sprintf(
+                    ', %s in the order, %s in Qliro including VAT',
+                    $difference['cart_price']['inc_vat'] ?? '',
+                    $difference['qliro_price']['inc_vat'] ?? ''
+                );
+            }
+
+            $lines[] = $line;
+        }
+
+        try {
+            $order->addCommentToStatusHistory(
+                __('The order lines differ from what Qliro reserved, check them before shipping: %1', implode('; ', $lines))
+            )->setIsCustomerNotified(false);
+
+            $this->orderRepository->save($order);
+        } catch (\Throwable $exception) {
+            // The order is paid, a hold that cannot be saved does not keep it from its link. A later save of it may still carry the hold
+            $this->logManager->critical(
+                'Could not save the hold of the order with lines that differ from the Qliro order: ' . $exception->getMessage(),
+                ['extra' => ['order_id' => $order->getId(), 'differences' => $differences]]
+            );
+        }
     }
 
     /**
@@ -570,7 +735,12 @@ class PlaceOrder extends AbstractManagement
 
             switch ($link->getQliroOrderStatus()) {
                 case CheckoutStatusInterface::STATUS_COMPLETED:
-                    if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent()) {
+                    // Held for lines that differ, the merchant sends it once they are sorted out
+                    $linesDiffer = (bool)$order->getPayment()?->getAdditionalInformation(
+                        Config::QLIROONE_ADDITIONAL_INFO_LINES_DIFFER
+                    );
+
+                    if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent() && !$linesDiffer) {
                         try {
                             $this->orderSender->send($order);
                         } catch (\Exception $exception) {
@@ -656,6 +826,14 @@ class PlaceOrder extends AbstractManagement
                     $order->addCommentToStatusHistory(
                         'Customer payment was refused by Qliro. Proceeding with order cancellation.'
                     )->setIsCustomerNotified(false);
+
+                    // A held order cannot be canceled
+                    if ($order->canUnhold()) {
+                        if (!$order->getHoldBeforeState()) {
+                            HoldAwareState::apply($order, Order::STATE_PENDING_PAYMENT);
+                        }
+                        $order->unhold();
+                    }
 
                     $order->getPayment()->setNotificationResult(true);
                     $order->getPayment()->deny(false);
@@ -828,8 +1006,8 @@ class PlaceOrder extends AbstractManagement
             ? $this->qliroConfig->getOrderStatus()
             : $order->getConfig()->getStateDefaultStatus($state);
 
-        $order->setState($state);
-        $order->setStatus($status);
+        // A held order keeps its hold, the state applies once the merchant releases it
+        HoldAwareState::apply($order, $state, $status);
         $this->orderRepository->save($order);
     }
 
