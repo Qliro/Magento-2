@@ -92,11 +92,19 @@ class Data
      */
     public function formatRecurringFrequencyOptionsJson(string $json, ?string $selectedFrequency = null): array
     {
-        $unserializedValue = $this->serializer->unserialize($json);
+        try {
+            $unserializedValue = $this->serializer->unserialize($json);
+        } catch (\InvalidArgumentException $e) {
+            return [];
+        }
+        if (!is_array($unserializedValue)) {
+            return [];
+        }
 
         $formattedOptions = [];
         foreach ($unserializedValue as $key => $option) {
-            if ($key === '__empty') {
+            if ($key === '__empty' || !is_array($option)
+                || !isset($option['frequency'], $option['time_unit'], $option['label'])) {
                 continue;
             }
             $value = $option['frequency'] . '|' . $option['time_unit'];

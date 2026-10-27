@@ -970,7 +970,12 @@ class Config
      */
     public function getRecurringFrequencyOptions($storeId = null): string
     {
-        return $this->adapter->getConfigData(self::QLIROONE_RECURRING_FREQUENCY_OPTIONS, $storeId);
+        $options = $this->adapter->getConfigData(self::QLIROONE_RECURRING_FREQUENCY_OPTIONS, $storeId);
+        if (is_array($options)) {
+            return $this->json->serialize($options);
+        }
+
+        return is_string($options) && $options !== '' ? $options : '[]';
     }
 
     /**
