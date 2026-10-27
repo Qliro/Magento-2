@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.8.23] - 2026-10-27
+
+### Fixed
+
+- The checkout loads with recurring payments on and no frequency options saved, for example when recurring payments were turned on with `config:set`, a config dump or in a scope with no options of its own. `Config::getRecurringFrequencyOptions()` returned the missing value as null where a string was declared, so every checkout page load failed with a TypeError. It returns an empty list now, and the checkout offers no frequency choice. Rows set as an array in `app/etc/config.php` are returned as JSON too
+- `Service\RecurringPayments\Data::formatRecurringFrequencyOptionsJson()` gives an empty list for an empty or invalid value and skips a row without its label, frequency or time unit
+
+### Added
+
+- `Test/Unit/Service/RecurringPayments/DataFrequencyOptionsTest`, `Test/Unit/Model/ConfigRecurringFrequencyOptionsTest`, and a case in `CheckoutConfigProviderTest` that builds the checkout config with recurring payments on and no options saved
+- `Test/E2e/tests/recurring-no-frequency-options.spec.ts` for the cart and the checkout with recurring payments on and no options saved, and with options saved. It sets both settings for its run and restores them
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed
