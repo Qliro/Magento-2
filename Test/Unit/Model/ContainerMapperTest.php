@@ -9,11 +9,13 @@ namespace Qliro\QliroOne\Test\Unit\Model;
 
 use Magento\Framework\ObjectManagerInterface;
 use PHPUnit\Framework\TestCase;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Notification\MerchantNotification;
 use Qliro\QliroOne\Model\Notification\MerchantSavedCreditCard;
 use Qliro\QliroOne\Model\QliroOrder\Item;
+use Qliro\QliroOne\Model\QliroOrder\Shipment;
 
 /**
  * The mapper is strict now, so it has to hand a typed setter the type it declares (PLIN-371)
@@ -89,5 +91,41 @@ class ContainerMapperTest extends TestCase
         $notification = $this->mapper->fromArray([0 => 'x', 'OrderId' => 5], new MerchantNotification());
 
         $this->assertSame(5, $notification->getOrderId());
+    }
+
+    public function testAPayloadIsMappedIntoANewShipment(): void
+    {
+        $objectManager = $this->createMock(ObjectManagerInterface::class);
+        $objectManager->method('create')->willReturnCallback(
+            fn (string $type) => new ([
+                Shipment::class => Shipment::class,
+                QliroOrderItemInterface::class => Item::class,
+            ][ltrim($type, '\\')])()
+        );
+        $mapper = new ContainerMapper($objectManager, $this->createMock(LogManager::class));
+
+        $shipment = $mapper->fromArray(
+            [
+                'PaymentTransactionId' => 5,
+                'OrderItems' => [
+                    ['MerchantReference' => 'SKU-1', 'Quantity' => 2],
+                    ['MerchantReference' => 'SKU-2', 'Quantity' => 1],
+                ],
+            ],
+            Shipment::class
+        );
+
+        $items = $shipment->getOrderItems();
+        $this->assertSame(5, $shipment->getPaymentTransactionId());
+        $this->assertCount(2, $items);
+        $this->assertContainsOnlyInstancesOf(Item::class, $items);
+        $this->assertSame('SKU-1', $items[0]->getMerchantReference());
+        $this->assertSame(2.0, $items[0]->getQuantity());
+        $this->assertSame('SKU-2', $items[1]->getMerchantReference());
+    }
+
+    public function testANewShipmentHasNoOrderItems(): void
+    {
+        $this->assertSame([], (new Shipment())->getOrderItems());
     }
 }

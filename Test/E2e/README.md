@@ -27,7 +27,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/print-pdf-payment-block.php` and `Test/E2e/seed/map-shipment.php` copied to the store's `var/` directory
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
 - `google/gtag/analytics4/active 1` and any `google/gtag/analytics4/measurement_id`, for the same spec, which reads the purchase Magento's own GA4 module pushes
@@ -156,3 +156,9 @@ purchase again on a reload, and one whose report never arrives repeats it on eve
 The fixture puts any order on the caller's session, so besides developer mode it wants the secret
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
+
+## A shipment mapped from a payload
+
+`tests/shipment-mapping.spec.ts` maps a shipment payload into a new Qliro shipment with the store's
+own container mapper and DI, through `seed/map-shipment.php`. It needs no order and no Qliro, so
+`MAGENTO_SKIP_SEED=1` is fine. Without the fix both tests fail on the uninitialised order items.
