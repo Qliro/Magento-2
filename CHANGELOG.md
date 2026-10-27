@@ -1,6 +1,22 @@
 
 # Change Log
 
+## [1.8.21] - 2026-10-27
+
+### Fixed
+
+- The order confirmation went out at placement, also while Qliro still reported the purchase as `InProcess` or `OnHold`, so a buyer could get it for a purchase Qliro then refused. Core sends it from `submit()` unless the order's `can_send_new_email` flag is off, and the module never turned it off. A new observer on `sales_model_service_quote_submit_before` turns it off for Qliro orders, and the confirmation goes out once, when the Qliro status becomes `Completed`, at placement or on a later callback. A refused order gets none. Other payment methods are not affected
+- The send on `Completed` sends when the order's flag is on or the module held the confirmation. When Qliro is `Completed` at placement, an extension that turned the flag off itself still keeps the confirmation back. Subscription orders use the same check
+
+### Changed
+
+- An order placed while Qliro reports `InProcess` or `OnHold` gets its confirmation only when the `Completed` callback reaches the store. A store Qliro cannot call back, for example behind basic auth or with an expired callback token, sends none for such an order
+
+### Added
+
+- `Observer/HoldOrderConfirmation` and unit tests for it and for the confirmation on `Completed` at placement, `InProcess` then `Completed`, `OnHold` then `Completed`, `OnHold` then `Refused`, a repeated `Completed` and a flag another extension turned off, for the checkout and the subscription placement
+- `Test/E2e/tests/order-confirmation.spec.ts`, which places orders with each status, sends the later status on the store's own callback and counts the confirmations in the store's mail. `seed-qliro-order.php` takes `--status` and `--email`, and `seed/order-confirmation.php` places an order with another payment method and reads an order's state
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed

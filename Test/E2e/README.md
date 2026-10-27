@@ -27,7 +27,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/print-pdf-payment-block.php` and `Test/E2e/seed/order-confirmation.php` copied to the store's `var/` directory
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
 - `google/gtag/analytics4/active 1` and any `google/gtag/analytics4/measurement_id`, for the same spec, which reads the purchase Magento's own GA4 module pushes
@@ -156,3 +156,13 @@ purchase again on a reload, and one whose report never arrives repeats it on eve
 The fixture puts any order on the caller's session, so besides developer mode it wants the secret
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
+
+## The order confirmation
+
+`tests/order-confirmation.spec.ts` checks that the confirmation goes out only once Qliro has approved
+the purchase. It places orders with `Completed`, `InProcess` and `OnHold`, sends the later status on
+the store's own checkoutStatus callback and counts the confirmations each buyer got. Qliro does not
+know these orders, so the callback keeps the status it was sent. It reads the store's mail from a
+MailCatcher, `MAGENTO_MAIL_URL`, `http://localhost:1090` by default, needs
+`sales_email/general/async_sending 0` and check / money order enabled for the case of another
+payment method. Reverting the observer turns three of the five red.

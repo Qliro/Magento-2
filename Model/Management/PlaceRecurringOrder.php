@@ -32,6 +32,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
 use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Api\Data\LinkInterface;
+use Qliro\QliroOne\Observer\HoldOrderConfirmation;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
@@ -464,7 +465,8 @@ class PlaceRecurringOrder extends AbstractManagement
                 case CheckoutStatusInterface::STATUS_COMPLETED:
                     $this->applyOrderState($order, Order::STATE_NEW);
 
-                    if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent()) {
+                    $canSend = $order->getCanSendNewEmailFlag() || $order->getData(HoldOrderConfirmation::HELD);
+                    if ($canSend && !$order->getEmailSent()) {
                         try {
                             $this->orderSender->send($order);
                         } catch (\Exception $exception) {
