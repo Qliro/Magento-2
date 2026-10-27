@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.24] - 2026-10-27
+
+### Fixed
+
+- The container mapper can fill a new Qliro shipment from a payload. The shipment had no order items until a builder set them, so reading them before that died on an uninitialised property, and its setter named no item type, so the items of a payload could not be mapped. A new shipment starts with no items, and the items of a payload come back as order items. Nothing maps a payload into a shipment today, the builders set the items first
+
+### Added
+
+- Cases in `ContainerMapperTest` for a payload with order items mapped into a new shipment
+- `Test/E2e/tests/shipment-mapping.spec.ts` runs the store's own mapper on a shipment payload through `Test/E2e/seed/map-shipment.php`
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed
