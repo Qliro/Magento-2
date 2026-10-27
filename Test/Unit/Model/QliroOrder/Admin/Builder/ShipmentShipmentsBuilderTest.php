@@ -146,6 +146,80 @@ class ShipmentShipmentsBuilderTest extends TestCase
         $this->build([$parent, $child], [1 => 2.0, 2 => 2.0]);
     }
 
+    /**
+     * A bundle priced by its children and shipped together leaves only the bundle row in the
+     * shipment. Its children are the lines the checkout charged, each ships its share.
+     */
+    public function testCapturesTheChildrenOfABundleShippedTogether(): void
+    {
+        [$bundle, $first, $second] = $this->bundlePricedByChildren(false);
+
+        // Magento keeps the children in the shipment it builds, marked deleted, and saves the bundle row only
+        $lines = $this->build([$bundle, $first, $second], [1 => 1.0, 2 => 1.0, 3 => 3.0])[0]->getOrderItems();
+
+        self::assertSame(
+            [['1:KIT', 1.0], ['2:KIT-A', 1.0], ['3:KIT-B', 3.0]],
+            array_map(static fn($line): array => [$line->getMerchantReference(), $line->getQuantity()], $lines)
+        );
+    }
+
+    /**
+     * What an earlier capture took of the children is left out, and a child Qliro holds none of
+     * any more is not sent at all. Magento's invoiced quantity cannot tell, an invoice captures
+     * only with capture on invoice on.
+     */
+    public function testLeavesOutWhatQliroAlreadyCapturedOfTheChildren(): void
+    {
+        [$bundle, $first, $second] = $this->bundlePricedByChildren(false);
+        $info = [
+            Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => [
+                'products' => ['1:KIT' => 2, '2:KIT-A' => 4, '3:KIT-B' => 6],
+                'discounts' => [],
+            ],
+            Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => ['1:KIT' => 2, '2:KIT-A' => 4, '3:KIT-B' => 3],
+        ];
+
+        $lines = $this->build([$bundle, $first, $second], [1 => 2.0], $info)[0]->getOrderItems();
+
+        self::assertSame(
+            [['3:KIT-B', 3.0]],
+            array_map(static fn($line): array => [$line->getMerchantReference(), $line->getQuantity()], $lines)
+        );
+    }
+
+    /**
+     * Once Qliro holds none of the children, the zero bundle line is left out too: alone it would be
+     * a capture of nothing.
+     */
+    public function testSendsNoCaptureOfTheZeroBundleLineAlone(): void
+    {
+        [$bundle, $first, $second] = $this->bundlePricedByChildren(false);
+        $info = [
+            Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => [
+                'products' => ['1:KIT' => 2, '2:KIT-A' => 1, '3:KIT-B' => 3],
+                'discounts' => [],
+            ],
+            Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => ['1:KIT' => 1, '2:KIT-A' => 1, '3:KIT-B' => 3],
+        ];
+
+        self::assertSame([], $this->build([$bundle, $first, $second], [1 => 1.0], $info));
+    }
+
+    /**
+     * Shipped separately, the children are rows of the shipment and go out once each.
+     */
+    public function testCapturesTheChildrenOfABundleShippedSeparatelyOnce(): void
+    {
+        [$bundle, $first, $second] = $this->bundlePricedByChildren(true);
+
+        $lines = $this->build([$bundle, $first, $second], [1 => 1.0, 2 => 1.0, 3 => 3.0])[0]->getOrderItems();
+
+        self::assertSame(
+            [['1:KIT', 1.0], ['2:KIT-A', 1.0], ['3:KIT-B', 3.0]],
+            array_map(static fn($line): array => [$line->getMerchantReference(), $line->getQuantity()], $lines)
+        );
+    }
+
     public function testRefusesToBuildWithoutAnOrder(): void
     {
         $this->expectException(\LogicException::class);
@@ -156,12 +230,13 @@ class ShipmentShipmentsBuilderTest extends TestCase
     /**
      * @param OrderItem[] $orderItems
      * @param array<int, float> $shippedQuantities Shipped quantity per order item id
+     * @param array<string, mixed> $info Payment additional information
      * @return QliroShipment[]
      */
-    private function build(array $orderItems, array $shippedQuantities): array
+    private function build(array $orderItems, array $shippedQuantities, array $info = []): array
     {
         $builder = $this->builder();
-        $builder->setShipment($this->shipment($this->order($orderItems), $shippedQuantities));
+        $builder->setShipment($this->shipment($this->order($orderItems, $info), $shippedQuantities));
 
         return $builder->create();
     }
@@ -234,7 +309,7 @@ class ShipmentShipmentsBuilderTest extends TestCase
     /**
      * @param OrderItem[] $items
      */
-    private function order(array $items): Order&MockObject
+    private function order(array $items, array $info = []): Order&MockObject
     {
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
@@ -251,7 +326,7 @@ class ShipmentShipmentsBuilderTest extends TestCase
 
         // The lines go out as this version builds them, see LineReference::alignWithReservation
         $payment = $this->createMock(Payment::class);
-        $payment->method('getAdditionalInformation')->willReturn(true);
+        $payment->method('getAdditionalInformation')->willReturnCallback(static fn($key = null) => $info[$key] ?? true);
 
         $order->method('getPayment')->willReturn($payment);
         $order->method('getStoreId')->willReturn(1);
@@ -271,6 +346,23 @@ class ShipmentShipmentsBuilderTest extends TestCase
         );
 
         return $order;
+    }
+
+    /**
+     * Two bundles ordered, each with one A and three B
+     *
+     * @return OrderItem[]
+     */
+    private function bundlePricedByChildren(bool $shipSeparately): array
+    {
+        $bundle = $this->orderItem('KIT', 2.0, [
+            'id' => 1, 'type' => 'bundle', 'childrenCalculated' => true, 'shipSeparately' => $shipSeparately,
+        ]);
+        $first = $this->orderItem('KIT-A', 2.0, ['id' => 2, 'parentId' => 1, 'shipSeparately' => $shipSeparately]);
+        $second = $this->orderItem('KIT-B', 6.0, ['id' => 3, 'parentId' => 1, 'shipSeparately' => $shipSeparately]);
+        $bundle->method('getChildrenItems')->willReturn([$first, $second]);
+
+        return [$bundle, $first, $second];
     }
 
     private function orderItem(string $sku, float $qtyOrdered, array $data = []): OrderItem&MockObject
@@ -294,6 +386,8 @@ class ShipmentShipmentsBuilderTest extends TestCase
         $item->method('getTaxPercent')->willReturn(25.0);
         $item->method('getParentItemId')->willReturn($data['parentId'] ?? null);
         $item->method('getParentItem')->willReturn(null);
+        $item->method('isChildrenCalculated')->willReturn($data['childrenCalculated'] ?? false);
+        $item->method('isShipSeparately')->willReturn($data['shipSeparately'] ?? false);
         $item->method('getProduct')->willReturn($product);
 
         return $item;

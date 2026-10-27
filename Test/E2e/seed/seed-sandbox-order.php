@@ -8,7 +8,10 @@
  * Needs the store pointed at a Qliro test merchant on staging.
  *
  * Usage, inside the Magento container:
- *   php var/seed-sandbox-order.php [--qty=2]
+ *   php var/seed-sandbox-order.php [--qty=2] [--bundle]
+ *
+ * `--bundle` buys a bundle priced by its children instead, one at 4.79 and one at 34.00, both
+ * Taxable Goods, which the store has to tax for Sweden.
  *
  * Prints one JSON object describing what it created.
  */
@@ -18,8 +21,9 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['qty::']);
+$options = getopt('', ['qty::', 'bundle']);
 $qty = max(1, (int)($options['qty'] ?? 2));
+$withBundle = isset($options['bundle']);
 
 $bootstrap = Bootstrap::create(BP, []);
 $om = $bootstrap->getObjectManager();
@@ -60,13 +64,32 @@ $address = [
 $quote = $om->create(\Magento\Quote\Model\Quote::class);
 $quote->setStore($store);
 $quote->setCurrency();
-$quote->addProduct($product, $qty);
+if ($withBundle) {
+    [$bundle, $buyRequest] = qliroE2eBundle($om, $productRepository, $qty);
+    $added = $quote->addProduct($bundle, $buyRequest);
+
+    if (is_string($added)) {
+        fwrite(STDERR, "The bundle could not be added: $added\n");
+        exit(1);
+    }
+} else {
+    $quote->addProduct($product, $qty);
+}
 $quote->getBillingAddress()->addData($address);
 $quote->getShippingAddress()->addData($address);
 $quote->getShippingAddress()->setCollectShippingRates(true)->collectShippingRates()
     ->setShippingMethod('flatrate_flatrate');
 $quote->setCheckoutMethod('guest')->setCustomerIsGuest(true)->setCustomerEmail($email);
 $quote->collectTotals();
+
+if ($withBundle) {
+    foreach ($quote->getAllItems() as $item) {
+        if ($item->getParentItem() && (float)$item->getTaxPercent() <= 0.0) {
+            fwrite(STDERR, "The bundle child {$item->getSku()} carries no VAT, does the store tax Sweden?\n");
+            exit(1);
+        }
+    }
+}
 
 $quoteRepository = $om->get(\Magento\Quote\Api\CartRepositoryInterface::class);
 $quoteRepository->save($quote);
@@ -158,4 +181,107 @@ echo json_encode([
     'currency' => $order->getOrderCurrencyCode(),
     'itemId' => (int)current($order->getAllVisibleItems())->getId(),
     'qty' => $qty,
+    'qliroLines' => $withBundle ? array_map(
+        static fn ($line) => [
+            'reference' => (string)$line->getMerchantReference(),
+            'quantity' => (float)$line->getQuantity(),
+            'price' => (float)$line->getPricePerItemIncVat(),
+            'vatRate' => (float)$line->getVatRate(),
+        ],
+        $om->get(\Qliro\QliroOne\Api\Client\MerchantInterface::class)
+            ->getOrder((int)$link->getQliroOrderId())->getOrderItems()
+    ) : [],
 ], JSON_PRETTY_PRINT) . PHP_EOL;
+
+/**
+ * The bundle, created on the first run with an option per child, and the buy request for it
+ */
+function qliroE2eBundle($om, $productRepository, int $qty): array
+{
+    $children = ['QLIRO-E2E-BUNDLE-A' => 4.79, 'QLIRO-E2E-BUNDLE-B' => 34.00];
+
+    try {
+        $productRepository->get('QLIRO-E2E-BUNDLE');
+    } catch (\Magento\Framework\Exception\NoSuchEntityException $exception) {
+        $options = [];
+
+        foreach ($children as $sku => $price) {
+            try {
+                $productRepository->get($sku);
+            } catch (\Magento\Framework\Exception\NoSuchEntityException $exception) {
+                qliroE2eSaveChild($om, $productRepository, $sku, $price);
+            }
+
+            $link = $om->create(\Magento\Bundle\Api\Data\LinkInterface::class);
+            $link->setSku($sku)->setQty(1)->setIsDefault(true)->setCanChangeQuantity(0)->setPrice(0)->setPriceType(0);
+            $option = $om->create(\Magento\Bundle\Api\Data\OptionInterface::class);
+            $option->setTitle($sku)->setType('select')->setRequired(true)->setPosition(count($options) + 1)
+                ->setProductLinks([$link]);
+            $options[] = $option;
+        }
+
+        $bundle = $om->create(\Magento\Catalog\Model\Product::class);
+        $bundle->setSku('QLIRO-E2E-BUNDLE')
+            ->setName('Qliro e2e bundle')
+            ->setAttributeSetId(4)
+            ->setStatus(\Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED)
+            ->setVisibility(\Magento\Catalog\Model\Product\Visibility::VISIBILITY_BOTH)
+            ->setTypeId(\Magento\Bundle\Model\Product\Type::TYPE_CODE)
+            ->setPriceType(\Magento\Bundle\Model\Product\Price::PRICE_TYPE_DYNAMIC)
+            ->setSkuType(0)
+            ->setWeightType(0)
+            ->setPriceView(0)
+            ->setShipmentType(0)
+            ->setWebsiteIds([1])
+            ->setStockData(['use_config_manage_stock' => 1, 'is_in_stock' => 1]);
+        $bundle->getExtensionAttributes()->setBundleProductOptions($options);
+        $productRepository->save($bundle);
+    }
+
+    $bundle = $productRepository->get('QLIRO-E2E-BUNDLE', false, null, true);
+
+    // Indexers run on schedule and there may be no cron, so the cart would not see the stock
+    if (!$bundle->isSalable()) {
+        $indexers = $om->get(\Magento\Framework\Indexer\ConfigInterface::class)->getIndexers();
+        foreach (['cataloginventory_stock', 'inventory', 'catalog_product_price'] as $indexer) {
+            if (isset($indexers[$indexer])) {
+                $om->create(\Magento\Indexer\Model\Indexer::class)->load($indexer)->reindexAll();
+            }
+        }
+
+        // A product loaded before the stock was indexed keeps the salability it had then
+        $bundle = $productRepository->get('QLIRO-E2E-BUNDLE', false, null, true);
+    }
+
+    $type = $bundle->getTypeInstance();
+    $selection = [];
+
+    foreach ($type->getSelectionsCollection($type->getOptionsIds($bundle), $bundle) as $item) {
+        $selection[(int)$item->getOptionId()] = (int)$item->getSelectionId();
+    }
+
+    return [$bundle, new \Magento\Framework\DataObject([
+        'qty' => $qty,
+        'bundle_option' => $selection,
+        'bundle_option_qty' => array_fill_keys(array_keys($selection), 1),
+    ])];
+}
+
+/**
+ * A child of the bundle, Taxable Goods
+ */
+function qliroE2eSaveChild($om, $productRepository, string $sku, float $price): void
+{
+    $child = $om->create(\Magento\Catalog\Model\Product::class);
+    $child->setSku($sku)
+        ->setName('Qliro e2e bundle item ' . substr($sku, -1))
+        ->setAttributeSetId(4)
+        ->setStatus(\Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED)
+        ->setVisibility(\Magento\Catalog\Model\Product\Visibility::VISIBILITY_NOT_VISIBLE)
+        ->setTypeId(\Magento\Catalog\Model\Product\Type::TYPE_SIMPLE)
+        ->setPrice($price)
+        ->setTaxClassId(2)
+        ->setWebsiteIds([1])
+        ->setStockData(['use_config_manage_stock' => 1, 'qty' => 1000, 'is_in_stock' => 1]);
+    $productRepository->save($child);
+}

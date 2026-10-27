@@ -123,6 +123,25 @@ from the last one recorded. One test reads the pickup points from the shipping m
 the others select an option through the checkout's own model and read what was recorded.
 Reverting the fix turns three of the five red.
 
+## A bundle priced by its children
+
+`tests/dynamic-bundle.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and seeds its
+own orders through `seed/seed-sandbox-order.php --bundle`, which creates `QLIRO-E2E-BUNDLE` on its first
+run with one child at 4.79 and one at 34.00. It checks the lines and the reservation Qliro holds, then
+captures one order by its invoice and one by a shipment, and reads what Qliro captured with
+`seed/qliro-transactions.php`. It switches the two capture settings for its run and puts them back.
+Reverting the fix turns all three red. The invoice Magento creates when Qliro confirms a shipment
+capture is left to the unit tests, the sandbox cannot call back a local store. The store needs:
+
+- a Qliro test merchant on staging
+- a tax rule that taxes Taxable Goods in Sweden, the seeder refuses a child without VAT
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/qliro-transactions.php` in `var/`
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test dynamic-bundle
+```
+
 ## A capture confirmed before the shipment is saved
 
 `tests/capture-confirmed-early.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and

@@ -80,6 +80,52 @@ class ShipmentTest extends TestCase
         $this->handler($order)->handleSuccess($this->qliroStatus(), $this->omStatus());
     }
 
+    /**
+     * Magento counts the bundle row of a bundle priced by its children as invoiced on any invoice of
+     * it, so the children shipped with it decide what is left: here B, after an invoice of A only.
+     */
+    public function testInvoicesTheChildrenOfABundleShippedTogetherThatAreLeft(): void
+    {
+        $order = $this->order(canInvoice: true, hasInvoices: true, qtyInvoiced: 0, item: $this->bundle());
+        $invoice = $this->createMock(Order\Invoice::class);
+        $invoice->method('register')->willReturnSelf();
+        $order->expects(self::once())->method('prepareInvoice')->with([4 => 0.0, 6 => 1.0])->willReturn($invoice);
+        $this->invoiceRepository->expects(self::once())->method('save');
+
+        $this->handler($order)->handleSuccess($this->qliroStatus(), $this->omStatus());
+    }
+
+    /**
+     * A bundle priced by its children, A invoiced already and B not
+     */
+    private function bundle(): OrderItem&MockObject
+    {
+        $bundle = $this->createMock(OrderItem::class);
+        $bundle->method('getId')->willReturn(3);
+        $bundle->method('getProductType')->willReturn('bundle');
+        $bundle->method('isChildrenCalculated')->willReturn(true);
+        $bundle->method('isShipSeparately')->willReturn(false);
+        $bundle->method('getQtyOrdered')->willReturn(1.0);
+        $bundle->method('getQtyInvoiced')->willReturn(1.0);
+        $bundle->method('getChildrenItems')->willReturn([
+            $this->child(4, 1.0),
+            $this->child(6, 0.0),
+        ]);
+
+        return $bundle;
+    }
+
+    private function child(int $id, float $qtyInvoiced): OrderItem&MockObject
+    {
+        $child = $this->createMock(OrderItem::class);
+        $child->method('getId')->willReturn($id);
+        $child->method('getQtyOrdered')->willReturn(1.0);
+        $child->method('getQtyInvoiced')->willReturn($qtyInvoiced);
+        $child->method('getQtyToInvoice')->willReturn(1.0 - $qtyInvoiced);
+
+        return $child;
+    }
+
     private function handler(Order $order): ShipmentHandler
     {
         $shipmentItem = $this->createMock(Shipment\Item::class);
@@ -109,11 +155,17 @@ class ShipmentTest extends TestCase
         $this->transactionUpdater = $this->createMock(CaptureTransactionUpdater::class);
     }
 
-    private function order(bool $canInvoice, bool $hasInvoices, float $qtyInvoiced): Order&MockObject
-    {
-        $item = $this->createMock(OrderItem::class);
-        $item->method('getQtyOrdered')->willReturn(1.0);
-        $item->method('getQtyInvoiced')->willReturn($qtyInvoiced);
+    private function order(
+        bool $canInvoice,
+        bool $hasInvoices,
+        float $qtyInvoiced,
+        ?OrderItem $item = null
+    ): Order&MockObject {
+        if ($item === null) {
+            $item = $this->createMock(OrderItem::class);
+            $item->method('getQtyOrdered')->willReturn(1.0);
+            $item->method('getQtyInvoiced')->willReturn($qtyInvoiced);
+        }
 
         $currency = $this->createMock(Currency::class);
         $currency->method('formatTxt')->willReturn('527.00 NOK');

@@ -1,6 +1,23 @@
 
 # Change Log
 
+## [1.8.26] - 2026-10-27
+
+### Fixed
+
+- A bundle priced by its children was captured at nothing. The checkout sends it as a bundle line at zero and a line per child, and the capture on invoice and on shipment sent the zero line and dropped the children, so Qliro took the shipping only while Magento recorded the invoice as paid in full. The capture now carries the children at the price and quantity the invoice or shipment holds
+- A shipment of such a bundle shipped together holds the bundle row only, so each child now ships its share of the bundle quantity
+- The bundle line and its children never go out for more than Qliro reserved of them less what was already captured, read from the reservation and the captured units the payment records, since Magento puts the bundle row on every invoice and shipment. Magento's invoiced quantity cannot tell: an invoice captures only with capture on invoice on, and a shipment is invoiced only once Qliro confirms it. An order reserved before this release holds one bundle's worth of each child at the rate read back from the prices, and is captured at that, which Qliro accepts at the child's own rate, so a later invoice of its other bundles has nothing left at Qliro and is refused rather than recorded as paid. With capture on shipment, the invoice Qliro's confirmation creates still records every bundle shipped, as Magento invoices what was shipped. An order placed without the recorded reservation, before 1.8.19 or from a checkout whose Qliro order held none of the cart's discount, is sent as it is, and Qliro refuses a capture of more than one bundle
+- The children of a bundle priced by its children went to the checkout counted for one bundle, so two bundles in the cart were reserved at Qliro as one. A child now goes out for every bundle in the cart. A checkout open while this release is deployed still holds the old quantity, and its validate callback is declined once, until the checkout sends Qliro the new lines
+- A child of such a bundle went to Qliro with a rate read back from its rounded prices, 25.05 for an item at 4.79 before VAT, instead of the 25 Magento taxed it at. A child line takes the tax percent of its parent so that a configurable gets its parent's rate, and Magento gives such a bundle's parent none. The child now keeps its own tax percent under a bundle priced by its children. Configurables and fixed price bundles keep their parent's rate
+- An invoice after a shipment capture is matched to it by the children of such a bundle rather than by the bundle row, whose quantity Magento sets on every document whatever children it holds. The same goes for the invoice Qliro's confirmation of a shipment capture creates: such a bundle is invoiced by its children, each for what it ships as far as it is left to invoice, where the bundle row alone counted as invoiced after any invoice of it, so its captured children were never invoiced
+- Whether the bundle line goes out at zero is read off the cart or order item rather than the product as it is now, so a bundle switched to a fixed price after the order cannot be captured twice
+
+### Added
+
+- Unit tests for the child rate, the child quantity in the cart, the capture of such a bundle on invoice, on a shipment shipped together and separately, against the reservation and against what was already captured, the quantities an invoice is matched to a shipment capture by, and the invoice a confirmed capture of a bundle shipped together creates
+- `Test/E2e/tests/dynamic-bundle.spec.ts`, against the Qliro sandbox: two bundles reach Qliro with each child at 25 and the reservation equal to the order, an invoice captures the order in full, and so does a shipment. `Test/E2e/seed/seed-sandbox-order.php --bundle` buys the bundle and prints the lines Qliro holds, `Test/E2e/seed/qliro-transactions.php` prints what Qliro reserved and captured
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed
