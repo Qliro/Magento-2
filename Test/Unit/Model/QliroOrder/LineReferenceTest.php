@@ -91,6 +91,20 @@ class LineReferenceTest extends TestCase
     }
 
     /**
+     * The type handlers pass the line metadata, which holds the reference under quoteItems
+     */
+    public function testTheReferenceIsReadFromLineMetadata(): void
+    {
+        self::assertSame('519:SKU', $this->lineReference->fromMetadata(['qliro' => 'checkout', 'quoteItems' => ['519:SKU' => '519:SKU']]));
+        self::assertSame('SKU', $this->lineReference->fromMetadata('SKU'));
+        self::assertNull($this->lineReference->fromMetadata(['qliro' => 'checkout']));
+        self::assertNull($this->lineReference->fromMetadata(['quoteItems' => []]));
+        self::assertNull($this->lineReference->fromMetadata(['quoteItems' => 'SKU']));
+        self::assertNull($this->lineReference->fromMetadata(''));
+        self::assertNull($this->lineReference->fromMetadata(null));
+    }
+
+    /**
      * The stamp says the reservation was built with the id in its references.
      */
     public function testAStampedOrderReservedTheReferencesWithTheItemId(): void

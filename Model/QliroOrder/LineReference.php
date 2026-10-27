@@ -44,6 +44,22 @@ class LineReference
     }
 
     /**
+     * The reference a product type handler passes: a string, or line metadata holding it under quoteItems
+     *
+     * @param mixed $reference
+     * @return string|null
+     */
+    public function fromMetadata(mixed $reference): ?string
+    {
+        if (is_array($reference)) {
+            $references = $reference['quoteItems'] ?? null;
+            $reference = is_array($references) ? reset($references) : null;
+        }
+
+        return is_string($reference) && $reference !== '' ? $reference : null;
+    }
+
+    /**
      * The sku part of a reference, whichever format it is in
      *
      * @param string $reference
