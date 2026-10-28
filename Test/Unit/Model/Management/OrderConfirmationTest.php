@@ -27,6 +27,7 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Management\CreateMerchantPayment;
 use Qliro\QliroOne\Model\Management\Payment as PaymentManagement;
 use Qliro\QliroOne\Model\Management\PlaceOrder;
 use Qliro\QliroOne\Model\Management\PlaceRecurringOrder;
@@ -100,6 +101,23 @@ class OrderConfirmationTest extends TestCase
         foreach ($statuses as $ignored) {
             $placeRecurringOrder->applyQliroOrderStatus($order);
         }
+    }
+
+    /**
+     * A renewal is a merchant payment, Qliro sends it no checkout status, so its link keeps the
+     * status it was created with and placement is its only chance at the confirmation.
+     */
+    public function testRenewalSendsTheConfirmationOnceAtPlacement(): void
+    {
+        $this->expectSends(1);
+        $placeRecurringOrder = $this->placeRecurringOrder();
+        $order = $this->order(true, false);
+        $this->linkRepository->method('getByOrderId')
+            ->willReturn($this->link(CreateMerchantPayment::DEFAULT_QLIRO_STATUS));
+
+        $placeRecurringOrder->applyQliroOrderStatus($order);
+        // An order that is already created is applied again, and is not confirmed twice
+        $placeRecurringOrder->applyQliroOrderStatus($order);
     }
 
     /**

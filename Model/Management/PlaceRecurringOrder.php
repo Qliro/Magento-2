@@ -450,6 +450,7 @@ class PlaceRecurringOrder extends AbstractManagement
      * - Completed - the order can be shipped
      * - OnHold - review of buyer require more time
      * - Refused - deny the purchase
+     * - MerchantPaymentCreated - a renewal at placement, it gets no later status
      *
      * @param Order $order
      * @return bool
@@ -464,22 +465,7 @@ class PlaceRecurringOrder extends AbstractManagement
             switch ($link->getQliroOrderStatus()) {
                 case CheckoutStatusInterface::STATUS_COMPLETED:
                     $this->applyOrderState($order, Order::STATE_NEW);
-
-                    $canSend = $order->getCanSendNewEmailFlag() || $order->getData(HoldOrderConfirmation::HELD);
-                    if ($canSend && !$order->getEmailSent()) {
-                        try {
-                            $this->orderSender->send($order);
-                        } catch (\Exception $exception) {
-                            $this->logManager->critical(
-                                $exception,
-                                [
-                                    'extra' => [
-                                        'order_id' => $orderId,
-                                    ],
-                                ]
-                            );
-                        }
-                    }
+                    $this->sendOrderConfirmation($order);
 
                     /*
                      * If Magento order has already been placed and QliroOne order status is completed,
@@ -526,6 +512,13 @@ class PlaceRecurringOrder extends AbstractManagement
 
                     break;
 
+                case CreateMerchantPayment::DEFAULT_QLIRO_STATUS:
+                    // A renewal is a merchant payment, Qliro sends it no checkout status, so it never
+                    // reaches Completed and placement is when its held confirmation goes out
+                    $this->sendOrderConfirmation($order);
+
+                    return false;
+
                 case CheckoutStatusInterface::STATUS_IN_PROCESS:
                 default:
                     return false;
@@ -543,6 +536,32 @@ class PlaceRecurringOrder extends AbstractManagement
             );
 
             return false;
+        }
+    }
+
+    /**
+     * Send the order confirmation the observer held at placement, once
+     *
+     * @param Order $order
+     */
+    private function sendOrderConfirmation($order): void
+    {
+        $canSend = $order->getCanSendNewEmailFlag() || $order->getData(HoldOrderConfirmation::HELD);
+        if (!$canSend || $order->getEmailSent()) {
+            return;
+        }
+
+        try {
+            $this->orderSender->send($order);
+        } catch (\Exception $exception) {
+            $this->logManager->critical(
+                $exception,
+                [
+                    'extra' => [
+                        'order_id' => $order->getId(),
+                    ],
+                ]
+            );
         }
     }
 
