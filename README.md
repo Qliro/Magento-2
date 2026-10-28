@@ -220,7 +220,8 @@ out by it. If your orders are done sooner, set it shorter: that is the whole poi
 
 What an expired token costs, so the choice is an informed one: the callback is refused, the capture
 or the refund is never confirmed on the Magento order, an order that was held awaiting capture
-confirmation stays held, a queued sequential refund stops advancing, and nothing reconciles any of it
+confirmation stays held, a queued sequential refund stops advancing, an order placed while Qliro still reviewed it never gets
+its order confirmation, and nothing reconciles any of it
 afterwards, because the module does not poll Qliro for status. A refusal for this reason is logged as
 a warning naming the setting, so the symptom points at the cause.
 
