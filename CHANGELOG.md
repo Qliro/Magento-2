@@ -1,6 +1,22 @@
 
 # Change Log
 
+## [1.8.27] - 2026-10-30
+
+### Fixed
+
+- A capture that succeeds releases the hold only once every failed capture has succeeded. Before, a capture Qliro reported as Error (or UserInteraction) put the order on hold, and a success of any capture on the order released it, so capture B's success released an order whose capture A had moved no money. The failed transactions are kept on the payment, and the hold comes off only when all of them succeed (Qliro heals an Error to Success on the same transaction), with the status the order had before the hold. A capture that succeeds while another is still failed says so in the order history. An Error for a capture that already succeeded is ignored
+- A hold the merchant placed is no longer released by a capture success, only a hold the module placed for a failed capture. A hold or release through Magento's hold and unhold (admin, mass action, API) ends the module's tracking of the failures so far. Every hold comment now names the capture
+- A shipment capture that succeeds on a held order still invoices it. The hold comes back afterwards with the status from before the hold, or is released with that status when it was the last failed capture, so the invoice's own status does not replace it
+- When the status the order had before the hold is no longer assigned to its state, the order gets the state's default status and the order history says so
+- An Error for a capture on an order Magento cannot hold (complete, closed, canceled, payment review) is written to the order history instead of failing the callback
+- An order held for a failed capture before this version is not released by a capture success any more: release it by hand
+
+### Added
+
+- `Test/Unit/Model/OrderManagementStatus/Update/CaptureHoldTest`, `Test/Unit/Plugin/Magento/Sales/Model/OrderHoldPluginTest`
+- `Test/E2e/tests/capture-hold.spec.ts`: invoice and shipment captures, one failing, over Qliro's transaction status callback; a merchant's hold, an unassigned status, a late Error. `seed-qliro-order.php` takes `--qty`
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed

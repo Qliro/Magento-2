@@ -15,6 +15,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 
 class Payment implements OrderManagementStatusUpdateHandlerInterface
@@ -40,22 +41,30 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
     private $captureTransactionUpdater;
 
     /**
+     * @var CaptureHold
+     */
+    private $captureHold;
+
+    /**
      * Payment constructor.
      * @param OrderPaymentRepositoryInterface $paymentRepository
      * @param OrderRepositoryInterface $orderRepository
      * @param Manager $logManager
      * @param CaptureTransactionUpdater $captureTransactionUpdater
+     * @param CaptureHold $captureHold
      */
     public function __construct(
         OrderPaymentRepositoryInterface $paymentRepository,
         OrderRepositoryInterface $orderRepository,
         Manager $logManager,
-        CaptureTransactionUpdater $captureTransactionUpdater
+        CaptureTransactionUpdater $captureTransactionUpdater,
+        CaptureHold $captureHold
     ) {
         $this->paymentRepository = $paymentRepository;
         $this->orderRepository = $orderRepository;
         $this->logManager = $logManager;
         $this->captureTransactionUpdater = $captureTransactionUpdater;
+        $this->captureHold = $captureHold;
     }
 
     /**
@@ -72,9 +81,7 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
          * Update Order
          */
         try {
-            if ($order->getState() == Order::STATE_HOLDED) {
-                $order->unhold();
-            }
+            $this->captureHold->release($order, $qliroOrderManagementStatus->getPaymentTransactionId());
 
             $formattedPrice = $order->getBaseCurrency()->formatTxt(
                 $qliroOrderManagementStatus->getAmount()
@@ -184,10 +191,14 @@ class Payment implements OrderManagementStatusUpdateHandlerInterface
         try {
             $payment = $this->getPayment($omStatus);
             $order = $payment->getOrder();
-            $order->hold();
-            $order->addStatusHistoryComment(
-                __('Order set on hold because Qliro One reported an error with the capture: %1', $contextMessage)
-            );
+            $transactionId = $qliroOrderManagementStatus->getPaymentTransactionId();
+            if (!$this->captureHold->hold($order, $transactionId, $contextMessage)) {
+                $order->addStatusHistoryComment(__(
+                    'Qliro One reported %1 for capture %2, which already succeeded, so it is ignored',
+                    $contextMessage,
+                    $transactionId
+                ));
+            }
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {
             $this->logManager->critical(
