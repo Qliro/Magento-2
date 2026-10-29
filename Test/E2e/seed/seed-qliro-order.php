@@ -9,7 +9,7 @@
  * the way a real one does rather than the way we imagine one.
  *
  * Usage, inside the Magento container:
- *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture]
+ *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture] [--qty=2]
  *
  * Prints one JSON object describing what it created.
  */
@@ -19,7 +19,7 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['no-name', 'fees::', 'fixture::']);
+$options = getopt('', ['no-name', 'fees::', 'fixture::', 'qty::']);
 $withName = !array_key_exists('no-name', $options);
 $fees = array_filter(array_map('floatval', explode(',', (string)($options['fees'] ?? '29,10'))));
 $fixtureName = (string)($options['fixture'] ?? 'external-capture');
@@ -83,7 +83,7 @@ $storeManager->setCurrentStore($store);
 $quote = $om->create(\Magento\Quote\Model\Quote::class);
 $quote->setStore($store);
 $quote->setCurrency();
-$quote->addProduct($product, 1);
+$quote->addProduct($product, max(1, (int)($options['qty'] ?? 1)));
 
 $address = [
     'firstname' => 'Qliro', 'lastname' => 'Tester', 'street' => ['1 Test Street'],
