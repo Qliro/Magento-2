@@ -25,6 +25,7 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
@@ -136,6 +137,11 @@ class PlaceOrder extends AbstractManagement
     private DiscountLines $discountLines;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -157,6 +163,7 @@ class PlaceOrder extends AbstractManagement
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      * @param PlacedOrderFinder|null $placedOrderFinder
      * @param DiscountLines|null $discountLines
+     * @param StateStatus|null $stateStatus
      */
     public function __construct(
         Config $qliroConfig,
@@ -177,7 +184,8 @@ class PlaceOrder extends AbstractManagement
         OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
         ?PlacedOrderFinder $placedOrderFinder = null,
-        ?DiscountLines $discountLines = null
+        ?DiscountLines $discountLines = null,
+        ?StateStatus $stateStatus = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -199,6 +207,7 @@ class PlaceOrder extends AbstractManagement
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
         $this->placedOrderFinder = $placedOrderFinder;
         $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
     /**
@@ -817,19 +826,16 @@ class PlaceOrder extends AbstractManagement
     }
 
     /**
-     * Apply a proper state with its default status to the order
+     * Apply a proper state with a status registered for it, unless the order is past checkout
      *
      * @param \Magento\Sales\Model\Order $order
      * @param string $state
      */
     private function applyOrderState(Order $order, $state)
     {
-        $status = Order::STATE_NEW === $state
-            ? $this->qliroConfig->getOrderStatus()
-            : $order->getConfig()->getStateDefaultStatus($state);
+        $status = Order::STATE_NEW === $state ? (string)$this->qliroConfig->getOrderStatus() : null;
 
-        $order->setState($state);
-        $order->setStatus($status);
+        $this->stateStatus->setFromCheckout($order, $state, $status);
         $this->orderRepository->save($order);
     }
 

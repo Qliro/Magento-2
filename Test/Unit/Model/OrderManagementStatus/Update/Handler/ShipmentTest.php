@@ -23,6 +23,7 @@ use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler\Shipment as ShipmentHandler;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 /**
  * Qliro confirms a shipment capture after the store invoiced the order itself: the invoice already
@@ -99,7 +100,8 @@ class ShipmentTest extends TestCase
             $this->createMock(OrderRepositoryInterface::class),
             $this->invoiceRepository,
             $this->createMock(Manager::class),
-            $this->transactionUpdater
+            $this->transactionUpdater,
+            $this->createMock(StateStatus::class)
         );
     }
 

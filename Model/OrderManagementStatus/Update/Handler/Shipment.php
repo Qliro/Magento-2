@@ -12,12 +12,14 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\ShipmentRepositoryInterface;
 use Magento\Sales\Model\Order\Invoice;
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
+use Magento\Framework\App\ObjectManager;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 class Shipment implements OrderManagementStatusUpdateHandlerInterface
 {
@@ -47,25 +49,33 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     private $captureTransactionUpdater;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * Shipment constructor.
      * @param ShipmentRepositoryInterface $shipmentRepository
      * @param OrderRepositoryInterface $orderRepository
      * @param InvoiceRepositoryInterface $invoiceRepository
      * @param Manager $logManager
      * @param CaptureTransactionUpdater $captureTransactionUpdater
+     * @param StateStatus|null $stateStatus
      */
     public function __construct(
         ShipmentRepositoryInterface $shipmentRepository,
         OrderRepositoryInterface $orderRepository,
         InvoiceRepositoryInterface $invoiceRepository,
         Manager $logManager,
-        CaptureTransactionUpdater $captureTransactionUpdater
+        CaptureTransactionUpdater $captureTransactionUpdater,
+        ?StateStatus $stateStatus = null
     ) {
         $this->shipmentRepository = $shipmentRepository;
         $this->orderRepository = $orderRepository;
         $this->invoiceRepository = $invoiceRepository;
         $this->logManager = $logManager;
         $this->captureTransactionUpdater = $captureTransactionUpdater;
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
     /**
@@ -288,7 +298,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             if ($order->getState() == Order::STATE_PENDING_PAYMENT) {
                 return;
             }
-            $order->setState(Order::STATE_PENDING_PAYMENT);
+            $this->stateStatus->set($order, Order::STATE_PENDING_PAYMENT);
             $order->addStatusHistoryComment(
                 __('Order set to pending payment because Qliro One returned the capture with status: %1', $contextMessage)
             );

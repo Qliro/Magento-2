@@ -23,6 +23,7 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
@@ -121,6 +122,11 @@ class Payment extends AbstractManagement
     private $paymentRepository;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -139,6 +145,7 @@ class Payment extends AbstractManagement
      * @param ReservationFormat $reservationFormat
      * @param CaptureCoverage $captureCoverage
      * @param OrderPaymentRepositoryInterface|null $paymentRepository
+     * @param StateStatus|null $stateStatus
      */
     public function __construct(
         Config $qliroConfig,
@@ -156,7 +163,8 @@ class Payment extends AbstractManagement
         SequentialRefundProcessor $sequentialRefundProcessor,
         ReservationFormat $reservationFormat,
         CaptureCoverage $captureCoverage,
-        ?OrderPaymentRepositoryInterface $paymentRepository = null
+        ?OrderPaymentRepositoryInterface $paymentRepository = null,
+        ?StateStatus $stateStatus = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -175,6 +183,7 @@ class Payment extends AbstractManagement
         $this->captureCoverage = $captureCoverage;
         $this->paymentRepository = $paymentRepository
             ?? ObjectManager::getInstance()->get(OrderPaymentRepositoryInterface::class);
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
     /**
@@ -216,16 +225,8 @@ class Payment extends AbstractManagement
             $payment->setSkipOrderProcessing(true);
             $payment->save();
 
-            if (empty($status)) {
-                if ($order->getState() != $state) {
-                    $order->setState($state);
-                    $this->orderRepository->save($order);
-                }
-            } else {
-                if ($order->getState() != $state || $order->getStatus() != $status) {
-                    $order->setState($state)->setStatus($status);
-                    $this->orderRepository->save($order);
-                }
+            if ($order->getState() != $state && $this->stateStatus->setFromCheckout($order, $state)) {
+                $this->orderRepository->save($order);
             }
 
             $transaction->save();
