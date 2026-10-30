@@ -35,6 +35,7 @@ use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 /**
  * A recurring order used to be stamped once per payment transaction, so the last one in the array
@@ -75,7 +76,8 @@ class PlaceRecurringOrderTest extends TestCase
             $this->createMock(CartManagementInterface::class),
             $this->createMock(Order::class),
             $this->createMock(OrganizationNumber::class),
-            discountLines: $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class),
+            stateStatus: $this->createMock(StateStatus::class)
         );
         $this->placeRecurringOrder->setQuote($quote);
     }
