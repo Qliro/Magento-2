@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\Management;
 
 use Magento\Framework\Exception\LocalizedException;
+use Magento\Framework\Lock\LockManagerInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Invoice;
@@ -38,6 +39,8 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedReque
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureCoverage;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\RepeatedCapture;
+use Qliro\QliroOne\Model\QliroOrder\Admin\TransactionResponse;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
 
@@ -58,6 +61,7 @@ class PaymentCaptureTest extends TestCase
     private Order&MockObject $order;
     private ReservationFormat&MockObject $reservationFormat;
     private CaptureCoverage&MockObject $captureCoverage;
+    private RepeatedCapture&MockObject $repeatedCapture;
 
     /** @var Invoice|null the invoice the payment is capturing */
     private ?Invoice $invoice = null;
@@ -480,6 +484,239 @@ class PaymentCaptureTest extends TestCase
         self::assertSame(325188256, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
     }
 
+    // ---- a repeat of a capture whose answer was lost ------------------------------------------
+
+    /**
+     * The retry goes under the same RequestId and Qliro refuses it as a duplicate. The invoice
+     * gets the capture the first attempt made, as if that answer had arrived.
+     */
+    public function testARepeatedInvoiceCaptureAnswersWithTheOriginalCapture(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_DUPLICATE_REQUEST, 'Duplicate request');
+        $this->repeatedCapture->expects(self::once())
+            ->method('answer')
+            ->with($this->order, self::QLIRO_ORDER_ID)
+            ->willReturn($this->createdCapture(331743203));
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+
+        self::assertSame(331743203, $this->appliedTransactionId);
+        self::assertSame(331743203, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+        self::assertCount(1, $this->savedStatuses);
+        self::assertSame('Capture Requested for Invoice', $this->savedStatuses[0]['message']);
+    }
+
+    /**
+     * The shipment keeps the capture on its own row and counts the lines it sent
+     */
+    public function testARepeatedShipmentCaptureAnswersWithTheOriginalCapture(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_DUPLICATE_REQUEST, 'Duplicate request');
+        $this->repeatedCapture->method('answer')->willReturn($this->createdCapture(331743203));
+
+        $payment = $this->getMockBuilder(Payment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getOrder'])
+            ->getMock();
+        $this->order->method('getPayment')->willReturn($payment);
+        $this->shipmentLines = [(new QliroShipment())->setOrderItems([
+            (new QliroOrderItem())->setMerchantReference('5:SKU')->setQuantity(2),
+        ])];
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertSame(331743203, $this->order->getData(AbstractManagement::QLIRO_CAPTURE_TRANSACTION_ID));
+        self::assertCount(1, $this->savedStatuses);
+        self::assertSame(331743203, $this->savedStatuses[0]['transactionId']);
+        self::assertSame('Capture Requested for Shipment', $this->savedStatuses[0]['message']);
+        self::assertSame(
+            ['5:SKU' => 2],
+            $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS)
+        );
+    }
+
+    /**
+     * A repeat that cannot be matched refuses the document and records nothing
+     */
+    public function testAnUnmatchedRepeatRefusesTheDocument(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_DUPLICATE_REQUEST, 'Duplicate request');
+        $this->repeatedCapture->method('answer')->willThrowException(new LocalizedException(__('no match')));
+
+        try {
+            $capture->captureByInvoice($this->buildPayment(), 100.0);
+            self::fail('an unmatched repeat must not complete the invoice');
+        } catch (LocalizedException $exception) {
+            self::assertSame('no match', $exception->getMessage());
+        }
+
+        self::assertNull($this->appliedTransactionId);
+        self::assertSame([], $this->savedStatuses);
+    }
+
+    /**
+     * A capture sent again after a failed one is reported like any other capture failure
+     */
+    public function testACaptureSentAgainThatFailsIsDescribed(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith(AbstractManagement::QLIRO_ERROR_DUPLICATE_REQUEST, 'Duplicate request');
+        $this->repeatedCapture->method('answer')->willThrowException(
+            $this->qliroRefusal(AbstractManagement::QLIRO_ERROR_ORDER_NOT_FOUND, 'Order not found')
+        );
+
+        $this->expectExceptionMessage('Retrying will not help');
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+    }
+
+    /**
+     * Other refusals never reach the repeat
+     */
+    public function testOnlyADuplicateRequestIsAnsweredAsARepeat(): void
+    {
+        $capture = $this->buildCapture();
+        $this->refuseWith('INVALID_ITEM', 'Item does not match');
+        $this->repeatedCapture->expects(self::never())->method('answer');
+
+        $this->expectException(OrderManagementApiException::class);
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+    }
+
+    /**
+     * A concurrent request sending the same capture must not answer DUPLICATE_REQUEST from Qliro
+     * before this one has the capture on the books, so the call and the row share one lock
+     */
+    public function testTheCaptureIsSentAndRecordedUnderTheOrdersLock(): void
+    {
+        $calls = [];
+        $lockManager = $this->createMock(LockManagerInterface::class);
+        $lockManager->method('lock')->willReturnCallback(function (string $name) use (&$calls) {
+            $calls[] = 'lock ' . $name;
+
+            return true;
+        });
+        $lockManager->method('unlock')->willReturnCallback(function (string $name) use (&$calls) {
+            $calls[] = 'unlock ' . $name;
+
+            return true;
+        });
+        $capture = $this->buildCapture($lockManager);
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturnCallback(function () use (&$calls) {
+            $calls[] = 'capture';
+
+            return $this->buildResult('Created', 325188256);
+        });
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+
+        self::assertSame(
+            ['lock qliro_capture_' . self::QLIRO_ORDER_ID, 'capture', 'unlock qliro_capture_' . self::QLIRO_ORDER_ID],
+            $calls
+        );
+        self::assertCount(1, $this->savedStatuses);
+    }
+
+    /**
+     * Inside a transaction the row shows only with the commit, so the lock would not cover it
+     */
+    public function testInsideATransactionNoLockIsTaken(): void
+    {
+        $lockManager = $this->createMock(LockManagerInterface::class);
+        $lockManager->expects(self::never())->method('lock');
+        $lockManager->expects(self::never())->method('unlock');
+        $capture = $this->buildCapture($lockManager);
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $connection = $this->createMock(\Magento\Framework\DB\Adapter\AdapterInterface::class);
+        $connection->method('getTransactionLevel')->willReturn(1);
+        $resource = $this->createMock(\Magento\Sales\Model\ResourceModel\Order::class);
+        $resource->method('getConnection')->willReturn($connection);
+        $this->order->method('getResource')->willReturn($resource);
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertCount(1, $this->savedStatuses);
+    }
+
+    /**
+     * A failed capture lets the lock go as well
+     */
+    public function testAFailedCaptureUnlocks(): void
+    {
+        $lockManager = $this->createMock(LockManagerInterface::class);
+        $lockManager->method('lock')->willReturn(true);
+        $lockManager->expects(self::once())->method('unlock');
+        $capture = $this->buildCapture($lockManager);
+        $this->refuseWith('INVALID_ITEM', 'Item does not match');
+
+        $this->expectException(OrderManagementApiException::class);
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+    }
+
+    public function testACaptureAnotherRequestHoldsIsNotSent(): void
+    {
+        $lockManager = $this->createMock(LockManagerInterface::class);
+        $lockManager->method('lock')->willReturn(false);
+        $capture = $this->buildCapture($lockManager);
+        $this->orderManagementApi->expects(self::never())->method('markItemsAsShipped');
+
+        $this->expectExceptionMessage('still being sent');
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+    }
+
+    /**
+     * A capture Qliro never answered may have gone through, and the merchant is told a retry is safe
+     */
+    public function testACaptureWithoutAnAnswerSaysTheRetryIsSafe(): void
+    {
+        $capture = $this->buildCapture();
+        $terminal = new TerminalException(
+            'cURL error 28: Operation timed out',
+            0,
+            new \GuzzleHttp\Exception\ConnectException(
+                'cURL error 28',
+                new \GuzzleHttp\Psr7\Request('POST', 'checkout/adminapi/v2/MarkItemsAsShipped')
+            )
+        );
+        $this->orderManagementApi->method('markItemsAsShipped')
+            ->willThrowException(new OrderManagementApiException(__('Request to Qliro One has failed.'), $terminal));
+
+        try {
+            $capture->captureByInvoice($this->buildPayment(), 100.0);
+            self::fail('a capture without an answer must not complete the invoice');
+        } catch (LocalizedException $exception) {
+            self::assertStringContainsString('may have gone through', $exception->getMessage());
+        }
+    }
+
+    /**
+     * A refusal without a Qliro code that Qliro did answer keeps its own message
+     */
+    public function testAnAnsweredRefusalWithoutACodeIsPassedThrough(): void
+    {
+        $capture = $this->buildCapture();
+        $response = new \GuzzleHttp\Psr7\Response(400);
+        $request = new \GuzzleHttp\Psr7\Request('POST', 'checkout/adminapi/v2/MarkItemsAsShipped');
+        $terminal = new TerminalException(
+            'Bad request',
+            400,
+            new \GuzzleHttp\Exception\ClientException('Bad request', $request, $response)
+        );
+        $this->orderManagementApi->method('markItemsAsShipped')
+            ->willThrowException(new OrderManagementApiException(__('Request to Qliro One has failed.'), $terminal));
+
+        $this->expectException(OrderManagementApiException::class);
+
+        $capture->captureByInvoice($this->buildPayment(), 100.0);
+    }
+
     // ---- captures made in an earlier request --------------------------------------------------
 
     /**
@@ -636,6 +873,15 @@ class PaymentCaptureTest extends TestCase
         return new OrderManagementApiException(__('Error [%1]: %2', $code, $message), $terminal);
     }
 
+    private function createdCapture(int $transactionId): TransactionResponse
+    {
+        $response = new TransactionResponse();
+        $response->setPaymentTransactionId($transactionId);
+        $response->setStatus('Created');
+
+        return $response;
+    }
+
     private function buildResult(string $status, int $transactionId): object
     {
         return new class ($status, $transactionId) {
@@ -744,7 +990,7 @@ class PaymentCaptureTest extends TestCase
         return $repository;
     }
 
-    private function buildCapture(): \Qliro\QliroOne\Model\Management\Payment
+    private function buildCapture(?LockManagerInterface $lockManager = null): \Qliro\QliroOne\Model\Management\Payment
     {
         $this->orderManagementApi = $this->createMock(OrderManagementInterface::class);
 
@@ -780,6 +1026,11 @@ class PaymentCaptureTest extends TestCase
         $this->reservationFormat = $this->createMock(ReservationFormat::class);
         $this->captureCoverage = $this->createMock(CaptureCoverage::class);
         $this->paymentRepository = $this->createMock(OrderPaymentRepositoryInterface::class);
+        $this->repeatedCapture = $this->createMock(RepeatedCapture::class);
+        if ($lockManager === null) {
+            $lockManager = $this->createMock(LockManagerInterface::class);
+            $lockManager->method('lock')->willReturn(true);
+        }
 
         return new \Qliro\QliroOne\Model\Management\Payment(
             $config,
@@ -797,7 +1048,9 @@ class PaymentCaptureTest extends TestCase
             $this->createMock(SequentialRefundProcessor::class),
             $this->reservationFormat,
             $this->captureCoverage,
-            $this->paymentRepository
+            $this->paymentRepository,
+            $this->repeatedCapture,
+            $lockManager
         );
     }
 
@@ -805,7 +1058,7 @@ class PaymentCaptureTest extends TestCase
     {
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
-            ->onlyMethods(['getId', 'getStoreId', 'getData', 'setData', 'addStatusHistoryComment', 'getPayment'])
+            ->onlyMethods(['getId', 'getStoreId', 'getData', 'setData', 'addStatusHistoryComment', 'getPayment', 'getResource'])
             ->getMock();
 
         // By reference in both, an arrow function would snapshot the array as it is now and the
