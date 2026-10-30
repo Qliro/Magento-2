@@ -21,6 +21,7 @@ use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Exception\LinkInactiveException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CancelOrderRequest;
 use Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
@@ -117,6 +118,11 @@ class QliroOrder extends AbstractManagement
     private $quoteManagement;
 
     /**
+     * @var QuoteCurrency|null
+     */
+    private $quoteCurrency;
+
+    /**
      * Inject dependencies
      * @param Config $qliroConfig
      * @param MerchantInterface $merchantApi
@@ -133,6 +139,8 @@ class QliroOrder extends AbstractManagement
      * @param Lock $lock
      * @param OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory
      * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
+     * @param Quote $quoteManagement
+     * @param QuoteCurrency|null $quoteCurrency
      */
     public function __construct(
         Config $qliroConfig,
@@ -150,7 +158,8 @@ class QliroOrder extends AbstractManagement
         Lock $lock,
         OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
-        Quote $quoteManagement
+        Quote $quoteManagement,
+        ?QuoteCurrency $quoteCurrency = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -168,6 +177,7 @@ class QliroOrder extends AbstractManagement
         $this->orderManagementStatusInterfaceFactory = $orderManagementStatusInterfaceFactory;
         $this->orderManagementStatusRepository = $orderManagementStatusRepository;
         $this->quoteManagement = $quoteManagement;
+        $this->quoteCurrency = $quoteCurrency;
     }
 
     /**
@@ -497,6 +507,8 @@ class QliroOrder extends AbstractManagement
 
             try {
                 $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
+                // Qliro calls without the buyer's session, the quote is saved in their currency all the same
+                $this->quoteCurrency?->pin($this->getQuote());
                 $this->quoteFromValidateConverter->convert($validateContainer, $this->getQuote());
 
                 $response = $this->validateOrderBuilder->setQuote($this->getQuote())->setValidationRequest(

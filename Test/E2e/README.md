@@ -27,7 +27,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-paid-currency.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
 - `google/gtag/analytics4/active 1` and any `google/gtag/analytics4/measurement_id`, for the same spec, which reads the purchase Magento's own GA4 module pushes
@@ -156,3 +156,17 @@ purchase again on a reload, and one whose report never arrives repeats it on eve
 The fixture puts any order on the caller's session, so besides developer mode it wants the secret
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
+
+## An order paid in another display currency
+
+`tests/paid-currency.spec.ts` with `seed/seed-paid-currency.php`, copied to `var/` like the other
+seeds. The first step builds the cart in the currency the buyer switched to. Qliro's delivery
+methods call and the checkout status push that places the order then run in processes of their
+own, as they do on a store: without the buyer's session, so without their currency, and both save
+the quote. The order must be in that currency at the cart's rate, with the total
+Qliro was paid. It needs a display currency that is not the store's default and a rate to it (use
+one with more than 4 decimals, the quote keeps 4), so it is off unless asked for:
+
+```bash
+E2E_PAY_CURRENCY=EUR MAGENTO_SKIP_SEED=1 npx playwright test paid-currency
+```

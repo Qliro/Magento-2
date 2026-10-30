@@ -28,6 +28,7 @@ use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -136,6 +137,11 @@ class PlaceOrder extends AbstractManagement
     private DiscountLines $discountLines;
 
     /**
+     * @var QuoteCurrency|null
+     */
+    private ?QuoteCurrency $quoteCurrency;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -157,6 +163,7 @@ class PlaceOrder extends AbstractManagement
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      * @param PlacedOrderFinder|null $placedOrderFinder
      * @param DiscountLines|null $discountLines
+     * @param QuoteCurrency|null $quoteCurrency
      */
     public function __construct(
         Config $qliroConfig,
@@ -177,7 +184,8 @@ class PlaceOrder extends AbstractManagement
         OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
         ?PlacedOrderFinder $placedOrderFinder = null,
-        ?DiscountLines $discountLines = null
+        ?DiscountLines $discountLines = null,
+        ?QuoteCurrency $quoteCurrency = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -199,6 +207,7 @@ class PlaceOrder extends AbstractManagement
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
         $this->placedOrderFinder = $placedOrderFinder;
         $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
+        $this->quoteCurrency = $quoteCurrency;
     }
 
     /**
@@ -401,6 +410,8 @@ class PlaceOrder extends AbstractManagement
                     $order = $this->orderRepository->get($orderId);
                 } else {
                     $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
+                    // Before anything saves it: the order is placed in the currency the buyer paid
+                    $this->quoteCurrency?->pin($this->getQuote());
 
                     $order = $this->placedOrderFinder?->find((int)$link->getQuoteId(), (string)$qliroOrderId);
 

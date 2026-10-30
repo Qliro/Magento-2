@@ -24,6 +24,7 @@ use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Management\ShippingMethod;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromShippingMethodsConverter;
 
@@ -52,10 +53,12 @@ class ShippingMethodTest extends TestCase
     private QuoteFromShippingMethodsConverter&MockObject $converter;
     private UpdateShippingMethodsNotificationInterface&MockObject $updateContainer;
     private ShippingMethod $management;
+    private QuoteCurrency&MockObject $quoteCurrency;
 
     protected function setUp(): void
     {
         $this->storeEmulation = $this->createMock(Emulation::class);
+        $this->quoteCurrency = $this->createMock(QuoteCurrency::class);
 
         $currentStore = $this->createMock(StoreInterface::class);
         $currentStore->method('getId')->willReturnCallback(fn () => $this->currentStoreId);
@@ -100,7 +103,8 @@ class ShippingMethodTest extends TestCase
             $this->createMock(ScopeConfig::class),
             $quoteManagement,
             $storeManager,
-            $this->storeEmulation
+            $this->storeEmulation,
+            $this->quoteCurrency
         );
     }
 
@@ -165,6 +169,24 @@ class ShippingMethodTest extends TestCase
         $this->management->get($this->updateContainer);
 
         self::assertSame(['start', 'convert', 'create', 'stop'], $calls);
+    }
+
+    /** Qliro calls without the buyer's session: the quote is saved in their currency all the same */
+    public function testPinsTheQuoteCurrencyBeforeTheQuoteIsBroughtInLine(): void
+    {
+        $calls = [];
+        $this->quoteCurrency->expects(self::once())->method('pin')
+            ->willReturnCallback(function () use (&$calls): void {
+                $calls[] = 'pin';
+            });
+        $this->converter->method('convert')
+            ->willReturnCallback(function () use (&$calls): void {
+                $calls[] = 'convert';
+            });
+
+        $this->management->get($this->updateContainer);
+
+        self::assertSame(['pin', 'convert'], $calls);
     }
 
     /**
