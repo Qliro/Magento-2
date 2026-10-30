@@ -143,6 +143,26 @@ The test then ships it over REST, which captures it at Qliro. The store needs:
 The callback then finds no record of the capture, as it did in production. Without the fix the
 order stays without an invoice and both tests fail at the reconciliation.
 
+## A capture sent again after its answer was lost
+
+`tests/capture-retry.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and seeds its own
+orders. The fixture module sends the first capture to Qliro for real and then fails the call the way a
+timeout does, so Qliro holds the capture and Magento rolls the document back. The spec sends Qliro's
+notification of that capture to the store, then creates the same invoice in the admin, or the same
+shipment over REST, again. Qliro refuses the repeat as `DUPLICATE_REQUEST`, and the document has to
+complete with the one capture Qliro made. The store needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/api/capture_on_invoice 1` and `capture_on_shipment 1`
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php`, `Test/E2e/seed/capture-reconciliation.php` and
+  `Test/E2e/seed/capture-retry.php` in `var/`
+- `Test/E2e/fixture/QliroE2e/LostCaptureAnswer` copied to `app/code/QliroE2e/LostCaptureAnswer` and
+  enabled. It acts only on a Qliro order the spec names in `var/qliro-e2e/lose-capture-<qliro order id>`
+- `MAGENTO_INTERNAL_URL`, as for the test above
+
+Without the fix both retries fail, the invoice says "Request to Qliro One has failed." after the lost
+answer.
+
 ## Purchase tracking on the success page
 
 `tests/success-page-tracking.spec.ts` checks the purchase `Magento_GoogleGtag` pushes to

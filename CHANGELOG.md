@@ -1,6 +1,21 @@
 
 # Change Log
 
+## [1.8.29] - 2026-10-30
+
+### Fixed
+
+- An invoice or shipment captured again after Qliro did not answer the first capture fails no longer. The retry goes under the same `RequestId`, and Qliro refuses it with `DUPLICATE_REQUEST` because the first one was booked. The module now reads the order at Qliro and completes the document with the capture the first attempt made: its transaction id goes on the payment, and the OM status row and the captured units are recorded as for an answered capture
+- Only a capture of exactly the amount sent that no invoice and no OM status row of a document holds is taken for the first attempt. Qliro's own notification of the lost capture does not count as a record. When none or more than one fits, the document is refused with a message to check the order in Qliro Merchant Hub
+- An invoice created in the admin is captured and recorded under a lock on the Qliro order, so a second request sending the same capture meanwhile finds it on the books instead of taking it for a lost one. A document saved inside a transaction is not locked: its rows show only with the commit, and REST already handles the documents of one order one at a time
+- When Qliro failed the first attempt, nothing was captured, and the capture is sent again under a `RequestId` derived from the failed capture, so a retry is not refused for good
+- A capture Qliro did not answer (no connection, a timeout, a 5xx, or a 408 or 499 from a proxy) says that it may have gone through and that the same document created again unchanged is not captured twice, instead of "Request to Qliro One has failed"
+
+### Added
+
+- `Model/QliroOrder/Admin/RepeatedCapture` and its test, cases in `Test/Unit/Model/Management/PaymentCaptureTest`
+- `Test/E2e/tests/capture-retry.spec.ts` with the fixture module `QliroE2e_LostCaptureAnswer` and `Test/E2e/seed/capture-retry.php`: the answer of a real sandbox capture is lost, Qliro's notification of it arrives, and the invoice and the shipment sent again complete with the one capture Qliro made
+
 ## [1.8.20] - 2026-10-23
 
 ### Fixed
