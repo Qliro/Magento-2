@@ -20,6 +20,7 @@ use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface;
 use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ShippingMethodsBuilder;
@@ -86,6 +87,11 @@ class ShippingMethod extends AbstractManagement
     private $storeEmulation;
 
     /**
+     * @var QuoteCurrency|null
+     */
+    private $quoteCurrency;
+
+    /**
      * Inject dependencies
      *
      * @param ShippingMethodsBuilder $shippingMethodsBuilder
@@ -99,6 +105,7 @@ class ShippingMethod extends AbstractManagement
      * @param Quote $quoteManagement
      * @param StoreManagerInterface|null $storeManager
      * @param Emulation|null $storeEmulation
+     * @param QuoteCurrency|null $quoteCurrency
      */
     public function __construct(
         ShippingMethodsBuilder $shippingMethodsBuilder,
@@ -111,7 +118,8 @@ class ShippingMethod extends AbstractManagement
         ScopeConfig $scopeConfig,
         Quote $quoteManagement,
         ?StoreManagerInterface $storeManager = null,
-        ?Emulation $storeEmulation = null
+        ?Emulation $storeEmulation = null,
+        ?QuoteCurrency $quoteCurrency = null
     ) {
         $this->linkRepository = $linkRepository;
         $this->quoteRepository = $quoteRepository;
@@ -127,6 +135,7 @@ class ShippingMethod extends AbstractManagement
         // the instances are fetched here rather than left to DI.
         $this->storeManager = $storeManager ?: ObjectManager::getInstance()->get(StoreManagerInterface::class);
         $this->storeEmulation = $storeEmulation ?: ObjectManager::getInstance()->get(Emulation::class);
+        $this->quoteCurrency = $quoteCurrency;
     }
 
     /**
@@ -163,6 +172,8 @@ class ShippingMethod extends AbstractManagement
 
             try {
                 $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
+                // Qliro calls without the buyer's session, the quote is saved in their currency all the same
+                $this->quoteCurrency?->pin($this->getQuote());
 
                 return $this->buildInQuoteStore($updateContainer);
             } catch (\Exception $exception) {

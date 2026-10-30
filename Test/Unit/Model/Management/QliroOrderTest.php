@@ -25,6 +25,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Api\Data\ValidateOrderNotificationInterface;
 use Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface;
 use Qliro\QliroOne\Model\Management\QliroOrder;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\QliroOrder\Builder\UpdateRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
@@ -46,6 +47,8 @@ class QliroOrderTest extends TestCase
     private CartRepositoryInterface&MockObject $quoteRepository;
     private ValidateOrderBuilder&MockObject $validateOrderBuilder;
     private QliroOrder $management;
+    private QuoteFromValidateConverter&MockObject $quoteFromValidateConverter;
+    private QuoteCurrency&MockObject $quoteCurrency;
 
     /**
      * What the link answers for its Qliro order id, so a test can hand over one that has none.
@@ -66,6 +69,8 @@ class QliroOrderTest extends TestCase
     protected function setUp(): void
     {
         $this->quoteManagement = $this->createMock(QuoteManagement::class);
+        $this->quoteFromValidateConverter = $this->createMock(QuoteFromValidateConverter::class);
+        $this->quoteCurrency = $this->createMock(QuoteCurrency::class);
         $this->quoteFromOrderConverter = $this->createMock(QuoteFromOrderConverter::class);
         $this->merchantApi = $this->createMock(MerchantInterface::class);
 
@@ -114,7 +119,7 @@ class QliroOrderTest extends TestCase
             $this->createMock(OrderManagementInterface::class),
             $this->createMock(UpdateRequestBuilder::class),
             $this->validateOrderBuilder,
-            $this->createMock(QuoteFromValidateConverter::class),
+            $this->quoteFromValidateConverter,
             $this->quoteFromOrderConverter,
             $this->linkRepository,
             $this->quoteRepository,
@@ -124,7 +129,8 @@ class QliroOrderTest extends TestCase
             $lock,
             $this->createMock(OrderManagementStatusInterfaceFactory::class),
             $this->createMock(OrderManagementStatusRepositoryInterface::class),
-            $this->quoteManagement
+            $this->quoteManagement,
+            $this->quoteCurrency
         );
         $this->management->setQuote($this->createMock(\Magento\Quote\Model\Quote::class));
     }
@@ -376,6 +382,26 @@ class QliroOrderTest extends TestCase
         $this->linkRepository->expects(self::never())->method('markValidated');
 
         self::assertSame($response, $this->management->validate($this->buildValidationRequest()));
+    }
+
+    /** Qliro calls without the buyer's session: the quote is saved in their currency all the same */
+    public function testPinsTheQuoteCurrencyBeforeTheValidationChangesTheQuote(): void
+    {
+        $calls = [];
+        $this->quoteCurrency->expects(self::once())->method('pin')
+            ->willReturnCallback(function () use (&$calls): void {
+                $calls[] = 'pin';
+            });
+        $this->quoteFromValidateConverter->method('convert')
+            ->willReturnCallback(function () use (&$calls): void {
+                $calls[] = 'convert';
+            });
+        $response = $this->createMock(ValidateOrderResponseInterface::class);
+        $this->validateOrderBuilder->method('create')->willReturn($response);
+
+        $this->management->validate($this->buildValidationRequest());
+
+        self::assertSame(['pin', 'convert'], $calls);
     }
 
     /**

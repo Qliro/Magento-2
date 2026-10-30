@@ -272,6 +272,7 @@
             <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
             <argument name="placedOrderFinder" xsi:type="object">Qliro\QliroOne\Model\Order\PlacedOrderFinder</argument>
             <argument name="discountLines" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\DiscountLines</argument>
+            <argument name="quoteCurrency" xsi:type="object">Qliro\QliroOne\Model\Order\QuoteCurrency</argument>
         </arguments>
     </type>
 
@@ -309,6 +310,18 @@
             <!-- Every bin/magento call builds the command list, these are only built when this one runs -->
             <argument name="pruner" xsi:type="object">Qliro\QliroOne\Service\Log\Pruner\Proxy</argument>
             <argument name="qliroConfig" xsi:type="object">Qliro\QliroOne\Model\Config\Proxy</argument>
+        </arguments>
+    </type>
+
+    <!-- An optional constructor argument is never auto wired: Qliro's server calls keep the buyer's currency -->
+    <type name="Qliro\QliroOne\Model\Management\ShippingMethod">
+        <arguments>
+            <argument name="quoteCurrency" xsi:type="object">Qliro\QliroOne\Model\Order\QuoteCurrency</argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Model\Management\QliroOrder">
+        <arguments>
+            <argument name="quoteCurrency" xsi:type="object">Qliro\QliroOne\Model\Order\QuoteCurrency</argument>
         </arguments>
     </type>
 </config>
