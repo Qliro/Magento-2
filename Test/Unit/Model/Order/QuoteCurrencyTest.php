@@ -10,6 +10,7 @@ namespace Qliro\QliroOne\Test\Unit\Model\Order;
 use Magento\Directory\Model\Currency;
 use Magento\Directory\Model\CurrencyFactory;
 use Magento\Framework\App\Http\Context as HttpContext;
+use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Model\Quote;
 use Magento\Store\Model\Store;
 use PHPUnit\Framework\TestCase;
@@ -22,13 +23,14 @@ final class QuoteCurrencyTest extends TestCase
     /** @var array<string, mixed> what the pin wrote on the store */
     private array $storeData = [];
 
-    /** @var array<string, mixed> what the pin wrote on the HTTP context */
-    private array $context = [];
+    /** Real context: its vary data reads the default the pin sets */
+    private HttpContext $context;
 
     protected function setUp(): void
     {
         // Real model: load, setRates and getRate stay in memory while the rate is known.
         $this->base = $this->currency('SEK');
+        $this->context = new HttpContext([], [], new Json());
     }
 
     public function testQuoteKeepsItsCurrencyAndRateInAPush(): void
@@ -41,7 +43,9 @@ final class QuoteCurrencyTest extends TestCase
         $current = $this->storeData['current_currency'];
         self::assertSame('NOK', $current->getCode());
         self::assertSame($current, $quote->getData('forced_currency'));
-        self::assertSame(['current_currency' => 'NOK'], $this->context);
+        self::assertSame('NOK', $this->context->getValue(HttpContext::CONTEXT_CURRENCY));
+        // A callback has no store context plugin: without the default this read fails
+        self::assertSame([HttpContext::CONTEXT_CURRENCY => 'NOK'], $this->context->getData());
         self::assertSame(0.95, $this->base->getRate('NOK'));
         self::assertSame(0.087, $this->base->getRate('EUR'));
     }
@@ -64,6 +68,7 @@ final class QuoteCurrencyTest extends TestCase
 
         self::assertSame('SEK', $quote->getData('forced_currency')->getCode());
         self::assertSame(1.0, $this->base->getRate('SEK'));
+        self::assertSame([], $this->context->getData());
     }
 
     /** @return array<string, array{string|null, float|null, string}> */
@@ -86,24 +91,17 @@ final class QuoteCurrencyTest extends TestCase
         $this->pinner()->pin($quote);
 
         self::assertSame([], $this->storeData);
-        self::assertSame([], $this->context);
+        self::assertSame([], $this->context->getData());
         self::assertSame(['NOK' => 1.10], $this->base->getRates());
         self::assertFalse($quote->hasData('forced_currency'));
     }
 
     private function pinner(): QuoteCurrency
     {
-        $context = $this->createMock(HttpContext::class);
-        $context->method('setValue')->willReturnCallback(function (string $name, mixed $value) use ($context) {
-            $this->context[$name] = $value;
-
-            return $context;
-        });
-
         $factory = $this->createMock(CurrencyFactory::class);
         $factory->method('create')->willReturnCallback(fn () => $this->currency(''));
 
-        return new QuoteCurrency($factory, $context);
+        return new QuoteCurrency($factory, $this->context);
     }
 
     private function currency(string $code): Currency
@@ -119,6 +117,7 @@ final class QuoteCurrencyTest extends TestCase
     {
         $store = $this->createMock(Store::class);
         $store->method('getBaseCurrency')->willReturn($this->base);
+        $store->method('getDefaultCurrencyCode')->willReturn('SEK');
         $store->method('setData')->willReturnCallback(function (string $key, mixed $value) use ($store) {
             $this->storeData[$key] = $value;
 

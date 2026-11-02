@@ -5,7 +5,7 @@
 
 ### Fixed
 
-- An order paid in a display currency other than the store's default is placed in that currency when Qliro's checkout status push places it. The push has no storefront session, so Magento priced and saved the quote in the store's default display currency at a rate of 1: a cart of 7.23 EUR on a SEK store became an order of 83.00 SEK while Qliro held 7.23 EUR. Qliro's delivery methods and validate calls saved the quote the same way before the push came. All three now keep the quote's currency and the rate the checkout was priced at, today's rate while it still rounds to the quote's `base_to_quote_rate`, else that one. Nothing changes when the store's base currency is no longer the quote's, or for a store with one currency
+- An order paid in a display currency other than the store's default is placed in that currency when Qliro's checkout status push places it. The push has no storefront session, so Magento priced and saved the quote in the store's default display currency at a rate of 1: a cart of 7.23 EUR on a SEK store became an order of 83.00 SEK while Qliro held 7.23 EUR. Qliro's delivery methods and validate calls saved the quote the same way before the push came. All three now keep the quote's currency and the rate the checkout was priced at, today's rate while it still rounds to the quote's `base_to_quote_rate`, else that one. Nothing changes when the store's base currency is no longer the quote's, or for a store with one currency. The request's currency context gets the store's default currency as its default: the response's page cache vary string reads it, and without one each of those calls answered 500, as did the pending page's poll when it placed the order
 
 ### Added
 

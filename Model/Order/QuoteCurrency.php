@@ -61,7 +61,13 @@ class QuoteCurrency
         $currency = $this->currencyFactory->create()->load($code);
         $store->setData('current_currency', $currency);
         $quote->setForcedCurrency($currency);
-        // What getCurrentCurrencyCode() reads first, also on the request's own store
-        $this->httpContext->setValue(HttpContext::CONTEXT_CURRENCY, $code, null);
+        // What getCurrentCurrencyCode() reads first, also on the request's own store. With a default:
+        // a callback is no AbstractAction, nothing else sets one, and the response's vary string
+        // reads it (an undefined key, so the push answered 500).
+        $this->httpContext->setValue(
+            HttpContext::CONTEXT_CURRENCY,
+            $code,
+            (string)$store->getDefaultCurrencyCode()
+        );
     }
 }
