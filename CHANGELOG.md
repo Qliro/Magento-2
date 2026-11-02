@@ -6,8 +6,8 @@
 ### Fixed
 
 - The order confirmation went out at placement, also while Qliro still reported the purchase as `InProcess` or `OnHold`, so a buyer could get it for a purchase Qliro then refused. Core sends it from `submit()` unless the order's `can_send_new_email` flag is off, and the module never turned it off. A new observer on `sales_model_service_quote_submit_before` turns it off for Qliro orders, and the confirmation goes out once, when the Qliro status becomes `Completed`, at placement or on a later callback. A refused order gets none. Other payment methods are not affected
-- The send on `Completed` sends when the order's flag is on or the module held the confirmation. When Qliro is `Completed` at placement, an extension that turned the flag off itself still keeps the confirmation back. Subscription orders use the same check
-- A subscription renewal is a merchant payment, which Qliro sends no checkout status for, so its link keeps `MerchantPaymentCreated` and never reaches `Completed`. `PlaceRecurringOrder` sends its held confirmation on that status at placement, as core did before the hold, and only if it was not sent yet
+- The send on `Completed` sends when the order's flag is on or the module held the confirmation. When Qliro is `Completed` at placement, an extension that turned the flag off itself on `sales_model_service_quote_submit_before`, before the module's observer, still keeps the confirmation back. One that turns it off later, for example on `sales_order_place_before`, does not. Subscription orders use the same check
+- A subscription renewal is a merchant payment, which Qliro sends no checkout status for, so its link keeps `MerchantPaymentCreated` and never reaches `Completed`. `PlaceRecurringOrder` sends its held confirmation on that status at placement, as core did before the hold, and only if it was not sent yet. It sends it on the order placement saved, not on its injected `Order`, which is one instance for every renewal in a cron run and would format a later renewal's prices in the first one's currency
 
 ### Changed
 

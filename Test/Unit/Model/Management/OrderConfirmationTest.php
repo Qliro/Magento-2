@@ -9,6 +9,8 @@ namespace Qliro\QliroOne\Test\Unit\Model\Management;
 
 use Magento\Quote\Api\CartManagementInterface;
 use Magento\Quote\Api\CartRepositoryInterface;
+use Magento\Quote\Model\Quote;
+use Magento\Quote\Model\Quote\Payment as QuotePayment;
 use Magento\Sales\Api\Data\OrderStatusHistoryInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
@@ -20,6 +22,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
+use Qliro\QliroOne\Api\Data\AdminOrderInterface;
 use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\LinkInterface;
@@ -90,15 +93,15 @@ class OrderConfirmationTest extends TestCase
     {
         $this->expectSends($sent);
         $placeRecurringOrder = $this->placeRecurringOrder();
-        // Loaded again right after placement, so it never carries the hold
-        $order = $this->order(true, false);
 
         // The subscription path loads the link by order id
         $this->linkRepository->method('getByOrderId')->willReturnOnConsecutiveCalls(
             ...array_map(fn (string $status) => $this->link($status), $statuses)
         );
 
-        foreach ($statuses as $ignored) {
+        // Held by the observer at placement, a later status loads the order afresh
+        foreach (array_keys($statuses) as $index) {
+            $order = $index === 0 ? $this->order(false, true) : $this->order(true, false);
             $placeRecurringOrder->applyQliroOrderStatus($order);
         }
     }
@@ -111,13 +114,66 @@ class OrderConfirmationTest extends TestCase
     {
         $this->expectSends(1);
         $placeRecurringOrder = $this->placeRecurringOrder();
-        $order = $this->order(true, false);
         $this->linkRepository->method('getByOrderId')
             ->willReturn($this->link(CreateMerchantPayment::DEFAULT_QLIRO_STATUS));
 
-        $placeRecurringOrder->applyQliroOrderStatus($order);
+        $placeRecurringOrder->applyQliroOrderStatus($this->order(false, true));
         // An order that is already created is applied again, and is not confirmed twice
-        $placeRecurringOrder->applyQliroOrderStatus($order);
+        $placeRecurringOrder->applyQliroOrderStatus($this->order(true, false));
+    }
+
+    /**
+     * One cron run renews several subscriptions through the same PlaceRecurringOrder. Each
+     * confirmation goes out on the order placement saved, not on the injected Order, which is one
+     * instance for the whole run and keeps the first renewal's currency.
+     */
+    public function testRenewalsInOneRunEachConfirmTheirOwnOrder(): void
+    {
+        $orders = [15 => $this->renewalOrder(15), 16 => $this->renewalOrder(16)];
+
+        $orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $orderRepository->method('get')->willReturnCallback(fn (int $id) => $orders[$id]);
+
+        $cartManagement = $this->createMock(CartManagementInterface::class);
+        $cartManagement->method('placeOrder')->willReturnOnConsecutiveCalls(15, 16);
+
+        $quote = $this->createMock(Quote::class);
+        $quote->method('getPayment')->willReturn($this->createMock(QuotePayment::class));
+        $quoteRepository = $this->createMock(CartRepositoryInterface::class);
+        $quoteRepository->method('get')->willReturn($quote);
+
+        $quoteManagement = $this->createMock(QuoteManagement::class);
+        $quoteManagement->method('setQuote')->willReturnSelf();
+
+        $sharedOrder = $this->createMock(Order::class);
+        $sharedOrder->expects(self::never())->method('load');
+
+        $unplaced = $this->createMock(LinkInterface::class);
+        $this->linkRepository->method('getByQliroOrderId')->willReturn($unplaced);
+        $this->linkRepository->method('getByOrderId')
+            ->willReturn($this->link(CreateMerchantPayment::DEFAULT_QLIRO_STATUS));
+
+        $sent = [];
+        $this->orderSender->method('send')->willReturnCallback(function (Order $order) use (&$sent): bool {
+            $sent[] = $order;
+
+            return true;
+        });
+
+        $placeRecurringOrder = $this->placeRecurringOrder(
+            $quoteRepository,
+            $orderRepository,
+            $quoteManagement,
+            $cartManagement,
+            $sharedOrder
+        );
+        $merchantPayment = $this->createMock(AdminOrderInterface::class);
+        $merchantPayment->method('getOrderItemActions')->willReturn([]);
+
+        $placeRecurringOrder->execute($merchantPayment);
+        $placeRecurringOrder->execute($merchantPayment);
+
+        self::assertSame([$orders[15], $orders[16]], $sent);
     }
 
     /**
@@ -175,6 +231,21 @@ class OrderConfirmationTest extends TestCase
         return $order;
     }
 
+    /**
+     * A renewal as placement saved it, held by the observer and not sent yet.
+     */
+    private function renewalOrder(int $id): Order&MockObject
+    {
+        $order = $this->createMock(Order::class);
+        $order->method('getId')->willReturn($id);
+        $order->method('getCanSendNewEmailFlag')->willReturn(false);
+        $order->method('getData')->willReturnCallback(
+            static fn ($key = '') => $key === HoldOrderConfirmation::HELD ? true : null
+        );
+
+        return $order;
+    }
+
     private function link(string $status): LinkInterface&MockObject
     {
         $link = $this->createMock(LinkInterface::class);
@@ -208,26 +279,31 @@ class OrderConfirmationTest extends TestCase
         );
     }
 
-    private function placeRecurringOrder(): PlaceRecurringOrder
-    {
+    private function placeRecurringOrder(
+        ?CartRepositoryInterface $quoteRepository = null,
+        ?OrderRepositoryInterface $orderRepository = null,
+        ?QuoteManagement $quoteManagement = null,
+        ?CartManagementInterface $cartManagement = null,
+        ?Order $order = null
+    ): PlaceRecurringOrder {
         return new PlaceRecurringOrder(
             $this->config(),
             $this->createMock(MerchantInterface::class),
             $this->createMock(OrderManagementInterface::class),
             $this->createMock(RecurringQuoteFromOrderConverter::class),
             $this->linkRepository,
-            $this->createMock(CartRepositoryInterface::class),
-            $this->createMock(OrderRepositoryInterface::class),
+            $quoteRepository ?? $this->createMock(CartRepositoryInterface::class),
+            $orderRepository ?? $this->createMock(OrderRepositoryInterface::class),
             $this->containerMapper(),
             $this->createMock(LogManager::class),
             $this->createMock(OrderPlacer::class),
             $this->createMock(Lock::class),
             $this->orderSender,
-            $this->createMock(QuoteManagement::class),
+            $quoteManagement ?? $this->createMock(QuoteManagement::class),
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
-            $this->createMock(CartManagementInterface::class),
-            $this->createMock(Order::class),
+            $cartManagement ?? $this->createMock(CartManagementInterface::class),
+            $order ?? $this->createMock(Order::class),
             $this->createMock(OrganizationNumber::class),
             discountLines: $this->createMock(DiscountLines::class)
         );

@@ -382,7 +382,9 @@ class PlaceRecurringOrder extends AbstractManagement
 
                     // $order = $this->orderPlacer->place($this->getQuote());
                     $orderId = $this->cartManagementInterface->placeOrder($this->getQuote()->getId());
-                    $order = $this->order->load($orderId);
+                    // The object placement saved, so it carries the held confirmation. The injected
+                    // Order is one instance for every renewal in a run and keeps the first one's currency
+                    $order = $this->orderRepository->get($orderId);
                     $this->organizationNumber->apply($order, $qliroOrder);
 
 
