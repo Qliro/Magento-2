@@ -93,8 +93,22 @@ switch ($command) {
             JSON_THROW_ON_ERROR
         );
         $shipping = $quote->getShippingAddress();
+        $containerMapper = $om->get(\Qliro\QliroOne\Model\ContainerMapper::class);
 
-        $qliroOrder = $om->get(\Qliro\QliroOne\Model\ContainerMapper::class)->fromArray(
+        // The product lines the module sends Qliro, or placement holds the order for differing lines
+        $orderItems = [];
+        foreach ($om->create(\Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder::class)
+            ->setQuote($quote)->create() as $item) {
+            $orderItems[] = $containerMapper->toArray($item);
+        }
+        $orderItems[] = [
+            'MerchantReference' => 'flatrate_flatrate', 'Description' => 'Flat Rate', 'Type' => 'Shipping',
+            'Quantity' => 1,
+            'PricePerItemIncVat' => (float)$shipping->getShippingInclTax(),
+            'PricePerItemExVat' => (float)$shipping->getShippingAmount(),
+        ];
+
+        $qliroOrder = $containerMapper->fromArray(
             [
                 'OrderId' => $qliroOrderId,
                 'MerchantReference' => $reference,
@@ -103,12 +117,7 @@ switch ($command) {
                 'Currency' => $quote->getQuoteCurrencyCode(),
                 'Country' => 'US',
                 'PaymentMethod' => $fixture['PaymentMethod'],
-                'OrderItems' => [[
-                    'MerchantReference' => 'flatrate_flatrate', 'Description' => 'Flat Rate', 'Type' => 'Shipping',
-                    'Quantity' => 1,
-                    'PricePerItemIncVat' => (float)$shipping->getShippingInclTax(),
-                    'PricePerItemExVat' => (float)$shipping->getShippingAmount(),
-                ]],
+                'OrderItems' => $orderItems,
             ],
             \Qliro\QliroOne\Api\Data\QliroOrderInterface::class
         );
