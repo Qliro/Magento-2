@@ -13,6 +13,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\QliroOrder\Admin\BundleChildren;
 use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory;
 
@@ -67,6 +68,11 @@ class InvoiceShipmentsBuilder
     private $lineQuantity;
 
     /**
+     * @var BundleChildren
+     */
+    private $bundleChildren;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
@@ -75,6 +81,7 @@ class InvoiceShipmentsBuilder
      * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
      * @param LineReference|null $lineReference
      * @param LineQuantity|null $lineQuantity
+     * @param BundleChildren|null $bundleChildren
      */
     public function __construct(
         TypePoolHandler $typeResolver,
@@ -82,7 +89,8 @@ class InvoiceShipmentsBuilder
         OrderSourceProvider $orderSourceProvider,
         $handlers = [],
         ?LineReference $lineReference = null,
-        ?LineQuantity $lineQuantity = null
+        ?LineQuantity $lineQuantity = null,
+        ?BundleChildren $bundleChildren = null
     ) {
         $this->typeResolver = $typeResolver;
         $this->qliroShipmentFactory = $qliroShipmentFactory;
@@ -91,6 +99,7 @@ class InvoiceShipmentsBuilder
         // Optional so a store constructing this builder with the old signature keeps working
         $this->lineReference = $lineReference ?? new LineReference();
         $this->lineQuantity = $lineQuantity ?? new LineQuantity();
+        $this->bundleChildren = $bundleChildren ?? new BundleChildren();
     }
 
     /**
@@ -125,6 +134,7 @@ class InvoiceShipmentsBuilder
          * $configurableProducts['order item id of configurable'] = quantity about to be captured
          */
         $configurableProducts = [];
+        $bundleLines = [];
 
         /** @var \Magento\Sales\Model\Order\Invoice\Item $invoiceItem */
         foreach ($this->invoice->getAllItems() as $invoiceItem) {
@@ -136,7 +146,10 @@ class InvoiceShipmentsBuilder
                 $configurableProducts[$orderItem->getId()] = $invoiceQty;
             }
 
-            if ($orderItem->getParentItemId()) {
+            $isBundleChild = $this->bundleChildren->isPricedChild($orderItem, $this->order);
+            $isBundleLine = $isBundleChild || $this->bundleChildren->isPricedByChildren($orderItem);
+
+            if ($orderItem->getParentItemId() && !$isBundleChild) {
                 if (!isset($configurableProducts[$orderItem->getParentItemId()])) {
                     continue;
                 }
@@ -159,8 +172,14 @@ class InvoiceShipmentsBuilder
                     $this->lineQuantity->settlementQuantity($invoiceQty, (string)$orderItem->getSku())
                 );
                 $shipmentOrderItems[] = $qliroOrderItem;
+
+                if ($isBundleLine) {
+                    $bundleLines[] = $qliroOrderItem;
+                }
             }
         }
+
+        $shipmentOrderItems = $this->bundleChildren->withinReservation($shipmentOrderItems, $bundleLines, $this->order);
 
         if ($this->isFirstInvoice()) {
             $this->order->setFirstCaptureFlag(true);

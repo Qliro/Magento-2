@@ -12,6 +12,7 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Lock\LockManagerInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
+use Qliro\QliroOne\Model\Order\HoldAwareState;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
@@ -241,7 +242,13 @@ class Payment extends AbstractManagement
             $payment->setSkipOrderProcessing(true);
             $payment->save();
 
-            if (empty($status)) {
+            // A held order keeps its hold
+            if ($order->getState() === Order::STATE_HOLDED) {
+                if ($order->getHoldBeforeState() != $state) {
+                    HoldAwareState::apply($order, $state);
+                    $this->orderRepository->save($order);
+                }
+            } elseif (empty($status)) {
                 if ($order->getState() != $state) {
                     $order->setState($state);
                     $this->orderRepository->save($order);

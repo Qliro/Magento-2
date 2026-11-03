@@ -27,11 +27,12 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php` and `Test/E2e/seed/print-pdf-payment-block.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php` and `Test/E2e/seed/map-shipment.php` copied to the store's `var/` directory
+- the Luma sample data, or another in stock configurable set as `E2E_CONFIGURABLE_SKU`, and `payment/checkmo/active 1`, for `tests/source-item-lookup.spec.ts`
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
 - `google/gtag/analytics4/active 1` and any `google/gtag/analytics4/measurement_id`, for the same spec, which reads the purchase Magento's own GA4 module pushes
-- Unifaun and Ingrid off, they take the shipping update down their own paths
+- Unifaun and Ingrid off, they take the shipping update down their own paths. `tests/source-item-lookup.spec.ts` turns both on for its run and restores the settings
 - `SE` left out of `general/region/state_required`. The seeded addresses carry no region, so a store that requires one for Sweden refuses to place the order with `"regionId" is required`
 
 ## Running
@@ -103,6 +104,20 @@ npx playwright test checkout-guest-email
 | `QLIRO_E2E_LOCALE` | `sv-SE` |
 | `QLIRO_E2E_USER_AGENT` | a desktop Chrome string |
 
+## Lines that differ from the Qliro order
+
+`tests/line-differences-hold.spec.ts` places an order whose cart lost a line after the validate
+callback passed. `seed/seed-line-differences.php` builds a cart of two products, the spec posts the
+validate callback for it, and the seeder takes the Qliro order lines before it drops one product
+from the quote and places the order. The order has to be on hold with a comment naming the line,
+stay on hold through a later Completed status, and go to its state once released in the admin. An
+order whose lines match is placed as before.
+
+Its second part runs with `QLIRO_CHECKOUT_E2E=1` against a store on a Qliro test merchant: it pays a
+real sandbox order of two products through `seed/seed-sandbox-order.php`, so the Qliro side of the
+comparison is what the merchant API's GetOrder returns. An order whose lines match is not held, and
+one whose cart lost a product after the payment is.
+
 ## The delivery the buyer chose
 
 `tests/shipping-selection.spec.ts` covers PLIN-461, an order placed with a delivery the buyer had
@@ -122,6 +137,25 @@ with the e2e product so a manual checkout on the same store is left alone, and o
 from the last one recorded. One test reads the pickup points from the shipping methods callback,
 the others select an option through the checkout's own model and read what was recorded.
 Reverting the fix turns three of the five red.
+
+## A bundle priced by its children
+
+`tests/dynamic-bundle.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and seeds its
+own orders through `seed/seed-sandbox-order.php --bundle`, which creates `QLIRO-E2E-BUNDLE` on its first
+run with one child at 4.79 and one at 34.00. It checks the lines and the reservation Qliro holds, then
+captures one order by its invoice and one by a shipment, and reads what Qliro captured with
+`seed/qliro-transactions.php`. It switches the two capture settings for its run and puts them back.
+Reverting the fix turns all three red. The invoice Magento creates when Qliro confirms a shipment
+capture is left to the unit tests, the sandbox cannot call back a local store. The store needs:
+
+- a Qliro test merchant on staging
+- a tax rule that taxes Taxable Goods in Sweden, the seeder refuses a child without VAT
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/qliro-transactions.php` in `var/`
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test dynamic-bundle
+```
 
 ## A capture confirmed before the shipment is saved
 
@@ -176,3 +210,33 @@ purchase again on a reload, and one whose report never arrives repeats it on eve
 The fixture puts any order on the caller's session, so besides developer mode it wants the secret
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
+
+## The order confirmation
+
+`tests/order-confirmation.spec.ts` checks that the confirmation goes out only once Qliro has approved
+the purchase. It places orders with `Completed`, `InProcess` and `OnHold`, sends the later status on
+the store's own checkoutStatus callback and counts the confirmations each buyer got. Qliro does not
+know these orders, so the callback keeps the status it was sent. It reads the store's mail from a
+MailCatcher, `MAGENTO_MAIL_URL`, `http://localhost:1090` by default, needs
+`sales_email/general/async_sending 0` and check / money order enabled for the case of another
+payment method. Reverting the observer turns three of the five red.
+
+## A shipment mapped from a payload
+
+`tests/shipment-mapping.spec.ts` maps a shipment payload into a new Qliro shipment with the store's
+own container mapper and DI, through `seed/map-shipment.php`. It needs no order and no Qliro, so
+`MAGENTO_SKIP_SEED=1` is fine. Without the fix both tests fail on the uninitialised order items.
+
+## An order paid in another display currency
+
+`tests/paid-currency.spec.ts` with `seed/seed-paid-currency.php`, copied to `var/` like the other
+seeds. The first step builds the cart in the currency the buyer switched to. Qliro's delivery
+methods call and the checkout status push that places the order then run in processes of their
+own, as they do on a store: without the buyer's session, so without their currency, and both save
+the quote. The order must be in that currency at the cart's rate, with the total
+Qliro was paid. It needs a display currency that is not the store's default and a rate to it (use
+one with more than 4 decimals, the quote keeps 4), so it is off unless asked for:
+
+```bash
+E2E_PAY_CURRENCY=EUR MAGENTO_SKIP_SEED=1 npx playwright test paid-currency
+```

@@ -12,6 +12,7 @@ use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Qliro\QliroOne\Model\Product\ProductPool;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
 
 /**
  * Order Source Provider class
@@ -39,17 +40,25 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     private $typeSourceItemFactory;
 
     /**
+     * @var LineReference
+     */
+    private $lineReference;
+
+    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
      * @param TypeSourceItemInterfaceFactory $typeSourceItemFactory
+     * @param LineReference|null $lineReference
      */
     public function __construct(
         ProductPool $productPool,
-        TypeSourceItemInterfaceFactory $typeSourceItemFactory
+        TypeSourceItemInterfaceFactory $typeSourceItemFactory,
+        ?LineReference $lineReference = null
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
+        $this->lineReference = $lineReference ?? new LineReference();
     }
 
     /**
@@ -61,39 +70,86 @@ class OrderSourceProvider implements TypeSourceProviderInterface
     }
 
     /**
-     * @param string $reference
-     * @return TypeSourceItemInterface
+     * Find the order item a line reference stands for: a string, or line metadata holding it under quoteItems
+     *
+     * @param string|array $reference
+     * @return TypeSourceItemInterface|null
      */
     public function getSourceItemByMerchantReference($reference)
     {
-        if (strpos($reference, ':') !== false) {
-            list($quoteItemId, $sku) = explode(':', $reference);
-        } else {
-            $quoteItemId = null;
-            $sku = $reference;
+        $reference = $this->lineReference->fromMetadata($reference);
+
+        if ($reference === null) {
+            return null;
         }
 
+        $quoteItemId = $this->lineReference->itemIdOf($reference);
+        $sku = $this->lineReference->skuOf($reference);
+
         try {
-            $orderItem = $this->order->getItemByQuoteItemId($quoteItemId);
+            $orderItem = $quoteItemId ? $this->order->getItemByQuoteItemId($quoteItemId) : null;
 
-            if (!$orderItem) {
-                if ($sku) {
-                    $product = $this->productPool->getProduct($sku, $this->getStoreId());
-
-                    $orderItem = $this->order->getItemById($product);
-                } else {
-                    $orderItem = null;
-                }
+            if (!$orderItem && $sku !== '') {
+                $orderItem = $this->getItemBySku($sku);
             }
 
-            if ($orderItem) {
-                return $this->generateSourceItem($orderItem, $orderItem->getQty());
+            if ($orderItem && $this->hasProducts($orderItem)) {
+                return $this->generateSourceItem($orderItem, $orderItem->getQtyOrdered());
             }
 
             return null;
         } catch (\Exception $exception) {
             return null;
         }
+    }
+
+    /**
+     * An item without children placed with the sku, then the item of the product that has the sku now,
+     * then any item placed with the sku. Never one whose product is gone
+     *
+     * @param string $sku
+     * @return \Magento\Sales\Model\Order\Item|null
+     */
+    private function getItemBySku(string $sku)
+    {
+        $items = $this->order->getAllItems();
+        $bySku = null;
+
+        foreach ($items as $item) {
+            if ((string)$item->getSku() === $sku && $this->hasProducts($item)) {
+                if (!$item->getChildrenItems()) {
+                    return $item;
+                }
+                $bySku = $bySku ?? $item;
+            }
+        }
+
+        try {
+            $productId = (int)$this->productPool->getProduct($sku, $this->getStoreId())->getId();
+        } catch (\Exception $exception) {
+            $productId = 0;
+        }
+
+        foreach ($items as $item) {
+            if ($productId && (int)$item->getProductId() === $productId && $this->hasProducts($item)) {
+                return $item;
+            }
+        }
+
+        return $bySku;
+    }
+
+    /**
+     * The handlers read the product of the item and of its parent
+     *
+     * @param \Magento\Sales\Model\Order\Item $item
+     * @return bool
+     */
+    private function hasProducts($item): bool
+    {
+        $parent = $item->getParentItem();
+
+        return $item->getProduct() && (!$parent || $parent->getProduct());
     }
 
     /**
@@ -129,7 +185,9 @@ class OrderSourceProvider implements TypeSourceProviderInterface
      */
     public function generateSourceItem($item, $quantity)
     {
-        if (!isset($this->sourceItems[$item->getQuoteItemId()])) {
+        $key = $item->getId() ?: 'object-' . spl_object_id($item);
+
+        if (!isset($this->sourceItems[$key])) {
             /** @var TypeSourceItemInterface $sourceItem */
             $sourceItem = $this->typeSourceItemFactory->create();
 
@@ -144,13 +202,13 @@ class OrderSourceProvider implements TypeSourceProviderInterface
             $sourceItem->setProduct($item->getProduct());
             $sourceItem->setItem($item);
 
-            $this->sourceItems[$item->getQuoteItemId()] = $sourceItem;
+            $this->sourceItems[$key] = $sourceItem;
 
             if ($parentItem = $item->getParentItem()) {
                 $sourceItem->setParent($this->generateSourceItem($parentItem, $quantity));
             }
         }
 
-        return $this->sourceItems[$item->getQuoteItemId()];
+        return $this->sourceItems[$key];
     }
 }
