@@ -21,6 +21,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\Handler\Shipment as ShipmentHandler;
 use Qliro\QliroOne\Model\Order\StateStatus;
@@ -101,6 +102,7 @@ class ShipmentTest extends TestCase
             $this->invoiceRepository,
             $this->createMock(Manager::class),
             $this->transactionUpdater,
+            new CaptureHold($this->createMock(StateStatus::class)),
             $this->createMock(StateStatus::class)
         );
     }

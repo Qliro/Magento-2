@@ -10,10 +10,50 @@
 - A checkout status delivered again after the order was invoiced, shipped or closed no longer moves the order back. A repeated `Completed` set an invoiced order back to `new`, and a repeated `OnHold` set it to `payment_review`. The order now stays as it is and a warning is logged. A held order that is still in checkout keeps its hold and gets the new state as the state it returns to when it is released, also when the order is placed
 - A refused subscription order that was held is released and canceled, as one that was not held
 
+### Changed
+
+- `Qliro\QliroOne\Model\Order\StateStatus` is the one class that decides the state and status of an order. It replaces `HoldAwareState` from 1.8.22, removed, whose hold handling is now `StateStatus::setKeepingHold()`, and the status check `CaptureHold` from 1.8.27 did after a released hold, now `StateStatus::keepAssigned()` and `isAssigned()`. `CaptureHold` takes `StateStatus` in its constructor. As before, the authorization on a held order that returns to the same state keeps the status it returns to. A status not assigned after a released hold now gives the state's default when assigned, else its first assigned status, and is logged as a warning too
+
 ### Added
 
 - `Model/Order/StateStatus` and `Test/Unit/Model/Order/StateStatusTest`
 - `Test/E2e/tests/status-for-state.spec.ts`: an order placed while Qliro is in process, a repeated `Completed` and `OnHold` on an invoiced order, a capture put on hold, and a New Order Status not assigned to `new`, each checked against the statuses assigned to the state and the order grid
+
+## [1.8.27] - 2026-10-30
+
+### Fixed
+
+- A capture that succeeds releases the hold only once every failed capture has succeeded. Before, a capture Qliro reported as Error (or UserInteraction) put the order on hold, and a success of any capture on the order released it, so capture B's success released an order whose capture A had moved no money. The failed transactions are kept on the payment, and the hold comes off only when all of them succeed (Qliro heals an Error to Success on the same transaction), with the status the order had before the hold. A capture that succeeds while another is still failed says so in the order history. An Error for a capture that already succeeded is ignored
+- A hold the merchant placed is no longer released by a capture success, only a hold the module placed for a failed capture. A hold or release through Magento's hold and unhold (admin, mass action, API) ends the module's tracking of the failures so far. Every hold comment now names the capture
+- A shipment capture that succeeds on a held order still invoices it. The hold comes back afterwards with the status from before the hold, or is released with that status when it was the last failed capture, so the invoice's own status does not replace it
+- When the status the order had before the hold is no longer assigned to its state, the order gets the state's default status and the order history says so
+- An Error for a capture on an order Magento cannot hold (complete, closed, canceled, payment review) is written to the order history instead of failing the callback
+- An order held for a failed capture before this version is not released by a capture success any more: release it by hand
+
+### Added
+
+- `Test/Unit/Model/OrderManagementStatus/Update/CaptureHoldTest`, `Test/Unit/Plugin/Magento/Sales/Model/OrderHoldPluginTest`
+- `Test/E2e/tests/capture-hold.spec.ts`: invoice and shipment captures, one failing, over Qliro's transaction status callback; a merchant's hold, an unassigned status, a late Error. `seed-qliro-order.php` takes `--qty`
+
+## [1.8.22] - 2026-10-27
+
+### Fixed
+
+- An order whose product lines differ from the Qliro order is placed on hold. Before placing, the module compares the lines of the recalculated quote with the product lines of the Qliro order the same way the validate callback does: by merchant reference, quantity, price and type, shipping and fee lines left out. Anything that changed the quote between the validate callback and placement used to give a Magento order with other items than the customer paid for, and nothing said so. The order now gets a history comment with every line that differs, its reference and the quantity on each side, and both prices for a price difference. The mismatch is logged as critical with both line lists. An order whose lines match is placed as before
+- The held order gets no order confirmation on Completed, it would list other items than the customer paid for. The merchant sends it from the order once the lines are sorted out
+- The hold stays through Qliro's later status callbacks: a Completed or OnHold status is kept as the state the order returns to when the merchant releases it. A Refused status releases the hold and cancels the order, as for any refused order. This holds for any hold, so a hold the merchant set by hand is no longer lifted by a later checkout status callback or by a retry that takes the order over
+- An order a retry takes over from an earlier attempt is compared and held the same way, once: an order held before and released by the merchant is not held again
+- A comparison that cannot run, for example because an observer of `qliroone_order_item_build_after` throws, is logged as critical and the order is placed without a hold. A cart or a Qliro order without lines is not compared, as in the validate callback. A hold that cannot be saved is logged as critical and does not keep the order from its link
+
+### Changed
+
+- `Qliro\QliroOne\Model\Order\HoldAwareState` sets the state of an order on placement and on the checkout status callbacks, keeping a hold
+- `PlaceOrder` takes an optional `OrderItemsBuilder` and `LineDifferences` after the `DiscountLines`, `ValidateOrderBuilder` an optional `LineDifferences` last, all wired in `etc/di.xml`. The comparison of the validate callback moved to `Qliro\QliroOne\Model\QliroOrder\LineDifferences`, it compares prices to the öre now, so a drift below one öre between two computations of the same price no longer declines the callback, and its log entry lists every line that differs, with the quantities and prices on both sides, in one record
+
+### Added
+
+- Unit tests for `LineDifferences` and `HoldAwareState`, and `PlaceOrderLineDifferencesTest`: a line removed from the quote between validation and placement, matching lines, a Completed and a Refused status on the held order, no confirmation for it, an adopted order, an order held before, a Qliro order without lines, a price difference, a comparison that fails and a hold that cannot be saved
+- `Test/E2e/tests/line-differences-hold.spec.ts`, with a part against the Qliro sandbox. `seed-sandbox-order.php` takes `--second` and `--drop`, and the Qliro order `seed-qliro-order.php` places from now carries the product lines too
 
 ## [1.8.20] - 2026-10-23
 

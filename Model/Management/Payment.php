@@ -225,7 +225,10 @@ class Payment extends AbstractManagement
             $payment->setSkipOrderProcessing(true);
             $payment->save();
 
-            if ($order->getState() != $state && $this->stateStatus->setFromCheckout($order, $state)) {
+            // A held order keeps its hold, and the status it returns to when it is in that state already
+            if ($this->stateStatus->currentState($order) !== $state
+                && $this->stateStatus->setFromCheckout($order, $state)
+            ) {
                 $this->orderRepository->save($order);
             }
 

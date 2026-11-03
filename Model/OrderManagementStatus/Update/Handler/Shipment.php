@@ -18,6 +18,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
+use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 use Qliro\QliroOne\Model\Order\StateStatus;
 
@@ -49,6 +50,11 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     private $captureTransactionUpdater;
 
     /**
+     * @var CaptureHold
+     */
+    private $captureHold;
+
+    /**
      * @var StateStatus
      */
     private StateStatus $stateStatus;
@@ -60,6 +66,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param InvoiceRepositoryInterface $invoiceRepository
      * @param Manager $logManager
      * @param CaptureTransactionUpdater $captureTransactionUpdater
+     * @param CaptureHold $captureHold
      * @param StateStatus|null $stateStatus
      */
     public function __construct(
@@ -68,6 +75,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         InvoiceRepositoryInterface $invoiceRepository,
         Manager $logManager,
         CaptureTransactionUpdater $captureTransactionUpdater,
+        CaptureHold $captureHold,
         ?StateStatus $stateStatus = null
     ) {
         $this->shipmentRepository = $shipmentRepository;
@@ -75,6 +83,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         $this->invoiceRepository = $invoiceRepository;
         $this->logManager = $logManager;
         $this->captureTransactionUpdater = $captureTransactionUpdater;
+        $this->captureHold = $captureHold;
         $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
@@ -90,14 +99,6 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
             $shipment = $this->getShipment($omStatus);
             $order = $shipment->getOrder();
             $payment = $order->getPayment();
-
-            /*
-             * Update Order
-             */
-            if ($order->getState() == Order::STATE_HOLDED) {
-                $order->unhold();
-                $this->orderRepository->save($order);
-            }
 
             /*
              * Create Invoice
@@ -136,25 +137,41 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
              * transactions etc). "qliro_skip_actual_capture" is set to avoid doing the capture
              * inside, since it was already done by the shipment
              */
-            if ($order->canInvoice() && $leftToInvoice) {
-                $invoice = $order->prepareInvoice($invoiceItems);
-                $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
-                $payment->setTransactionId($qliroOrderManagementStatus->getPaymentTransactionId());
-                $payment->setData(\Qliro\QliroOne\Model\Management::QLIRO_SKIP_ACTUAL_CAPTURE, 1);
-                $invoice->register()->pay();
-                $this->invoiceRepository->save($invoice);
-            } elseif (!$leftToInvoice && !$order->isCanceled()) {
-                // The store invoiced the order itself before Qliro confirmed, and that invoice took
-                // this capture's transaction, so there is nothing left to invoice
-                $this->logManager->info(
-                    'Shipment capture confirmed for an order the store already invoiced',
-                    ['extra' => ['order_id' => $order->getId(), 'shipment_id' => $shipment->getId()]]
-                );
-            } else {
-                throw new \Magento\Framework\Exception\LocalizedException(
-                    __('Order does not allow to capture')
-                );
+            // Magento invoices no order on hold: lifted here, settled by release() below
+            $statusBeforeHold = $leftToInvoice ? $this->captureHold->lift($order) : null;
+            try {
+                if ($order->canInvoice() && $leftToInvoice) {
+                    $invoice = $order->prepareInvoice($invoiceItems);
+                    $invoice->setRequestedCaptureCase(Invoice::CAPTURE_ONLINE);
+                    $payment->setTransactionId($qliroOrderManagementStatus->getPaymentTransactionId());
+                    $payment->setData(\Qliro\QliroOne\Model\Management::QLIRO_SKIP_ACTUAL_CAPTURE, 1);
+                    $invoice->register()->pay();
+                    $this->invoiceRepository->save($invoice);
+                } elseif (!$leftToInvoice && !$order->isCanceled()) {
+                    // The store invoiced the order itself before Qliro confirmed, and that invoice took
+                    // this capture's transaction, so there is nothing left to invoice
+                    $this->logManager->info(
+                        'Shipment capture confirmed for an order the store already invoiced',
+                        ['extra' => ['order_id' => $order->getId(), 'shipment_id' => $shipment->getId()]]
+                    );
+                } else {
+                    throw new \Magento\Framework\Exception\LocalizedException(
+                        __('Order does not allow to capture')
+                    );
+                }
+            } catch (\Exception $exception) {
+                // The order object can be saved again later in the same run (the reconciliation cron)
+                if ($statusBeforeHold !== null) {
+                    $this->captureHold->restore($order, $statusBeforeHold);
+                }
+                throw $exception;
             }
+
+            $this->captureHold->release(
+                $order,
+                $qliroOrderManagementStatus->getPaymentTransactionId(),
+                $statusBeforeHold
+            );
 
             $formattedPrice = $order->getBaseCurrency()->formatTxt(
                 $qliroOrderManagementStatus->getAmount()
@@ -263,11 +280,14 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         try {
             $shipment = $this->getShipment($omStatus);
             $order = $shipment->getOrder();
-            $order->hold();
-
-            $order->addStatusHistoryComment(
-                __('Order set on hold because Qliro One reported an error with the capture: %1', $contextMessage)
-            );
+            $transactionId = $qliroOrderManagementStatus->getPaymentTransactionId();
+            if (!$this->captureHold->hold($order, $transactionId, $contextMessage)) {
+                $order->addStatusHistoryComment(__(
+                    'Qliro One reported %1 for capture %2, which already succeeded, so it is ignored',
+                    $contextMessage,
+                    $transactionId
+                ));
+            }
 
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {

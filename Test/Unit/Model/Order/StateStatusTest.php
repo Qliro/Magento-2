@@ -37,6 +37,9 @@ class StateStatusTest extends TestCase
 
     private LogManager&MockObject $logManager;
 
+    /** @var string[] */
+    private array $comments = [];
+
     protected function setUp(): void
     {
         $this->logManager = $this->createMock(LogManager::class);
@@ -181,6 +184,82 @@ class StateStatusTest extends TestCase
         self::assertSame([Order::STATE_HOLDED, null], [$order->getState(), $order->getHoldBeforeState()]);
     }
 
+    /**
+     * The refused path of the placement, before it releases the hold
+     */
+    public function testKeepingTheHoldNeedsNoCheckoutState(): void
+    {
+        $order = $this->order(Order::STATE_HOLDED, 'holded');
+
+        (new StateStatus($this->logManager))->setKeepingHold($order, Order::STATE_PENDING_PAYMENT);
+        self::assertSame(
+            [Order::STATE_HOLDED, 'holded', Order::STATE_PENDING_PAYMENT, 'pending_payment'],
+            [$order->getState(), $order->getStatus(), $order->getHoldBeforeState(), $order->getHoldBeforeStatus()]
+        );
+    }
+
+    public function testKeepingTheHoldSetsAnOrderNotHeld(): void
+    {
+        $order = $this->order(Order::STATE_NEW, 'pending');
+
+        (new StateStatus($this->logManager))->setKeepingHold($order, Order::STATE_PAYMENT_REVIEW, 'fraud');
+        self::assertSame([Order::STATE_PAYMENT_REVIEW, 'fraud'], [$order->getState(), $order->getStatus()]);
+    }
+
+    public function testTheCurrentStateOfAHeldOrderIsTheOneItReturnsTo(): void
+    {
+        $stateStatus = new StateStatus($this->logManager);
+        $held = $this->order(Order::STATE_HOLDED, 'holded');
+        $held->setHoldBeforeState(Order::STATE_PROCESSING);
+
+        self::assertSame(Order::STATE_PROCESSING, $stateStatus->currentState($held));
+        self::assertSame(Order::STATE_NEW, $stateStatus->currentState($this->order(Order::STATE_NEW, 'pending')));
+    }
+
+    public function testIsAssigned(): void
+    {
+        $stateStatus = new StateStatus($this->logManager);
+        $order = $this->order(Order::STATE_NEW, 'pending');
+
+        self::assertTrue($stateStatus->isAssigned($order, Order::STATE_PAYMENT_REVIEW, 'fraud'));
+        self::assertFalse($stateStatus->isAssigned($order, Order::STATE_PROCESSING, 'fraud'));
+        self::assertFalse($stateStatus->isAssigned($order, Order::STATE_PROCESSING, ''));
+    }
+
+    /**
+     * Magento's unhold() put back a status the state no longer has
+     */
+    public function testAnUnassignedStatusGetsTheStateDefaultWithAComment(): void
+    {
+        $order = $this->order(Order::STATE_PROCESSING, 'erp_gone');
+        $this->logManager->expects(self::once())->method('warning');
+
+        (new StateStatus($this->logManager))->keepAssigned($order);
+        self::assertSame('processing', $order->getStatus());
+        self::assertSame(
+            ['The status erp_gone the order had before the hold is not assigned to state processing, '
+                . 'so the order gets processing'],
+            $this->comments
+        );
+    }
+
+    public function testAnAssignedStatusIsKept(): void
+    {
+        $order = $this->order(Order::STATE_PAYMENT_REVIEW, 'fraud');
+        $this->logManager->expects(self::never())->method('warning');
+
+        (new StateStatus($this->logManager))->keepAssigned($order);
+        self::assertSame(['fraud', []], [$order->getStatus(), $this->comments]);
+    }
+
+    public function testAStateWithoutStatusesKeepsTheStatus(): void
+    {
+        $order = $this->order('unknown', 'unknown_status');
+
+        (new StateStatus($this->logManager))->keepAssigned($order);
+        self::assertSame(['unknown_status', []], [$order->getStatus(), $this->comments]);
+    }
+
     private function order(string $state, string $status): Order&MockObject
     {
         $config = $this->createMock(OrderConfig::class);
@@ -189,8 +268,13 @@ class StateStatusTest extends TestCase
         $config->method('getStateDefaultStatus')
             ->willReturnCallback(static fn($state) => self::DEFAULTS[$state] ?? null);
 
-        $order = $this->createPartialMock(Order::class, ['getConfig', 'getId']);
+        $order = $this->createPartialMock(Order::class, ['getConfig', 'getId', 'addStatusHistoryComment']);
         $order->method('getConfig')->willReturn($config);
+        $order->method('addStatusHistoryComment')->willReturnCallback(function ($comment) use ($order) {
+            $this->comments[] = (string)$comment;
+
+            return $order;
+        });
         $order->method('getId')->willReturn('42');
         $order->setState($state);
         $order->setStatus($status);
