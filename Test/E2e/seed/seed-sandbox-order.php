@@ -8,7 +8,9 @@
  * Needs the store pointed at a Qliro test merchant on staging.
  *
  * Usage, inside the Magento container:
- *   php var/seed-sandbox-order.php [--qty=2] [--bundle]
+ *   php var/seed-sandbox-order.php [--qty=2] [--bundle] [--second=SKU] [--drop=SKU]
+ *       --second adds one of that product, created if missing, --drop removes that product from the
+ *       quote once Qliro has completed the order, as a second tab would
  *
  * `--bundle` buys a bundle priced by its children instead, one at 4.79 and one at 34.00, both
  * Taxable Goods, which the store has to tax for Sweden.
@@ -21,9 +23,11 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['qty::', 'bundle']);
+$options = getopt('', ['qty::', 'bundle', 'second::', 'drop::']);
 $qty = max(1, (int)($options['qty'] ?? 2));
 $withBundle = isset($options['bundle']);
+$secondSku = (string)($options['second'] ?? '');
+$dropSku = (string)($options['drop'] ?? '');
 
 $bootstrap = Bootstrap::create(BP, []);
 $om = $bootstrap->getObjectManager();
@@ -74,6 +78,26 @@ if ($withBundle) {
     }
 } else {
     $quote->addProduct($product, $qty);
+}
+
+if ($secondSku !== '') {
+    try {
+        $second = $productRepository->get($secondSku);
+    } catch (\Magento\Framework\Exception\NoSuchEntityException $exception) {
+        $second = $om->create(\Magento\Catalog\Model\Product::class);
+        $second->setSku($secondSku)
+            ->setName('Qliro e2e ' . strtolower($secondSku))
+            ->setUrlKey(strtolower($secondSku))
+            ->setAttributeSetId(4)
+            ->setStatus(\Magento\Catalog\Model\Product\Attribute\Source\Status::STATUS_ENABLED)
+            ->setVisibility(\Magento\Catalog\Model\Product\Visibility::VISIBILITY_BOTH)
+            ->setTypeId(\Magento\Catalog\Model\Product\Type::TYPE_SIMPLE)
+            ->setPrice(34.00)
+            ->setWebsiteIds([1])
+            ->setStockData(['use_config_manage_stock' => 1, 'qty' => 1000, 'is_in_stock' => 1]);
+        $second = $productRepository->save($second);
+    }
+    $quote->addProduct($second, 1);
 }
 $quote->getBillingAddress()->addData($address);
 $quote->getShippingAddress()->addData($address);
@@ -170,7 +194,23 @@ if ($status !== 'Completed') {
 }
 
 /* -------------------------------------------------------------- the order */
+if ($dropSku !== '') {
+    foreach ($quote->getAllVisibleItems() as $item) {
+        if ($item->getSku() === $dropSku) {
+            $quote->removeItem($item->getId());
+        }
+    }
+    $quote->setTotalsCollectedFlag(false)->collectTotals();
+    $quoteRepository->save($quote);
+    $quote = $quoteRepository->get((int)$quote->getId());
+}
+
 $order = $management->setQuote($quote)->pollPlaceOrder();
+$order = $om->get(\Magento\Sales\Api\OrderRepositoryInterface::class)->get((int)$order->getId());
+$history = [];
+foreach ($order->getStatusHistoryCollection() as $entry) {
+    $history[] = (string)$entry->getComment();
+}
 $link = $om->get(\Qliro\QliroOne\Api\LinkRepositoryInterface::class)->getByQuoteId((int)$quote->getId(), false);
 
 echo json_encode([
@@ -191,6 +231,9 @@ echo json_encode([
         $om->get(\Qliro\QliroOne\Api\Client\MerchantInterface::class)
             ->getOrder((int)$link->getQliroOrderId())->getOrderItems()
     ) : [],
+    'state' => $order->getState(),
+    'skus' => array_map(static fn ($item) => $item->getSku(), array_values($order->getAllVisibleItems())),
+    'history' => $history,
 ], JSON_PRETTY_PRINT) . PHP_EOL;
 
 /**
