@@ -315,13 +315,21 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         try {
             $shipment = $this->getShipment($omStatus);
             $order = $shipment->getOrder();
-            if ($order->getState() == Order::STATE_PENDING_PAYMENT) {
+            if ($this->stateStatus->currentState($order) === Order::STATE_PENDING_PAYMENT) {
                 return;
             }
-            $this->stateStatus->set($order, Order::STATE_PENDING_PAYMENT);
-            $order->addStatusHistoryComment(
-                __('Order set to pending payment because Qliro One returned the capture with status: %1', $contextMessage)
-            );
+            // A held order keeps its hold and returns to pending payment when released
+            $held = $order->getState() === Order::STATE_HOLDED;
+            $this->stateStatus->setKeepingHold($order, Order::STATE_PENDING_PAYMENT);
+            $order->addStatusHistoryComment($held
+                ? __(
+                    'Qliro One returned the capture with status: %1, the order stays on hold',
+                    $contextMessage
+                )
+                : __(
+                    'Order set to pending payment because Qliro One returned the capture with status: %1',
+                    $contextMessage
+                ));
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {
             $this->logManager->critical(

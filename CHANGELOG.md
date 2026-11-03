@@ -9,6 +9,7 @@
 - The New Order Status from the settings is used only while it is assigned to `new`. If the merchant unassigned it, the order gets the default status of `new` and a warning is logged
 - A checkout status delivered again after the order was invoiced, shipped or closed no longer moves the order back. A repeated `Completed` set an invoiced order back to `new`, and a repeated `OnHold` set it to `payment_review`. The order now stays as it is and a warning is logged. A held order that is still in checkout keeps its hold and gets the new state as the state it returns to when it is released, also when the order is placed
 - A refused subscription order that was held is released and canceled, as one that was not held
+- A capture Qliro returns OnHold no longer takes a held order off hold. The order stays on hold, returns to `pending_payment` when released, and the order history says so. Before, the handlers set `pending_payment` over the hold, so an order held for a failed capture lost its hold without `unhold()`
 
 ### Changed
 
@@ -16,7 +17,7 @@
 
 ### Added
 
-- `Model/Order/StateStatus` and `Test/Unit/Model/Order/StateStatusTest`
+- `Model/Order/StateStatus`, `Test/Unit/Model/Order/StateStatusTest`, `PaymentAuthorizationStateTest` and `Handler/CaptureOnHoldTest`
 - `Test/E2e/tests/status-for-state.spec.ts`: an order placed while Qliro is in process, a repeated `Completed` and `OnHold` on an invoiced order, a capture put on hold, and a New Order Status not assigned to `new`, each checked against the statuses assigned to the state and the order grid
 
 ## [1.8.27] - 2026-10-30
