@@ -38,6 +38,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
 use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Api\Data\LinkInterface;
+use Qliro\QliroOne\Observer\HoldOrderConfirmation;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
@@ -739,8 +740,9 @@ class PlaceOrder extends AbstractManagement
                     $linesDiffer = (bool)$order->getPayment()?->getAdditionalInformation(
                         Config::QLIROONE_ADDITIONAL_INFO_LINES_DIFFER
                     );
+                    $canSend = $order->getCanSendNewEmailFlag() || $order->getData(HoldOrderConfirmation::HELD);
 
-                    if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent() && !$linesDiffer) {
+                    if ($canSend && !$order->getEmailSent() && !$linesDiffer) {
                         try {
                             $this->orderSender->send($order);
                         } catch (\Exception $exception) {

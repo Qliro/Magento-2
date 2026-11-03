@@ -1,6 +1,7 @@
+
 # Change Log
 
-## [1.8.33] - 2026-11-03
+## [1.8.37] - 2026-11-03
 
 ### Fixed
 
@@ -13,6 +14,48 @@
 - Unit tests for both source providers, `LineReference::fromMetadata()` and the carrier titles
 - `Test/E2e/tests/source-item-lookup.spec.ts` with `seed/seed-configurable-order.php`: lookups on a placed order, a configurable order and a guest cart, and the carrier titles through the guest shipping estimate
 
+
+## [1.8.36] - 2026-11-03
+
+### Fixed
+
+- The container mapper can fill a new Qliro shipment from a payload. The shipment had no order items until a builder set them, so reading them before that died on an uninitialised property, and its setter named no item type, so the items of a payload could not be mapped. A new shipment starts with no items, and the items of a payload come back as order items. Nothing maps a payload into a shipment today, the builders set the items first
+
+### Added
+
+- Cases in `ContainerMapperTest` for a payload with order items mapped into a new shipment
+- `Test/E2e/tests/shipment-mapping.spec.ts` runs the store's own mapper on a shipment payload through `Test/E2e/seed/map-shipment.php`
+
+
+## [1.8.35] - 2026-11-03
+
+### Fixed
+
+- The order confirmation went out at placement, also while Qliro still reported the purchase as `InProcess` or `OnHold`, so a buyer could get it for a purchase Qliro then refused. Core sends it from `submit()` unless the order's `can_send_new_email` flag is off, and the module never turned it off. A new observer on `sales_model_service_quote_submit_before` turns it off for Qliro orders, and the confirmation goes out once, when the Qliro status becomes `Completed`, at placement or on a later callback. A refused order gets none. Other payment methods are not affected
+- The send on `Completed` sends when the order's flag is on or the module held the confirmation. When Qliro is `Completed` at placement, an extension that turned the flag off itself on `sales_model_service_quote_submit_before`, before the module's observer, still keeps the confirmation back. One that turns it off later, for example on `sales_order_place_before`, does not. Subscription orders use the same check
+- A subscription renewal is a merchant payment, which Qliro sends no checkout status for, so its link keeps `MerchantPaymentCreated` and never reaches `Completed`. `PlaceRecurringOrder` sends its held confirmation on that status at placement, as core did before the hold, and only if it was not sent yet. It sends it on the order placement saved, not on its injected `Order`, which is one instance for every renewal in a cron run and would format a later renewal's prices in the first one's currency
+
+### Changed
+
+- An order placed while Qliro reports `InProcess` or `OnHold` gets its confirmation only when the `Completed` callback reaches the store. A store Qliro cannot call back, for example behind basic auth or with an expired callback token, sends none for such an order
+
+### Added
+
+- `Observer/HoldOrderConfirmation` and unit tests for it and for the confirmation on `Completed` at placement, `InProcess` then `Completed`, `OnHold` then `Completed`, `OnHold` then `Refused`, a repeated `Completed` and a flag another extension turned off, for the checkout and the subscription placement, and for a renewal confirmed once at placement
+- `Test/E2e/tests/order-confirmation.spec.ts`, which places orders with each status, sends the later status on the store's own callback and counts the confirmations in the store's mail. `seed-qliro-order.php` takes `--status` and `--email`, and `seed/order-confirmation.php` places an order with another payment method and reads an order's state
+
+
+## [1.8.34] - 2026-11-03
+
+### Fixed
+
+- The checkout loads with recurring payments on and no frequency options saved, for example when recurring payments were turned on with `config:set`, a config dump or in a scope with no options of its own. `Config::getRecurringFrequencyOptions()` returned the missing value as null where a string was declared, so every checkout page load failed with a TypeError. It returns an empty list now, and the checkout offers no frequency choice. Rows set as an array in `app/etc/config.php` are returned as JSON too
+- `Service\RecurringPayments\Data::formatRecurringFrequencyOptionsJson()` gives an empty list for an empty or invalid value and skips a row without its label, frequency or time unit
+
+### Added
+
+- `Test/Unit/Service/RecurringPayments/DataFrequencyOptionsTest`, `Test/Unit/Model/ConfigRecurringFrequencyOptionsTest`, and a case in `CheckoutConfigProviderTest` that builds the checkout config with recurring payments on and no options saved
+- `Test/E2e/tests/recurring-no-frequency-options.spec.ts` for the cart and the checkout with recurring payments on and no options saved, and with options saved. It sets both settings for its run and restores them
 
 ## [1.8.27] - 2026-10-30
 

@@ -10,6 +10,7 @@
  *
  * Usage, inside the Magento container:
  *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture] [--qty=2]
+ *       [--status=Completed] [--email=qliro.e2e@example.com]
  *
  * Prints one JSON object describing what it created.
  */
@@ -19,10 +20,13 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['no-name', 'fees::', 'fixture::', 'qty::']);
+$options = getopt('', ['no-name', 'fees::', 'fixture::', 'qty::', 'status::', 'email::']);
 $withName = !array_key_exists('no-name', $options);
 $fees = array_filter(array_map('floatval', explode(',', (string)($options['fees'] ?? '29,10'))));
 $fixtureName = (string)($options['fixture'] ?? 'external-capture');
+// the Qliro status at placement
+$status = (string)($options['status'] ?? 'Completed');
+$email = (string)($options['email'] ?? 'qliro.e2e@example.com');
 
 $bootstrap = Bootstrap::create(BP, []);
 $om = $bootstrap->getObjectManager();
@@ -88,7 +92,7 @@ $quote->addProduct($product, max(1, (int)($options['qty'] ?? 1)));
 $address = [
     'firstname' => 'Qliro', 'lastname' => 'Tester', 'street' => ['1 Test Street'],
     'city' => 'Austin', 'country_id' => 'US', 'region_id' => 57, 'postcode' => '78701',
-    'telephone' => '0000000000', 'email' => 'qliro.e2e@example.com',
+    'telephone' => '0000000000', 'email' => $email,
 ];
 $quote->getBillingAddress()->addData($address);
 $quote->getShippingAddress()->addData($address);
@@ -153,7 +157,7 @@ $qliroOrder = $containerMapper->fromArray(
     [
         'OrderId' => $qliroOrderId,
         'MerchantReference' => $reference,
-        'CustomerCheckoutStatus' => 'Completed',
+        'CustomerCheckoutStatus' => $status,
         'TotalPrice' => (float)$quote->getGrandTotal() + array_sum($fees),
         'Currency' => $quote->getQuoteCurrencyCode(),
         'Country' => 'US',
@@ -183,4 +187,6 @@ echo json_encode([
     'fixture' => $fixtureName,
     'methodCode' => $methodCode,
     'methodName' => $withName ? $methodName : null,
+    'email' => $email,
+    'callbackToken' => $om->get(\Qliro\QliroOne\Model\Security\CallbackToken::class)->getToken(),
 ], JSON_PRETTY_PRINT) . PHP_EOL;
