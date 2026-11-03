@@ -272,6 +272,14 @@
             <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
             <argument name="placedOrderFinder" xsi:type="object">Qliro\QliroOne\Model\Order\PlacedOrderFinder</argument>
             <argument name="discountLines" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\DiscountLines</argument>
+            <argument name="orderItemsBuilder" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder\Proxy</argument>
+            <argument name="lineDifferences" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\LineDifferences</argument>
+        </arguments>
+    </type>
+
+    <type name="Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder">
+        <arguments>
+            <argument name="lineDifferences" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\LineDifferences</argument>
         </arguments>
     </type>
 
