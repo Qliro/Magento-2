@@ -27,6 +27,7 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Stock\QuoteLines;
 
 /**
@@ -152,7 +153,8 @@ class ValidateOrderBuilderStockTest extends TestCase
             new WholeQuantityValidator(new LineQuantity()),
             $this->createMock(CartRepositoryInterface::class),
             $this->createMock(StoreManagerInterface::class),
-            $this->createMock(StoreEmulation::class)
+            $this->createMock(StoreEmulation::class),
+            new LineDifferences()
         );
 
         $builder->setQuote($this->buildQuote($quoteItems, $isActive));
