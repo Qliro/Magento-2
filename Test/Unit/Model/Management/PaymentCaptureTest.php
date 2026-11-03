@@ -622,25 +622,76 @@ class PaymentCaptureTest extends TestCase
     }
 
     /**
-     * Inside a transaction the row shows only with the commit, so the lock would not cover it
+     * Inside a transaction the row shows only with the commit: a second shipment of the order sending
+     * the same capture meanwhile would take this one for a lost one, so the lock waits for the commit
      */
-    public function testInsideATransactionNoLockIsTaken(): void
+    public function testInsideATransactionTheLockIsHeldUntilTheCommit(): void
     {
         $lockManager = $this->createMock(LockManagerInterface::class);
-        $lockManager->expects(self::never())->method('lock');
-        $lockManager->expects(self::never())->method('unlock');
+        $lockManager->expects(self::once())->method('lock')->willReturn(true);
+        $unlocked = [];
+        $lockManager->method('unlock')->willReturnCallback(function (string $name) use (&$unlocked) {
+            $unlocked[] = $name;
+
+            return true;
+        });
         $capture = $this->buildCapture($lockManager);
         $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
-
-        $connection = $this->createMock(\Magento\Framework\DB\Adapter\AdapterInterface::class);
-        $connection->method('getTransactionLevel')->willReturn(1);
-        $resource = $this->createMock(\Magento\Sales\Model\ResourceModel\Order::class);
-        $resource->method('getConnection')->willReturn($connection);
-        $this->order->method('getResource')->willReturn($resource);
+        $onCommit = $this->inATransaction();
 
         $capture->captureByShipment($this->buildShipment());
 
         self::assertCount(1, $this->savedStatuses);
+        self::assertSame([], $unlocked);
+        self::assertCount(1, $onCommit);
+
+        ($onCommit[0])();
+
+        self::assertSame(['qliro_capture_' . self::QLIRO_ORDER_ID], $unlocked);
+    }
+
+    /**
+     * A capture that fails inside a transaction wrote nothing, so a retry need not wait for the rollback
+     */
+    public function testAFailedCaptureInsideATransactionUnlocksAtOnce(): void
+    {
+        $lockManager = $this->createMock(LockManagerInterface::class);
+        $lockManager->method('lock')->willReturn(true);
+        $lockManager->expects(self::once())->method('unlock');
+        $capture = $this->buildCapture($lockManager);
+        $this->refuseWith('INVALID_ITEM', 'Item does not match');
+        $onCommit = $this->inATransaction();
+
+        try {
+            $capture->captureByShipment($this->buildShipment());
+            self::fail('The refusal should be passed through');
+        } catch (OrderManagementApiException $exception) {
+            self::assertCount(0, $onCommit);
+        }
+    }
+
+    /**
+     * Puts the order's connection inside a transaction
+     *
+     * @return \ArrayObject the commit callbacks registered on it, filled as they are added
+     */
+    private function inATransaction(): \ArrayObject
+    {
+        $onCommit = new \ArrayObject();
+        $connection = $this->createMock(\Magento\Framework\DB\Adapter\AdapterInterface::class);
+        $connection->method('getTransactionLevel')->willReturn(1);
+        $resource = $this->createMock(\Magento\Sales\Model\ResourceModel\Order::class);
+        $resource->method('getConnection')->willReturn($connection);
+        $resource->method('addCommitCallback')->willReturnCallback(
+            function (callable $callback) use ($onCommit, $resource) {
+                $onCommit[] = $callback;
+
+                return $resource;
+            }
+        );
+        $this->order->method('getResource')->willReturn($resource);
+
+        return $onCommit;
     }
 
     /**

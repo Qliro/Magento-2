@@ -322,8 +322,9 @@ class Payment extends AbstractManagement
             );
         }
 
-        $locked = $this->lockCapture($link, $order);
+        $this->lockCapture($link);
         $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
+        $recorded = false;
 
         try {
             try {
@@ -332,6 +333,8 @@ class Payment extends AbstractManagement
                 $result = $this->answerRefusal($exception, $order, $link, $payment, $invoice, $request, 'invoice');
 
                 if ($result === null) {
+                    $recorded = true;
+
                     return;
                 }
             }
@@ -361,10 +364,9 @@ class Payment extends AbstractManagement
                     ]
                 );
             }
+            $recorded = true;
         } finally {
-            if ($locked) {
-                $this->unlockCapture($link);
-            }
+            $this->unlockCapture($link, $order, $recorded);
         }
 
         if ($result->getStatus() == 'Created') {
@@ -379,27 +381,17 @@ class Payment extends AbstractManagement
     }
 
     /**
-     * Held from the capture call until its OM status row is saved, so a concurrent request sending
+     * Held from the capture call until its OM status row can be read, so a concurrent request sending
      * the same capture, answered DUPLICATE_REQUEST meanwhile, finds it on the books rather than
-     * take it for a lost one. Only outside a transaction: the admin invoice saves the row at once,
-     * inside one the row shows only with the commit, and REST serialises the documents of an order.
+     * take it for a lost one
      *
      * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
-     * @param Order $order
-     * @return bool whether the lock was taken
+     * @return void
      * @throws LocalizedException
      */
-    private function lockCapture($link, Order $order): bool
+    private function lockCapture($link): void
     {
-        $resource = $order->getResource();
-
-        if ($resource && $resource->getConnection()->getTransactionLevel() > 0) {
-            return false;
-        }
-
-        $name = self::CAPTURE_LOCK_PREFIX . $link->getQliroOrderId();
-
-        if (!$this->lockManager->lock($name, self::CAPTURE_LOCK_WAIT_SECONDS)) {
+        if (!$this->lockManager->lock($this->captureLockName($link), self::CAPTURE_LOCK_WAIT_SECONDS)) {
             throw new LocalizedException(
                 __(
                     'Another capture of Qliro order %1 is still being sent. Wait a minute and try again.',
@@ -407,17 +399,41 @@ class Payment extends AbstractManagement
                 )
             );
         }
+    }
 
-        return true;
+    /**
+     * A row saved inside a transaction shows only with the commit, so a recorded capture keeps the lock
+     * until then. A shipment captures inside its own save, and Magento runs two shipments of one order
+     * side by side. A rollback drops the callback, the lock then goes with the database session.
+     *
+     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @param Order $order
+     * @param bool $recorded whether the capture went through and its row was written
+     * @return void
+     */
+    private function unlockCapture($link, Order $order, bool $recorded): void
+    {
+        $name = $this->captureLockName($link);
+        $resource = $order->getResource();
+
+        if ($recorded && $resource && $resource->getConnection()->getTransactionLevel() > 0) {
+            $resource->addCommitCallback(function () use ($name) {
+                $this->lockManager->unlock($name);
+            });
+
+            return;
+        }
+
+        $this->lockManager->unlock($name);
     }
 
     /**
      * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
-     * @return void
+     * @return string
      */
-    private function unlockCapture($link)
+    private function captureLockName($link): string
     {
-        $this->lockManager->unlock(self::CAPTURE_LOCK_PREFIX . $link->getQliroOrderId());
+        return self::CAPTURE_LOCK_PREFIX . $link->getQliroOrderId();
     }
 
     /**
@@ -861,8 +877,9 @@ class Payment extends AbstractManagement
             $request = $this->shipmentMarkItemsAsShippedRequestBuilder->create();
         }
 
-        $locked = $this->lockCapture($link, $order);
+        $this->lockCapture($link);
         $order->setData(self::QLIRO_CAPTURE_SUBMITTED, true);
+        $recorded = false;
 
         try {
             try {
@@ -871,6 +888,8 @@ class Payment extends AbstractManagement
                 $result = $this->answerRefusal($exception, $order, $link, null, null, $request, 'shipment');
 
                 if ($result === null) {
+                    $recorded = true;
+
                     return;
                 }
             }
@@ -919,10 +938,9 @@ class Payment extends AbstractManagement
                     ]
                 );
             }
+            $recorded = true;
         } finally {
-            if ($locked) {
-                $this->unlockCapture($link);
-            }
+            $this->unlockCapture($link, $order, $recorded);
         }
 
         if ($result->getStatus() != 'Created') {
