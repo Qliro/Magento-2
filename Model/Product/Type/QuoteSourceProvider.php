@@ -16,6 +16,7 @@ use Qliro\QliroOne\Model\Product\ProductPool;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 use Qliro\QliroOne\Model\Product\VatRate;
+use Qliro\QliroOne\Model\QliroOrder\LineReference;
 
 /**
  * Quote Source Provider class
@@ -58,6 +59,11 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
     private $vatRate;
 
     /**
+     * @var LineReference
+     */
+    private $lineReference;
+
+    /**
      * Inject dependencies
      *
      * @param ProductPool $productPool
@@ -65,19 +71,22 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      * @param Config $config
      * @param RecurringDataService $recurringDataService
      * @param VatRate $vatRate
+     * @param LineReference|null $lineReference
      */
     public function __construct(
         ProductPool $productPool,
         TypeSourceItemInterfaceFactory $typeSourceItemFactory,
         Config $config,
         RecurringDataService $recurringDataService,
-        VatRate $vatRate
+        VatRate $vatRate,
+        ?LineReference $lineReference = null
     ) {
         $this->productPool = $productPool;
         $this->typeSourceItemFactory = $typeSourceItemFactory;
         $this->config = $config;
         $this->recurringDataService = $recurringDataService;
         $this->vatRate = $vatRate;
+        $this->lineReference = $lineReference ?? new LineReference();
     }
 
     /**
@@ -94,28 +103,17 @@ class QuoteSourceProvider implements TypeSourceProviderInterface
      */
     public function getSourceItemByMerchantReference($reference): ?TypeSourceItemInterface
     {
-        if (is_array($reference)) {
-            if (isset($reference['quoteItems'])) {
-                foreach ($reference['quoteItems'] as $ref) {
-                    if (str_contains($ref, ':')) {
-                        list($quoteItemId, $sku) = explode(':', $ref);
-                    } else {
-                        $quoteItemId = null;
-                        $sku = $reference;
-                    }
-                }
-            }
-        } else {
-            if (str_contains($reference, ':')) {
-                list($quoteItemId, $sku) = explode(':', $reference);
-            } else {
-                $quoteItemId = null;
-                $sku = $reference;
-            }
+        $reference = $this->lineReference->fromMetadata($reference);
+
+        if ($reference === null) {
+            return null;
         }
 
+        $quoteItemId = $this->lineReference->itemIdOf($reference);
+        $sku = $this->lineReference->skuOf($reference);
+
         try {
-            $quoteItem = $this->quote->getItemById($quoteItemId);
+            $quoteItem = $quoteItemId !== null ? $this->quote->getItemById($quoteItemId) : null;
 
             if (!$quoteItem) {
                 if ($sku) {

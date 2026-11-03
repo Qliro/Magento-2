@@ -18,7 +18,9 @@ interface TypeSourceProviderInterface
     public function getStoreId();
 
     /**
-     * @param string $reference
+     * The handlers pass the line metadata, which holds the reference under quoteItems
+     *
+     * @param string|array $reference
      * @return \Qliro\QliroOne\Api\Product\TypeSourceItemInterface|null
      */
     public function getSourceItemByMerchantReference($reference);
