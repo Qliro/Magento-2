@@ -142,7 +142,7 @@ class CaptureOnHoldTest extends TestCase
             $this->createMock(Manager::class),
             $this->createMock(CaptureTransactionUpdater::class),
             $captureHold,
-            $stateStatus
+            stateStatus: $stateStatus
         ))->handleOnHold($status, $omStatus);
     }
 

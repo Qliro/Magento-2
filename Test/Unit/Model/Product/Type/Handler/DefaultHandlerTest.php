@@ -86,6 +86,32 @@ class DefaultHandlerTest extends TestCase
     }
 
     /**
+     * A bundle priced by its children has no tax percent on its parent, so the child keeps its own
+     * rather than a rate read back from its rounded prices: 5.99 over 4.79 would say 25.05.
+     */
+    public function testABundleChildKeepsItsOwnTaxPercentWhenTheParentHasNone(): void
+    {
+        $line = $this->buildHandler()->getQliroOrderItem(
+            $this->buildSourceItem(5.99, 4.79, 25.0, parent: $this->buildParent(null, true))
+        );
+
+        self::assertSame(25.0, $line->getVatRate());
+    }
+
+    /**
+     * A configurable child takes the tax percent of its parent, which is the row Magento taxed. The
+     * child's own 0 is only the column default.
+     */
+    public function testAConfigurableChildTakesTheTaxPercentOfItsParent(): void
+    {
+        $line = $this->buildHandler()->getQliroOrderItem(
+            $this->buildSourceItem(112.0, 100.0, 0.0, parent: $this->buildParent(12.0, false))
+        );
+
+        self::assertSame(12.0, $line->getVatRate());
+    }
+
+    /**
      * Qliro identifies a line by its merchant reference: it merges two lines carrying the same one
      * and sums their quantity, so the sku alone cannot stand for a line (PLIN-408).
      */
@@ -251,7 +277,8 @@ class DefaultHandlerTest extends TestCase
         int $productWebsiteId = 5,
         ?object $sourceItem = null,
         int $itemId = 7,
-        string $sku = 'sku-1'
+        string $sku = 'sku-1',
+        ?TypeSourceItemInterface $parent = null
     ): TypeSourceItemInterface {
         $quoteItem = $this->getMockBuilder(QuoteItem::class)
             ->disableOriginalConstructor()
@@ -289,11 +316,27 @@ class DefaultHandlerTest extends TestCase
         $item->method('getQty')->willReturn($qty);
         $item->method('getPriceInclTax')->willReturn($priceInclTax);
         $item->method('getPriceExclTax')->willReturn($priceExclTax);
-        $item->method('getParent')->willReturn(null);
+        $item->method('getParent')->willReturn($parent);
         $item->method('getItem')->willReturn($sourceItem ?? $quoteItem);
         $item->method('getProduct')->willReturn($product);
         $item->method('getSubscription')->willReturn(false);
 
         return $item;
+    }
+
+    private function buildParent(?float $taxPercent, bool $childrenCalculated): TypeSourceItemInterface
+    {
+        $parentItem = $this->getMockBuilder(QuoteItem::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['isChildrenCalculated'])
+            ->addMethods(['getTaxPercent'])
+            ->getMock();
+        $parentItem->method('getTaxPercent')->willReturn($taxPercent);
+        $parentItem->method('isChildrenCalculated')->willReturn($childrenCalculated);
+
+        $parent = $this->createMock(TypeSourceItemInterface::class);
+        $parent->method('getItem')->willReturn($parentItem);
+
+        return $parent;
     }
 }

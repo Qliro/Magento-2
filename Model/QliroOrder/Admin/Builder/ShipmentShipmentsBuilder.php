@@ -13,6 +13,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Product\Type\OrderSourceProvider;
 use Qliro\QliroOne\Model\Product\Type\TypePoolHandler;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
+use Qliro\QliroOne\Model\QliroOrder\Admin\BundleChildren;
 use Qliro\QliroOne\Model\QliroOrder\LineReference;
 use Qliro\QliroOne\Api\Data\QliroShipmentInterfaceFactory;
 
@@ -62,6 +63,11 @@ class ShipmentShipmentsBuilder
     private $lineQuantity;
 
     /**
+     * @var BundleChildren
+     */
+    private $bundleChildren;
+
+    /**
      * Inject dependencies
      *
      * @param \Qliro\QliroOne\Model\Product\Type\TypePoolHandler $typeResolver
@@ -70,6 +76,7 @@ class ShipmentShipmentsBuilder
      * @param \Qliro\QliroOne\Api\Admin\Builder\OrderItemHandlerInterface[] $handlers
      * @param LineReference|null $lineReference
      * @param LineQuantity|null $lineQuantity
+     * @param BundleChildren|null $bundleChildren
      */
     public function __construct(
         TypePoolHandler $typeResolver,
@@ -77,7 +84,8 @@ class ShipmentShipmentsBuilder
         OrderSourceProvider $orderSourceProvider,
         $handlers = [],
         ?LineReference $lineReference = null,
-        ?LineQuantity $lineQuantity = null
+        ?LineQuantity $lineQuantity = null,
+        ?BundleChildren $bundleChildren = null
     ) {
         $this->typeResolver = $typeResolver;
         $this->qliroShipmentFactory = $qliroShipmentFactory;
@@ -86,6 +94,7 @@ class ShipmentShipmentsBuilder
         // Optional so a store constructing this builder with the old signature keeps working
         $this->lineReference = $lineReference ?? new LineReference();
         $this->lineQuantity = $lineQuantity ?? new LineQuantity();
+        $this->bundleChildren = $bundleChildren ?? new BundleChildren();
     }
 
     /**
@@ -117,6 +126,7 @@ class ShipmentShipmentsBuilder
          * $configurableProducts['order item id of configurable'] = quantity about to be captured
          */
         $configurableProducts = [];
+        $bundleLines = [];
 
         /** @var \Magento\Sales\Model\Order\Shipment\Item $shipmentItem */
         foreach ($this->shipment->getItemsCollection() as $shipmentItem) {
@@ -137,33 +147,52 @@ class ShipmentShipmentsBuilder
                 $configurableProducts[$orderItem->getId()] = $shipmentQty;
             }
 
+            $isBundleChild = $this->bundleChildren->isPricedChild($orderItem, $this->order);
+
             if ($orderItem->getParentItemId()) {
-                if (!isset($configurableProducts[$orderItem->getParentItemId()])) {
+                if (isset($configurableProducts[$orderItem->getParentItemId()])) {
+                    $shipmentQty = $configurableProducts[$orderItem->getParentItemId()];
+                } elseif (!$isBundleChild || !$orderItem->isShipSeparately()) {
+                    // Shipped together, the children go out with the bundle row instead
                     continue;
                 }
-                $shipmentQty = $configurableProducts[$orderItem->getParentItemId()];
             }
 
             if (!$shipmentQty) {
                 continue;
             }
 
-            $qliroOrderItem = $this->typeResolver->resolveQliroOrderItem(
-                $this->orderSourceProvider->generateSourceItem($orderItem, $shipmentQty),
-                $this->orderSourceProvider
-            );
+            $isBundle = $this->bundleChildren->isPricedByChildren($orderItem);
+            $lines = [[$orderItem, $shipmentQty]];
 
-            if ($qliroOrderItem) {
-                // Asked here rather than at the top of the loop, because this is the quantity that
-                // reaches Qliro: a line the loop skips is never sent, and the quantity left to
-                // invoice, which replaces the shipped one above, is what a legacy partial invoice
-                // can make fractional
-                $qliroOrderItem->setQuantity(
-                    $this->lineQuantity->settlementQuantity($shipmentQty, (string)$orderItem->getSku())
+            if ($isBundle) {
+                array_push($lines, ...$this->bundleChildren->shippedTogether($orderItem, $shipmentQty));
+            }
+
+            foreach ($lines as [$lineItem, $lineQty]) {
+                $qliroOrderItem = $this->typeResolver->resolveQliroOrderItem(
+                    $this->orderSourceProvider->generateSourceItem($lineItem, $lineQty),
+                    $this->orderSourceProvider
                 );
-                $shipmentOrderItems[] = $qliroOrderItem;
+
+                if ($qliroOrderItem) {
+                    // Asked here rather than at the top of the loop, because this is the quantity that
+                    // reaches Qliro: a line the loop skips is never sent, and the quantity left to
+                    // invoice, which replaces the shipped one above, is what a legacy partial invoice
+                    // can make fractional
+                    $qliroOrderItem->setQuantity(
+                        $this->lineQuantity->settlementQuantity($lineQty, (string)$lineItem->getSku())
+                    );
+                    $shipmentOrderItems[] = $qliroOrderItem;
+
+                    if ($isBundleChild || $isBundle) {
+                        $bundleLines[] = $qliroOrderItem;
+                    }
+                }
             }
         }
+
+        $shipmentOrderItems = $this->bundleChildren->withinReservation($shipmentOrderItems, $bundleLines, $this->order);
 
         if ($this->isFirstShipment()) {
             $this->order->setFirstCaptureFlag(true);

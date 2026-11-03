@@ -397,7 +397,7 @@ class PlaceOrderLineDifferencesTest extends TestCase
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
             new LineDifferences(),
-            new StateStatus($this->createMock(LogManager::class))
+            stateStatus: new StateStatus($this->createMock(LogManager::class))
         );
     }
 }
