@@ -119,6 +119,11 @@ class Config
     const QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT = 'qliro_reserved_discount';
 
     /**
+     * Set once the order was held for lines that differ from the Qliro order
+     */
+    const QLIROONE_ADDITIONAL_INFO_LINES_DIFFER = 'qliro_lines_differ';
+
+    /**
      * How many units of each line the captures have taken so far, by merchant reference
      */
     const QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS = 'qliro_captured_units';
@@ -970,7 +975,12 @@ class Config
      */
     public function getRecurringFrequencyOptions($storeId = null): string
     {
-        return $this->adapter->getConfigData(self::QLIROONE_RECURRING_FREQUENCY_OPTIONS, $storeId);
+        $options = $this->adapter->getConfigData(self::QLIROONE_RECURRING_FREQUENCY_OPTIONS, $storeId);
+        if (is_array($options)) {
+            return $this->json->serialize($options);
+        }
+
+        return is_string($options) && $options !== '' ? $options : '[]';
     }
 
     /**

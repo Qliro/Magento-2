@@ -209,7 +209,10 @@ class OrderConfirmationTest extends TestCase
     private function order(bool $canSend, bool $held): Order&MockObject
     {
         $payment = $this->createMock(Payment::class);
-        $payment->method('getAdditionalInformation')->willReturn(['qliroone_updated_merchant_reference' => true]);
+        $info = ['qliroone_updated_merchant_reference' => true];
+        $payment->method('getAdditionalInformation')->willReturnCallback(
+            fn ($key = null) => $key === null ? $info : ($info[$key] ?? null)
+        );
 
         $config = $this->createMock(OrderConfig::class);
         $config->method('getStateDefaultStatus')->willReturn('payment_review');

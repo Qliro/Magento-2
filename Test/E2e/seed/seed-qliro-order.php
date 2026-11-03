@@ -9,7 +9,7 @@
  * the way a real one does rather than the way we imagine one.
  *
  * Usage, inside the Magento container:
- *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture]
+ *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture] [--qty=2]
  *       [--status=Completed] [--email=qliro.e2e@example.com]
  *
  * Prints one JSON object describing what it created.
@@ -20,7 +20,7 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['no-name', 'fees::', 'fixture::', 'status::', 'email::']);
+$options = getopt('', ['no-name', 'fees::', 'fixture::', 'qty::', 'status::', 'email::']);
 $withName = !array_key_exists('no-name', $options);
 $fees = array_filter(array_map('floatval', explode(',', (string)($options['fees'] ?? '29,10'))));
 $fixtureName = (string)($options['fixture'] ?? 'external-capture');
@@ -87,7 +87,7 @@ $storeManager->setCurrentStore($store);
 $quote = $om->create(\Magento\Quote\Model\Quote::class);
 $quote->setStore($store);
 $quote->setCurrency();
-$quote->addProduct($product, 1);
+$quote->addProduct($product, max(1, (int)($options['qty'] ?? 1)));
 
 $address = [
     'firstname' => 'Qliro', 'lastname' => 'Tester', 'street' => ['1 Test Street'],
@@ -128,13 +128,21 @@ $om->get(\Qliro\QliroOne\Api\LinkRepositoryInterface::class)->save($link);
 
 /* ------------------------------------------------------- the Qliro order */
 $shipping = $quote->getShippingAddress();
+$containerMapper = $om->get(\Qliro\QliroOne\Model\ContainerMapper::class);
 
-$orderItems = [[
+// The product lines the module sends Qliro for the quote, placement compares them with the quote
+$orderItems = [];
+foreach ($om->create(\Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder::class)
+    ->setQuote($quote)->create() as $item) {
+    $orderItems[] = $containerMapper->toArray($item);
+}
+
+$orderItems[] = [
     'MerchantReference' => 'flatrate_flatrate', 'Description' => 'Flat Rate', 'Type' => 'Shipping',
     'Quantity' => 1,
     'PricePerItemIncVat' => (float)$shipping->getShippingInclTax(),
     'PricePerItemExVat' => (float)$shipping->getShippingAmount(),
-]];
+];
 
 foreach ($fees as $index => $amount) {
     $fee = $feeTemplate;
@@ -145,7 +153,7 @@ foreach ($fees as $index => $amount) {
     $orderItems[] = $fee;
 }
 
-$qliroOrder = $om->get(\Qliro\QliroOne\Model\ContainerMapper::class)->fromArray(
+$qliroOrder = $containerMapper->fromArray(
     [
         'OrderId' => $qliroOrderId,
         'MerchantReference' => $reference,
