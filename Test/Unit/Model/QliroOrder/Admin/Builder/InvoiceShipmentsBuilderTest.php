@@ -203,6 +203,60 @@ class InvoiceShipmentsBuilderTest extends TestCase
         self::assertSame(1.0, $lines[0]->getQuantity());
     }
 
+    /**
+     * A bundle priced by its children went to the checkout at zero with its children as lines of
+     * their own, so the capture carries the children, or it charges nothing for the bundle.
+     */
+    public function testCapturesTheChildrenOfABundlePricedByThem(): void
+    {
+        $bundle = $this->orderItem(['id' => 1, 'sku' => 'KIT', 'name' => 'Kit', 'type' => 'bundle',
+            'qtyOrdered' => 1.0, 'incVat' => 48.49, 'exVat' => 38.79, 'taxPercent' => null, 'childrenCalculated' => true]);
+        $first = $this->orderItem(['id' => 2, 'sku' => 'KIT-A', 'name' => 'A', 'type' => 'simple',
+            'qtyOrdered' => 1.0, 'incVat' => 5.99, 'exVat' => 4.79, 'taxPercent' => 25.0, 'parentId' => 1], $bundle);
+        $second = $this->orderItem(['id' => 3, 'sku' => 'KIT-B', 'name' => 'B', 'type' => 'simple',
+            'qtyOrdered' => 2.0, 'incVat' => 42.5, 'exVat' => 34.0, 'taxPercent' => 25.0, 'parentId' => 1], $bundle);
+
+        $lines = $this->build([$bundle, $first, $second], [1 => 1.0, 2 => 1.0, 3 => 2.0])[0]->getOrderItems();
+
+        self::assertSame(
+            [['1:KIT', 1.0, 0.0], ['2:KIT-A', 1.0, 5.99], ['3:KIT-B', 2.0, 42.5]],
+            array_map(static fn($line): array => [
+                $line->getMerchantReference(),
+                $line->getQuantity(),
+                $line->getPricePerItemIncVat(),
+            ], $lines)
+        );
+        self::assertSame(25.0, $lines[1]->getVatRate());
+        self::assertSame(25.0, $lines[2]->getVatRate());
+    }
+
+    /**
+     * An order reserved before the children went out for every bundle holds one bundle's worth,
+     * and Qliro refuses a capture of more, so the capture takes what it holds. The zero bundle
+     * line, which Magento puts on every invoice, goes out no more often than it was reserved.
+     */
+    public function testCapturesNoMoreOfTheChildrenThanQliroReserved(): void
+    {
+        $bundle = $this->orderItem(['id' => 1, 'sku' => 'KIT', 'name' => 'Kit', 'type' => 'bundle',
+            'qtyOrdered' => 2.0, 'incVat' => 48.49, 'exVat' => 38.79, 'taxPercent' => null, 'childrenCalculated' => true]);
+        $first = $this->orderItem(['id' => 2, 'sku' => 'KIT-A', 'name' => 'A', 'type' => 'simple',
+            'qtyOrdered' => 2.0, 'incVat' => 5.99, 'exVat' => 4.79, 'taxPercent' => 25.0, 'parentId' => 1], $bundle);
+        $info = [Config::QLIROONE_ADDITIONAL_INFO_RESERVED_DISCOUNT => ['products' => ['1:KIT' => 2, '2:KIT-A' => 1], 'discounts' => []],
+            Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS => ['1:KIT' => 2]];
+
+        $builder = $this->builder();
+        $builder->setPayment($this->payment(
+            $this->order([$bundle, $first], ['invoice-1'], $info),
+            $this->invoice('invoice-1', [1 => 2.0, 2 => 2.0])
+        ));
+        $lines = $builder->create()[0]->getOrderItems();
+
+        self::assertSame(
+            [['2:KIT-A', 1.0]],
+            array_map(static fn($line): array => [$line->getMerchantReference(), $line->getQuantity()], $lines)
+        );
+    }
+
     public function testRefusesToBuildWithoutAnOrder(): void
     {
         $this->expectException(\LogicException::class);
@@ -346,7 +400,7 @@ class InvoiceShipmentsBuilderTest extends TestCase
      * @param OrderItem[] $items
      * @param string[] $invoiceIds The invoices the order already carries
      */
-    private function order(array $items, array $invoiceIds = ['invoice-1']): Order&MockObject
+    private function order(array $items, array $invoiceIds = ['invoice-1'], array $info = []): Order&MockObject
     {
         $invoices = [];
 
@@ -363,7 +417,7 @@ class InvoiceShipmentsBuilderTest extends TestCase
         // The builder asks the payment which reference format the reservation was built with
         $payment = $this->createMock(Payment::class);
         $payment->method('getAdditionalInformation')->willReturnCallback(
-            static fn($key = null) => $key === Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID
+            static fn($key = null) => $info[$key] ?? $key === Config::QLIROONE_ADDITIONAL_INFO_LINE_REFERENCE_CARRIES_ITEM_ID
         );
 
         $order->method('getPayment')->willReturn($payment);
@@ -424,6 +478,7 @@ class InvoiceShipmentsBuilderTest extends TestCase
         $item->method('getTaxPercent')->willReturn($data['taxPercent']);
         $item->method('getParentItemId')->willReturn($data['parentId'] ?? null);
         $item->method('getParentItem')->willReturn($parent);
+        $item->method('isChildrenCalculated')->willReturn($data['childrenCalculated'] ?? false);
         $item->method('getProduct')->willReturn($product);
 
         return $item;

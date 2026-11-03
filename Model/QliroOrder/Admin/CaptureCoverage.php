@@ -32,6 +32,11 @@ class CaptureCoverage
 {
     private const EPSILON = 0.000001;
 
+    /**
+     * @var BundleChildren
+     */
+    private $bundleChildren;
+
     private const TYPE_CAPTURE = 'Capture';
 
     private const FAILED = [
@@ -42,11 +47,14 @@ class CaptureCoverage
     /**
      * @param OrderManagementStatusRepositoryInterface $statusRepository
      * @param SearchCriteriaBuilder $searchCriteriaBuilder
+     * @param BundleChildren|null $bundleChildren
      */
     public function __construct(
         private readonly OrderManagementStatusRepositoryInterface $statusRepository,
-        private readonly SearchCriteriaBuilder $searchCriteriaBuilder
+        private readonly SearchCriteriaBuilder $searchCriteriaBuilder,
+        ?BundleChildren $bundleChildren = null
     ) {
+        $this->bundleChildren = $bundleChildren ?? new BundleChildren();
     }
 
     /**
@@ -266,7 +274,7 @@ class CaptureCoverage
     }
 
     /**
-     * Quantity per top level order item, children follow their parent in both documents
+     * Quantity per order item that carries a price, see BundleChildren::chargedQuantities
      *
      * @param Invoice|Shipment $document
      * @param Order $order
@@ -280,7 +288,7 @@ class CaptureCoverage
             $orderItem = $order->getItemById($item->getOrderItemId());
             $qty = (float)$item->getQty();
 
-            if (!$orderItem || $orderItem->getParentItemId() || $qty <= 0) {
+            if (!$orderItem || $qty <= 0) {
                 continue;
             }
 
@@ -288,7 +296,7 @@ class CaptureCoverage
             $quantities[$itemId] = ($quantities[$itemId] ?? 0.0) + $qty;
         }
 
-        return $quantities;
+        return $this->bundleChildren->chargedQuantities($quantities, $order);
     }
 
     /**

@@ -17,7 +17,7 @@ class Shipment implements QliroShipmentInterface
     /**
      * @var \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[]
      */
-    private array $orderItems;
+    private array $orderItems = [];
 
     /**
      * @inheritDoc
@@ -45,7 +45,8 @@ class Shipment implements QliroShipmentInterface
     }
 
     /**
-     * @inheritDoc
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderItemInterface[] $value
+     * @return \Qliro\QliroOne\Api\Data\QliroShipmentInterface
      */
     public function setOrderItems(array $value): QliroShipmentInterface
     {

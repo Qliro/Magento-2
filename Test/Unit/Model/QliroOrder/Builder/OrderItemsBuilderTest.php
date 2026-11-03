@@ -139,6 +139,23 @@ class OrderItemsBuilderTest extends TestCase
     }
 
     /**
+     * The cart counts a child per bundle, so two bundles of three parts are six parts at Qliro, or
+     * the reservation charges for one bundle.
+     */
+    public function testSendsTheChildrenOfEveryBundleInTheCart(): void
+    {
+        $bundle = $this->quoteItem(['id' => 33, 'name' => 'Kit', 'sku' => 'KIT', 'type' => 'bundle',
+            'qty' => 2.0, 'incVat' => 225.0, 'exVat' => 180.0, 'taxPercent' => null, 'priceType' => 0]);
+        $child = $this->quoteItem(['id' => 34, 'name' => 'Part', 'sku' => 'PART', 'type' => 'simple',
+            'qty' => 3.0, 'incVat' => 75.0, 'exVat' => 60.0, 'taxPercent' => 25.0], $bundle);
+
+        $lines = $this->buildBuilder()->setQuote($this->quote([$bundle, $child]))->create();
+
+        self::assertSame(2.0, $lines[0]->getQuantity());
+        self::assertSame(6.0, $lines[1]->getQuantity());
+    }
+
+    /**
      * A bundle with a price of its own keeps it, and its children are sent at the zero the cart
      * prices them at.
      */

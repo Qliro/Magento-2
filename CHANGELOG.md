@@ -1,7 +1,7 @@
 
 # Change Log
 
-## [1.8.28] - 2026-10-30
+## [1.8.39] - 2026-11-03
 
 ### Fixed
 
@@ -10,6 +10,117 @@
 ### Added
 
 - `Test/E2e/tests/paid-currency.spec.ts` with `seed/seed-paid-currency.php`: the cart in the buyer's currency, then Qliro's delivery methods call and the placement, each in a process of its own as Qliro's calls run. Off unless `E2E_PAY_CURRENCY` is set
+
+
+## [1.8.38] - 2026-11-03
+
+### Fixed
+
+- A bundle priced by its children was captured at nothing. The checkout sends it as a bundle line at zero and a line per child, and the capture on invoice and on shipment sent the zero line and dropped the children, so Qliro took the shipping only while Magento recorded the invoice as paid in full. The capture now carries the children at the price and quantity the invoice or shipment holds
+- A shipment of such a bundle shipped together holds the bundle row only, so each child now ships its share of the bundle quantity
+- The bundle line and its children never go out for more than Qliro reserved of them less what was already captured, read from the reservation and the captured units the payment records, since Magento puts the bundle row on every invoice and shipment. Magento's invoiced quantity cannot tell: an invoice captures only with capture on invoice on, and a shipment is invoiced only once Qliro confirms it. An order reserved before this release holds one bundle's worth of each child at the rate read back from the prices, and is captured at that, which Qliro accepts at the child's own rate, so a later invoice of its other bundles has nothing left at Qliro and is refused rather than recorded as paid. With capture on shipment, the invoice Qliro's confirmation creates still records every bundle shipped, as Magento invoices what was shipped. An order placed without the recorded reservation, before 1.8.19 or from a checkout whose Qliro order held none of the cart's discount, is sent as it is, and Qliro refuses a capture of more than one bundle
+- The children of a bundle priced by its children went to the checkout counted for one bundle, so two bundles in the cart were reserved at Qliro as one. A child now goes out for every bundle in the cart. A checkout open while this release is deployed still holds the old quantity, and its validate callback is declined once, until the checkout sends Qliro the new lines
+- A child of such a bundle went to Qliro with a rate read back from its rounded prices, 25.05 for an item at 4.79 before VAT, instead of the 25 Magento taxed it at. A child line takes the tax percent of its parent so that a configurable gets its parent's rate, and Magento gives such a bundle's parent none. The child now keeps its own tax percent under a bundle priced by its children. Configurables and fixed price bundles keep their parent's rate
+- An invoice after a shipment capture is matched to it by the children of such a bundle rather than by the bundle row, whose quantity Magento sets on every document whatever children it holds. The same goes for the invoice Qliro's confirmation of a shipment capture creates: such a bundle is invoiced by its children, each for what it ships as far as it is left to invoice, where the bundle row alone counted as invoiced after any invoice of it, so its captured children were never invoiced
+- Whether the bundle line goes out at zero is read off the cart or order item rather than the product as it is now, so a bundle switched to a fixed price after the order cannot be captured twice
+
+### Added
+
+- Unit tests for the child rate, the child quantity in the cart, the capture of such a bundle on invoice, on a shipment shipped together and separately, against the reservation and against what was already captured, the quantities an invoice is matched to a shipment capture by, and the invoice a confirmed capture of a bundle shipped together creates
+- `Test/E2e/tests/dynamic-bundle.spec.ts`, against the Qliro sandbox: two bundles reach Qliro with each child at 25 and the reservation equal to the order, an invoice captures the order in full, and so does a shipment. `Test/E2e/seed/seed-sandbox-order.php --bundle` buys the bundle and prints the lines Qliro holds, `Test/E2e/seed/qliro-transactions.php` prints what Qliro reserved and captured
+
+
+## [1.8.37] - 2026-11-03
+
+### Fixed
+
+- `OrderSourceProvider::getSourceItemByMerchantReference()` returns the order item or null instead of a TypeError when no item has the quote item id of the reference, as with the bare sku of an order placed before 1.7.42. It finds the item by sku, then by the product that has the sku, so a configurable line gets its child, and it skips items whose product is gone. It also reads the line metadata the type handlers pass. Nothing in the module calls it on the order side yet
+- `QuoteSourceProvider`, used by the checkout, finds the cart item of a bare sku in the line metadata instead of failing on it. Both providers read references through `LineReference`, so a sku with a colon stays whole
+- The Unifaun and Ingrid rates no longer fail on a request without items, with items not keyed from 0, or on a description like `Unifaun -X`. The titles are split where the provider name and ` - ` stand, so a service name with ` - ` stays whole, and a request without items no longer prices from the previous quote's link
+
+### Added
+
+- Unit tests for both source providers, `LineReference::fromMetadata()` and the carrier titles
+- `Test/E2e/tests/source-item-lookup.spec.ts` with `seed/seed-configurable-order.php`: lookups on a placed order, a configurable order and a guest cart, and the carrier titles through the guest shipping estimate
+
+
+## [1.8.36] - 2026-11-03
+
+### Fixed
+
+- The container mapper can fill a new Qliro shipment from a payload. The shipment had no order items until a builder set them, so reading them before that died on an uninitialised property, and its setter named no item type, so the items of a payload could not be mapped. A new shipment starts with no items, and the items of a payload come back as order items. Nothing maps a payload into a shipment today, the builders set the items first
+
+### Added
+
+- Cases in `ContainerMapperTest` for a payload with order items mapped into a new shipment
+- `Test/E2e/tests/shipment-mapping.spec.ts` runs the store's own mapper on a shipment payload through `Test/E2e/seed/map-shipment.php`
+
+
+## [1.8.35] - 2026-11-03
+
+### Fixed
+
+- The order confirmation went out at placement, also while Qliro still reported the purchase as `InProcess` or `OnHold`, so a buyer could get it for a purchase Qliro then refused. Core sends it from `submit()` unless the order's `can_send_new_email` flag is off, and the module never turned it off. A new observer on `sales_model_service_quote_submit_before` turns it off for Qliro orders, and the confirmation goes out once, when the Qliro status becomes `Completed`, at placement or on a later callback. A refused order gets none. Other payment methods are not affected
+- The send on `Completed` sends when the order's flag is on or the module held the confirmation. When Qliro is `Completed` at placement, an extension that turned the flag off itself on `sales_model_service_quote_submit_before`, before the module's observer, still keeps the confirmation back. One that turns it off later, for example on `sales_order_place_before`, does not. Subscription orders use the same check
+- A subscription renewal is a merchant payment, which Qliro sends no checkout status for, so its link keeps `MerchantPaymentCreated` and never reaches `Completed`. `PlaceRecurringOrder` sends its held confirmation on that status at placement, as core did before the hold, and only if it was not sent yet. It sends it on the order placement saved, not on its injected `Order`, which is one instance for every renewal in a cron run and would format a later renewal's prices in the first one's currency
+
+### Changed
+
+- An order placed while Qliro reports `InProcess` or `OnHold` gets its confirmation only when the `Completed` callback reaches the store. A store Qliro cannot call back, for example behind basic auth or with an expired callback token, sends none for such an order
+
+### Added
+
+- `Observer/HoldOrderConfirmation` and unit tests for it and for the confirmation on `Completed` at placement, `InProcess` then `Completed`, `OnHold` then `Completed`, `OnHold` then `Refused`, a repeated `Completed` and a flag another extension turned off, for the checkout and the subscription placement, and for a renewal confirmed once at placement
+- `Test/E2e/tests/order-confirmation.spec.ts`, which places orders with each status, sends the later status on the store's own callback and counts the confirmations in the store's mail. `seed-qliro-order.php` takes `--status` and `--email`, and `seed/order-confirmation.php` places an order with another payment method and reads an order's state
+
+
+## [1.8.34] - 2026-11-03
+
+### Fixed
+
+- The checkout loads with recurring payments on and no frequency options saved, for example when recurring payments were turned on with `config:set`, a config dump or in a scope with no options of its own. `Config::getRecurringFrequencyOptions()` returned the missing value as null where a string was declared, so every checkout page load failed with a TypeError. It returns an empty list now, and the checkout offers no frequency choice. Rows set as an array in `app/etc/config.php` are returned as JSON too
+- `Service\RecurringPayments\Data::formatRecurringFrequencyOptionsJson()` gives an empty list for an empty or invalid value and skips a row without its label, frequency or time unit
+
+### Added
+
+- `Test/Unit/Service/RecurringPayments/DataFrequencyOptionsTest`, `Test/Unit/Model/ConfigRecurringFrequencyOptionsTest`, and a case in `CheckoutConfigProviderTest` that builds the checkout config with recurring payments on and no options saved
+- `Test/E2e/tests/recurring-no-frequency-options.spec.ts` for the cart and the checkout with recurring payments on and no options saved, and with options saved. It sets both settings for its run and restores them
+
+## [1.8.27] - 2026-10-30
+
+### Fixed
+
+- A capture that succeeds releases the hold only once every failed capture has succeeded. Before, a capture Qliro reported as Error (or UserInteraction) put the order on hold, and a success of any capture on the order released it, so capture B's success released an order whose capture A had moved no money. The failed transactions are kept on the payment, and the hold comes off only when all of them succeed (Qliro heals an Error to Success on the same transaction), with the status the order had before the hold. A capture that succeeds while another is still failed says so in the order history. An Error for a capture that already succeeded is ignored
+- A hold the merchant placed is no longer released by a capture success, only a hold the module placed for a failed capture. A hold or release through Magento's hold and unhold (admin, mass action, API) ends the module's tracking of the failures so far. Every hold comment now names the capture
+- A shipment capture that succeeds on a held order still invoices it. The hold comes back afterwards with the status from before the hold, or is released with that status when it was the last failed capture, so the invoice's own status does not replace it
+- When the status the order had before the hold is no longer assigned to its state, the order gets the state's default status and the order history says so
+- An Error for a capture on an order Magento cannot hold (complete, closed, canceled, payment review) is written to the order history instead of failing the callback
+- An order held for a failed capture before this version is not released by a capture success any more: release it by hand
+
+### Added
+
+- `Test/Unit/Model/OrderManagementStatus/Update/CaptureHoldTest`, `Test/Unit/Plugin/Magento/Sales/Model/OrderHoldPluginTest`
+- `Test/E2e/tests/capture-hold.spec.ts`: invoice and shipment captures, one failing, over Qliro's transaction status callback; a merchant's hold, an unassigned status, a late Error. `seed-qliro-order.php` takes `--qty`
+
+## [1.8.22] - 2026-10-27
+
+### Fixed
+
+- An order whose product lines differ from the Qliro order is placed on hold. Before placing, the module compares the lines of the recalculated quote with the product lines of the Qliro order the same way the validate callback does: by merchant reference, quantity, price and type, shipping and fee lines left out. Anything that changed the quote between the validate callback and placement used to give a Magento order with other items than the customer paid for, and nothing said so. The order now gets a history comment with every line that differs, its reference and the quantity on each side, and both prices for a price difference. The mismatch is logged as critical with both line lists. An order whose lines match is placed as before
+- The held order gets no order confirmation on Completed, it would list other items than the customer paid for. The merchant sends it from the order once the lines are sorted out
+- The hold stays through Qliro's later status callbacks: a Completed or OnHold status is kept as the state the order returns to when the merchant releases it. A Refused status releases the hold and cancels the order, as for any refused order. This holds for any hold, so a hold the merchant set by hand is no longer lifted by a later checkout status callback or by a retry that takes the order over
+- An order a retry takes over from an earlier attempt is compared and held the same way, once: an order held before and released by the merchant is not held again
+- A comparison that cannot run, for example because an observer of `qliroone_order_item_build_after` throws, is logged as critical and the order is placed without a hold. A cart or a Qliro order without lines is not compared, as in the validate callback. A hold that cannot be saved is logged as critical and does not keep the order from its link
+
+### Changed
+
+- `Qliro\QliroOne\Model\Order\HoldAwareState` sets the state of an order on placement and on the checkout status callbacks, keeping a hold
+- `PlaceOrder` takes an optional `OrderItemsBuilder` and `LineDifferences` after the `DiscountLines`, `ValidateOrderBuilder` an optional `LineDifferences` last, all wired in `etc/di.xml`. The comparison of the validate callback moved to `Qliro\QliroOne\Model\QliroOrder\LineDifferences`, it compares prices to the öre now, so a drift below one öre between two computations of the same price no longer declines the callback, and its log entry lists every line that differs, with the quantities and prices on both sides, in one record
+
+### Added
+
+- Unit tests for `LineDifferences` and `HoldAwareState`, and `PlaceOrderLineDifferencesTest`: a line removed from the quote between validation and placement, matching lines, a Completed and a Refused status on the held order, no confirmation for it, an adopted order, an order held before, a Qliro order without lines, a price difference, a comparison that fails and a hold that cannot be saved
+- `Test/E2e/tests/line-differences-hold.spec.ts`, with a part against the Qliro sandbox. `seed-sandbox-order.php` takes `--second` and `--drop`, and the Qliro order `seed-qliro-order.php` places from now carries the product lines too
 
 ## [1.8.20] - 2026-10-23
 
