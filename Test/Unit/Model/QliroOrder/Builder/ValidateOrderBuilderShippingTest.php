@@ -31,6 +31,7 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Notification\ValidateOrderResponse;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Builder\ValidateOrderBuilder;
+use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 use Qliro\QliroOne\Model\QliroOrder\LineQuantity;
 use Qliro\QliroOne\Model\Quote\WholeQuantityValidator;
@@ -251,7 +252,8 @@ class ValidateOrderBuilderShippingTest extends TestCase
             new WholeQuantityValidator(new LineQuantity()),
             $this->quoteRepository(),
             $this->storeManager(),
-            $this->storeEmulation()
+            $this->storeEmulation(),
+            new LineDifferences()
         );
 
         return $builder->setQuote($this->quote())->setValidationRequest($request)->create();
