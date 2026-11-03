@@ -33,6 +33,7 @@ use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
@@ -223,6 +224,25 @@ class PlaceOrderRetryTest extends TestCase
         $this->placeOrder()->execute($this->qliroOrder);
     }
 
+    /** Anything that saves the quote before the pin stores it in the store's default currency */
+    public function testQuoteCurrencyIsPinnedBeforeTheQuoteIsBroughtInLineWithQliro(): void
+    {
+        $calls = [];
+        $quoteCurrency = $this->createMock(QuoteCurrency::class);
+        $quoteCurrency->expects(self::once())->method('pin')->with($this->quote)
+            ->willReturnCallback(function () use (&$calls): void {
+                $calls[] = 'pin';
+            });
+        $this->quoteFromOrderConverter->method('convert')->willReturnCallback(function () use (&$calls): void {
+            $calls[] = 'convert';
+        });
+        $this->orderPlacer->method('place')->willReturn($this->order(35));
+
+        $this->placeOrder(true, $quoteCurrency)->execute($this->qliroOrder);
+
+        self::assertSame(['pin', 'convert'], $calls);
+    }
+
     public function testPlacesWithoutTheFinderForTheOldSignature(): void
     {
         $order = $this->order(34);
@@ -264,7 +284,7 @@ class PlaceOrderRetryTest extends TestCase
         return $order;
     }
 
-    private function placeOrder(bool $withFinder = true): PlaceOrder
+    private function placeOrder(bool $withFinder = true, ?QuoteCurrency $quoteCurrency = null): PlaceOrder
     {
         $quoteRepository = $this->createMock(CartRepositoryInterface::class);
         $quoteRepository->method('get')->willReturn($this->quote);
@@ -293,7 +313,8 @@ class PlaceOrderRetryTest extends TestCase
             $withFinder ? $this->placedOrderFinder : null,
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
-            new LineDifferences()
+            new LineDifferences(),
+            $quoteCurrency
         );
     }
 
