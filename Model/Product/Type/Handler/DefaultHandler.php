@@ -113,7 +113,8 @@ class DefaultHandler implements TypeHandlerInterface
      * Prefer the tax percent Magento already calculated on the quote item (taken from the
      * configurable parent when present, like the discount below). That value uses the real
      * customer address, unlike the store-default tax lookup which can resolve to 0 depending
-     * on tax configuration. An explicit 0 there is a statement, a tax exempt customer, and is
+     * on tax configuration. A bundle priced by its children gets none on its parent, Magento
+     * taxes the children, so they keep their own. An explicit 0 there is a statement, a tax exempt customer, and is
      * sent as it stands. Without a tax percent the two prices decide, see `LineVatRate`, equal
      * prices included: they hold no VAT. Only a line with no price at all says nothing about
      * itself, and there the store calculation is the last resort.
@@ -125,11 +126,12 @@ class DefaultHandler implements TypeHandlerInterface
      */
     private function resolveVatRate(TypeSourceItemInterface $item, float $incVat, float $exVat): float
     {
-        $sourceItem = $item->getParent() ? $item->getParent()->getItem() : $item->getItem();
-        $taxPercent = $sourceItem ? $sourceItem->getTaxPercent() : null;
+        $parentItem = $item->getParent()?->getItem();
+        $sourceItem = $parentItem && !$parentItem->isChildrenCalculated() ? $parentItem : $item->getItem();
+        $taxPercent = $this->statedTaxPercent($sourceItem);
 
-        if ($taxPercent !== null && $taxPercent !== '') {
-            return (float)$taxPercent;
+        if ($taxPercent !== null) {
+            return $taxPercent;
         }
 
         if (abs($exVat) > LineVatRate::EPSILON) {
@@ -137,6 +139,19 @@ class DefaultHandler implements TypeHandlerInterface
         }
 
         return $this->vatRate->getVatRateForProduct($item);
+    }
+
+    /**
+     * The tax percent Magento calculated on a cart or order item, null when it has none
+     *
+     * @param mixed $sourceItem
+     * @return float|null
+     */
+    private function statedTaxPercent($sourceItem): ?float
+    {
+        $taxPercent = $sourceItem ? $sourceItem->getTaxPercent() : null;
+
+        return $taxPercent === null || $taxPercent === '' ? null : (float)$taxPercent;
     }
 
     /**

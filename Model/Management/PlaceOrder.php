@@ -31,6 +31,7 @@ use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
+use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -38,6 +39,7 @@ use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\FailToLockException;
 use Magento\Sales\Model\Order\Email\Sender\OrderSender;
 use Qliro\QliroOne\Api\Data\LinkInterface;
+use Qliro\QliroOne\Observer\HoldOrderConfirmation;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
@@ -149,6 +151,11 @@ class PlaceOrder extends AbstractManagement
     private ?LineDifferences $lineDifferences;
 
     /**
+     * @var QuoteCurrency|null
+     */
+    private ?QuoteCurrency $quoteCurrency;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -172,6 +179,7 @@ class PlaceOrder extends AbstractManagement
      * @param DiscountLines|null $discountLines
      * @param OrderItemsBuilder|null $orderItemsBuilder
      * @param LineDifferences|null $lineDifferences
+     * @param QuoteCurrency|null $quoteCurrency
      */
     public function __construct(
         Config $qliroConfig,
@@ -194,7 +202,8 @@ class PlaceOrder extends AbstractManagement
         ?PlacedOrderFinder $placedOrderFinder = null,
         ?DiscountLines $discountLines = null,
         ?OrderItemsBuilder $orderItemsBuilder = null,
-        ?LineDifferences $lineDifferences = null
+        ?LineDifferences $lineDifferences = null,
+        ?QuoteCurrency $quoteCurrency = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -219,6 +228,7 @@ class PlaceOrder extends AbstractManagement
         // Taken from the object manager on first use when not passed
         $this->orderItemsBuilder = $orderItemsBuilder;
         $this->lineDifferences = $lineDifferences;
+        $this->quoteCurrency = $quoteCurrency;
     }
 
     /**
@@ -421,6 +431,8 @@ class PlaceOrder extends AbstractManagement
                     $order = $this->orderRepository->get($orderId);
                 } else {
                     $this->setQuote($this->quoteRepository->get($link->getQuoteId()));
+                    // Before anything saves it: the order is placed in the currency the buyer paid
+                    $this->quoteCurrency?->pin($this->getQuote());
 
                     $order = $this->placedOrderFinder?->find((int)$link->getQuoteId(), (string)$qliroOrderId);
 
@@ -739,8 +751,9 @@ class PlaceOrder extends AbstractManagement
                     $linesDiffer = (bool)$order->getPayment()?->getAdditionalInformation(
                         Config::QLIROONE_ADDITIONAL_INFO_LINES_DIFFER
                     );
+                    $canSend = $order->getCanSendNewEmailFlag() || $order->getData(HoldOrderConfirmation::HELD);
 
-                    if ($order->getCanSendNewEmailFlag() && !$order->getEmailSent() && !$linesDiffer) {
+                    if ($canSend && !$order->getEmailSent() && !$linesDiffer) {
                         try {
                             $this->orderSender->send($order);
                         } catch (\Exception $exception) {

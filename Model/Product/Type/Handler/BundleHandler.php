@@ -9,6 +9,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
 use Qliro\QliroOne\Api\Product\TypeSourceItemInterface;
 use Qliro\QliroOne\Api\Product\TypeSourceProviderInterface;
 use Magento\Bundle\Model\Product\Type as BundleType;
+use Magento\Quote\Model\Quote\Item\AbstractItem;
 
 /**
  * Bundle product type handler class
@@ -34,7 +35,27 @@ class BundleHandler extends DefaultHandler
     }
 
     /**
+     * A child of a bundle priced by its children counts its units per bundle in the cart, the line carries them
+     * for all bundles
+     *
+     * @param TypeSourceItemInterface $item
+     * @return float
+     */
+    public function prepareQuantity(TypeSourceItemInterface $item)
+    {
+        $cartItem = $item->getItem();
+
+        if ($cartItem instanceof AbstractItem && $item->getParent()?->getItem()?->isChildrenCalculated()) {
+            return (float)$cartItem->getTotalQty();
+        }
+
+        return parent::prepareQuantity($item);
+    }
+
+    /**
      * Prepare price depending on bundle dynamic pricing setting
+     *
+     * Read off the cart or order item, as the capture decides which lines carry the price.
      *
      * @param TypeSourceItemInterface $item
      * @param boolean $taxIncluded
@@ -46,7 +67,7 @@ class BundleHandler extends DefaultHandler
             return parent::preparePrice($item, $taxIncluded);
         }
 
-        if ((int)$item->getProduct()->getPriceType() === 0) {
+        if ($item->getItem()?->isChildrenCalculated()) {
             return 0;
         }
 

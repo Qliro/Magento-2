@@ -19,6 +19,7 @@ use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
+use Qliro\QliroOne\Model\QliroOrder\Admin\BundleChildren;
 
 class Shipment implements OrderManagementStatusUpdateHandlerInterface
 {
@@ -53,6 +54,11 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     private $captureHold;
 
     /**
+     * @var BundleChildren
+     */
+    private $bundleChildren;
+
+    /**
      * Shipment constructor.
      * @param ShipmentRepositoryInterface $shipmentRepository
      * @param OrderRepositoryInterface $orderRepository
@@ -60,6 +66,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param Manager $logManager
      * @param CaptureTransactionUpdater $captureTransactionUpdater
      * @param CaptureHold $captureHold
+     * @param BundleChildren|null $bundleChildren
      */
     public function __construct(
         ShipmentRepositoryInterface $shipmentRepository,
@@ -67,7 +74,8 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         InvoiceRepositoryInterface $invoiceRepository,
         Manager $logManager,
         CaptureTransactionUpdater $captureTransactionUpdater,
-        CaptureHold $captureHold
+        CaptureHold $captureHold,
+        ?BundleChildren $bundleChildren = null
     ) {
         $this->shipmentRepository = $shipmentRepository;
         $this->orderRepository = $orderRepository;
@@ -75,6 +83,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         $this->logManager = $logManager;
         $this->captureTransactionUpdater = $captureTransactionUpdater;
         $this->captureHold = $captureHold;
+        $this->bundleChildren = $bundleChildren ?? new BundleChildren();
     }
 
     /**
@@ -104,6 +113,21 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
 
                 /** @var \Magento\Sales\Model\Order\Item $item */
                 $item = $order->getItemById($shipmentItem->getOrderItemId());
+
+                // The bundle row of a bundle priced by its children counts as invoiced on any invoice of it,
+                // its children are what was captured: those it shipped together, or their own rows
+                if ($this->bundleChildren->isPricedByChildren($item)) {
+                    foreach ($this->bundleChildren->shippedTogether($item, $qty) as [$child, $childQty]) {
+                        $invoiceItems[$child->getId()] = $this->bundleChildren->invoiceable($child, $childQty);
+                    }
+
+                    continue;
+                }
+
+                if ($this->bundleChildren->isPricedChild($item, $order)) {
+                    $invoiceItems[$shipmentItem->getOrderItemId()] = $this->bundleChildren->invoiceable($item, $qty);
+                    continue;
+                }
 
                 /*
                  * This is the same test for invoice made earlier, as seen in:
