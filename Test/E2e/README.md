@@ -220,3 +220,22 @@ one with more than 4 decimals, the quote keeps 4), so it is off unless asked for
 ```bash
 E2E_PAY_CURRENCY=EUR MAGENTO_SKIP_SEED=1 npx playwright test paid-currency
 ```
+
+## A refused checkout status push
+
+`tests/checkout-status-refusal.spec.ts` sends Qliro's checkout status push to the store and reads the
+cause in the answer: no link for the Qliro order, a status the order cannot take, and a placement that
+fails. It seeds its own orders, so `MAGENTO_SKIP_SEED=1` is fine. The placement needs Qliro:
+`seed/seed-sandbox-order.php --unplaced` leaves a paid sandbox order without a Magento order, the
+test takes the product out of stock, pushes Completed, then puts it back and pushes again. That one
+runs only with `QLIRO_CHECKOUT_E2E=1`. The store needs:
+
+- `Test/E2e/seed/checkout-status.php` in `var/`, and for the placement `Test/E2e/seed/seed-sandbox-order.php`
+- for the placement, a Qliro test merchant on staging and `SE` left out of `general/region/state_required`
+- a store the sandbox cannot call back, or Qliro's own push places the order before the test does
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test checkout-status-refusal
+```
+
+On a module without the fix all three fail, each answered "Order not found".
