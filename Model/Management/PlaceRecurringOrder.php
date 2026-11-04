@@ -13,7 +13,6 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
-use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -26,6 +25,7 @@ use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -139,6 +139,11 @@ class PlaceRecurringOrder extends AbstractManagement
     private DiscountLines $discountLines;
 
     /**
+     * @var MerchantReference
+     */
+    private MerchantReference $merchantReference;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -161,6 +166,7 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      * @param DiscountLines|null $discountLines
+     * @param MerchantReference|null $merchantReference
      */
     public function __construct(
         Config $qliroConfig,
@@ -182,7 +188,8 @@ class PlaceRecurringOrder extends AbstractManagement
         \Magento\Sales\Model\Order $order,
         OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
-        ?DiscountLines $discountLines = null
+        ?DiscountLines $discountLines = null,
+        ?MerchantReference $merchantReference = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -205,6 +212,8 @@ class PlaceRecurringOrder extends AbstractManagement
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
         $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
+        $this->merchantReference = $merchantReference
+            ?? ObjectManager::getInstance()->get(MerchantReference::class);
     }
 
     /**
@@ -469,30 +478,7 @@ class PlaceRecurringOrder extends AbstractManagement
                     $this->applyOrderState($order, Order::STATE_NEW);
                     $this->sendOrderConfirmation($order);
 
-                    /*
-                     * If Magento order has already been placed and QliroOne order status is completed,
-                     * the order merchant reference must be replaced with Magento order increment ID
-                     */
-                    /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                    $request = $this->containerMapper->fromArray(
-                        [
-                            'OrderId' => $link->getQliroOrderId(),
-                            'NewMerchantReference' => $order->getIncrementId(),
-                        ],
-                        AdminUpdateMerchantReferenceRequestInterface::class
-                    );
-
-                    $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-                    $transactionId = 'unknown';
-                    if ($response && $response->getPaymentTransactionId()) {
-                        $transactionId = $response->getPaymentTransactionId();
-                    }
-                    $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                        'payment_transaction_id' => $transactionId,
-                        'qliro_order_id' => $link->getQliroOrderId(),
-                        'order_id' => $order->getId(),
-                        'new_merchant_reference' => $order->getIncrementId(),
-                    ]);
+                    $this->merchantReference->sendOnce($order, $link);
 
                     break;
 

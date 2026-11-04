@@ -40,6 +40,7 @@ use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Observer\HoldOrderConfirmation;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
@@ -278,7 +279,8 @@ class OrderConfirmationTest extends TestCase
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
-            discountLines: $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class),
+            merchantReference: $this->createMock(MerchantReference::class)
         );
     }
 
@@ -308,7 +310,8 @@ class OrderConfirmationTest extends TestCase
             $cartManagement ?? $this->createMock(CartManagementInterface::class),
             $order ?? $this->createMock(Order::class),
             $this->createMock(OrganizationNumber::class),
-            discountLines: $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class),
+            merchantReference: $this->createMock(MerchantReference::class)
         );
     }
 

@@ -17,8 +17,6 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
-use Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface;
-use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -31,6 +29,7 @@ use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
@@ -39,9 +38,7 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
  * @see \Qliro\QliroOne\Model\Management\PlaceOrder::applyQliroOrderStatus
  *
  * PLIN-373: the merchant-reference update must target the Qliro order the caller resolved (not a
- * link re-loaded by Magento order id, which can be a reused/foreign row), and a failed update must
- * be logged as a failure rather than as "assigned" - while staying fire-once, since this is a
- * distributed module and the path runs on every status callback for every merchant's order.
+ * link re-loaded by Magento order id, which can be a reused/foreign row).
  */
 class PlaceOrderTest extends TestCase
 {
@@ -52,6 +49,7 @@ class PlaceOrderTest extends TestCase
     private LogManager&MockObject $logManager;
     private MerchantInterface&MockObject $merchantApi;
     private OrderRepositoryInterface&MockObject $orderRepository;
+    private MerchantReference&MockObject $merchantReference;
     private PlaceOrder $placeOrder;
 
     protected function setUp(): void
@@ -63,13 +61,9 @@ class PlaceOrderTest extends TestCase
         $this->logManager = $this->createMock(LogManager::class);
         $this->merchantApi = $this->createMock(MerchantInterface::class);
         $this->orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $this->merchantReference = $this->createMock(MerchantReference::class);
 
-        $this->qliroConfig->method('isUseIncrementIdAsReference')->willReturn(false);
         $this->qliroConfig->method('getOrderStatus')->willReturn('processing');
-        $this->containerMapper->method('fromArray')->willReturn(
-            $this->createMock(AdminUpdateMerchantReferenceRequestInterface::class)
-        );
-
         $this->placeOrder = new PlaceOrder(
             $this->qliroConfig,
             $this->merchantApi,
@@ -87,98 +81,22 @@ class PlaceOrderTest extends TestCase
             $this->createMock(PaymentManagement::class),
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
-            discountLines: $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class),
+            merchantReference: $this->merchantReference
         );
     }
 
     /**
-     * When the Qliro API returns nothing (updateMerchantReference() swallows its exception and
-     * returns null on any error), the failure is logged rather than reported as "assigned" - and,
-     * crucially for a fleet-wide module, it does NOT write a comment to the order or re-attempt: it
-     * stays fire-once, so a benign persistent failure cannot spam every merchant's order history.
+     * The update targets the Qliro order of the link the caller resolved, not one reloaded by order id
      */
-    public function testFailedReferenceUpdateIsLoggedAndStaysFireOnce(): void
-    {
-        $this->logManager->expects(self::once())->method('critical');
-
-        $payment = $this->createMock(Payment::class);
-        $payment->method('getAdditionalInformation')->willReturn([]);
-        // Fire-once preserved: the reference is still marked handled so it is not retried.
-        $payment->expects(self::once())->method('setAdditionalInformation')
-            ->with(self::callback(static fn ($info) => ($info['qliroone_updated_merchant_reference'] ?? false) === true));
-
-        $order = $this->completedOrder($payment);
-        // The module must not touch the order history on a failed reference update.
-        $order->expects(self::never())->method('addCommentToStatusHistory');
-
-        $this->orderManagementApi->method('updateMerchantReference')->willReturn(null);
-
-        self::assertTrue($this->placeOrder->applyQliroOrderStatus($order, $this->completedLink()));
-    }
-
-    /**
-     * On a successful update the reference is not logged as a failure and the payment is flagged.
-     */
-    public function testSuccessfulReferenceUpdateIsFlaggedAndNotLoggedAsFailure(): void
-    {
-        $this->logManager->expects(self::never())->method('critical');
-
-        $payment = $this->createMock(Payment::class);
-        $payment->method('getAdditionalInformation')->willReturn([]);
-        $payment->expects(self::once())->method('setAdditionalInformation')
-            ->with(self::callback(static fn ($info) => ($info['qliroone_updated_merchant_reference'] ?? false) === true));
-
-        $order = $this->completedOrder($payment);
-
-        $response = $this->createMock(AdminTransactionResponseInterface::class);
-        $response->method('getPaymentTransactionId')->willReturn('999');
-        $this->orderManagementApi->method('updateMerchantReference')->willReturn($response);
-
-        self::assertTrue($this->placeOrder->applyQliroOrderStatus($order, $this->completedLink()));
-    }
-
-    /**
-     * The OrderId sent to Qliro is the Qliro order id from the link the caller passed - the order
-     * that was actually placed - and the buggy re-load by Magento order id is skipped entirely.
-     */
-    public function testUpdateTargetsThePassedLinksQliroOrderIdNotAReloadedOne(): void
+    public function testCompletedSendsTheReferenceForThePassedLink(): void
     {
         $this->linkRepository->expects(self::never())->method('getByOrderId');
+        $order = $this->completedOrder($this->createMock(Payment::class));
+        $link = $this->completedLink('275174114');
+        $this->merchantReference->expects(self::once())->method('sendOnce')->with($order, $link);
 
-        // Re-declare fromArray here so we can assert the OrderId it is handed.
-        $this->containerMapper = $this->createMock(ContainerMapper::class);
-        $this->containerMapper->expects(self::once())->method('fromArray')
-            ->with(self::callback(static fn ($data) => ($data['OrderId'] ?? null) === '275174114'))
-            ->willReturn($this->createMock(AdminUpdateMerchantReferenceRequestInterface::class));
-
-        $placeOrder = new PlaceOrder(
-            $this->qliroConfig,
-            $this->merchantApi,
-            $this->orderManagementApi,
-            $this->createMock(QuoteFromOrderConverter::class),
-            $this->linkRepository,
-            $this->createMock(CartRepositoryInterface::class),
-            $this->orderRepository,
-            $this->containerMapper,
-            $this->logManager,
-            $this->createMock(OrderPlacer::class),
-            $this->createMock(Lock::class),
-            $this->createMock(OrderSender::class),
-            $this->createMock(QuoteManagement::class),
-            $this->createMock(PaymentManagement::class),
-            $this->createMock(RecurringDataService::class),
-            $this->createMock(OrganizationNumber::class),
-            discountLines: $this->createMock(DiscountLines::class)
-        );
-
-        $payment = $this->createMock(Payment::class);
-        $payment->method('getAdditionalInformation')->willReturn([]);
-        $order = $this->completedOrder($payment);
-
-        $this->orderManagementApi->method('updateMerchantReference')
-            ->willReturn($this->createMock(AdminTransactionResponseInterface::class));
-
-        $placeOrder->applyQliroOrderStatus($order, $this->completedLink('275174114'));
+        self::assertTrue($this->placeOrder->applyQliroOrderStatus($order, $link));
     }
 
     /**

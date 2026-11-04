@@ -33,6 +33,7 @@ use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
@@ -75,9 +76,55 @@ class PlaceRecurringOrderTest extends TestCase
             $this->createMock(CartManagementInterface::class),
             $this->createMock(Order::class),
             $this->createMock(OrganizationNumber::class),
-            discountLines: $this->createMock(DiscountLines::class)
+            discountLines: $this->createMock(DiscountLines::class),
+            merchantReference: $this->createMock(MerchantReference::class)
         );
         $this->placeRecurringOrder->setQuote($quote);
+    }
+
+    /**
+     * A renewal Qliro reports Completed sends its number through the same once-only path
+     */
+    public function testACompletedRenewalSendsTheReferenceOnce(): void
+    {
+        $link = $this->createMock(LinkInterface::class);
+        $link->method('getQliroOrderStatus')->willReturn('Completed');
+        $linkRepository = $this->createMock(LinkRepositoryInterface::class);
+        $linkRepository->method('getByOrderId')->with(15)->willReturn($link);
+
+        $orderConfig = $this->createMock(Order\Config::class);
+        $orderConfig->method('getStateDefaultStatus')->willReturn('pending');
+        $order = $this->createMock(Order::class);
+        $order->method('getId')->willReturn(15);
+        $order->method('getConfig')->willReturn($orderConfig);
+
+        $merchantReference = $this->createMock(MerchantReference::class);
+        $merchantReference->expects(self::once())->method('sendOnce')->with($order, $link);
+
+        $placeRecurringOrder = new PlaceRecurringOrder(
+            $this->createMock(Config::class),
+            $this->createMock(MerchantInterface::class),
+            $this->createMock(OrderManagementInterface::class),
+            $this->createMock(RecurringQuoteFromOrderConverter::class),
+            $linkRepository,
+            $this->createMock(CartRepositoryInterface::class),
+            $this->createMock(OrderRepositoryInterface::class),
+            $this->createMock(ContainerMapper::class),
+            $this->createMock(LogManager::class),
+            $this->createMock(OrderPlacer::class),
+            $this->createMock(Lock::class),
+            $this->createMock(OrderSender::class),
+            $this->createMock(QuoteManagement::class),
+            $this->createMock(PaymentManagement::class),
+            $this->createMock(RecurringDataService::class),
+            $this->createMock(CartManagementInterface::class),
+            $this->createMock(Order::class),
+            $this->createMock(OrganizationNumber::class),
+            discountLines: $this->createMock(DiscountLines::class),
+            merchantReference: $merchantReference
+        );
+
+        self::assertTrue($placeRecurringOrder->applyQliroOrderStatus($order));
     }
 
     /**

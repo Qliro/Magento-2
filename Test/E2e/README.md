@@ -191,6 +191,28 @@ The fixture puts any order on the caller's session, so besides developer mode it
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
 
+## The merchant reference, once per order
+
+`tests/merchant-reference-once.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and
+seeds its own orders through `seed/seed-sandbox-order.php`. It sends Qliro's Completed callback to the
+store again and counts the `updatemerchantreference` calls `seed/merchant-reference.php` reads from
+`qliroone_log`: one per order. Its second test takes the mark off a placed order and fails the next
+order save with the fixture module, as a store whose save failed after the call is left: the
+callback answers 500, Qliro's repeat must not send the number again, and the refusal Qliro gives for
+a number the order already carries is no failure. Without the fix the number goes out twice and both
+refusals are logged as errors. The store needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/merchant/use_increment_id_as_reference 0`
+- order numbers the Qliro merchant has not seen, a shared test merchant refuses a taken one
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/merchant-reference.php` in `var/`
+- `Test/E2e/fixture/QliroE2e/FailingOrderSave` copied to `app/code/QliroE2e/FailingOrderSave` and
+  enabled. It fails one save of an order named in `var/qliro-e2e/fail-order-save-<increment id>`
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test merchant-reference-once
+```
+
 ## The order confirmation
 
 `tests/order-confirmation.spec.ts` checks that the confirmation goes out only once Qliro has approved
