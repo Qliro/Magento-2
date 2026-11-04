@@ -200,6 +200,21 @@ class PlaceOrderTest extends TestCase
         self::assertSame($order, $this->placeOrder->setQuote($quote)->poll());
     }
 
+    public function testPollDoesNotAskQliroForALinkWithoutAQliroOrder(): void
+    {
+        $quote = $this->createMock(Quote::class);
+        $quote->method('getId')->willReturn(17);
+        $link = $this->createMock(LinkInterface::class);
+        $link->method('getQliroOrderId')->willReturn(null);
+        $link->method('getOrderId')->willReturn(null);
+        $this->linkRepository->method('getByQuoteId')->with(17)->willReturn($link);
+        $this->merchantApi->expects(self::never())->method('getOrder');
+
+        $this->expectException(\Qliro\QliroOne\Model\Exception\TerminalException::class);
+        $this->expectExceptionMessage('Failed to link current session with Qliro One order');
+        $this->placeOrder->setQuote($quote)->poll();
+    }
+
     private function completedLink(string $qliroOrderId = '275174114'): LinkInterface&MockObject
     {
         $link = $this->createMock(LinkInterface::class);

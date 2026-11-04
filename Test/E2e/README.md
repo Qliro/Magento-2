@@ -17,6 +17,12 @@ payment authorisation and capture, refund and cancel against Qliro are still out
 where the order was read back, so it also needs `MAGENTO_DB_CONTAINER` when that container is not
 the app one with `-phpfpm-` swapped for `-db-`.
 
+`checkout-emptied-cart.spec.ts` needs the same and runs under the same flag. It opens the Qliro
+page, empties the cart in another tab and refreshes the checkout, which has to land on the cart
+with a message and send Qliro no order without lines. It needs the Qliro page, not the payment
+method in the native checkout (`payment/qliroone/api/show_as_payment_method 0`).
+`MAGENTO_DB_CLIENT` names the client in the database container, `mysql` by default.
+
 ## The store under test
 
 Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It needs:

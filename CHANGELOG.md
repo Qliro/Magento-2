@@ -1,5 +1,17 @@
-
 # Change Log
+
+## [1.8.51] - 2026-11-04
+
+### Fixed
+
+- A cart emptied in another tab while the checkout was open sent Qliro an order update and then a new order with no lines. Qliro refused both, and the link was left without a Qliro order, so the next read went out as `GET orders/*`. Neither the create nor the update is sent now for a request without a product or bundle line. The quote id, the reason and the cart items are logged. An empty cart sends the buyer back to the cart with a message: the checkout page redirects, the cart refresh and the embedded snippet answer with the cart URL. A cart whose products all have no Qliro line, such as downloadable products without a type handler, says so in place of the widget, so another payment method can be chosen
+- A placeholder in an API endpoint left empty by an empty string or `false` went out as an empty path segment. It is refused before the call like a missing value
+- Reading a checkout's Qliro order and polling for its placement stop before the call when the link has no Qliro order id
+
+### Added
+
+- Unit tests for the refusal on create and update, the cart redirect of the page and both ajax calls, the endpoint placeholders and the polls without a Qliro order id
+- `Test/E2e/tests/checkout-emptied-cart.spec.ts`, against the Qliro sandbox: the cart is emptied while the checkout is open and the refresh lands on the cart with the message, with no create or update without lines and no `orders/*` in the log. Off unless `QLIRO_CHECKOUT_E2E=1`
 
 ## [1.8.39] - 2026-11-03
 
