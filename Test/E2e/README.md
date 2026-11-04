@@ -138,6 +138,11 @@ from the last one recorded. One test reads the pickup points from the shipping m
 the others select an option through the checkout's own model and read what was recorded.
 Reverting the fix turns three of the five red.
 
+The same spec sends Qliro's validate callback for a quote from `seed/seed-shipping-mismatch.php`
+with a method and a `SelectedShippingSecondaryOption`, and reads what the observer recorded, with
+`validateCallback` true. It also places orders whose Qliro shipping line holds an option in its
+metadata, or none, and reads the option on the order's payment.
+
 ## A bundle priced by its children
 
 `tests/dynamic-bundle.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and seeds its

@@ -979,6 +979,7 @@ class PlaceOrder extends AbstractManagement
                         'quote_price' => $quotePrice,
                         'qliro_line_references' => $references,
                         'qliro_price' => $qliroPrice,
+                        'qliro_secondary_option' => $this->getSecondaryOption($qliroOrder),
                     ],
                 ]
             );
@@ -992,6 +993,18 @@ class PlaceOrder extends AbstractManagement
     private function addAdditionalShippingInfoToQuote(QliroOrderInterface $order)
     {
         $payment = $this->getQuote()->getPayment();
+        $secondaryOption = $this->getSecondaryOption($order);
+
+        // Unset too, a quote placed again keeps what an earlier attempt wrote
+        if ($secondaryOption === null) {
+            $payment->unsAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION);
+        } else {
+            $payment->setAdditionalInformation(
+                Config::QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION,
+                $secondaryOption
+            );
+        }
+
         foreach ($order->getOrderItems() as $orderItem) {
             $metadata = $orderItem->getMetadata();
             $additionalShippingProperties = $metadata['AdditionalShippingProperties'] ?? false;
@@ -1005,6 +1018,38 @@ class PlaceOrder extends AbstractManagement
             );
             return;
         }
+    }
+
+    /**
+     * The secondary option Qliro holds on its shipping line, for methods that are not Unifaun or Ingrid
+     *
+     * @param QliroOrderInterface $order
+     * @return string|null
+     */
+    private function getSecondaryOption(QliroOrderInterface $order): ?string
+    {
+        $storeId = $this->getQuote()->getStoreId();
+
+        if ($this->getQuote()->isVirtual()
+            || $this->qliroConfig->isUnifaunEnabled($storeId)
+            || $this->qliroConfig->isIngridEnabled($storeId)
+        ) {
+            return null;
+        }
+
+        foreach ($order->getOrderItems() ?? [] as $orderItem) {
+            if ($orderItem->getType() !== QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+
+            $option = $orderItem->getMetadata()['ShippingMethodSecondaryOptionMerchantReference'] ?? null;
+
+            if (is_scalar($option) && (string)$option !== '') {
+                return (string)$option;
+            }
+        }
+
+        return null;
     }
 
     /**
