@@ -27,6 +27,7 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     const METHOD_GET = 'GET';
     const METHOD_POST = 'POST';
     const METHOD_PUT = 'PUT';
+    const METHOD_DELETE = 'DELETE';
 
     const HEADER_CONTENT_TYPE = 'Content-Type';
     const HEADER_CONTENT_TYPE_JSON = 'application/json';
@@ -145,6 +146,24 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
         $this->applyParams($endpoint, $data);
 
         return $this->call(self::METHOD_PUT, $endpoint, $data, $storeId, $profile);
+    }
+
+    /**
+     * Perform DELETE request, with a JSON body like a POST
+     *
+     * @param string $endpoint
+     * @param array $data
+     * @param int|null $storeId
+     * @param string|null $profile Which timeouts this call is made with, see Config::API_PROFILE_*
+     * @return array
+     * @throws \InvalidArgumentException
+     * @throws \Qliro\QliroOne\Model\Exception\TerminalException
+     */
+    public function delete($endpoint, $data = [], $storeId = null, $profile = null)
+    {
+        $this->applyParams($endpoint, $data);
+
+        return $this->call(self::METHOD_DELETE, $endpoint, $data, $storeId, $profile);
     }
 
     /**

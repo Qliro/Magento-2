@@ -28,6 +28,14 @@ use Qliro\QliroOne\Model\Logger\Redactor;
 class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
 {
     /**
+     * What Qliro answers for a card it already deleted or never had
+     */
+    private const SAVED_CARD_GONE = [
+        'MERCHANT_SAVED_CREDIT_CARD_REMOVED',
+        'MERCHANT_SAVED_CREDIT_CARD_ID_NOT_EXIST',
+    ];
+
+    /**
      * @var \Qliro\QliroOne\Model\Api\Service
      */
     private $service;
@@ -165,6 +173,38 @@ class Merchant implements \Qliro\QliroOne\Api\Client\MerchantInterface
         }
 
         return $qliroOrderId;
+    }
+
+    /**
+     * Delete a saved card token at Qliro
+     *
+     * @param string $savedCreditCardId
+     * @param int|null $storeId
+     * @return bool False when Qliro no longer had the card
+     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
+     */
+    public function removeSavedCreditCard(string $savedCreditCardId, $storeId = null): bool
+    {
+        try {
+            // The customer waits for the answer on the account page
+            $this->service->delete(
+                'checkout/merchantapi/RemoveMerchantSavedCreditCard',
+                ['MerchantSavedCreditCardId' => $savedCreditCardId],
+                $storeId,
+                Config::API_PROFILE_INTERACTIVE
+            );
+
+            return true;
+        } catch (TerminalException $exception) {
+            if (in_array($exception->getQliroErrorCode(), self::SAVED_CARD_GONE, true)) {
+                return false;
+            }
+            $this->handleExceptions($exception);
+        } catch (\Exception $exception) {
+            $this->handleExceptions($exception);
+        }
+
+        return false;
     }
 
     /**

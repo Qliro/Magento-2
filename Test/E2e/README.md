@@ -13,6 +13,11 @@ skipped unless `QLIRO_CHECKOUT_E2E=1`. They seed nothing, so `MAGENTO_SKIP_SEED=
 against a store the seeder cannot place an order in, such as a copy of a merchant's own. The
 payment authorisation and capture, refund and cancel against Qliro are still out of scope.
 
+`saved-card-removal.spec.ts` needs a Qliro test merchant too and is skipped the same way: it
+registers a card through Qliro's card form with the sandbox test card, puts it on a subscription
+(`seed/saved-card.php`), removes it from the customer's subscriptions page and asks Qliro whether the
+card is gone. It also needs `payment/checkmo/active 1` for the subscription's order.
+
 `checkout-delivery-refresh.spec.ts` reads `qliroone_log` through the database container to see
 where the order was read back, so it also needs `MAGENTO_DB_CONTAINER` when that container is not
 the app one with `-phpfpm-` swapped for `-db-`.
@@ -27,7 +32,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php` and `Test/E2e/seed/map-shipment.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php` and `Test/E2e/seed/saved-card.php` copied to the store's `var/` directory
 - the Luma sample data, or another in stock configurable set as `E2E_CONFIGURABLE_SKU`, and `payment/checkmo/active 1`, for `tests/source-item-lookup.spec.ts`
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
