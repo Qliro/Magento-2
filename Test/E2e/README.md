@@ -27,7 +27,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php` and `Test/E2e/seed/map-shipment.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php` and `Test/E2e/seed/credit-memo-fee.php` copied to the store's `var/` directory
 - the Luma sample data, or another in stock configurable set as `E2E_CONFIGURABLE_SKU`, and `payment/checkmo/active 1`, for `tests/source-item-lookup.spec.ts`
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
@@ -220,3 +220,13 @@ one with more than 4 decimals, the quote keeps 4), so it is off unless asked for
 ```bash
 E2E_PAY_CURRENCY=EUR MAGENTO_SKIP_SEED=1 npx playwright test paid-currency
 ```
+
+## The invoice fee on credit memos
+
+`tests/credit-memo-fee.spec.ts` seeds an order with a fee, invoices it offline and refunds it from the
+invoice in three offline credit memos through `seed/credit-memo-fee.php`. The memo that leaves 0.50 of
+the order unrefunded must not return the fee, the one that refunds the rest must, and the admin view of
+each saved memo shows the fee only on the last. Its second test places the order in another display
+currency of the store and runs only with `E2E_PAY_CURRENCY` set, as `tests/paid-currency.spec.ts` does.
+`seed/seed-qliro-order.php` takes `--price` for the line's price and `--currency` for the order's
+currency for it. Reverting the fix turns both red.
