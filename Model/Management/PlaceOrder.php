@@ -32,6 +32,7 @@ use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\Order\QuoteCurrency;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
@@ -156,6 +157,11 @@ class PlaceOrder extends AbstractManagement
     private ?QuoteCurrency $quoteCurrency;
 
     /**
+     * @var ShippingProviderUpdate|null
+     */
+    private ?ShippingProviderUpdate $shippingProviderUpdate;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -180,6 +186,7 @@ class PlaceOrder extends AbstractManagement
      * @param OrderItemsBuilder|null $orderItemsBuilder
      * @param LineDifferences|null $lineDifferences
      * @param QuoteCurrency|null $quoteCurrency
+     * @param ShippingProviderUpdate|null $shippingProviderUpdate
      */
     public function __construct(
         Config $qliroConfig,
@@ -203,7 +210,8 @@ class PlaceOrder extends AbstractManagement
         ?DiscountLines $discountLines = null,
         ?OrderItemsBuilder $orderItemsBuilder = null,
         ?LineDifferences $lineDifferences = null,
-        ?QuoteCurrency $quoteCurrency = null
+        ?QuoteCurrency $quoteCurrency = null,
+        ?ShippingProviderUpdate $shippingProviderUpdate = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -229,6 +237,7 @@ class PlaceOrder extends AbstractManagement
         $this->orderItemsBuilder = $orderItemsBuilder;
         $this->lineDifferences = $lineDifferences;
         $this->quoteCurrency = $quoteCurrency;
+        $this->shippingProviderUpdate = $shippingProviderUpdate;
     }
 
     /**
@@ -544,6 +553,58 @@ class PlaceOrder extends AbstractManagement
     }
 
     /**
+     * Put the shipping provider update Qliro sent before the order existed on the order
+     *
+     * @param Order $order
+     * @param LinkInterface $link
+     * @return bool Whether one was kept, drop it once the order is saved
+     */
+    private function applyStoredShippingUpdate(Order $order, LinkInterface $link): bool
+    {
+        // Only the statuses saved below. A refused order is canceled, it ships nothing
+        $saved = [CheckoutStatusInterface::STATUS_COMPLETED, CheckoutStatusInterface::STATUS_ONHOLD];
+        if (!in_array($link->getQliroOrderStatus(), $saved, true) || $order->getState() === Order::STATE_CANCELED) {
+            return false;
+        }
+
+        try {
+            return $this->shippingProviderUpdate()->applyStored($order, (int)$link->getId());
+        } catch (\Throwable $exception) {
+            // The order is placed, a missing shipping description does not undo it
+            $this->logManager->critical(
+                'Could not apply the stored Shipping Provider Update: ' . $exception->getMessage(),
+                ['extra' => ['order_id' => $order->getId(), 'link_id' => $link->getId()]]
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * @return ShippingProviderUpdate
+     */
+    private function shippingProviderUpdate(): ShippingProviderUpdate
+    {
+        // Optional so a store constructing this class with the old signature keeps working
+        return $this->shippingProviderUpdate ??= ObjectManager::getInstance()->get(ShippingProviderUpdate::class);
+    }
+
+    /**
+     * @param LinkInterface $link
+     * @return void
+     */
+    private function discardStoredShippingUpdate(LinkInterface $link): void
+    {
+        try {
+            $this->shippingProviderUpdate()->discard((int)$link->getId());
+            $this->logManager->info('Saved the order with the Shipping Provider Update stored before placement');
+        } catch (\Throwable $exception) {
+            // Applying it again on the next push changes nothing
+            $this->logManager->critical('Could not drop the stored Shipping Provider Update: ' . $exception->getMessage());
+        }
+    }
+
+    /**
      * Bring the quote in line with the Qliro order and place the Magento order from it
      *
      * @param LinkInterface $link
@@ -745,6 +806,9 @@ class PlaceOrder extends AbstractManagement
                 $link = $this->linkRepository->getByOrderId($orderId);
             }
 
+            // Saved with the status below, before the confirmation goes out. A failed save keeps it for a later push
+            $storedShipping = $this->applyStoredShippingUpdate($order, $link);
+
             switch ($link->getQliroOrderStatus()) {
                 case CheckoutStatusInterface::STATUS_COMPLETED:
                     // Held for lines that differ, the merchant sends it once they are sorted out
@@ -868,6 +932,10 @@ class PlaceOrder extends AbstractManagement
                         ]
                     );
                     return false;
+            }
+
+            if ($storedShipping) {
+                $this->discardStoredShippingUpdate($link);
             }
 
             return true;

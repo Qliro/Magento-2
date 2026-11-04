@@ -41,6 +41,7 @@ use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
@@ -388,7 +389,8 @@ class PlaceOrderLineDifferencesTest extends TestCase
             $this->placedOrderFinder,
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
-            new LineDifferences()
+            new LineDifferences(),
+            shippingProviderUpdate: $this->createMock(ShippingProviderUpdate::class)
         );
     }
 

@@ -99,7 +99,7 @@ class MerchantNotification implements MerchantNotificationInterface
     /**
      * @inheritDoc
      */
-    public function getTimeStamp(): string
+    public function getTimestamp(): string
     {
         return $this->timeStamp;
     }
@@ -107,9 +107,9 @@ class MerchantNotification implements MerchantNotificationInterface
     /**
      * @inheritDoc
      */
-    public function setTimeStamp($timeStamp): self
+    public function setTimestamp($timeStamp): self
     {
-        $this->timeStamp = $timeStamp;
+        $this->timeStamp = is_scalar($timeStamp) ? (string)$timeStamp : '';
 
         return $this;
     }

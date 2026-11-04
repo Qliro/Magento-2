@@ -1,6 +1,22 @@
 
 # Change Log
 
+## [1.8.48] - 2026-11-04
+
+### Fixed
+
+- Qliro's shipping provider notification is answered `{"CallbackResponse": "received"}` once it is handled. Qliro takes a notification as delivered only on that body, whatever the HTTP status, so the old answers "Shipping Provider Update handled successfully" and "already handled" counted as failures and were sent again, about nine times per order
+- A notification that arrives before the Magento order is placed is kept against the link and answered `received`, where it was answered 404 until the order existed. The placement puts it on the order before the order confirmation goes out and saves it with the order's status; the kept one is dropped only after that save, so a failed save leaves it for a later checkout status push. A later notification before placement replaces the kept one, one after placement is applied to the order and drops the kept one. A refused order does not get it at placement, nor a canceled one later. A notification for a refused or replaced checkout, whose link is inactive, is kept and acknowledged rather than answered 500 again and again
+- Updates are ordered by Qliro's `Timestamp`, which Qliro keeps on a redelivery, so an older update sent again after a newer one replaces neither the kept one nor the one on the order. The module read the field as `TimeStamp` and never got it, the accessors are now `getTimestamp`/`setTimestamp`
+- While another process holds the Qliro order's lock, as a placement does, the store waits up to 0.8 seconds and then answers 409 without `received`, so Qliro sends it again
+- A notification whose payload lacks the carrier name or id no longer fails on the shipping description, the order keeps its description and gets the payload. The provider is compared without case, so `unifaun` and `ingrid` also name the carrier
+
+### Added
+
+- Table `qliroone_pending_shipping_update`, and cron `qliroone_prune_pending_shipping_updates` that drops updates kept longer than 30 days, of orders never placed
+- Unit tests for the notification handler and the kept update, `Test/E2e/tests/shipping-notification.spec.ts` with `Test/E2e/seed/shipping-notification.php`
+
+
 ## [1.8.39] - 2026-11-03
 
 ### Fixed
