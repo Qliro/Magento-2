@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.46] - 2026-11-04
+
+### Fixed
+
+- A log line whose insert into `qliroone_log` hit a database deadlock was lost on the retry, or stored without its message and level. The first attempt replaced the record with its formatted part, so the next one read the wrong array. The row is now built once and every attempt inserts the same values. After the third deadlock the write still gives up without an error
+
+### Added
+
+- `Test/Unit/Model/Logger/HandlerTest.php` and `Test/E2e/tests/log-deadlock.spec.ts` with `seed/log-deadlock.php`, which fails the first inserts of a log line with MariaDB's deadlock error through a trigger
+
+
 ## [1.8.39] - 2026-11-03
 
 ### Fixed

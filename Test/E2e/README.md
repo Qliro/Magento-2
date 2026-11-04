@@ -27,7 +27,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php` and `Test/E2e/seed/map-shipment.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php` and `Test/E2e/seed/log-deadlock.php` copied to the store's `var/` directory
 - the Luma sample data, or another in stock configurable set as `E2E_CONFIGURABLE_SKU`, and `payment/checkmo/active 1`, for `tests/source-item-lookup.spec.ts`
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
@@ -81,6 +81,15 @@ It prints a JSON object with the ids it created, and the global setup keeps it i
 
 Reverting the fee accumulation in `OrderItemsConverter` or the name in `Block/Info/QliroOne`
 turns four of the eight tests red, so they are pinned to the behaviour rather than to the markup.
+
+## A log write that hits a deadlock
+
+`tests/log-deadlock.spec.ts` puts a trigger on `qliroone_log` that answers the first inserts of one
+log line with MariaDB's deadlock error, 1213, and checks the row that lands. The trigger and its
+counter table, `qliroe2e_log_deadlock`, are dropped at the start and end of each run. The store's database user needs
+the right to create a trigger (on MySQL 8 with binary logging, `SUPER` or
+`log_bin_trust_function_creators`), and the server has to allow MyISAM, which keeps the counter
+when the failed insert is rolled back.
 
 ## The checkout test
 
