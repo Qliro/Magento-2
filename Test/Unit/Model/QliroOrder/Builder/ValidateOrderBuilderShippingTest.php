@@ -289,6 +289,24 @@ class ValidateOrderBuilderShippingTest extends TestCase
         self::assertSame(1, $this->quotesSaved);
     }
 
+    /**
+     * Qliro confirmed the totals it validated, a surcharge an observer adds is not saved under them
+     */
+    public function testDoesNotSaveTotalsAnObserverChanged(): void
+    {
+        $this->selectedOption = 'pickup-point-2';
+        $this->observer = function (DataObject $container): void {
+            $this->quoteShippingInclTax += 29.0;
+            $container->setCanSaveQuote(true);
+        };
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertSame(0, $this->quotesSaved);
+        self::assertStringContainsString('changed the totals Qliro confirmed', $this->loggedError());
+    }
+
     public function testAcceptsWhenTheObserverFails(): void
     {
         $this->selectedOption = 'pickup-point-2';

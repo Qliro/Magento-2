@@ -469,6 +469,19 @@ class ValidateOrderBuilder
     }
 
     /**
+     * The grand total and shipping of the quote, in minor units
+     *
+     * @return int[]
+     */
+    private function confirmedTotals(): array
+    {
+        return [
+            (int)round((float)$this->quote->getGrandTotal() * 100),
+            (int)round((float)$this->quote->getShippingAddress()->getShippingInclTax() * 100),
+        ];
+    }
+
+    /**
      * Pass the method and secondary option Qliro confirms to merchant code, the browser update can be late or lost
      *
      * Runs on an accepted order only. The quote is saved when an observer sets can_save_quote.
@@ -513,6 +526,8 @@ class ValidateOrderBuilder
         // phpcs:enable
 
         $isEmulated = false;
+        // What Qliro confirmed, an observer that moves it must not have the quote saved under it
+        $confirmed = $this->confirmedTotals();
 
         // A failing observer or save is no reason to refuse the payment
         try {
@@ -522,6 +537,15 @@ class ValidateOrderBuilder
                 'qliroone_shipping_method_update_before',
                 ['quote' => $this->quote, 'container' => $container]
             );
+
+            if ($container->getCanSaveQuote() && $this->confirmedTotals() !== $confirmed) {
+                $container->setCanSaveQuote(false);
+                $this->logValidateError(
+                    'dispatchConfirmedShipping',
+                    'an observer changed the totals Qliro confirmed, the quote is not saved',
+                    $context + ['confirmed' => $confirmed, 'after' => $this->confirmedTotals()]
+                );
+            }
 
             if ($container->getCanSaveQuote()) {
                 $this->getQuoteRepository()->save($this->quote);
