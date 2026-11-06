@@ -12,6 +12,7 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Api\ShipmentRepositoryInterface;
 use Magento\Sales\Model\Order\Invoice;
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
+use Magento\Framework\App\ObjectManager;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager;
@@ -20,6 +21,7 @@ use Qliro\QliroOne\Model\OrderManagementStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureTransactionUpdater;
 use Qliro\QliroOne\Model\QliroOrder\Admin\BundleChildren;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 class Shipment implements OrderManagementStatusUpdateHandlerInterface
 {
@@ -59,6 +61,11 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
     private $bundleChildren;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * Shipment constructor.
      * @param ShipmentRepositoryInterface $shipmentRepository
      * @param OrderRepositoryInterface $orderRepository
@@ -67,6 +74,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
      * @param CaptureTransactionUpdater $captureTransactionUpdater
      * @param CaptureHold $captureHold
      * @param BundleChildren|null $bundleChildren
+     * @param StateStatus|null $stateStatus
      */
     public function __construct(
         ShipmentRepositoryInterface $shipmentRepository,
@@ -75,7 +83,8 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         Manager $logManager,
         CaptureTransactionUpdater $captureTransactionUpdater,
         CaptureHold $captureHold,
-        ?BundleChildren $bundleChildren = null
+        ?BundleChildren $bundleChildren = null,
+        ?StateStatus $stateStatus = null
     ) {
         $this->shipmentRepository = $shipmentRepository;
         $this->orderRepository = $orderRepository;
@@ -84,6 +93,7 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         $this->captureTransactionUpdater = $captureTransactionUpdater;
         $this->captureHold = $captureHold;
         $this->bundleChildren = $bundleChildren ?? new BundleChildren();
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
     /**
@@ -329,13 +339,21 @@ class Shipment implements OrderManagementStatusUpdateHandlerInterface
         try {
             $shipment = $this->getShipment($omStatus);
             $order = $shipment->getOrder();
-            if ($order->getState() == Order::STATE_PENDING_PAYMENT) {
+            if ($this->stateStatus->currentState($order) === Order::STATE_PENDING_PAYMENT) {
                 return;
             }
-            $order->setState(Order::STATE_PENDING_PAYMENT);
-            $order->addStatusHistoryComment(
-                __('Order set to pending payment because Qliro One returned the capture with status: %1', $contextMessage)
-            );
+            // A held order keeps its hold and returns to pending payment when released
+            $held = $order->getState() === Order::STATE_HOLDED;
+            $this->stateStatus->setKeepingHold($order, Order::STATE_PENDING_PAYMENT);
+            $order->addStatusHistoryComment($held
+                ? __(
+                    'Qliro One returned the capture with status: %1, the order stays on hold',
+                    $contextMessage
+                )
+                : __(
+                    'Order set to pending payment because Qliro One returned the capture with status: %1',
+                    $contextMessage
+                ));
             $this->orderRepository->save($order);
         } catch (\Exception $exception) {
             $this->logManager->critical(
