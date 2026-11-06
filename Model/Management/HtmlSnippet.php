@@ -7,9 +7,12 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Escaper;
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
+use Qliro\QliroOne\Model\Exception\NoOrderLinesException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Magento\Framework\App\Response\Http;
@@ -19,6 +22,8 @@ use \Qliro\QliroOne\Api\LinkRepositoryInterface;
  */
 class HtmlSnippet extends AbstractManagement
 {
+    private readonly MessageManager $messageManager;
+
     /**
      * Inject dependencies
      *
@@ -27,14 +32,17 @@ class HtmlSnippet extends AbstractManagement
      * @param Http $http
      * @param LinkRepositoryInterface $linkRepository
      * @param Escaper $escaper
+     * @param MessageManager|null $messageManager
      */
     public function __construct(
         private readonly QliroOrder $qliroOrder,
         private readonly  Manager $logManager,
         private readonly  Http $http,
         private readonly  LinkRepositoryInterface $linkRepository,
-        private readonly Escaper $escaper
+        private readonly Escaper $escaper,
+        ?MessageManager $messageManager = null
     ) {
+        $this->messageManager = $messageManager ?? ObjectManager::getInstance()->get(MessageManager::class);
     }
 
     /**
@@ -45,6 +53,7 @@ class HtmlSnippet extends AbstractManagement
      *
      * @return string
      * @throws AlreadyPlacedException
+     * @throws NoOrderLinesException when the cart has no line Qliro can take
      */
     public function fetch(): string
     {
@@ -72,11 +81,16 @@ class HtmlSnippet extends AbstractManagement
                 $this->getQuote()->getStore()->getUrl('checkout/qliro/pending')
             );
             return '';
+        } catch (NoOrderLinesException $exception) {
+            $this->messageManager->addNoticeMessage($exception->getMessage());
+            $this->http->setRedirect($this->getQuote()->getStore()->getUrl('checkout/cart'));
+
+            return '';
         } catch (UnsupportedQuoteException $exception) {
             /*
              * The cart, not the checkout, is what the buyer has to change, and the reload link
-             * below would only bring them back here. The message names the line and says what to
-             * do with it, so it is shown in place of the widget.
+             * below would only bring them back here. The message says what to do, so it is shown in
+             * place of the widget.
              */
             $this->logManager->debug('The cart cannot be paid for with Qliro: ' . $exception->getMessage());
 

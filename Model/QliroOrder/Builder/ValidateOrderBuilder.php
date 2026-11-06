@@ -9,6 +9,8 @@ namespace Qliro\QliroOne\Model\QliroOrder\Builder;
 
 use Magento\Framework\App\Area;
 use Magento\Framework\App\ObjectManager;
+use Magento\Framework\DataObject;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Validator\Exception;
 use Magento\Quote\Api\CartRepositoryInterface;
@@ -44,6 +46,11 @@ class ValidateOrderBuilder
     private $quote;
 
     /**
+     * Whether the validate callback moved the quote to Qliro's method
+     */
+    private bool $methodSwitched = false;
+
+    /**
      * Inject dependencies
      *
      * @param ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory
@@ -59,6 +66,7 @@ class ValidateOrderBuilder
      * @param StoreManagerInterface|null $storeManager
      * @param Emulation|null $storeEmulation
      * @param LineDifferences|null $lineDifferences
+     * @param EventManager|null $eventManager
      */
     public function __construct(
         private ValidateOrderResponseInterfaceFactory $validateOrderResponseFactory,
@@ -73,7 +81,8 @@ class ValidateOrderBuilder
         private ?CartRepositoryInterface $quoteRepository = null,
         private ?StoreManagerInterface $storeManager = null,
         private ?Emulation $storeEmulation = null,
-        private ?LineDifferences $lineDifferences = null
+        private ?LineDifferences $lineDifferences = null,
+        private ?EventManager $eventManager = null
     ) {
     }
 
@@ -119,6 +128,7 @@ class ValidateOrderBuilder
 
         /** @var \Qliro\QliroOne\Api\Data\ValidateOrderResponseInterface $container */
         $container = $this->validateOrderResponseFactory->create();
+        $this->methodSwitched = false;
 
         $allInStock = $this->checkItemsInStock();
 
@@ -220,6 +230,7 @@ class ValidateOrderBuilder
             return $container->setDeclineReason(ValidateOrderResponseInterface::REASON_OTHER);
         }
 
+        $this->dispatchConfirmedShipping();
         $container->setDeclineReason(null);
 
         $this->quote = null;
@@ -293,15 +304,8 @@ class ValidateOrderBuilder
         }
 
         // The callback runs in the default store view, and totals are collected in the current one's currency
-        $quoteStoreId = (int)$storeId;
-        $isEmulated = false;
-
         try {
-            if ($quoteStoreId > 0 && $quoteStoreId !== (int)$this->getStoreManager()->getStore()->getId()) {
-                $this->getStoreEmulation()->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
-                // Magento refuses a nested emulation silently, so only a start that took owns a stop
-                $isEmulated = $quoteStoreId === (int)$this->getStoreManager()->getStore()->getId();
-            }
+            $isEmulated = $this->emulateQuoteStore();
         } catch (\Throwable $exception) {
             $this->logValidateError(
                 'applySelectedShippingMethod',
@@ -436,12 +440,134 @@ class ValidateOrderBuilder
             );
         }
 
+        $this->methodSwitched = true;
         $this->logManager->debug(
             'CALLBACK:VALIDATE: applied the method Qliro selected',
             ['extra' => ['quote_id' => $this->quote->getId(), 'quote_method' => $quoteMethod, 'qliro_method' => $code]]
         );
 
         return null;
+    }
+
+    /**
+     * Enter the quote's store view unless it is the current one
+     *
+     * @return bool Whether an emulation was started, only a start that took owns a stop
+     */
+    private function emulateQuoteStore(): bool
+    {
+        $quoteStoreId = (int)$this->quote->getStoreId();
+
+        if ($quoteStoreId <= 0 || $quoteStoreId === (int)$this->getStoreManager()->getStore()->getId()) {
+            return false;
+        }
+
+        $this->getStoreEmulation()->startEnvironmentEmulation($quoteStoreId, Area::AREA_FRONTEND, true);
+
+        // Magento refuses a nested emulation silently
+        return $quoteStoreId === (int)$this->getStoreManager()->getStore()->getId();
+    }
+
+    /**
+     * The grand total and shipping of the quote, in minor units
+     *
+     * @return int[]
+     */
+    private function confirmedTotals(): array
+    {
+        return [
+            (int)round((float)$this->quote->getGrandTotal() * 100),
+            (int)round((float)$this->quote->getShippingAddress()->getShippingInclTax() * 100),
+        ];
+    }
+
+    /**
+     * Pass the method and secondary option Qliro confirms to merchant code, the browser update can be late or lost
+     *
+     * Runs on an accepted order only. The quote is saved when an observer sets can_save_quote.
+     */
+    private function dispatchConfirmedShipping(): void
+    {
+        if ($this->quote->isVirtual() || !$this->quote->getIsActive()) {
+            return;
+        }
+
+        $storeId = $this->quote->getStoreId();
+
+        if ($this->config->isUnifaunEnabled($storeId) || $this->config->isIngridEnabled($storeId)) {
+            return;
+        }
+
+        $code = (string)$this->validationRequest->getSelectedShippingMethod();
+
+        // Only a quote on Qliro's method, a code without a rate leaves it on its own
+        if ($code === '' || $code !== (string)$this->quote->getShippingAddress()->getShippingMethod()) {
+            return;
+        }
+
+        $option = (string)$this->validationRequest->getSelectedShippingSecondaryOption();
+        $context = ['quote_id' => $this->quote->getId(), 'qliro_method' => $code, 'qliro_option' => $option];
+
+        // @codingStandardsIgnoreStart
+        // phpcs:disable
+        $container = new DataObject(
+            [
+                'shipping_method' => $code,
+                'secondary_option' => $option === '' ? null : $option,
+                'shipping_price' => $this->getQliroShippingPrice(),
+                // As in the browser update, true when the method changed
+                'can_save_quote' => $this->methodSwitched,
+                // The validate callback may still write the quote
+                'qliro_order_validated' => false,
+                'qliro_validate_callback' => true,
+            ]
+        );
+        // @codingStandardsIgnoreEnd
+        // phpcs:enable
+
+        $isEmulated = false;
+        // What Qliro confirmed, an observer that moves it must not have the quote saved under it
+        $confirmed = $this->confirmedTotals();
+
+        // A failing observer or save is no reason to refuse the payment
+        try {
+            // Observers read store scoped config, as in the browser update
+            $isEmulated = $this->emulateQuoteStore();
+            $this->getEventManager()->dispatch(
+                'qliroone_shipping_method_update_before',
+                ['quote' => $this->quote, 'container' => $container]
+            );
+
+            if ($container->getCanSaveQuote() && $this->confirmedTotals() !== $confirmed) {
+                $container->setCanSaveQuote(false);
+                $this->logValidateError(
+                    'dispatchConfirmedShipping',
+                    'an observer changed the totals Qliro confirmed, the quote is not saved',
+                    $context + ['confirmed' => $confirmed, 'after' => $this->confirmedTotals()]
+                );
+            }
+
+            if ($container->getCanSaveQuote()) {
+                $this->getQuoteRepository()->save($this->quote);
+            }
+        } catch (\Throwable $exception) {
+            $this->logValidateError(
+                'dispatchConfirmedShipping',
+                'could not pass on the confirmed shipping: ' . $exception->getMessage(),
+                $context
+            );
+
+            return;
+        } finally {
+            if ($isEmulated) {
+                $this->getStoreEmulation()->stopEnvironmentEmulation();
+            }
+        }
+
+        $this->logManager->debug(
+            'CALLBACK:VALIDATE: passed on the confirmed shipping',
+            ['extra' => $context + ['quote_saved' => (bool)$container->getCanSaveQuote()]]
+        );
     }
 
     /**
@@ -519,6 +645,11 @@ class ValidateOrderBuilder
     private function getStoreEmulation(): Emulation
     {
         return $this->storeEmulation ??= ObjectManager::getInstance()->get(Emulation::class);
+    }
+
+    private function getEventManager(): EventManager
+    {
+        return $this->eventManager ??= ObjectManager::getInstance()->get(EventManager::class);
     }
 
     private function getLineDifferences(): LineDifferences

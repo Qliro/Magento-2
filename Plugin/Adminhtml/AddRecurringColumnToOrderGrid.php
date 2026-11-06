@@ -26,7 +26,8 @@ class AddRecurringColumnToOrderGrid
 
         // Add the is_recurring expression as a part of the field list
         $select->columns([
-            'is_recurring' => new Zend_Db_Expr('IF(recurring_info.original_order_id IS NOT NULL AND recurring_info.next_order_date IS NOT NULL, "Yes", "No")')
+            'is_recurring' => new Zend_Db_Expr('IF(recurring_info.original_order_id IS NOT NULL AND recurring_info.next_order_date IS NOT NULL, "Yes", "No")'),
+            'qliro_saved_card_removed_at' => 'recurring_info.saved_credit_card_removed_at',
         ]);
 
         return $collection;

@@ -8,6 +8,7 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Model\OrderManagementStatus\Update;
 
 use Magento\Sales\Model\Order;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 /**
  * Which failed captures keep the order on hold. Only the success of a failed capture (Qliro heals it)
@@ -24,6 +25,19 @@ class CaptureHold
 
     /** Set on the order while this class holds or releases it */
     public const OWN_ACTION = 'qliro_capture_hold_action';
+
+    /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
+     * @param StateStatus $stateStatus
+     */
+    public function __construct(StateStatus $stateStatus)
+    {
+        $this->stateStatus = $stateStatus;
+    }
 
     /**
      * Holds the order for a failed capture, or keeps the hold it is on. Where Magento cannot hold the
@@ -140,7 +154,7 @@ class CaptureHold
             $this->own($order, static fn () => $order->unhold());
         }
         $order->addStatusHistoryComment(__('Capture %1 succeeded, the order is released from hold', $transactionId));
-        $this->keepStatusAssigned($order);
+        $this->stateStatus->keepAssigned($order);
     }
 
     /**
@@ -183,7 +197,7 @@ class CaptureHold
             return;
         }
         $this->own($order, static fn () => $order->hold());
-        if (in_array($statusBefore, $this->assigned($order, (string)$order->getHoldBeforeState()), true)) {
+        if ($this->stateStatus->isAssigned($order, (string)$order->getHoldBeforeState(), $statusBefore)) {
             $order->setHoldBeforeStatus($statusBefore);
         }
     }
@@ -203,28 +217,6 @@ class CaptureHold
         $payment->unsAdditionalInformation(self::KEY_HELD);
     }
 
-    /**
-     * Magento's unhold() puts back the status from before the hold whether or not the state still has it
-     *
-     * @param Order $order
-     */
-    private function keepStatusAssigned(Order $order): void
-    {
-        $state = (string)$order->getState();
-        $status = (string)$order->getStatus();
-        $default = (string)$order->getConfig()->getStateDefaultStatus($state);
-        if ($default === '' || in_array($status, $this->assigned($order, $state), true)) {
-            return;
-        }
-        $order->setStatus($default);
-        $order->addStatusHistoryComment(__(
-            'The status %1 the order had before the hold is not assigned to state %2, so the order gets %3',
-            $status,
-            $state,
-            $default
-        ));
-    }
-
     private function own(Order $order, callable $action): void
     {
         $order->setData(self::OWN_ACTION, true);
@@ -233,16 +225,6 @@ class CaptureHold
         } finally {
             $order->unsetData(self::OWN_ACTION);
         }
-    }
-
-    /**
-     * @param Order $order
-     * @param string $state
-     * @return string[]
-     */
-    private function assigned(Order $order, string $state): array
-    {
-        return array_map('strval', array_keys($order->getConfig()->getStateStatuses($state)));
     }
 
     /**

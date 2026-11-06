@@ -41,6 +41,7 @@ class RecordSelectedOption implements ObserverInterface
             'method' => $container->getShippingMethod(),
             'option' => $option,
             'canSaveQuote' => (bool)$container->getCanSaveQuote(),
+            'validateCallback' => (bool)$container->getQliroValidateCallback(),
         ];
         $directory->writeFile($path, json_encode($history));
     }

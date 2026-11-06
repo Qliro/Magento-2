@@ -299,6 +299,38 @@ class QliroOrderTest extends TestCase
         return $quote;
     }
 
+    public function testGetRefusesALinkWithoutAQliroOrder(): void
+    {
+        $this->linkQliroOrderId = null;
+        $this->merchantApi->expects(self::never())->method('getOrder');
+
+        try {
+            $this->management->get();
+            self::fail('A link without a Qliro order was fetched');
+        } catch (\Qliro\QliroOne\Model\Exception\TerminalException $exception) {
+            self::assertSame(
+                'Quote 282629 has no Qliro order, it was not created',
+                $exception->getPrevious()->getMessage()
+            );
+        }
+    }
+
+    public function testGetPassesACartWithoutLinesOn(): void
+    {
+        $quoteManagement = $this->createMock(QuoteManagement::class);
+        $quoteManagement->method('setQuote')->willReturnSelf();
+        $quoteManagement->method('getLinkFromQuote')->willThrowException(
+            new \Qliro\QliroOne\Model\Exception\NoOrderLinesException(__('Nothing to pay for.'))
+        );
+        $this->quoteManagement = $quoteManagement;
+        $this->merchantApi->expects(self::never())->method('getOrder');
+        $reflection = new \ReflectionProperty(QliroOrder::class, 'quoteManagement');
+        $reflection->setValue($this->management, $quoteManagement);
+
+        $this->expectException(\Qliro\QliroOne\Model\Exception\NoOrderLinesException::class);
+        $this->management->get();
+    }
+
     /**
      * The order update carrying AvailableShippingMethods is pushed by getLinkFromQuote(), which
      * runs before the order is fetched. Qliro masks the address in the browser payload, so this

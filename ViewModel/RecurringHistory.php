@@ -16,6 +16,8 @@ class RecurringHistory implements ArgumentInterface
 {
     const CANCEL_RECURRING_ROUTE = 'checkout/qliro_recurring/cancel';
 
+    const REMOVE_CARD_ROUTE = 'checkout/qliro_recurring/removeCard';
+
     const ORDER_VIEW_ROUTE = 'sales/order/view';
 
     private CollectionFactory $recurringCollectionFactory;
@@ -63,6 +65,34 @@ class RecurringHistory implements ArgumentInterface
     }
 
     /**
+     * Url to the Remove Card Controller
+     *
+     * @return string
+     */
+    public function getRemoveCardUrl(): string
+    {
+        return $this->containerBlock->getUrl(self::REMOVE_CARD_ROUTE);
+    }
+
+    /**
+     * @param RecurringInfoInterface $recurringInfo
+     * @return bool
+     */
+    public function hasSavedCard(RecurringInfoInterface $recurringInfo): bool
+    {
+        return (string)$recurringInfo->getSavedCreditCardId() !== '';
+    }
+
+    /**
+     * @param RecurringInfoInterface $recurringInfo
+     * @return bool
+     */
+    public function isCardRemoved(RecurringInfoInterface $recurringInfo): bool
+    {
+        return !!$recurringInfo->getSavedCreditCardRemovedAt();
+    }
+
+    /**
      * @param RecurringInfoInterface $recurringInfo
      * @return string
      */
@@ -81,6 +111,27 @@ class RecurringHistory implements ArgumentInterface
     public function isCanceled(RecurringInfoInterface $recurringInfo): bool
     {
         return !!$recurringInfo->getCanceledDate();
+    }
+
+    /**
+     * The data-mage-init JSON of a form that asks before it is submitted
+     *
+     * @param string $buttonSelector
+     * @param string $content
+     * @param string $confirmText
+     * @param string $cancelText
+     * @return string
+     */
+    public function confirmConfig(string $buttonSelector, string $content, string $confirmText, string $cancelText): string
+    {
+        return (string)json_encode([
+            'Qliro_QliroOne/js/recurring/confirm-submit' => [
+                'buttonSelector' => $buttonSelector,
+                'content' => $content,
+                'confirmText' => $confirmText,
+                'cancelText' => $cancelText,
+            ],
+        ]);
     }
 
     /**

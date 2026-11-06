@@ -26,7 +26,7 @@ interface OrderManagementInterface
      * @param int $qliroOrderId
      * @param int|null $storeId
      * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
-     * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
+     * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface|null
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     public function getOrder($qliroOrderId, $storeId = null, $profile = null);
@@ -56,7 +56,7 @@ interface OrderManagementInterface
      *
      * @param \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request
      * @param int|null $storeId
-     * @return \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface
+     * @return \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface|null null when Qliro refused or did not answer
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     public function updateMerchantReference(AdminUpdateMerchantReferenceRequestInterface $request, $storeId = null);
