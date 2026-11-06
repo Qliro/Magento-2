@@ -15,6 +15,54 @@
 
 - `Jenkinsfile`. It targeted a Magento 2.3 Jenkins agent and reported to Bitbucket. CI is GitHub Actions in `.github/workflows`
 
+
+## [1.8.42] - 2026-11-04
+
+### Fixed
+
+- A blank value Qliro sends for an address field (name, street, city, postcode, company, email, phone) no longer overwrites what the quote holds. Only a null was skipped before, so an empty or whitespace string replaced a working value, and a required field left empty failed the order placement. A blank postcode no longer counts as an address that may replace the country, and a blank country is not one
+
+### Added
+
+- `AddressConverterTest`: blank fields keep the quote's values, a blank postcode keeps the country
+
+
+## [1.8.41] - 2026-11-04
+
+### Fixed
+
+- An order no longer gets a status that is not assigned to its state. A capture Qliro put on hold set the order to `pending_payment` and kept its old status, and placing the order did the same before Qliro completed it, so the order stood on pairs such as `pending_payment` / `pending` that Magento has no row for, and the order grid and its status filter missed it. These orders now get the default status of `pending_payment`
+- The New Order Status from the settings is used only while it is assigned to `new`. If the merchant unassigned it, the order gets the default status of `new` and a warning is logged
+- A checkout status delivered again after the order was invoiced, shipped or closed no longer moves the order back. A repeated `Completed` set an invoiced order back to `new`, and a repeated `OnHold` set it to `payment_review`. The order now stays as it is and a warning is logged. A held order that is still in checkout keeps its hold and gets the new state as the state it returns to when it is released, also when the order is placed
+- A refused subscription order that was held is released and canceled, as one that was not held
+- A capture Qliro returns OnHold no longer takes a held order off hold. The order stays on hold, returns to `pending_payment` when released, and the order history says so. Before, the handlers set `pending_payment` over the hold, so an order held for a failed capture lost its hold without `unhold()`
+
+### Changed
+
+- `Qliro\QliroOne\Model\Order\StateStatus` is the one class that decides the state and status of an order. It replaces `HoldAwareState` from 1.8.22, removed, whose hold handling is now `StateStatus::setKeepingHold()`, and the status check `CaptureHold` from 1.8.27 did after a released hold, now `StateStatus::keepAssigned()` and `isAssigned()`. `CaptureHold` takes `StateStatus` in its constructor. As before, the authorization on a held order that returns to the same state keeps the status it returns to. A status not assigned after a released hold now gives the state's default when assigned, else its first assigned status, and is logged as a warning too
+
+### Added
+
+- `Model/Order/StateStatus`, `Test/Unit/Model/Order/StateStatusTest`, `PaymentAuthorizationStateTest` and `Handler/CaptureOnHoldTest`
+- `Test/E2e/tests/status-for-state.spec.ts`: an order placed while Qliro is in process, a repeated `Completed` and `OnHold` on an invoiced order, a capture put on hold, and a New Order Status not assigned to `new`, each checked against the statuses assigned to the state and the order grid
+
+
+## [1.8.40] - 2026-11-04
+
+### Fixed
+
+- An invoice or shipment captured again after Qliro did not answer the first capture fails no longer. The retry goes under the same `RequestId`, and Qliro refuses it with `DUPLICATE_REQUEST` because the first one was booked. The module now reads the order at Qliro and completes the document with the capture the first attempt made: its transaction id goes on the payment, and the OM status row and the captured units are recorded as for an answered capture
+- Only a capture of exactly the amount sent that no invoice and no OM status row of a document holds is taken for the first attempt. Qliro's own notification of the lost capture does not count as a record. When none or more than one fits, the document is refused with a message to check the order in Qliro Merchant Hub
+- A capture is sent and recorded under a lock on the Qliro order, so a second request sending the same capture meanwhile finds it on the books instead of taking it for a lost one. A shipment captures inside its own save transaction, where its rows show only with the commit, and Magento runs two shipments of one order side by side, so a recorded capture there keeps the lock until the commit. A capture that fails lets it go at once. A rollback after a recorded capture leaves the lock to the end of the database session
+- When Qliro failed the first attempt, nothing was captured, and the capture is sent again under a `RequestId` derived from the failed capture, so a retry is not refused for good
+- A capture Qliro did not answer (no connection, a timeout, a 5xx, or a 408 or 499 from a proxy) says that it may have gone through and that the same document created again unchanged is not captured twice, instead of "Request to Qliro One has failed"
+
+### Added
+
+- `Model/QliroOrder/Admin/RepeatedCapture` and its test, cases in `Test/Unit/Model/Management/PaymentCaptureTest`
+- `Test/E2e/tests/capture-retry.spec.ts` with the fixture module `QliroE2e_LostCaptureAnswer` and `Test/E2e/seed/capture-retry.php`: the answer of a real sandbox capture is lost, Qliro's notification of it arrives, and the invoice and the shipment sent again complete with the one capture Qliro made
+
+
 ## [1.8.39] - 2026-11-03
 
 ### Fixed
