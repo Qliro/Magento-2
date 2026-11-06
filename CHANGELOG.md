@@ -1,5 +1,21 @@
 # Change Log
 
+## [1.8.52] - 2026-11-05
+
+### Fixed
+
+- A callback refused because its token did not verify with the API secret, or was issued for another merchant API key, is logged at warning with the reason. These were at debug, so a store whose older orders stopped updating after a credentials change had nothing to see: Qliro's capture and refund pushes for those orders were answered "Authenticate error" and their status rows never moved. The callback urls are open to anyone, so the warning is rate limited per store: once an hour for a wrong secret, once an hour per presented key for another key, at most five keys an hour plus one line per key the store replaced. The rest goes to debug, and a caller who knows the merchant key can take the hourly lines. A malformed token stays at debug, now with the reason, and so does a refused checkout token, which concerns one customer
+- Changing the Merchant API Key or Secret, or ticking "Use Default" or "Use system value" on one that was set, keeps the pair in use before, encrypted, for each website that used it then, the last five pairs per website. Callback tokens signed with a kept pair are accepted on that website for as many days after the change as the new setting Callback > Accept Replaced API Credentials (days) says, 90 by default. A change at the default scope keeps, for each website inheriting the changed half, the pair that website used, its own other half included. Each acceptance is logged at info, once an hour. Checkout tokens live two hours and are never accepted with a kept pair
+- Setting the window to 0 refuses those tokens and drops every kept pair, so raising it later revives none; nothing is kept while it is 0. Changing the API type drops the pairs of that website, every pair at the default scope, and keeps none from the rest of that save, so a sandbox pair is not accepted in production. Change the credentials before or with the API type: credentials changed in a later save keep the pair of the previous type
+- Only a change saved from the admin or with `bin/magento config:set` from this release on is kept, not one deployed through `env.php`, `config.php` or `app:config:import`. A store that changed its credentials earlier can save the old pair once and then the current one again: both changes are kept, and tokens of either pair are accepted from then on. The list is a sensitive setting, so `app:config:dump` leaves it out. It is not re-encrypted by an encryption key change; once the old key is removed from `env.php`, it reads as empty
+- A kept pair replaced longer ago than the longest window the setting allows, 1095 days, is dropped the next time a pair is kept, so an old secret does not stay in the database for good
+
+### Added
+
+- Unit tests for the refusal levels, reasons and rate limit, tokens signed with a kept pair, where a kept pair is accepted, the pairs kept or dropped on each kind of change, and the new setting
+- `Test/E2e/tests/callback-credentials.spec.ts` with `seed/callback-credentials.php`: Qliro's capture status push for an order created before the credentials change, with the window on and off
+
+
 ## [1.8.51] - 2026-11-05
 
 ### Added

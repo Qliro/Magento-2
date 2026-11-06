@@ -7,13 +7,18 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\Security;
 
+use Magento\Framework\App\CacheInterface;
 use Magento\Framework\Serialize\Serializer\Json;
+use Magento\Store\Api\Data\StoreInterface;
+use Magento\Store\Model\StoreManagerInterface;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Security\CallbackToken;
 use Qliro\QliroOne\Model\Security\AjaxToken;
 use Qliro\QliroOne\Model\Security\Jwt;
+use Qliro\QliroOne\Model\Security\PreviousCredentials;
+use Qliro\QliroOne\Model\Security\TokenLogThrottle;
 
 /**
  * @see \Qliro\QliroOne\Model\Security\CallbackToken
@@ -22,11 +27,20 @@ class CallbackTokenTest extends TestCase
 {
     private const API_KEY = 'live-8f14e45fceea167a5a36dedd4bea2543';
     private const API_SECRET = 'c20ad4d76fe97759aa27a0c99bff6710';
+    private const OLD_KEY = 'live-6512bd43d9caa6e02c990b0a82652dca';
+    private const OLD_SECRET = 'c51ce410c124a10e0db5e4b97fc2af39';
 
     /**
      * @var array<int, array{level: string, message: string, context: array}>
      */
     private array $logged = [];
+
+    /**
+     * What the throttle has stored, shared by every token a test builds
+     *
+     * @var array<string, string>
+     */
+    private array $cached = [];
 
     /**
      * The token this store issues is the token this store accepts.
@@ -102,7 +116,8 @@ class CallbackTokenTest extends TestCase
         $other = $this->buildToken(30, 'live-someone-else');
 
         self::assertFalse($this->buildToken()->verifyToken($other->getToken()));
-        self::assertSame('merchant ID mismatch', $this->logged[0]['message']);
+        self::assertSame('warning', $this->logged[0]['level']);
+        self::assertStringContainsString('another merchant API key', $this->logged[0]['message']);
     }
 
     /**
@@ -198,7 +213,13 @@ class CallbackTokenTest extends TestCase
      */
     public function testTheCheckoutTokenKeepsItsOwnLifetime(): void
     {
-        $token = new AjaxToken(new Jwt(new Json()), $this->config(365), $this->logManager());
+        $token = new AjaxToken(
+            new Jwt(new Json()),
+            $this->config(365),
+            $this->logManager(),
+            $this->previousCredentials([]),
+            $this->throttle()
+        );
 
         self::assertEqualsWithDelta(time() + 7200, $token->getExpirationTimestamp(), 60);
     }
@@ -292,7 +313,13 @@ class CallbackTokenTest extends TestCase
         $config->method('getMerchantApiSecret')->willReturn($secret);
         $config->method('getCallbackTokenLifetimeDays')->willReturn(365);
 
-        $token = new CallbackToken(new Jwt(new Json()), $config, $this->logManager());
+        $token = new CallbackToken(
+            new Jwt(new Json()),
+            $config,
+            $this->logManager(),
+            $this->previousCredentials([]),
+            $this->throttle()
+        );
 
         self::assertFalse($token->verifyToken($forged));
         self::assertStringContainsString('no API credentials', $this->logged[0]['message']);
@@ -312,20 +339,179 @@ class CallbackTokenTest extends TestCase
     }
 
     /**
-     * A token that did not verify leaves a trace. Without one, rotating the API secret stops every
-     * registered callback at once and there is nothing in the log to say why.
+     * A token signed with another secret is logged at warning: rotating the API secret stops the
+     * callbacks of every older order, and the store has to be able to see why.
      */
-    public function testATokenThatDidNotVerifyIsLogged(): void
+    public function testATokenSignedWithAnotherSecretIsAWarning(): void
+    {
+        $token = $this->tokenSignedWith(self::API_KEY, self::OLD_SECRET);
+
+        self::assertFalse($this->buildToken()->verifyToken($token));
+        self::assertSame('warning', $this->logged[0]['level']);
+        self::assertStringContainsString('did not verify with the API secret', $this->logged[0]['message']);
+        self::assertSame('Signature verification failed.', $this->logged[0]['context']['reason']);
+        self::assertStringNotContainsString($token, (string)json_encode($this->logged));
+        self::assertStringNotContainsString(self::OLD_SECRET, (string)json_encode($this->logged));
+    }
+
+    /**
+     * Anyone can post to a callback url, so the warning is not one a caller can repeat at will:
+     * one per kind and hour, the rest at debug.
+     */
+    public function testTheRefusalWarningIsRateLimitedPerKind(): void
+    {
+        $badSignature = $this->tokenSignedWith(self::API_KEY, self::OLD_SECRET);
+        $otherMerchant = $this->tokenSignedWith('live-someone-else', self::API_SECRET);
+
+        self::assertFalse($this->buildToken()->verifyToken($badSignature));
+        self::assertFalse($this->buildToken()->verifyToken($badSignature));
+        self::assertFalse($this->buildToken()->verifyToken($otherMerchant));
+        self::assertFalse($this->buildToken()->verifyToken($otherMerchant));
+
+        self::assertSame(['warning', 'debug', 'warning', 'debug'], array_column($this->logged, 'level'));
+    }
+
+    /**
+     * A malformed token is internet noise, not a store with the wrong credentials.
+     */
+    public function testAMalformedTokenStaysAtDebug(): void
+    {
+        self::assertFalse($this->buildToken()->verifyToken('not-a-token'));
+        self::assertSame('debug', $this->logged[0]['level']);
+        self::assertSame('Wrong number of segments.', $this->logged[0]['context']['reason']);
+    }
+
+    /**
+     * Made up merchant keys each get a line of their own, at most five an hour, so a caller
+     * cannot take the line a real refusal needs, nor flood the log.
+     */
+    public function testWarningsPerPresentedKeyAreCapped(): void
+    {
+        foreach (range(1, 7) as $n) {
+            self::assertFalse($this->buildToken()->verifyToken($this->tokenSignedWith('live-made-up-' . $n, 'x')));
+        }
+
+        self::assertSame(
+            ['warning', 'warning', 'warning', 'warning', 'warning', 'debug', 'debug'],
+            array_column($this->logged, 'level')
+        );
+    }
+
+    /**
+     * Once made up keys have used up the hour, a key the store replaced still gets its line.
+     */
+    public function testAReplacedKeyKeepsItsLineAfterMadeUpOnes(): void
+    {
+        $previous = [['key' => self::OLD_KEY, 'secret' => self::OLD_SECRET, 'replaced_at' => 1, 'website' => 1, 'type' => '']];
+
+        foreach (range(1, 5) as $n) {
+            $this->buildToken(365, self::API_KEY, $previous)
+                ->verifyToken($this->tokenSignedWith('live-made-up-' . $n, 'x'));
+        }
+
+        $this->logged = [];
+        self::assertFalse(
+            $this->buildToken(365, self::API_KEY, $previous)
+                ->verifyToken($this->tokenSignedWith(self::OLD_KEY, 'not-the-old-secret'))
+        );
+        self::assertSame('warning', $this->logged[0]['level']);
+    }
+
+    /**
+     * An older order's callback, signed with the pair the store replaced, is accepted within the
+     * window, and says so.
+     */
+    public function testAcceptsATokenSignedWithReplacedCredentials(): void
+    {
+        $token = $this->tokenSignedWith(self::OLD_KEY, self::OLD_SECRET);
+        $previous = [['key' => self::OLD_KEY, 'secret' => self::OLD_SECRET, 'replaced_at' => time() - 86400]];
+
+        self::assertTrue($this->buildToken(365, self::API_KEY, $previous)->verifyToken($token));
+        self::assertSame('info', $this->logged[0]['level']);
+        self::assertStringContainsString('replaced at', $this->logged[0]['message']);
+        self::assertStringNotContainsString(self::OLD_SECRET, (string)json_encode($this->logged));
+    }
+
+    /**
+     * Only the replaced pair as a whole: the old secret does not vouch for a token with a key the
+     * store never had.
+     */
+    public function testReplacedCredentialsDoNotMix(): void
+    {
+        $previous = [['key' => self::OLD_KEY, 'secret' => self::OLD_SECRET, 'replaced_at' => time()]];
+
+        self::assertFalse(
+            $this->buildToken(365, self::API_KEY, $previous)
+                ->verifyToken($this->tokenSignedWith('live-someone-else', self::OLD_SECRET))
+        );
+        self::assertFalse(
+            $this->buildToken(365, self::API_KEY, $previous)
+                ->verifyToken($this->tokenSignedWith(self::OLD_KEY, 'yet-another-secret'))
+        );
+    }
+
+    /**
+     * Accepted with the old pair is still checked like any token: an expired one is refused.
+     */
+    public function testAReplacedPairDoesNotExtendTheExpiry(): void
+    {
+        $token = $this->tokenSignedWith(self::OLD_KEY, self::OLD_SECRET, '-1 day');
+        $previous = [['key' => self::OLD_KEY, 'secret' => self::OLD_SECRET, 'replaced_at' => time()]];
+
+        self::assertFalse($this->buildToken(365, self::API_KEY, $previous)->verifyToken($token));
+        self::assertStringContainsString('expired', end($this->logged)['message']);
+        self::assertNotContains('info', array_column($this->logged, 'level'), 'nothing was accepted');
+    }
+
+    /**
+     * The checkout token lives two hours, so a replaced pair has nothing to vouch for there.
+     */
+    public function testACheckoutTokenIsNotAcceptedWithReplacedCredentials(): void
+    {
+        $previous = [['key' => self::API_KEY, 'secret' => self::OLD_SECRET, 'replaced_at' => time()]];
+        $token = $this->tokenSignedWith(self::API_KEY, self::OLD_SECRET);
+
+        self::assertFalse($this->buildAjaxToken(2, null, $previous)->verifyToken($token));
+    }
+
+    /**
+     * Each reason a well formed token fails is named, not only a wrong secret.
+     */
+    public function testTheRefusalNamesTheReason(): void
     {
         $token = (new Jwt(new Json()))->encode(
             ['merchant' => self::API_KEY, 'expires' => date('Y-m-d H:i:s', strtotime('+1 day'))],
-            'the-secret-this-store-used-to-have'
+            self::API_SECRET,
+            'HS512'
         );
 
         self::assertFalse($this->buildToken()->verifyToken($token));
-        self::assertSame('debug', $this->logged[0]['level']);
-        self::assertStringContainsString('did not verify', $this->logged[0]['message']);
-        self::assertStringNotContainsString($token, (string)json_encode($this->logged));
+        self::assertSame('Algorithm is not the expected one.', $this->logged[0]['context']['reason']);
+    }
+
+    /**
+     * The checkout token is one customer's, so its refusals stay at debug.
+     */
+    public function testACheckoutTokenSignedWithAnotherSecretStaysAtDebug(): void
+    {
+        $token = $this->tokenSignedWith(self::API_KEY, self::OLD_SECRET);
+
+        self::assertFalse($this->buildAjaxToken()->verifyToken($token));
+        self::assertSame(['debug'], array_column($this->logged, 'level'));
+    }
+
+    /**
+     * @param string $key
+     * @param string $secret
+     * @param string $expires
+     * @return string
+     */
+    private function tokenSignedWith(string $key, string $secret, string $expires = '+1 day'): string
+    {
+        return (new Jwt(new Json()))->encode(
+            ['merchant' => $key, 'expires' => date('Y-m-d H:i:s', strtotime($expires)), 'additional_data' => null],
+            $secret
+        );
     }
 
     /**
@@ -339,7 +525,7 @@ class CallbackTokenTest extends TestCase
         );
 
         self::assertFalse($this->buildToken()->verifyToken($token));
-        self::assertSame('merchant ID mismatch', $this->logged[0]['message']);
+        self::assertStringContainsString('another merchant API key', $this->logged[0]['message']);
     }
 
     /**
@@ -400,9 +586,54 @@ class CallbackTokenTest extends TestCase
      * @param string $merchantKey
      * @return CallbackToken
      */
-    private function buildToken(int $lifetimeDays = 365, string $merchantKey = self::API_KEY): CallbackToken
+    private function buildToken(
+        int $lifetimeDays = 365,
+        string $merchantKey = self::API_KEY,
+        array $previous = []
+    ): CallbackToken {
+        return new CallbackToken(
+            new Jwt(new Json()),
+            $this->config($lifetimeDays, $merchantKey),
+            $this->logManager(),
+            $this->previousCredentials($previous),
+            $this->throttle()
+        );
+    }
+
+    /**
+     * @param array $pairs
+     * @return PreviousCredentials
+     */
+    private function previousCredentials(array $pairs): PreviousCredentials
     {
-        return new CallbackToken(new Jwt(new Json()), $this->config($lifetimeDays, $merchantKey), $this->logManager());
+        $previous = $this->createMock(PreviousCredentials::class);
+        $previous->method('getActive')->willReturn($pairs);
+        $previous->method('isKnownKey')->willReturnCallback(
+            fn (string $key) => in_array($key, array_column($pairs, 'key'), true)
+        );
+
+        return $previous;
+    }
+
+    /**
+     * @return TokenLogThrottle
+     */
+    private function throttle(): TokenLogThrottle
+    {
+        $cache = $this->createMock(CacheInterface::class);
+        $cache->method('load')->willReturnCallback(fn (string $id) => $this->cached[$id] ?? false);
+        $cache->method('save')->willReturnCallback(function (string $data, string $id): bool {
+            $this->cached[$id] = $data;
+
+            return true;
+        });
+
+        $store = $this->createMock(StoreInterface::class);
+        $store->method('getId')->willReturn(1);
+        $storeManager = $this->createMock(StoreManagerInterface::class);
+        $storeManager->method('getStore')->willReturn($store);
+
+        return new TokenLogThrottle($cache, $storeManager);
     }
 
     /**
@@ -410,17 +641,27 @@ class CallbackTokenTest extends TestCase
      * @param string|null $quoteId What the token is bound to
      * @return AjaxToken
      */
-    private function buildAjaxToken(int $hoursFromNow = 2, ?string $quoteId = null): AjaxToken
+    private function buildAjaxToken(int $hoursFromNow = 2, ?string $quoteId = null, array $previous = []): AjaxToken
     {
-        $token = new class (new Jwt(new Json()), $this->config(365), $this->logManager(), $hoursFromNow, $quoteId) extends AjaxToken {
+        $token = new class (
+            new Jwt(new Json()),
+            $this->config(365),
+            $this->logManager(),
+            $this->previousCredentials($previous),
+            $this->throttle(),
+            $hoursFromNow,
+            $quoteId
+        ) extends AjaxToken {
             public function __construct(
                 Jwt $jwt,
                 Config $config,
                 LogManager $logManager,
+                PreviousCredentials $previousCredentials,
+                TokenLogThrottle $refusalThrottle,
                 private int $hours,
                 private ?string $quoteId
             ) {
-                parent::__construct($jwt, $config, $logManager);
+                parent::__construct($jwt, $config, $logManager, $previousCredentials, $refusalThrottle);
             }
 
             // The two hour lifetime is what the class fixes; the test needs one that has passed
