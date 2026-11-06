@@ -43,7 +43,7 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
             return $this->toMinorUnits((float)$order->getTotalRefunded()) >= $grandTotal;
         }
 
-        $refunded = $this->refundedBefore($creditMemo) + $this->toMinorUnits((float)$creditMemo->getGrandTotal());
+        $refunded = $this->refundedBefore($creditMemo, $order) + $this->toMinorUnits((float)$creditMemo->getGrandTotal());
         if ($feeIsAddedAsTotal) {
             $refunded -= $fee;
         }
@@ -55,16 +55,17 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
      * The order's refunded total holds a saved memo itself, so a saved one counts the memos before it
      *
      * @param CreditmemoInterface $creditMemo
+     * @param \Magento\Sales\Model\Order $order the order of the memo
      * @return int
      */
-    private function refundedBefore(CreditmemoInterface $creditMemo): int
+    private function refundedBefore(CreditmemoInterface $creditMemo, $order): int
     {
         if (!$creditMemo->getEntityId()) {
-            return $this->toMinorUnits((float)$creditMemo->getOrder()->getTotalRefunded());
+            return $this->toMinorUnits((float)$order->getTotalRefunded());
         }
 
         $refunded = 0;
-        foreach ($creditMemo->getOrder()->getCreditmemosCollection() as $earlier) {
+        foreach ($order->getCreditmemosCollection() as $earlier) {
             if ((int)$earlier->getEntityId() < (int)$creditMemo->getEntityId()) {
                 $refunded += $this->toMinorUnits((float)$earlier->getGrandTotal());
             }
