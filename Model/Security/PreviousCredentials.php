@@ -282,6 +282,11 @@ class PreviousCredentials
      */
     private function write(array $pairs): void
     {
+        // A pair older than the longest window no setting can accept again, and keeping it only
+        // keeps an old secret in the database
+        $since = time() - Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS * 86400;
+        $pairs = array_filter($pairs, fn (array $pair): bool => (int)$pair['replaced_at'] >= $since);
+
         $count = [];
         $pairs = array_values(array_filter($pairs, function (array $pair) use (&$count): bool {
             $count[$pair['website']] = ($count[$pair['website']] ?? 0) + 1;

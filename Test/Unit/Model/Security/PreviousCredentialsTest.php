@@ -98,7 +98,7 @@ class PreviousCredentialsTest extends TestCase
     public function testKeepsTheLastFiveNewestFirst(): void
     {
         $this->setCurrent('websites', 1, 'key-6', 'secret-6');
-        $this->setStored('default', null, array_map(fn (int $n) => $this->pair('key-' . $n, 1, $n * 1000), [5, 4, 3, 2, 1]));
+        $this->setStored('default', null, array_map(fn (int $n) => $this->pair('key-' . $n, 1, time() - (6 - $n) * 1000), [5, 4, 3, 2, 1]));
 
         $this->build()->rememberCurrent('websites', 1);
 
@@ -231,8 +231,8 @@ class PreviousCredentialsTest extends TestCase
     {
         $this->setCurrent('websites', 2, 'key-w2', 'secret-w2');
         $this->setStored('default', null, array_merge(
-            [$this->pair('key-w1', 1, 6000)],
-            array_map(fn (int $n) => $this->pair('key-w2-' . $n, 2, $n * 1000), [5, 4, 3, 2, 1])
+            [$this->pair('key-w1', 1, time())],
+            array_map(fn (int $n) => $this->pair('key-w2-' . $n, 2, time() - (6 - $n) * 1000), [5, 4, 3, 2, 1])
         ));
 
         $this->build()->rememberCurrent('websites', 2);
@@ -275,6 +275,22 @@ class PreviousCredentialsTest extends TestCase
 
         $this->build()->forget();
         self::assertSame([], $this->decode($this->written[0]['value']));
+    }
+
+    /**
+     * A pair past the longest window any setting allows is dropped, its secret is of no use any more.
+     */
+    public function testDropsPairsPastTheLongestWindow(): void
+    {
+        $this->setCurrent('websites', 1, 'key-new', 'secret-new');
+        $this->setStored('default', null, [
+            $this->pair('recent', 1, time() - 86400),
+            $this->pair('ancient', 1, time() - (Config::MAX_CALLBACK_TOKEN_LIFETIME_DAYS + 1) * 86400),
+        ]);
+
+        $this->build()->rememberCurrent('websites', 1);
+
+        self::assertSame(['key-new', 'recent'], array_column($this->decode($this->written[0]['value']), 'key'));
     }
 
     /**
