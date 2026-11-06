@@ -22,6 +22,7 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
@@ -139,6 +140,11 @@ class PlaceRecurringOrder extends AbstractManagement
     private DiscountLines $discountLines;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * @var MerchantReference
      */
     private MerchantReference $merchantReference;
@@ -166,6 +172,7 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      * @param DiscountLines|null $discountLines
+     * @param StateStatus|null $stateStatus
      * @param MerchantReference|null $merchantReference
      */
     public function __construct(
@@ -189,6 +196,7 @@ class PlaceRecurringOrder extends AbstractManagement
         OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
         ?DiscountLines $discountLines = null,
+        ?StateStatus $stateStatus = null,
         ?MerchantReference $merchantReference = null
     ) {
         $this->qliroConfig = $qliroConfig;
@@ -212,6 +220,7 @@ class PlaceRecurringOrder extends AbstractManagement
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
         $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
         $this->merchantReference = $merchantReference
             ?? ObjectManager::getInstance()->get(MerchantReference::class);
     }
@@ -491,6 +500,10 @@ class PlaceRecurringOrder extends AbstractManagement
                     $link->setIsActive(false);
                     $link->setMessage(sprintf('Order #%s marked as canceled', $order->getIncrementId()));
                     $this->linkRepository->save($link);
+                    // A held order cannot be canceled
+                    if ($order->canUnhold()) {
+                        $order->unhold();
+                    }
                     $this->applyOrderState($order, Order::STATE_NEW);
 
                     if ($order->canCancel()) {
@@ -672,19 +685,16 @@ class PlaceRecurringOrder extends AbstractManagement
     }
 
     /**
-     * Apply a proper state with its default status to the order
+     * Apply a proper state with a status registered for it, unless the order is past checkout
      *
      * @param \Magento\Sales\Model\Order $order
      * @param string $state
      */
     private function applyOrderState(Order $order, $state)
     {
-        $status = Order::STATE_NEW === $state
-            ? $this->qliroConfig->getOrderStatus()
-            : $order->getConfig()->getStateDefaultStatus($state);
+        $status = Order::STATE_NEW === $state ? (string)$this->qliroConfig->getOrderStatus() : null;
 
-        $order->setState($state);
-        $order->setStatus($status);
+        $this->stateStatus->setFromCheckout($order, $state, $status);
         $this->orderRepository->save($order);
     }
 }

@@ -30,6 +30,7 @@ use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Qliro\QliroOne\Model\Management\CreateMerchantPayment;
 use Qliro\QliroOne\Model\Management\Payment as PaymentManagement;
 use Qliro\QliroOne\Model\Management\PlaceOrder;
@@ -280,6 +281,7 @@ class OrderConfirmationTest extends TestCase
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
             discountLines: $this->createMock(DiscountLines::class),
+            stateStatus: $this->createMock(StateStatus::class),
             merchantReference: $this->createMock(MerchantReference::class)
         );
     }
@@ -311,6 +313,7 @@ class OrderConfirmationTest extends TestCase
             $order ?? $this->createMock(Order::class),
             $this->createMock(OrganizationNumber::class),
             discountLines: $this->createMock(DiscountLines::class),
+            stateStatus: $this->createMock(StateStatus::class),
             merchantReference: $this->createMock(MerchantReference::class)
         );
     }

@@ -33,6 +33,7 @@ use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 /**
  * @see \Qliro\QliroOne\Model\Management\PlaceOrder::applyQliroOrderStatus
@@ -82,6 +83,7 @@ class PlaceOrderTest extends TestCase
             $this->createMock(RecurringDataService::class),
             $this->createMock(OrganizationNumber::class),
             discountLines: $this->createMock(DiscountLines::class),
+            stateStatus: $this->createMock(StateStatus::class),
             merchantReference: $this->merchantReference
         );
     }

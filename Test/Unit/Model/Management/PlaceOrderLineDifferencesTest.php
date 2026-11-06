@@ -35,6 +35,7 @@ use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
@@ -332,6 +333,13 @@ class PlaceOrderLineDifferencesTest extends TestCase
             [Order::STATE_PENDING_PAYMENT, 'pending_payment'],
             [Order::STATE_PAYMENT_REVIEW, 'payment_review'],
         ]);
+        $config->method('getStateStatuses')->willReturnCallback(
+            fn (string $state): array => match ($state) {
+                Order::STATE_HOLDED => ['holded'],
+                Order::STATE_NEW => ['pending', 'qliro_new'],
+                default => [$state],
+            }
+        );
 
         $order = $this->getMockBuilder(Order::class)
             ->disableOriginalConstructor()
@@ -389,8 +397,8 @@ class PlaceOrderLineDifferencesTest extends TestCase
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
             new LineDifferences(),
+            stateStatus: new StateStatus($this->createMock(LogManager::class)),
             merchantReference: $this->createMock(MerchantReference::class)
         );
     }
-
 }
