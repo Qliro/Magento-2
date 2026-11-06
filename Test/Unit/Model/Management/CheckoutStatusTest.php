@@ -212,7 +212,21 @@ class CheckoutStatusTest extends TestCase
             ->willThrowException(new \RuntimeException('SQLSTATE[HY000] gone away'));
         $this->qliroOrder->expects(self::never())->method('cancel');
 
-        $this->assertResponse($this->update(), 'Order status could not be applied: SQLSTATE[HY000] gone away', 500);
+        $this->assertResponse($this->update(), 'Order status could not be applied: database error, see the store log', 500);
+    }
+
+    /**
+     * Qliro logs the answer, a duplicate key error quotes the row it collided with
+     */
+    public function testDatabaseErrorIsNamedButNotQuoted(): void
+    {
+        $previous = new \PDOException("SQLSTATE[23000]: Duplicate entry 'buyer@example.com' for key 'email'");
+        $this->linkRepository->method('getByQliroOrderId')
+            ->willThrowException(new \RuntimeException('could not save', 0, $previous));
+
+        $response = $this->update();
+
+        self::assertStringNotContainsString('buyer@example.com', (string)$response->getCallbackResponse());
     }
 
     public function testFailureUnlocks(): void

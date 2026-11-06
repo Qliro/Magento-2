@@ -193,7 +193,7 @@ class CheckoutStatus extends AbstractManagement
 
                     $response = $this->refuse(
                         CheckoutStatusResponseInterface::RESPONSE_STATUS_NOT_APPLIED,
-                        $exception->getMessage()
+                        $this->detailOf($exception)
                     );
                 }
             } else {
@@ -243,7 +243,7 @@ class CheckoutStatus extends AbstractManagement
 
             $response = $this->refuse(
                 CheckoutStatusResponseInterface::RESPONSE_STATUS_NOT_APPLIED,
-                $exception->getMessage()
+                $this->detailOf($exception)
             );
         } finally {
             if ($this->orderLocked) {
@@ -307,7 +307,7 @@ class CheckoutStatus extends AbstractManagement
 
             return $this->refuse(
                 CheckoutStatusResponseInterface::RESPONSE_PLACEMENT_FAILED,
-                $exception->getMessage()
+                $this->detailOf($exception)
             );
         }
 
@@ -349,6 +349,27 @@ class CheckoutStatus extends AbstractManagement
             CheckoutStatusResponseInterface::RESPONSE_STATUS_NOT_APPLIED,
             $status === '' || in_array($status, $handled, true) ? null : sprintf('status %s', $status)
         );
+    }
+
+    /**
+     * The detail of a refusal: Qliro logs the answer, so a database error is named but not quoted,
+     * its text can hold the values of a row. The store's log keeps the whole message
+     *
+     * @param \Throwable $exception
+     * @return string
+     */
+    private function detailOf(\Throwable $exception): string
+    {
+        for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+            if ($cause instanceof \PDOException
+                || $cause instanceof \Zend_Db_Exception
+                || preg_match('/SQLSTATE|Integrity constraint|Duplicate entry/i', $cause->getMessage())
+            ) {
+                return 'database error, see the store log';
+            }
+        }
+
+        return $exception->getMessage();
     }
 
     /**

@@ -7,6 +7,7 @@
 
 - Qliro's checkout status push was answered "Order not found" with 500 whatever went wrong, so Qliro's logs could not tell a missing order from a failed placement. The answer now names the cause: "Link not found" with 404 when the store has no active link for the Qliro order, "Order placement failed: <error>" when placing the order threw, and "Order status could not be applied" when the order would not take the status, followed by the status Magento does not handle or by the error. The last two stay 500. The error is one line of at most 200 characters. Qliro counts a push as delivered only when the body says `received`, so it keeps retrying all three as before
 - A placement failure is logged as "Order placement failed: <error>" with the Qliro order id
+- A database error is named in the answer but not quoted, since Qliro logs the answer and the error's text can hold the values of a row. The store's log keeps the whole message
 - A database error while looking up the link no longer counts as a missing link, so it no longer tries to cancel the Qliro order
 
 ### Added
