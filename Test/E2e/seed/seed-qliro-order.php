@@ -10,7 +10,9 @@
  *
  * Usage, inside the Magento container:
  *   php var/seed-qliro-order.php [--no-name] [--fees=29,10] [--fixture=external-capture] [--qty=2]
- *       [--status=Completed] [--email=qliro.e2e@example.com]
+ *       [--status=Completed] [--email=qliro.e2e@example.com] [--price=49.80] [--currency=EUR]
+ *
+ * --price sets the line's price, --currency places the order in that display currency of the store.
  *
  * Prints one JSON object describing what it created.
  */
@@ -20,7 +22,7 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['no-name', 'fees::', 'fixture::', 'qty::', 'status::', 'email::']);
+$options = getopt('', ['no-name', 'fees::', 'fixture::', 'qty::', 'status::', 'email::', 'price::', 'currency::']);
 $withName = !array_key_exists('no-name', $options);
 $fees = array_filter(array_map('floatval', explode(',', (string)($options['fees'] ?? '29,10'))));
 $fixtureName = (string)($options['fixture'] ?? 'external-capture');
@@ -86,8 +88,15 @@ $storeManager->setCurrentStore($store);
 
 $quote = $om->create(\Magento\Quote\Model\Quote::class);
 $quote->setStore($store);
+if (isset($options['currency'])) {
+    $store->setCurrentCurrencyCode((string)$options['currency']);
+}
 $quote->setCurrency();
-$quote->addProduct($product, max(1, (int)($options['qty'] ?? 1)));
+$line = $quote->addProduct($product, max(1, (int)($options['qty'] ?? 1)));
+if (isset($options['price'])) {
+    $line->setCustomPrice((float)$options['price'])->setOriginalCustomPrice((float)$options['price']);
+    $line->getProduct()->setIsSuperMode(true);
+}
 
 $address = [
     'firstname' => 'Qliro', 'lastname' => 'Tester', 'street' => ['1 Test Street'],
@@ -181,6 +190,8 @@ echo json_encode([
     'qliroOrderId' => $qliroOrderId,
     'reference' => $reference,
     'grandTotal' => (float)$order->getGrandTotal(),
+    'currency' => $order->getOrderCurrencyCode(),
+    'baseCurrency' => $order->getBaseCurrencyCode(),
     // what the order has to come to: the quote plus every fee line of the Qliro order
     'expectedGrandTotal' => $expectedGrandTotal,
     'fees' => $fees,
