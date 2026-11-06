@@ -99,6 +99,11 @@ class Config
     const QLIROONE_ADDITIONAL_INFO_SHIPPING_PROPERTIES = 'qliro_payment_shipping_properties';
 
     /**
+     * The secondary option of the shipping method on the Qliro order, absent when it carries none
+     */
+    const QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION = 'qliro_shipping_secondary_option';
+
+    /**
      * Whether the reservation this order was placed against carries the VAT of the discount on its
      * discount line. Absent on every order placed before 1.7.18, whose reservation carries the
      * discount without VAT, and whose capture has to reproduce that or Qliro sees a changed line

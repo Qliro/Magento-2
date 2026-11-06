@@ -15,6 +15,7 @@ use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\Data\LinkInterfaceFactory;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
+use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
@@ -22,6 +23,7 @@ use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Fee;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Exception\QuoteValidatedException;
+use Qliro\QliroOne\Model\Exception\NoOrderLinesException;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Method\QliroOne;
@@ -327,6 +329,7 @@ class Quote extends AbstractManagement
             $request = $this->createRequestBuilder->setQuote($quote)->create();
             $request->setMerchantReference($orderReference);
             $this->logManager->debug('Request for Qliro order reference created: ' . $orderReference);
+            $this->refuseOrderWithoutLines($quote, $request->getOrderItems(), 'create');
 
             try {
                 $this->logManager->debug('Sending request to create order ' . $orderReference);
@@ -414,6 +417,7 @@ class Quote extends AbstractManagement
                     $this->completeQuoteLoading($quote);
 
                     [$hash, $request] = $this->buildUpdateRequest($quote);
+                    $this->refuseOrderWithoutLines($quote, $request->getOrderItems(), 'update');
 
                     $this->logManager->debug(
                         sprintf(
@@ -428,6 +432,8 @@ class Quote extends AbstractManagement
                         $this->linkRepository->save($link);
                         $this->logManager->debug(sprintf('updated order %s', $orderId));     // @todo: remove
                     }
+                } catch (UnsupportedQuoteException $exception) {
+                    throw $exception;
                 } catch (\Exception $exception) {
                     $message = $exception->getMessage();
                     $isOrderCompletedError =
@@ -474,6 +480,8 @@ class Quote extends AbstractManagement
             } else {
                 $this->logManager->debug('Order update is skipped due to not suitable order status. Current order status: ' . $link->getQliroOrderStatus());
             }
+        } catch (UnsupportedQuoteException $exception) {
+            throw $exception;
         } catch (\Exception $exception) {
             $this->logManager->critical(
                 $exception,
@@ -509,6 +517,63 @@ class Quote extends AbstractManagement
     private function generateUpdateHash($quote)
     {
         return $this->buildUpdateRequest($quote)[0];
+    }
+
+    /**
+     * Qliro refuses an order without product lines, so the call is not made. An empty cart sends the buyer to it
+     *
+     * @param ModelQuote $quote
+     * @param array|null $orderItems
+     * @param string $call create or update
+     * @return void
+     * @throws UnsupportedQuoteException
+     */
+    private function refuseOrderWithoutLines($quote, $orderItems, string $call): void
+    {
+        foreach ($orderItems ?: [] as $orderItem) {
+            if (in_array(
+                $orderItem->getType(),
+                [QliroOrderItemInterface::TYPE_PRODUCT, QliroOrderItemInterface::TYPE_BUNDLE],
+                true
+            )) {
+                return;
+            }
+        }
+
+        $items = [];
+
+        foreach ($quote->getAllItems() as $item) {
+            $items[] = [
+                'item_id' => $item->getId(),
+                'sku' => $item->getSku(),
+                'product_type' => $item->getProductType(),
+                'qty' => $item->getQty(),
+                'parent_item_id' => $item->getParentItemId(),
+            ];
+        }
+
+        $this->logManager->warning(
+            'Qliro order ' . $call . ' not sent, the request has no product lines',
+            [
+                'extra' => [
+                    'quote_id' => $quote->getId(),
+                    'reason' => $items
+                        ? 'none of the quote items became an order line'
+                        : 'the quote has no items',
+                    'items' => $items,
+                ],
+            ]
+        );
+
+        if ($items) {
+            throw new UnsupportedQuoteException(
+                __('The products in your cart cannot be paid for with Qliro. Please choose another payment method.')
+            );
+        }
+
+        throw new NoOrderLinesException(
+            __('Your cart has nothing to pay for. Please check your cart and try again.')
+        );
     }
 
     /**
@@ -559,7 +624,7 @@ class Quote extends AbstractManagement
      * every update, so the payload the hash was taken from is the one that goes out.
      *
      * @param \Magento\Quote\Model\Quote $quote
-     * @return array{0: string|null, 1: \Qliro\QliroOne\Api\Data\UpdateRequestInterface}
+     * @return array{0: string|null, 1: \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface}
      */
     private function buildUpdateRequest($quote): array
     {

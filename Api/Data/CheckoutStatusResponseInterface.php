@@ -19,6 +19,9 @@ interface CheckoutStatusResponseInterface extends ContainerInterface
     const RESPONSE_RECEIVED = 'received';
     const RESPONSE_ORDER_NOT_FOUND = 'Order not found';
     const RESPONSE_ORDER_PENDING = 'Order creation pending';
+    const RESPONSE_LINK_NOT_FOUND = 'Link not found';
+    const RESPONSE_PLACEMENT_FAILED = 'Order placement failed';
+    const RESPONSE_STATUS_NOT_APPLIED = 'Order status could not be applied';
 
     /**
      * @return string

@@ -117,17 +117,19 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param array $data
      * @param int|null $storeId
      * @param string|null $profile Which timeouts this call is made with, see Config::API_PROFILE_*
+     * @param callable|null $isExpected fn(?string $code, ?string $message): bool, a refusal the caller
+     *        handles, logged as info instead of an error
      * @return array
      * @throws \InvalidArgumentException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    public function post($endpoint, $data = [], $storeId = null, $profile = null)
+    public function post($endpoint, $data = [], $storeId = null, $profile = null, ?callable $isExpected = null)
     {
         // No POST endpoint carries a placeholder today, and the guard is here so that the day
         // one does, it is refused rather than sent with the placeholder in the path
         $this->applyParams($endpoint, $data);
 
-        return $this->call(self::METHOD_POST, $endpoint, $data, $storeId, $profile);
+        return $this->call(self::METHOD_POST, $endpoint, $data, $storeId, $profile, $isExpected);
     }
 
     /**
@@ -175,7 +177,8 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     private function applyParams(&$endpoint, &$params)
     {
         foreach ($params as $key => $value) {
-            if (!is_scalar($value)) {
+            // An empty value leaves the placeholder standing, so it is refused below
+            if (!is_scalar($value) || (string)$value === '') {
                 continue;
             }
             $modifiedEndpoint = str_replace('{' . $key . '}', (string)$value, (string)$endpoint);
@@ -211,11 +214,13 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
      * @param string $endpoint
      * @param array $body
      * @param int|null $storeId
+     * @param string|null $profile
+     * @param callable|null $isExpected
      * @return array
      * @throws \InvalidArgumentException
      * @throws \Qliro\QliroOne\Model\Exception\TerminalException
      */
-    private function call($method, $endpoint, $body = [], $storeId = null, $profile = null)
+    private function call($method, $endpoint, $body = [], $storeId = null, $profile = null, ?callable $isExpected = null)
     {
         $this->logManager->setMark('REST API');
 
@@ -318,10 +323,14 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
                 ]);
             }
 
+            $code = $qliroError['ErrorCode'] ?? null;
+            $expected = $code !== null && $isExpected !== null
+                && $isExpected($code, $qliroError['ErrorMessage'] ?? null);
+
             $this->logQuietly(
                 '<<< Exception after {duration} seconds',
                 ['duration' => $this->duration, 'extra' => $exceptionData],
-                'error'
+                $expected ? 'info' : 'error'
             );
 
             // Carry Qliro's own error code out with the exception. Everything above this line

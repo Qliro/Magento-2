@@ -5,13 +5,15 @@ import { runSeeder } from '../seeder';
 
 /**
  * The secondary option the buyer selects for a merchant's own shipping method reaches
- * qliroone_shipping_method_update_before. Needs the QliroE2e_SecondaryOption fixture module.
+ * qliroone_shipping_method_update_before, from the browser and from Qliro's validate callback,
+ * and the placed order keeps the one on Qliro's shipping line.
+ * Needs the QliroE2e_SecondaryOption fixture module and `seed/seed-shipping-mismatch.php` in `var/`.
  */
 
 const PAID = 'flatrate_flatrate';
 const FREE = 'freeshipping_freeshipping';
 
-type Recorded = { method: string; option: string | null; canSaveQuote: boolean };
+type Recorded = { method: string; option: string | null; canSaveQuote: boolean; validateCallback: boolean };
 
 function seed<T>(...args: string[]): T {
   return runSeeder<T>('seed-shipping-mismatch.php', args);
@@ -25,6 +27,29 @@ function recorded(quoteId: number): Recorded[] {
   );
 
   return JSON.parse(output);
+}
+
+type SeededQuote = {
+  quoteId: number;
+  callbackToken: string;
+  prices: Record<string, { incVat: number; exVat: number }>;
+  productLines: Record<string, unknown>[];
+  validate: Record<string, unknown>;
+};
+
+// Qliro's validate callback for the seeded quote, on that method and option
+async function postValidate(page: Page, seeded: SeededQuote, method: string, option?: string) {
+  const price = seeded.prices[method];
+  const shipping = { MerchantReference: method, Description: method, Type: 'Shipping', Quantity: 1, PricePerItemIncVat: price.incVat, PricePerItemExVat: price.exVat };
+
+  return page.request.post(`/checkout/qliro_callback/validate?token=${seeded.callbackToken}`, {
+    data: {
+      ...seeded.validate,
+      SelectedShippingMethod: method,
+      ...(option === undefined ? {} : { SelectedShippingSecondaryOption: option }),
+      OrderItems: [...seeded.productLines, shipping],
+    },
+  });
 }
 
 async function guestCart(page: Page) {
@@ -85,7 +110,7 @@ test.describe('a secondary option of a merchant\'s own shipping method', () => {
     const answer = await selectInWidget(page, cart.ajaxToken, { method: PAID, secondaryOption: 'pickup-point-1', price: 5 });
 
     expect(answer.status).toBe('OK');
-    expect(recorded(cart.quoteId)).toEqual([{ method: PAID, option: 'pickup-point-1', canSaveQuote: true }]);
+    expect(recorded(cart.quoteId)).toEqual([{ method: PAID, option: 'pickup-point-1', canSaveQuote: true, validateCallback: false }]);
     expect(seed<{ shippingMethod: string }>('read', `--quote=${cart.quoteId}`).shippingMethod).toBe(PAID);
   });
 
@@ -97,8 +122,8 @@ test.describe('a secondary option of a merchant\'s own shipping method', () => {
 
     expect(answer.status).toBe('OK');
     expect(recorded(cart.quoteId)).toEqual([
-      { method: PAID, option: 'pickup-point-1', canSaveQuote: true },
-      { method: PAID, option: 'pickup-point-2', canSaveQuote: true },
+      { method: PAID, option: 'pickup-point-1', canSaveQuote: true, validateCallback: false },
+      { method: PAID, option: 'pickup-point-2', canSaveQuote: true, validateCallback: false },
     ]);
   });
 
@@ -110,8 +135,8 @@ test.describe('a secondary option of a merchant\'s own shipping method', () => {
 
     expect(answer.status).toBe('SKIPPED');
     expect(recorded(cart.quoteId)).toEqual([
-      { method: PAID, option: 'pickup-point-1', canSaveQuote: true },
-      { method: PAID, option: 'pickup-point-1', canSaveQuote: false },
+      { method: PAID, option: 'pickup-point-1', canSaveQuote: true, validateCallback: false },
+      { method: PAID, option: 'pickup-point-1', canSaveQuote: false, validateCallback: false },
     ]);
   });
 
@@ -121,6 +146,76 @@ test.describe('a secondary option of a merchant\'s own shipping method', () => {
     const answer = await selectInWidget(page, cart.ajaxToken, { method: FREE, price: 0 });
 
     expect(answer.status).toBe('OK');
-    expect(recorded(cart.quoteId)).toEqual([{ method: FREE, option: null, canSaveQuote: true }]);
+    expect(recorded(cart.quoteId)).toEqual([{ method: FREE, option: null, canSaveQuote: true, validateCallback: false }]);
+  });
+});
+
+test.describe('the secondary option Qliro confirms', () => {
+  test('validate passes the option on when the browser update for it never came', async ({ page }) => {
+    const seeded = seed<SeededQuote>('quote');
+
+    const response = await postValidate(page, seeded, PAID, 'pickup-point-2');
+
+    expect(response.status()).toBe(200);
+    expect(recorded(seeded.quoteId)).toEqual([{ method: PAID, option: 'pickup-point-2', canSaveQuote: true, validateCallback: true }]);
+    expect(seed<{ shippingMethod: string }>('read', `--quote=${seeded.quoteId}`).shippingMethod).toBe(PAID);
+  });
+
+  test('validate that moves the quote to Qliro\'s method passes that method and its option on', async ({ page }) => {
+    const seeded = seed<SeededQuote>('quote');
+    expect(seeded.prices[FREE]).toBeDefined();
+
+    const response = await postValidate(page, seeded, FREE, 'pickup-point-1');
+
+    expect(response.status()).toBe(200);
+    expect(seed<{ shippingMethod: string }>('read', `--quote=${seeded.quoteId}`).shippingMethod).toBe(FREE);
+    expect(recorded(seeded.quoteId)).toEqual([{ method: FREE, option: 'pickup-point-1', canSaveQuote: true, validateCallback: true }]);
+  });
+
+  test('validate sent again with the same option leaves the quote alone', async ({ page }) => {
+    const seeded = seed<SeededQuote>('quote');
+
+    await postValidate(page, seeded, PAID, 'pickup-point-2');
+    const response = await postValidate(page, seeded, PAID, 'pickup-point-2');
+
+    expect(response.status()).toBe(200);
+    expect(recorded(seeded.quoteId)).toEqual([
+      { method: PAID, option: 'pickup-point-2', canSaveQuote: true, validateCallback: true },
+      { method: PAID, option: 'pickup-point-2', canSaveQuote: false, validateCallback: true },
+    ]);
+  });
+
+  test('a declined validate passes nothing on', async ({ page }) => {
+    const seeded = seed<SeededQuote>('quote');
+    const shipping = { MerchantReference: FREE, Description: FREE, Type: 'Shipping', Quantity: 1, PricePerItemIncVat: 99, PricePerItemExVat: 79.2 };
+
+    const response = await page.request.post(`/checkout/qliro_callback/validate?token=${seeded.callbackToken}`, {
+      data: { ...seeded.validate, SelectedShippingMethod: FREE, SelectedShippingSecondaryOption: 'pickup-point-1', OrderItems: [...seeded.productLines, shipping] },
+    });
+
+    expect(response.status()).toBe(400);
+    expect(recorded(seeded.quoteId)).toEqual([]);
+  });
+
+  test('the order keeps the option on Qliro\'s shipping line', () => {
+    const seeded = seed<SeededQuote>('quote');
+
+    const order = seed<{ shippingMethod: string; secondaryOption: string | null }>(
+      'place',
+      `--quote=${seeded.quoteId}`,
+      `--shipping=${PAID}`,
+      '--option=pickup-point-2'
+    );
+
+    expect(order.shippingMethod).toBe(PAID);
+    expect(order.secondaryOption).toBe('pickup-point-2');
+  });
+
+  test('an order whose shipping line holds no option gets none', () => {
+    const seeded = seed<SeededQuote>('quote');
+
+    const order = seed<{ secondaryOption: string | null }>('place', `--quote=${seeded.quoteId}`, `--shipping=${PAID}`);
+
+    expect(order.secondaryOption).toBeNull();
   });
 });
