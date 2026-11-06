@@ -10,87 +10,92 @@ use Qliro\QliroOne\Api\Admin\CreditMemo\InvoiceFeeTotalValidatorInterface;
 class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
 {
     /**
-     * @var CreditmemoInterface $creditMemo
+     * @var CreditmemoInterface|null
      */
-    protected CreditmemoInterface $creditMemo;
+    protected ?CreditmemoInterface $creditMemo = null;
 
     /**
-     * @var float
+     * @var float|null
      */
-    private $totalFee;
+    private ?float $totalFee = null;
 
     /**
+     * The fee sits on one invoice but belongs to the order, so it is refunded only with the whole order.
+     * Every amount is in the order currency, the fee's, and compared in minor units.
+     *
      * @inheritDoc
      */
     public function validate(bool $feeIsAddedAsTotal = true, bool $useQtyRefundedOnly = false)
     {
-        if (!$this->getCreditMemo()) {
+        $creditMemo = $this->getCreditMemo();
+        if (!$creditMemo || !$creditMemo->getInvoice()) {
             return false;
         }
 
-        if (!$this->getCreditMemo()->getInvoice()) {
+        $fee = $this->toMinorUnits($this->getOrderFeesTotal());
+        if ($fee === 0) {
             return false;
         }
 
-        if ($this->getOrderFeesTotal() == 0) {
-            return false;
-        }
-
-        $order = $this->getCreditMemo()->getOrder();
-
+        $order = $creditMemo->getOrder();
+        $grandTotal = $this->toMinorUnits((float)$order->getGrandTotal());
         if ($useQtyRefundedOnly) {
-            return bccomp(
-                    (string)$order->getBaseTotalRefunded(),
-                    (string)$order->getGrandTotal()
-                ) != -1;
+            return $this->toMinorUnits((float)$order->getTotalRefunded()) >= $grandTotal;
         }
 
-        /*
-         * The invoice fee is an order-level charge that is placed on a single invoice (the first
-         * one created). It must therefore be refunded only once the whole order is fully refunded,
-         * not when an individual invoice happens to be fully refunded while other items remain
-         * (e.g. a virtual product captured on its own invoice in a split-capture order).
-         */
-        $orderGrandTotal = floatval($order->getGrandTotal()) - $this->getOrderFeesTotal();
-
-        $totalRefunded = floatval($order->getBaseTotalRefunded());
-        $totalCreditMemo = floatval($this->getCreditMemo()->getGrandTotal());
-        $fee = $this->getOrderFeesTotal();
-        $orderTotalRefunded = $feeIsAddedAsTotal
-            ? $totalRefunded + $totalCreditMemo - $fee
-            : $totalRefunded + $totalCreditMemo;
-
-        if (bccomp((string)$orderTotalRefunded, (string)$orderGrandTotal) != -1) {
-            return true;
+        $refunded = $this->refundedBefore($creditMemo, $order) + $this->toMinorUnits((float)$creditMemo->getGrandTotal());
+        if ($feeIsAddedAsTotal) {
+            $refunded -= $fee;
         }
 
-        return false;
+        return $refunded >= $grandTotal - $fee;
     }
 
     /**
-     * Calculates and retrieves the total fees associated with an order.
+     * The order's refunded total holds a saved memo itself, so a saved one counts the memos before it
      *
-     * If the fees have already been calculated and cached in the $totalFee property,
-     * the method returns this value directly. Otherwise, it calculates the total
-     * by summing up the prices (including VAT) from the payment's additional information,
-     * caches the result, and then returns it.
-     *
-     * @return float The total fees for the order, including VAT.
+     * @param CreditmemoInterface $creditMemo
+     * @param \Magento\Sales\Model\Order $order the order of the memo
+     * @return int
      */
-    private function getOrderFeesTotal()
+    private function refundedBefore(CreditmemoInterface $creditMemo, $order): int
     {
-        if (!$this->totalFee) {
-            $feeTotal = floatval(0);
-            $qlirooneFees = $this->getCreditMemo()->getOrder()->getPayment()->getAdditionalInformation('qliroone_fees');
-            if (!is_array($qlirooneFees) || !count($qlirooneFees)) {
-                $this->totalFee = $feeTotal;
-                return $this->totalFee;
-            }
+        if (!$creditMemo->getEntityId()) {
+            return $this->toMinorUnits((float)$order->getTotalRefunded());
+        }
 
-            foreach ($qlirooneFees as $qlirooneFee) {
-                $this->totalFee = $this->totalFee + floatval($qlirooneFee['PricePerItemIncVat']);
+        $refunded = 0;
+        foreach ($order->getCreditmemosCollection() as $earlier) {
+            if ((int)$earlier->getEntityId() < (int)$creditMemo->getEntityId()) {
+                $refunded += $this->toMinorUnits((float)$earlier->getGrandTotal());
             }
+        }
 
+        return $refunded;
+    }
+
+    /**
+     * @param float $amount
+     * @return int
+     */
+    private function toMinorUnits(float $amount): int
+    {
+        return (int)round($amount * 100);
+    }
+
+    /**
+     * Sum of the fees Qliro charged, VAT included, in the order currency
+     *
+     * @return float
+     */
+    private function getOrderFeesTotal(): float
+    {
+        if ($this->totalFee === null) {
+            $this->totalFee = 0.0;
+            $fees = $this->getCreditMemo()->getOrder()->getPayment()->getAdditionalInformation('qliroone_fees');
+            foreach (is_array($fees) ? $fees : [] as $fee) {
+                $this->totalFee += (float)($fee['PricePerItemIncVat'] ?? 0);
+            }
         }
 
         return $this->totalFee;
@@ -102,6 +107,7 @@ class InvoiceFeeTotalValidator implements InvoiceFeeTotalValidatorInterface
     public function setCreditMemo(CreditmemoInterface $creditMemo)
     {
         $this->creditMemo = $creditMemo;
+        $this->totalFee = null;
 
         return $this;
     }

@@ -27,7 +27,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
-- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php` and `Test/E2e/seed/log-deadlock.php` copied to the store's `var/` directory
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php`, `Test/E2e/seed/status-for-state.php`, `Test/E2e/seed/credit-memo-fee.php` and `Test/E2e/seed/log-deadlock.php` copied to the store's `var/` directory
 - the Luma sample data, or another in stock configurable set as `E2E_CONFIGURABLE_SKU`, and `payment/checkmo/active 1`, for `tests/source-item-lookup.spec.ts`
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
@@ -186,6 +186,26 @@ The test then ships it over REST, which captures it at Qliro. The store needs:
 The callback then finds no record of the capture, as it did in production. Without the fix the
 order stays without an invoice and both tests fail at the reconciliation.
 
+## A capture sent again after its answer was lost
+
+`tests/capture-retry.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and seeds its own
+orders. The fixture module sends the first capture to Qliro for real and then fails the call the way a
+timeout does, so Qliro holds the capture and Magento rolls the document back. The spec sends Qliro's
+notification of that capture to the store, then creates the same invoice in the admin, or the same
+shipment over REST, again. Qliro refuses the repeat as `DUPLICATE_REQUEST`, and the document has to
+complete with the one capture Qliro made. The store needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/api/capture_on_invoice 1` and `capture_on_shipment 1`
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php`, `Test/E2e/seed/capture-reconciliation.php` and
+  `Test/E2e/seed/capture-retry.php` in `var/`
+- `Test/E2e/fixture/QliroE2e/LostCaptureAnswer` copied to `app/code/QliroE2e/LostCaptureAnswer` and
+  enabled. It acts only on a Qliro order the spec names in `var/qliro-e2e/lose-capture-<qliro order id>`
+- `MAGENTO_INTERNAL_URL`, as for the test above
+
+Without the fix both retries fail, the invoice says "Request to Qliro One has failed." after the lost
+answer.
+
 ## Purchase tracking on the success page
 
 `tests/success-page-tracking.spec.ts` checks the purchase `Magento_GoogleGtag` pushes to
@@ -199,6 +219,28 @@ purchase again on a reload, and one whose report never arrives repeats it on eve
 The fixture puts any order on the caller's session, so besides developer mode it wants the secret
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
+
+## The merchant reference, once per order
+
+`tests/merchant-reference-once.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and
+seeds its own orders through `seed/seed-sandbox-order.php`. It sends Qliro's Completed callback to the
+store again and counts the `updatemerchantreference` calls `seed/merchant-reference.php` reads from
+`qliroone_log`: one per order. Its second test takes the mark off a placed order and fails the next
+order save with the fixture module, as a store whose save failed after the call is left: the
+callback answers 500, Qliro's repeat must not send the number again, and the refusal Qliro gives for
+a number the order already carries is no failure. Without the fix the number goes out twice and both
+refusals are logged as errors. The store needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/merchant/use_increment_id_as_reference 0`
+- order numbers the Qliro merchant has not seen, a shared test merchant refuses a taken one
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/merchant-reference.php` in `var/`
+- `Test/E2e/fixture/QliroE2e/FailingOrderSave` copied to `app/code/QliroE2e/FailingOrderSave` and
+  enabled. It fails one save of an order named in `var/qliro-e2e/fail-order-save-<increment id>`
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test merchant-reference-once
+```
 
 ## The order confirmation
 
@@ -229,3 +271,13 @@ one with more than 4 decimals, the quote keeps 4), so it is off unless asked for
 ```bash
 E2E_PAY_CURRENCY=EUR MAGENTO_SKIP_SEED=1 npx playwright test paid-currency
 ```
+
+## The invoice fee on credit memos
+
+`tests/credit-memo-fee.spec.ts` seeds an order with a fee, invoices it offline and refunds it from the
+invoice in three offline credit memos through `seed/credit-memo-fee.php`. The memo that leaves 0.50 of
+the order unrefunded must not return the fee, the one that refunds the rest must, and the admin view of
+each saved memo shows the fee only on the last. Its second test places the order in another display
+currency of the store and runs only with `E2E_PAY_CURRENCY` set, as `tests/paid-currency.spec.ts` does.
+`seed/seed-qliro-order.php` takes `--price` for the line's price and `--currency` for the order's
+currency for it. Reverting the fix turns both red.
