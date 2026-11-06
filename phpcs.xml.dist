@@ -37,7 +37,4 @@
         <exclude-pattern>*/Model/QliroOrder/Builder/Handler/AppliedRulesHandler\.php$</exclude-pattern>
         <exclude-pattern>*/Model/QliroOrder/Builder/Handler/RoundingAdjustmentHandler\.php$</exclude-pattern>
     </rule>
-    <rule ref="Magento2.Security.XssTemplate.FoundUnescaped">
-        <exclude-pattern>*/view/frontend/templates/checkout/pending\.phtml$</exclude-pattern>
-    </rule>
 </ruleset>
