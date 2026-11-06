@@ -76,14 +76,15 @@ class RemoveCard implements HttpPostActionInterface
         $orderId = (int)$this->request->getParam('order_id');
 
         try {
+            /** @var \Magento\Sales\Model\Order $order */
             $order = $this->orderRepo->get($orderId);
             $recurringInfo = $this->recurringInfoRepo->getByOriginalOrderId($orderId);
+            $found = $recurringInfo->getId() && $this->orderAuthorization->canView($order);
         } catch (\Exception $e) {
-            $order = null;
-            $recurringInfo = null;
+            $found = false;
         }
 
-        if (!$order || !$recurringInfo || !$recurringInfo->getId() || !$this->orderAuthorization->canView($order)) {
+        if (!$found) {
             $this->messageManager->addErrorMessage(__('Subscription not found'));
             return $this->redirectFactory->create()->setPath('checkout/qliro_recurring/history');
         }

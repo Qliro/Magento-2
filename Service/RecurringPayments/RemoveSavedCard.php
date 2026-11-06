@@ -66,6 +66,7 @@ class RemoveSavedCard
             return self::NOT_CANCELED;
         }
 
+        /** @var \Magento\Sales\Model\Order $order */
         $order = $this->orderRepo->get((int)$recurringInfo->getOriginalOrderId());
         // The store's credentials sign the call; the default scope's could belong to another merchant
         if ($order->getStoreId() === null) {
