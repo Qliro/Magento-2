@@ -32,6 +32,8 @@ use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Management\Payment as PaymentManagement;
 use Qliro\QliroOne\Model\Management\PlaceOrder;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
+use Qliro\QliroOne\Model\Order\StateStatus;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
@@ -255,7 +257,9 @@ class PlaceOrderSecondaryOptionTest extends TestCase
             $this->createMock(PlacedOrderFinder::class),
             $this->createMock(DiscountLines::class),
             $orderItemsBuilder,
-            new LineDifferences()
+            new LineDifferences(),
+            stateStatus: $this->createMock(StateStatus::class),
+            merchantReference: $this->createMock(MerchantReference::class)
         );
     }
 }

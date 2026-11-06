@@ -10,6 +10,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Logger;
 
+use Magento\Framework\DB\Adapter\DeadlockException;
 use Monolog\Handler\AbstractProcessingHandler;
 use Monolog\LogRecord;
 use Monolog\Formatter\FormatterInterface;
@@ -21,6 +22,9 @@ use Qliro\QliroOne\Model\ResourceModel\LogRecord as DbLogRecord;
  */
 class Handler extends AbstractProcessingHandler
 {
+    private const MAX_ATTEMPTS = 3;
+    private const RETRY_DELAY_US = 50000;
+
     /**
      * @var ConnectionProvider
      */
@@ -47,41 +51,41 @@ class Handler extends AbstractProcessingHandler
      */
     protected function write(array|LogRecord $record): void
     {
-        $maxAttempts = 3;
-        $attempt = 0;
+        try {
+            $context = $record['context'];
+            $formatted = $record['formatted'];
 
-        while ($attempt < $maxAttempts) {
+            $mark = $context['mark'] ?? null;
+            $message = ($mark ? sprintf('%s: ', strtoupper((string)$mark)) : null) . $formatted['message'];
+
+            $row = [
+                LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s'),
+                LogRecordInterface::FIELD_LEVEL => $formatted['level_name'],
+                LogRecordInterface::FIELD_MESSAGE => $message,
+                LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
+                LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
+                LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
+                LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
+            ];
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        for ($attempt = 1; $attempt <= self::MAX_ATTEMPTS; $attempt++) {
             try {
-                $context = $record['context'];
-                $record = $record['formatted'];
-
-                $mark = $context['mark'] ?? null;
-                $message = ($mark ? sprintf('%s: ', strtoupper($mark)) : null) . $record['message'];
-
                 $connection = $this->connectionProvider->getConnection();
-                $connection->insert(
-                    $connection->getTableName(DbLogRecord::TABLE_LOG),
-                    [
-                        LogRecordInterface::FIELD_DATE => $record['datetime'],
-                        LogRecordInterface::FIELD_LEVEL => $record['level_name'],
-                        LogRecordInterface::FIELD_MESSAGE => $message,
-                        LogRecordInterface::FIELD_REFERENCE => $context['reference'] ?? '',
-                        LogRecordInterface::FIELD_TAGS => $context['tags'] ?? '',
-                        LogRecordInterface::FIELD_PROCESS_ID => $context['process_id'] ?? '',
-                        LogRecordInterface::FIELD_EXTRA => $this->encodeExtra($context['extra'] ?? ''),
-                        LogRecordInterface::FIELD_DATE => date('Y-m-d H:i:s')
-                    ]
-                );
+                $connection->insert($connection->getTableName(DbLogRecord::TABLE_LOG), $row);
+
                 return;
-            } catch (\Magento\Framework\DB\Adapter\DeadlockException $e) {
-                $attempt++;
-                usleep(50000); // 50 ms
+            } catch (DeadlockException $e) {
+                if ($attempt < self::MAX_ATTEMPTS) {
+                    usleep(self::RETRY_DELAY_US);
+                }
             } catch (\Throwable $e) {
                 // Never let logging break business flow
                 return;
             }
         }
-
     }
 
     /**

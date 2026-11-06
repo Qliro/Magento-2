@@ -5,14 +5,15 @@
  */
 
 /** @var \Qliro\QliroOne\Block\Checkout\Success $block */
+/** @var \Magento\Framework\Escaper $escaper */
 ?>
 
 <div class="success-wrapper">
     <div class="qliroone-checkout-processed" data-mage-init='{
         "loader": {
-            "icon": "<?= $block->getViewFileUrl('images/loader-1.gif') ?>",
+            "icon": "<?= $escaper->escapeJs($block->getViewFileUrl('images/loader-1.gif')) ?>",
             "texts": {
-                "loaderText": "<?= __('Your order is being processed') ?>",
+                "loaderText": "<?= $escaper->escapeJs(__('Your order is being processed')) ?>",
                 "imgAlt": ""
             }
         }
@@ -25,7 +26,7 @@
         ".success-wrapper": {
             "pollPending": {
                 "isDebug": "<?= $block->isDebug() ? 'true' : 'false' ?>",
-                "pollPendingUrl": "<?= $block->getPollPendingUrl()  ?>"
+                "pollPendingUrl": "<?= $escaper->escapeJs($block->getPollPendingUrl()) ?>"
             }
         }
     }

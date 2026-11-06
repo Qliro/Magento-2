@@ -40,6 +40,8 @@ use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
+use Qliro\QliroOne\Model\Order\StateStatus;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 
 /**
  * @see \Qliro\QliroOne\Model\Management\PlaceOrder::execute
@@ -314,8 +316,9 @@ class PlaceOrderRetryTest extends TestCase
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
             new LineDifferences(),
-            $quoteCurrency
+            $quoteCurrency,
+            $this->createMock(StateStatus::class),
+            merchantReference: $this->createMock(MerchantReference::class)
         );
     }
-
 }

@@ -105,7 +105,7 @@ class Manager
      * Critical conditions.
      * Example: Application component unavailable, unexpected exception.
      *
-     * @param string $message
+     * @param string|\Stringable $message an exception is logged with its trace
      * @param array $context
      * @return void
      */
