@@ -58,11 +58,6 @@ class PlaceOrder extends AbstractManagement
     private $merchantApi;
 
     /**
-     * @var \Qliro\QliroOne\Api\Client\OrderManagementInterface
-     */
-    private $orderManagementApi;
-
-    /**
      * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
      */
     private $linkRepository;
@@ -71,11 +66,6 @@ class PlaceOrder extends AbstractManagement
      * @var \Magento\Quote\Api\CartRepositoryInterface
      */
     private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
 
     /**
      * @var \Qliro\QliroOne\Model\Logger\Manager
@@ -170,12 +160,12 @@ class PlaceOrder extends AbstractManagement
      *
      * @param Config $qliroConfig
      * @param MerchantInterface $merchantApi
-     * @param OrderManagementInterface $orderManagementApi
+     * @param OrderManagementInterface $orderManagementApi Unused since MerchantReference sends the reference, kept for the signature
      * @param QuoteFromOrderConverter $quoteFromOrderConverter
      * @param LinkRepositoryInterface $linkRepository
      * @param CartRepositoryInterface $quoteRepository
      * @param OrderRepositoryInterface $orderRepository
-     * @param ContainerMapper $containerMapper
+     * @param ContainerMapper $containerMapper Unused since MerchantReference sends the reference, kept for the signature
      * @param LogManager $logManager
      * @param OrderPlacer $orderPlacer
      * @param Lock $lock
@@ -193,6 +183,7 @@ class PlaceOrder extends AbstractManagement
      * @param StateStatus|null $stateStatus
      * @param MerchantReference|null $merchantReference
      */
+    // @phpstan-ignore constructor.unusedParameter, constructor.unusedParameter (kept for the signature)
     public function __construct(
         Config $qliroConfig,
         MerchantInterface $merchantApi,
@@ -221,10 +212,8 @@ class PlaceOrder extends AbstractManagement
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
-        $this->orderManagementApi = $orderManagementApi;
         $this->linkRepository = $linkRepository;
         $this->quoteRepository = $quoteRepository;
-        $this->containerMapper = $containerMapper;
         $this->logManager = $logManager;
         $this->quoteFromOrderConverter = $quoteFromOrderConverter;
         $this->orderPlacer = $orderPlacer;

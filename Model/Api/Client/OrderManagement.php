@@ -282,6 +282,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             if ($exception instanceof TerminalException
                 && $alreadySet($exception->getQliroErrorCode(), $exception->getQliroErrorMessage())
             ) {
+                /** @var AdminTransactionResponseInterface $container */
                 $container = $this->containerMapper->fromArray([], AdminTransactionResponseInterface::class);
             }
         }

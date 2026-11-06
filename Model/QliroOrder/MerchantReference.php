@@ -81,6 +81,7 @@ class MerchantReference
      */
     public function sendOnce(Order $order, LinkInterface $link): void
     {
+        /** @var \Magento\Sales\Model\Order\Payment|null $payment */
         $payment = $order->getPayment();
 
         if (!$payment || $payment->getAdditionalInformation(self::KEY_SENT)) {
