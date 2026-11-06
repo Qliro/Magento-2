@@ -14,7 +14,6 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
-use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
@@ -33,6 +32,7 @@ use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\Order\QuoteCurrency;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -58,11 +58,6 @@ class PlaceOrder extends AbstractManagement
     private $merchantApi;
 
     /**
-     * @var \Qliro\QliroOne\Api\Client\OrderManagementInterface
-     */
-    private $orderManagementApi;
-
-    /**
      * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
      */
     private $linkRepository;
@@ -71,11 +66,6 @@ class PlaceOrder extends AbstractManagement
      * @var \Magento\Quote\Api\CartRepositoryInterface
      */
     private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
 
     /**
      * @var \Qliro\QliroOne\Model\Logger\Manager
@@ -161,16 +151,21 @@ class PlaceOrder extends AbstractManagement
     private StateStatus $stateStatus;
 
     /**
+     * @var MerchantReference
+     */
+    private MerchantReference $merchantReference;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
      * @param MerchantInterface $merchantApi
-     * @param OrderManagementInterface $orderManagementApi
+     * @param OrderManagementInterface $orderManagementApi Unused since MerchantReference sends the reference, kept for the signature
      * @param QuoteFromOrderConverter $quoteFromOrderConverter
      * @param LinkRepositoryInterface $linkRepository
      * @param CartRepositoryInterface $quoteRepository
      * @param OrderRepositoryInterface $orderRepository
-     * @param ContainerMapper $containerMapper
+     * @param ContainerMapper $containerMapper Unused since MerchantReference sends the reference, kept for the signature
      * @param LogManager $logManager
      * @param OrderPlacer $orderPlacer
      * @param Lock $lock
@@ -186,7 +181,9 @@ class PlaceOrder extends AbstractManagement
      * @param LineDifferences|null $lineDifferences
      * @param QuoteCurrency|null $quoteCurrency
      * @param StateStatus|null $stateStatus
+     * @param MerchantReference|null $merchantReference
      */
+    // @phpstan-ignore constructor.unusedParameter, constructor.unusedParameter (kept for the signature)
     public function __construct(
         Config $qliroConfig,
         MerchantInterface $merchantApi,
@@ -210,14 +207,13 @@ class PlaceOrder extends AbstractManagement
         ?OrderItemsBuilder $orderItemsBuilder = null,
         ?LineDifferences $lineDifferences = null,
         ?QuoteCurrency $quoteCurrency = null,
-        ?StateStatus $stateStatus = null
+        ?StateStatus $stateStatus = null,
+        ?MerchantReference $merchantReference = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
-        $this->orderManagementApi = $orderManagementApi;
         $this->linkRepository = $linkRepository;
         $this->quoteRepository = $quoteRepository;
-        $this->containerMapper = $containerMapper;
         $this->logManager = $logManager;
         $this->quoteFromOrderConverter = $quoteFromOrderConverter;
         $this->orderPlacer = $orderPlacer;
@@ -237,6 +233,8 @@ class PlaceOrder extends AbstractManagement
         $this->lineDifferences = $lineDifferences;
         $this->quoteCurrency = $quoteCurrency;
         $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
+        $this->merchantReference = $merchantReference
+            ?? ObjectManager::getInstance()->get(MerchantReference::class);
     }
 
     /**
@@ -776,60 +774,7 @@ class PlaceOrder extends AbstractManagement
                         }
                     }
 
-                    $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
-                    $alreadyUpdatedMerchantRef = $paymentAdditionalInfo['qliroone_updated_merchant_reference'] ?? false;
-
-                    if (!$alreadyUpdatedMerchantRef) {
-                        if (!$this->qliroConfig->isUseIncrementIdAsReference((int) $order->getStoreId())) {
-                            /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                            $request = $this->containerMapper->fromArray(
-                                [
-                                    'OrderId' => $link->getQliroOrderId(),
-                                    'NewMerchantReference' => $order->getIncrementId(),
-                                ],
-                                AdminUpdateMerchantReferenceRequestInterface::class
-                            );
-
-                            $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-
-                            if ($response === null) {
-                                /**
-                                 * PLIN-373: updateMerchantReference() returns null on any API error
-                                 * (it swallows the exception so a Qliro notification still gets its
-                                 * ok). Log that as a failure instead of the old "assigned" debug line,
-                                 * which hid that the Qliro order still carries its temporary reference.
-                                 * Behaviour is otherwise unchanged - the reference is still marked as
-                                 * handled below (fire-once): this runs inside a Qliro notification on
-                                 * every status callback, so it must not re-attempt or write to the
-                                 * order on each call across merchants.
-                                 */
-                                $this->logManager->critical(
-                                    new \RuntimeException('Failed to set the Magento order reference on the Qliro One order'),
-                                    [
-                                        'extra' => [
-                                            'qliro_order_id' => $link->getQliroOrderId(),
-                                            'order_id' => $order->getId(),
-                                            'new_merchant_reference' => $order->getIncrementId(),
-                                        ],
-                                    ]
-                                );
-                            } else {
-                                $transactionId = $response->getPaymentTransactionId() ?: 'unknown';
-                                $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                                    'payment_transaction_id' => $transactionId,
-                                    'qliro_order_id' => $link->getQliroOrderId(),
-                                    'order_id' => $order->getId(),
-                                    'new_merchant_reference' => $order->getIncrementId(),
-                                ]);
-                            }
-                        }
-
-                        // Fire-once regardless of outcome, exactly as before: the notification path
-                        // must just respond ok, and re-attempting on every later callback would add
-                        // load and noise across all merchants' orders.
-                        $paymentAdditionalInfo['qliroone_updated_merchant_reference'] = true;
-                        $order->getPayment()->setAdditionalInformation($paymentAdditionalInfo);
-                    }
+                    $this->merchantReference->sendOnce($order, $link);
 
                     // Finally apply state, this also saves the order and payment
                     $this->applyOrderState($order, Order::STATE_NEW);

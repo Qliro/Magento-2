@@ -279,6 +279,7 @@
             <argument name="orderItemsBuilder" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder\Proxy</argument>
             <argument name="lineDifferences" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\LineDifferences</argument>
             <argument name="quoteCurrency" xsi:type="object">Qliro\QliroOne\Model\Order\QuoteCurrency</argument>
+            <argument name="merchantReference" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\MerchantReference</argument>
         </arguments>
     </type>
 
@@ -292,6 +293,7 @@
         <arguments>
             <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
             <argument name="discountLines" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\DiscountLines</argument>
+            <argument name="merchantReference" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\MerchantReference</argument>
         </arguments>
     </type>
 
