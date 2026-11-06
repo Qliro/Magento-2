@@ -56,6 +56,11 @@ abstract class AbstractManagement
      */
     const QLIRO_ERROR_OPERATION_NOT_SUPPORTED = 'OPERATION_NOT_SUPPORTED';
 
+    /**
+     * Qliro's answer to a RequestId it has already booked: an earlier attempt went through
+     */
+    const QLIRO_ERROR_DUPLICATE_REQUEST = 'DUPLICATE_REQUEST';
+
     // CheckoutStatus can only create an order, if POLL was unsuccessful for 1 minute
     const QLIRO_POLL_VS_CHECKOUT_STATUS_TIMEOUT = 60;
 

@@ -29,3 +29,20 @@ Existing classes that assign in the constructor body are converted when their co
 ## Docblocks
 
 Use `@inheritDoc` for a method that implements or overrides a documented one.
+
+## Checks (enforced in CI)
+
+GitHub Actions runs the unit tests on PHP 8.2 to 8.5 and the static analysis once, on PHP 8.4. Run the same locally (`composer install` needs Marketplace keys in `auth.json`, or point `repositories` at `https://mirror.mage-os.org/` as CI does):
+
+```
+composer install
+composer test
+composer static-analysis
+```
+
+`composer static-analysis` installs the tools into `tools/` (their own composer project, so installing them never conflicts with Magento's dependencies) and runs:
+
+- PHPStan at the level in `phpstan.neon.dist`, now 5: undefined methods and properties, wrong argument and return types. Magic `get*`/`set*`/`has*`/`uns*` calls on a `DataObject` are accepted, as Magento resolves them at runtime. Errors that existed when it was introduced are in `phpstan-baseline.neon`. New code adds nothing there. When you fix a baselined error, regenerate the baseline with `tools/vendor/bin/phpstan analyse --generate-baseline`. The tool versions are pinned in `tools/composer.lock`. To raise the level, run the next one, fix or baseline what it reports and change `level`.
+- The Magento coding standard over all production code and templates, errors only. The few errors that existed when it was introduced are excluded per file in `phpcs.xml.dist`. Warnings are not checked; see them with `composer phpcs -- --warning-severity=5`.
+
+`composer phpstan` and `composer phpcs` run one of them, after `composer tools`.
