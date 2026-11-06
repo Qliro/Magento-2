@@ -2,3 +2,4 @@ composer.lock
 vendor/
 auth.json
 .phpunit.cache/
+!tools/composer.lock

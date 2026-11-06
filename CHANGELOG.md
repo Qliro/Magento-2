@@ -1,6 +1,21 @@
 
 # Change Log
 
+## [1.8.43] - 2026-11-04
+
+### Added
+
+- Static analysis in CI: PHPStan at level 5 with a baseline of the errors that exist today, and the Magento coding standard (errors) over all production code and templates. Both run locally with `composer static-analysis`, see CONTRIBUTING.md
+
+### Fixed
+
+- The order pending page escapes the loader image URL, the loader text and the poll URL it writes into its JSON config, so a translation or URL holding a quote no longer breaks the page
+
+### Removed
+
+- `Jenkinsfile`. It targeted a Magento 2.3 Jenkins agent and reported to Bitbucket. CI is GitHub Actions in `.github/workflows`
+
+
 ## [1.8.42] - 2026-11-04
 
 ### Fixed

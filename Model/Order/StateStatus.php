@@ -140,7 +140,7 @@ class StateStatus
 
         $assigned = $this->statusFor($order, $state, $status);
         $order->setStatus($assigned);
-        $order->addStatusHistoryComment(__(
+        $order->addStatusHistoryComment((string)__(
             'The status %1 the order had before the hold is not assigned to state %2, so the order gets %3',
             $status,
             $state,
