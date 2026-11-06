@@ -13,7 +13,6 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
-use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminOrderInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
@@ -23,9 +22,11 @@ use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -51,11 +52,6 @@ class PlaceRecurringOrder extends AbstractManagement
     private $merchantApi;
 
     /**
-     * @var \Qliro\QliroOne\Api\Client\OrderManagementInterface
-     */
-    private $orderManagementApi;
-
-    /**
      * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
      */
     private $linkRepository;
@@ -64,11 +60,6 @@ class PlaceRecurringOrder extends AbstractManagement
      * @var \Magento\Quote\Api\CartRepositoryInterface
      */
     private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
 
     /**
      * @var \Qliro\QliroOne\Model\Logger\Manager
@@ -139,16 +130,26 @@ class PlaceRecurringOrder extends AbstractManagement
     private DiscountLines $discountLines;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
+     * @var MerchantReference
+     */
+    private MerchantReference $merchantReference;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
      * @param MerchantInterface $merchantApi
-     * @param OrderManagementInterface $orderManagementApi
+     * @param OrderManagementInterface $orderManagementApi Unused since MerchantReference sends the reference, kept for the signature
      * @param QuoteFromOrderConverter $quoteFromOrderConverter
      * @param LinkRepositoryInterface $linkRepository
      * @param CartRepositoryInterface $quoteRepository
      * @param OrderRepositoryInterface $orderRepository
-     * @param ContainerMapper $containerMapper
+     * @param ContainerMapper $containerMapper Unused since MerchantReference sends the reference, kept for the signature
      * @param LogManager $logManager
      * @param OrderPlacer $orderPlacer
      * @param Lock $lock
@@ -161,7 +162,10 @@ class PlaceRecurringOrder extends AbstractManagement
      * @param OrganizationNumber $organizationNumber
      * @param RoundingAdjustmentStamp|null $roundingAdjustmentStamp
      * @param DiscountLines|null $discountLines
+     * @param StateStatus|null $stateStatus
+     * @param MerchantReference|null $merchantReference
      */
+    // @phpstan-ignore constructor.unusedParameter, constructor.unusedParameter (kept for the signature)
     public function __construct(
         Config $qliroConfig,
         MerchantInterface $merchantApi,
@@ -182,14 +186,14 @@ class PlaceRecurringOrder extends AbstractManagement
         \Magento\Sales\Model\Order $order,
         OrganizationNumber $organizationNumber,
         ?RoundingAdjustmentStamp $roundingAdjustmentStamp = null,
-        ?DiscountLines $discountLines = null
+        ?DiscountLines $discountLines = null,
+        ?StateStatus $stateStatus = null,
+        ?MerchantReference $merchantReference = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
-        $this->orderManagementApi = $orderManagementApi;
         $this->linkRepository = $linkRepository;
         $this->quoteRepository = $quoteRepository;
-        $this->containerMapper = $containerMapper;
         $this->logManager = $logManager;
         $this->quoteFromOrderConverter = $quoteFromOrderConverter;
         $this->orderPlacer = $orderPlacer;
@@ -205,6 +209,9 @@ class PlaceRecurringOrder extends AbstractManagement
         // Optional so a store constructing this class with the old signature keeps working
         $this->roundingAdjustmentStamp = $roundingAdjustmentStamp;
         $this->discountLines = $discountLines ?? ObjectManager::getInstance()->get(DiscountLines::class);
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
+        $this->merchantReference = $merchantReference
+            ?? ObjectManager::getInstance()->get(MerchantReference::class);
     }
 
     /**
@@ -469,30 +476,7 @@ class PlaceRecurringOrder extends AbstractManagement
                     $this->applyOrderState($order, Order::STATE_NEW);
                     $this->sendOrderConfirmation($order);
 
-                    /*
-                     * If Magento order has already been placed and QliroOne order status is completed,
-                     * the order merchant reference must be replaced with Magento order increment ID
-                     */
-                    /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                    $request = $this->containerMapper->fromArray(
-                        [
-                            'OrderId' => $link->getQliroOrderId(),
-                            'NewMerchantReference' => $order->getIncrementId(),
-                        ],
-                        AdminUpdateMerchantReferenceRequestInterface::class
-                    );
-
-                    $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-                    $transactionId = 'unknown';
-                    if ($response && $response->getPaymentTransactionId()) {
-                        $transactionId = $response->getPaymentTransactionId();
-                    }
-                    $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                        'payment_transaction_id' => $transactionId,
-                        'qliro_order_id' => $link->getQliroOrderId(),
-                        'order_id' => $order->getId(),
-                        'new_merchant_reference' => $order->getIncrementId(),
-                    ]);
+                    $this->merchantReference->sendOnce($order, $link);
 
                     break;
 
@@ -505,6 +489,10 @@ class PlaceRecurringOrder extends AbstractManagement
                     $link->setIsActive(false);
                     $link->setMessage(sprintf('Order #%s marked as canceled', $order->getIncrementId()));
                     $this->linkRepository->save($link);
+                    // A held order cannot be canceled
+                    if ($order->canUnhold()) {
+                        $order->unhold();
+                    }
                     $this->applyOrderState($order, Order::STATE_NEW);
 
                     if ($order->canCancel()) {
@@ -686,19 +674,16 @@ class PlaceRecurringOrder extends AbstractManagement
     }
 
     /**
-     * Apply a proper state with its default status to the order
+     * Apply a proper state with a status registered for it, unless the order is past checkout
      *
      * @param \Magento\Sales\Model\Order $order
      * @param string $state
      */
     private function applyOrderState(Order $order, $state)
     {
-        $status = Order::STATE_NEW === $state
-            ? $this->qliroConfig->getOrderStatus()
-            : $order->getConfig()->getStateDefaultStatus($state);
+        $status = Order::STATE_NEW === $state ? (string)$this->qliroConfig->getOrderStatus() : null;
 
-        $order->setState($state);
-        $order->setStatus($status);
+        $this->stateStatus->setFromCheckout($order, $state, $status);
         $this->orderRepository->save($order);
     }
 }

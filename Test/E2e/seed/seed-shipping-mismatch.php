@@ -6,8 +6,8 @@
  * Usage, inside the Magento container:
  *   php var/seed-shipping-mismatch.php quote
  *       a quote on flatrate_flatrate with its link, and the validate callback for it
- *   php var/seed-shipping-mismatch.php place --quote=ID [--shipping=freeshipping_freeshipping]
- *       places the order from a Qliro order whose shipping line is that delivery
+ *   php var/seed-shipping-mismatch.php place --quote=ID [--shipping=freeshipping_freeshipping] [--option=REF]
+ *       places the order from a Qliro order whose shipping line is that delivery, with that secondary option
  *   php var/seed-shipping-mismatch.php cart --masked=MASKED_ID
  *       the id and the checkout token of a guest cart the browser made
  *   php var/seed-shipping-mismatch.php read --quote=ID
@@ -197,7 +197,11 @@ switch ($command) {
                 $orderItems[] = $containerMapper->toArray($item);
             }
         }
-        $orderItems[] = $shippingLine($code, $prices[$code]);
+        $line = $shippingLine($code, $prices[$code]);
+        if (isset($options['option'])) {
+            $line['Metadata'] = ['ShippingMethodSecondaryOptionMerchantReference' => $options['option']];
+        }
+        $orderItems[] = $line;
 
         $qliroTotal = 0.0;
         foreach ($orderItems as $item) {
@@ -229,6 +233,9 @@ switch ($command) {
             'shippingInclTax' => (float)$order->getShippingInclTax(),
             'grandTotal' => (float)$order->getGrandTotal(),
             'qliroTotal' => round($qliroTotal, 2),
+            'secondaryOption' => $order->getPayment()->getAdditionalInformation(
+                \Qliro\QliroOne\Model\Config::QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION
+            ),
         ]);
         break;
 

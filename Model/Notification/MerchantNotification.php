@@ -99,17 +99,18 @@ class MerchantNotification implements MerchantNotificationInterface
     /**
      * @inheritDoc
      */
-    public function getTimeStamp(): string
+    public function getTimestamp(): string
     {
         return $this->timeStamp;
     }
 
     /**
-     * @inheritDoc
+     * @param mixed $timeStamp Qliro sends a string, the mapper hands over whatever the payload holds
+     * @return self
      */
-    public function setTimeStamp($timeStamp): self
+    public function setTimestamp($timeStamp): self
     {
-        $this->timeStamp = $timeStamp;
+        $this->timeStamp = is_scalar($timeStamp) ? (string)$timeStamp : '';
 
         return $this;
     }
