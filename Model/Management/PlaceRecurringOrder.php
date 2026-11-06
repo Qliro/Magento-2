@@ -243,7 +243,7 @@ class PlaceRecurringOrder extends AbstractManagement
                 try {
                     // A recurring order is placed with nobody in front of it
                     $responseContainer = $this->merchantApi->getOrder(
-                        $qliroOrderId,
+                        (int)$qliroOrderId,
                         Config::API_PROFILE_BACKGROUND
                     );
 

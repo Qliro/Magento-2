@@ -624,7 +624,7 @@ class Quote extends AbstractManagement
      * every update, so the payload the hash was taken from is the one that goes out.
      *
      * @param \Magento\Quote\Model\Quote $quote
-     * @return array{0: string|null, 1: \Qliro\QliroOne\Api\Data\UpdateRequestInterface}
+     * @return array{0: string|null, 1: \Qliro\QliroOne\Api\Data\QliroOrderUpdateRequestInterface}
      */
     private function buildUpdateRequest($quote): array
     {

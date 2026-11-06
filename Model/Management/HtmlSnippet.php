@@ -53,6 +53,7 @@ class HtmlSnippet extends AbstractManagement
      *
      * @return string
      * @throws AlreadyPlacedException
+     * @throws NoOrderLinesException when the cart has no line Qliro can take
      */
     public function fetch(): string
     {

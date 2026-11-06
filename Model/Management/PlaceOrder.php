@@ -279,7 +279,7 @@ class PlaceOrder extends AbstractManagement
                     // The pending page polls until the order exists, so this answer is worth
                     // waiting for rather than cutting short
                     $responseContainer = $this->merchantApi->getOrder(
-                        $qliroOrderId,
+                        (int)$qliroOrderId,
                         Config::API_PROFILE_BACKGROUND
                     );
 
