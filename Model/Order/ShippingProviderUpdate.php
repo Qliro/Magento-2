@@ -53,9 +53,11 @@ class ShippingProviderUpdate
      */
     public function apply(OrderInterface $order, string $provider, array $payload, string $sentAt = ''): bool
     {
+        /** @var \Magento\Sales\Model\Order\Payment $payment */
         $payment = $order->getPayment();
-        $additionalInfo = $payment->getAdditionalInformation();
+        $additionalInfo = (array)$payment->getAdditionalInformation();
         $shippingInfo = $additionalInfo[self::INFO_KEY] ?? [];
+        $shippingInfo = is_array($shippingInfo) ? $shippingInfo : [];
 
         $heldAt = (string)($shippingInfo['sent_at'] ?? '');
 
@@ -64,7 +66,9 @@ class ShippingProviderUpdate
             return false;
         }
 
-        $newer = $this->isOlder($heldAt, $sentAt);
+        // An update held from before times were kept takes the time of its first redelivery,
+        // otherwise an older one redelivered after it would replace it
+        $newer = $this->isOlder($heldAt, $sentAt) || ($heldAt === '' && $sentAt !== '');
         if (isset($shippingInfo['payload']) && $shippingInfo['payload'] == $payload) {
             // The same choice sent again later still moves the time on
             if ($newer) {

@@ -139,7 +139,7 @@ class MerchantNotification extends AbstractManagement
         try {
             $this->applyOrStore($container);
         } finally {
-            $this->lock->unlock($qliroOrderId);
+            $this->lock->unlock((string)$qliroOrderId);
         }
     }
 
@@ -271,7 +271,7 @@ class MerchantNotification extends AbstractManagement
      */
     private function lockShortly(int $qliroOrderId): bool
     {
-        for ($attempt = 1; !$this->lock->lock($qliroOrderId); $attempt++) {
+        for ($attempt = 1; !$this->lock->lock((string)$qliroOrderId); $attempt++) {
             if ($attempt >= self::LOCK_ATTEMPTS) {
                 return false;
             }

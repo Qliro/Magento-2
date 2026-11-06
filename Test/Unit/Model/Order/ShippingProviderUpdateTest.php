@@ -80,6 +80,21 @@ class ShippingProviderUpdateTest extends TestCase
         self::assertNull($this->description);
     }
 
+    /**
+     * An update held from before times were kept takes the time of its redelivery, so an older one
+     * redelivered after it does not replace it
+     */
+    public function testRedeliveryOfAnUpdateHeldWithoutATimeKeepsItsTime(): void
+    {
+        $this->info = ['qliroone_shipping_info' => ['provider' => 'Unifaun', 'payload' => self::UNIFAUN]];
+
+        self::assertTrue($this->update()->apply($this->order(), 'Unifaun', self::UNIFAUN, '2026-11-04T10:00:00+01:00'));
+        self::assertSame('2026-11-04T10:00:00+01:00', $this->info['qliroone_shipping_info']['sent_at']);
+        self::assertFalse(
+            $this->update()->apply($this->order(), 'Unifaun', ['older' => true], '2026-11-04T09:00:00+01:00')
+        );
+    }
+
     public function testStoreKeepsTheLatestUpdateOfTheLink(): void
     {
         $this->connection->method('fetchOne')->willReturn('2026-11-04T10:00:00+01:00');
