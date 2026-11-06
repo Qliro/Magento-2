@@ -158,7 +158,8 @@ class Service implements \Qliro\QliroOne\Api\ApiServiceInterface
     private function applyParams(&$endpoint, &$params)
     {
         foreach ($params as $key => $value) {
-            if (!is_scalar($value)) {
+            // An empty value leaves the placeholder standing, so it is refused below
+            if (!is_scalar($value) || (string)$value === '') {
                 continue;
             }
             $modifiedEndpoint = str_replace('{' . $key . '}', (string)$value, (string)$endpoint);

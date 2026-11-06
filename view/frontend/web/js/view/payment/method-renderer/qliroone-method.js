@@ -215,8 +215,7 @@ define([
                             return;
                         }
 
-                        // The buyer already paid and came back, so the order is on its way and the
-                        // pending page is the one that waits for it.
+                        // The pending page for a paid order, the cart for one with nothing to pay for
                         if (data && data.redirect) {
                             window.location = data.redirect;
 

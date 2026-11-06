@@ -230,6 +230,10 @@ class PlaceRecurringOrder extends AbstractManagement
             $qliroOrderId = $link->getQliroOrderId();
             $this->logManager->setMerchantReference($link->getReference());
 
+            if (empty($orderId) && empty($qliroOrderId)) {
+                throw new NoSuchEntityException(__('Quote %1 has no Qliro order', $quoteId));
+            }
+
             if (empty($orderId)) {
                 // Only the process that took the lock may release it. The status check below
                 // throws before the lock is taken, and releasing one we never held freed the
@@ -239,7 +243,7 @@ class PlaceRecurringOrder extends AbstractManagement
                 try {
                     // A recurring order is placed with nobody in front of it
                     $responseContainer = $this->merchantApi->getOrder(
-                        $qliroOrderId,
+                        (int)$qliroOrderId,
                         Config::API_PROFILE_BACKGROUND
                     );
 
