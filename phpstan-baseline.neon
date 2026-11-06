@@ -1,0 +1,3661 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^PHPDoc tag @return with type Qliro\\QliroOne\\Api\\Data\\MerchantPaymentCreateRequestInterface\|null is not subtype of native type Qliro\\QliroOne\\Api\\Data\\MerchantPaymentCustomerInterface\|null\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: Api/Data/AdminCreateMerchantPaymentRequestInterface.php
+
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 2
+			path: Api/Data/AdminOrderItemActionInterface.php
+
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 14
+			path: Api/Data/LinkInterface.php
+
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 8
+			path: Api/Data/OrderManagementStatusInterface.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$recurringInfo with type Magento\\Framework\\Model\\AbstractModel\|Qliro\\QliroOne\\Api\\Data\\RecurringInfoInterface is not subtype of native type Qliro\\QliroOne\\Api\\Data\\RecurringInfoInterface\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: Api/RecurringInfoRepositoryInterface.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\FunctionColumn\:\:setInputName\(\) should return \$this\(Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\FunctionColumn\) but returns Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\FunctionColumn\.$#'
+			identifier: return.type
+			count: 1
+			path: Block/Adminhtml/Form/Field/FunctionColumn.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Parameters\:\:getFunctionRenderer\(\) has Magento\\Framework\\Exception\\LocalizedException in PHPDoc @throws tag but it''s not thrown\.$#'
+			identifier: throws.unusedType
+			count: 1
+			path: Block/Adminhtml/Form/Field/Parameters.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Block/Adminhtml/Form/Field/Parameters.php
+
+		-
+			message: '#^PHPDoc tag @SuppressWarnings has invalid value \(\(PHPMD\.CamelCaseMethodName\)\)\: Unexpected token "\.CamelCaseMethodName\)", expected ''\)'' at offset 106 on line 3$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Block/Adminhtml/Form/Field/Parameters.php
+
+		-
+			message: '#^Property Magento\\Config\\Block\\System\\Config\\Form\\Field\\FieldArray\\AbstractFieldArray\:\:\$_addButtonLabel \(string\) does not accept Magento\\Framework\\Phrase\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Block/Adminhtml/Form/Field/Parameters.php
+
+		-
+			message: '#^Property Magento\\Config\\Block\\System\\Config\\Form\\Field\\FieldArray\\AbstractFieldArray\:\:\$_addButtonLabel \(string\) does not accept Magento\\Framework\\Phrase\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Block/Adminhtml/Form/Field/Recurring/FrequencyOptions.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Recurring\\Renderer\\Frequency\:\:setInputName\(\) should return \$this\(Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Recurring\\Renderer\\Frequency\) but returns Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Recurring\\Renderer\\Frequency\.$#'
+			identifier: return.type
+			count: 1
+			path: Block/Adminhtml/Form/Field/Recurring/Renderer/Frequency.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Magento\\Framework\\View\\Element\\Html\\Select\:\:addOption\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Block/Adminhtml/Form/Field/Recurring/Renderer/Frequency.php
+
+		-
+			message: '#^Parameter \#2 \$label of method Magento\\Framework\\View\\Element\\Html\\Select\:\:addOption\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Block/Adminhtml/Form/Field/Recurring/Renderer/Frequency.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Recurring\\Renderer\\TimeUnit\:\:setInputName\(\) should return \$this\(Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Recurring\\Renderer\\TimeUnit\) but returns Qliro\\QliroOne\\Block\\Adminhtml\\Form\\Field\\Recurring\\Renderer\\TimeUnit\.$#'
+			identifier: return.type
+			count: 1
+			path: Block/Adminhtml/Form/Field/Recurring/Renderer/TimeUnit.php
+
+		-
+			message: '#^Parameter \#2 \$label of method Magento\\Framework\\View\\Element\\Html\\Select\:\:addOption\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Block/Adminhtml/Form/Field/Recurring/Renderer/TimeUnit.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\CreditmemoInterface\:\:getOrder\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Creditmemo/Totals.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Invoice/Totals.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Invoice/Totals.php
+
+		-
+			message: '#^Parameter \#1 \$qlirooneFee of method Qliro\\QliroOne\\Model\\Fee\:\:feeToFeeObject\(\) expects array, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Invoice/Totals.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Totals.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Totals.php
+
+		-
+			message: '#^Parameter \#1 \$qlirooneFee of method Qliro\\QliroOne\\Model\\Fee\:\:feeToFeeObject\(\) expects array, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Block/Adminhtml/Sales/Order/Totals.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Block/Checkout/Pending.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\App\\RequestInterface\:\:getFullActionName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Block/Checkout/ShippingStepLayoutProcessor.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Block\\Info\\AbstractInfo\:\:showWarning\(\) should return string but returns bool\.$#'
+			identifier: return.type
+			count: 1
+			path: Block/Info/AbstractInfo.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Block\\Info\\AbstractInfo\:\:\$warning is never written, only read\.$#'
+			identifier: property.onlyRead
+			count: 1
+			path: Block/Info/AbstractInfo.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Block\\Info\\AbstractInfo\:\:\$warningText is never written, only read\.$#'
+			identifier: property.onlyRead
+			count: 1
+			path: Block/Info/AbstractInfo.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Block/Sales/Totals.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Block/Sales/Totals.php
+
+		-
+			message: '#^Parameter \#1 \$qlirooneFee of method Qliro\\QliroOne\\Model\\Fee\:\:feeToFeeObject\(\) expects array, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Block/Sales/Totals.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Console\\AbstractCommand\:\:\$objectManager \(Magento\\Framework\\ObjectManager\\ObjectManager\) does not accept Magento\\Framework\\ObjectManagerInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Console/AbstractCommand.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\Api\\Client\\Merchant\:\:getOrder\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Console/GetOrderCommand.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Console/ReconcileCapturesCommand.php
+
+		-
+			message: '#^Parameter \#1 \$orderId of method Qliro\\QliroOne\\Model\\Management\\Quote\:\:update\(\) expects int\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Console/UpdateOrderCommand.php
+
+		-
+			message: '#^Dead catch \- Exception is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: Controller/Adminhtml/Log/Download.php
+
+		-
+			message: '#^Variable \$fileName might not be defined\.$#'
+			identifier: variable.undefined
+			count: 2
+			path: Controller/Adminhtml/Log/Download.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Controller\\Adminhtml\\Recurring\\Cancel\:\:massAction\(\) should return Magento\\Backend\\Model\\View\\Result\\Redirect but returns Magento\\Framework\\Controller\\Result\\Redirect\.$#'
+			identifier: return.type
+			count: 1
+			path: Controller/Adminhtml/Recurring/Cancel.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Controller/Qliro/Ajax/AbstractLockQuote.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReferenceFromQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Controller/Qliro/Ajax/AbstractLockQuote.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Security\\AjaxToken\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Controller/Qliro/Ajax/AbstractLockQuote.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:fetch\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/GetSnippet.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Controller/Qliro/Ajax/GetSnippet.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/PollPending.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateCustomer.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/UpdatePaymentMethod.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateQuote.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateRecurring.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Controller\\Qliro\\Ajax\\UpdateRecurring\:\:\$request is never written, only read\.$#'
+			identifier: property.onlyRead
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateRecurring.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateRecurring.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateShippingMethod.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Magento\\Quote\\Model\\Quote\\Address\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateShippingMethod.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateShippingPrice.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateShippingPrice.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Controller\\Qliro\\Ajax\\UpdateShippingPrice\:\:getQuote\(\) should return Magento\\Quote\\Model\\Quote but returns Magento\\Quote\\Api\\Data\\CartInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateShippingPrice.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Controller/Qliro/Ajax/UpdateShippingPrice.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\App\\RequestInterface\:\:getRequestUri\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Index.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\Controller\\ResultInterface\:\:getConfig\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Controller/Qliro/Index.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Magento\\Sales\\Controller\\AbstractController\\OrderViewAuthorizationInterface\:\:canView\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Controller/Qliro/Recurring/Cancel.php
+
+		-
+			message: '#^Parameter \#1 \$title of method Magento\\Framework\\View\\Page\\Title\:\:set\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Controller/Qliro/Recurring/History.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Cron/ReconcileCaptures.php
+
+		-
+			message: '#^Call to function is_numeric\(\) with float will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Helper/Data.php
+
+		-
+			message: '#^Call to function is_numeric\(\) with int will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Helper/Data.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Helper/Data.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between float and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: Helper/Data.php
+
+		-
+			message: '#^Instanceof between GuzzleHttp\\Exception\\RequestException and Qliro\\QliroOne\\Model\\Exception\\TerminalException will always evaluate to false\.$#'
+			identifier: instanceof.alwaysFalse
+			count: 1
+			path: Model/Api/Client/Merchant.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Api/Client/Merchant.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, GuzzleHttp\\Exception\\RequestException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Api/Client/Merchant.php
+
+		-
+			message: '#^Parameter \#1 \$string of method Magento\\Framework\\Serialize\\Serializer\\Json\:\:unserialize\(\) expects string, Psr\\Http\\Message\\StreamInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Api/Client/Merchant.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Api\\Client\\Merchant\:\:\$config is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Api/Client/Merchant.php
+
+		-
+			message: '#^Instanceof between GuzzleHttp\\Exception\\RequestException and Qliro\\QliroOne\\Model\\Exception\\TerminalException will always evaluate to false\.$#'
+			identifier: instanceof.alwaysFalse
+			count: 1
+			path: Model/Api/Client/OrderManagement.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Api\\Client\\OrderManagement\:\:addItemsToInvoice\(\) should return array\<Qliro\\QliroOne\\Api\\Data\\AdminTransactionResponseInterface\> but returns list\<Qliro\\QliroOne\\Api\\Data\\ContainerInterface\>\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Api/Client/OrderManagement.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Api/Client/OrderManagement.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, GuzzleHttp\\Exception\\RequestException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Api/Client/OrderManagement.php
+
+		-
+			message: '#^Parameter \#1 \$string of method Magento\\Framework\\Serialize\\Serializer\\Json\:\:unserialize\(\) expects string, Psr\\Http\\Message\\StreamInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Api/Client/OrderManagement.php
+
+		-
+			message: '#^Variable \$container in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/Api/Client/OrderManagement.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Api/Service.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Api/Service.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Api/Service.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Quote\\Api\\Data\\CartInterface\:\:getShippingAddress\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Carrier/Ingrid.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$name$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Model/Carrier/Ingrid.php
+
+		-
+			message: '#^PHPDoc tag @var has invalid value \(\)\: Unexpected token "\\n     ", expected type at offset 15 on line 2$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Model/Carrier/Ingrid.php
+
+		-
+			message: '#^Parameter \#1 \$cost of method Magento\\Shipping\\Model\\Carrier\\AbstractCarrier\:\:getFinalPriceWithHandlingFee\(\) expects float, string\|false given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Carrier/Ingrid.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Quote\\Api\\Data\\CartInterface\:\:getShippingAddress\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Carrier/Unifaun.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$name$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Model/Carrier/Unifaun.php
+
+		-
+			message: '#^PHPDoc tag @var has invalid value \(\)\: Unexpected token "\\n     ", expected type at offset 15 on line 2$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Model/Carrier/Unifaun.php
+
+		-
+			message: '#^Parameter \#1 \$cost of method Magento\\Shipping\\Model\\Carrier\\AbstractCarrier\:\:getFinalPriceWithHandlingFee\(\) expects float, string\|false given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Carrier/Unifaun.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\App\\RequestInterface\:\:getFullActionName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/CheckoutConfigProvider.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Store\\Api\\Data\\StoreInterface\:\:getUrl\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/CheckoutConfigProvider.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\CheckoutConfigProvider\:\:\$fee is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/CheckoutConfigProvider.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Config\:\:getMinimumCustomerAge\(\) should return bool but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Config.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Config\:\:requireIdentityVerification\(\) should return bool but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Config.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Config\:\:shouldAskForNewsletterSignup\(\) should return bool but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Config.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Config\:\:shouldCaptureOnInvoice\(\) should return bool but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Config.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Config\:\:shouldCaptureOnShipment\(\) should return bool but returns int\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Config.php
+
+		-
+			message: '#^Parameter \$store of method Qliro\\QliroOne\\Model\\Config\:\:paymentFeeIncludesTax\(\) has invalid type Qliro\\QliroOne\\Model\\Store\.$#'
+			identifier: class.notFound
+			count: 1
+			path: Model/Config.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/ContainerMapper.php
+
+		-
+			message: '#^Call to function is_null\(\) with array will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: Model/ContainerMapper.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 3
+			path: Model/Fee.php
+
+		-
+			message: '#^Instanceof between \*NEVER\* and Magento\\Customer\\Model\\Address\\AbstractAddress will always evaluate to false\.$#'
+			identifier: instanceof.alwaysFalse
+			count: 2
+			path: Model/Fee.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Config\:\:isActive\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Fee.php
+
+		-
+			message: '#^Parameter \#1 \$product of method Magento\\Catalog\\Helper\\Data\:\:getTaxPrice\(\) expects Magento\\Catalog\\Model\\Product, Magento\\Framework\\DataObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Fee.php
+
+		-
+			message: '#^Parameter \#1 \$productTaxClassID of method Magento\\Tax\\Api\\TaxCalculationInterface\:\:getCalculatedRate\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Fee.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Magento\\Tax\\Api\\Data\\TaxClassKeyInterface\:\:setValue\(\) expects string, int\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Fee.php
+
+		-
+			message: '#^Parameter \#3 \$includingTax of method Qliro\\QliroOne\\Model\\Fee\:\:getCalcTaxPrice\(\) expects bool, int given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Fee.php
+
+		-
+			message: '#^Parameter \#3 \$storeId of method Magento\\Tax\\Api\\TaxCalculationInterface\:\:getCalculatedRate\(\) expects string\|null, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Fee.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between null and null will always evaluate to true\.$#'
+			identifier: identical.alwaysTrue
+			count: 3
+			path: Model/Fee.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Link\:\:getIsActive\(\) should return int but returns bool\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Link.php
+
+		-
+			message: '#^Call to function is_bool\(\) with int\|string will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Link\\Repository\:\:getByField\(\) should return Qliro\\QliroOne\\Model\\Link but returns Magento\\Framework\\DataObject\|Qliro\\QliroOne\\Api\\Data\\LinkInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Parameter \#1 \$items of method Qliro\\QliroOne\\Api\\LinkSearchResultInterface\:\:setItems\(\) expects array\<Qliro\\QliroOne\\Api\\Data\\LinkInterface\>, array\<Magento\\Framework\\DataObject\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Magento\\Framework\\Model\\ResourceModel\\Db\\AbstractDb\:\:delete\(\) expects Magento\\Framework\\Model\\AbstractModel, Qliro\\QliroOne\\Api\\Data\\LinkInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Magento\\Framework\\Model\\ResourceModel\\Db\\AbstractDb\:\:load\(\) expects Magento\\Framework\\Model\\AbstractModel, Qliro\\QliroOne\\Api\\Data\\LinkInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Magento\\Framework\\Model\\ResourceModel\\Db\\AbstractDb\:\:save\(\) expects Magento\\Framework\\Model\\AbstractModel, Qliro\\QliroOne\\Api\\Data\\LinkInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Parameter \#2 \$condition of method Magento\\Framework\\Data\\Collection\\AbstractDb\:\:addFieldToFilter\(\) expects array\|string\|null, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Return type \(Qliro\\QliroOne\\Model\\ResourceModel\\Link\) of method Qliro\\QliroOne\\Model\\Link\\Repository\:\:delete\(\) should be compatible with return type \(\$this\(Qliro\\QliroOne\\Api\\LinkRepositoryInterface\)\) of method Qliro\\QliroOne\\Api\\LinkRepositoryInterface\:\:delete\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Variable \$link in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/Link/Repository.php
+
+		-
+			message: '#^Array has 2 duplicate keys with value ''date'' \(\\Qliro\\QliroOne\\Api\\Data\\LogRecordInterface\:\:FIELD_DATE, \\Qliro\\QliroOne\\Api\\Data\\LogRecordInterface\:\:FIELD_DATE\)\.$#'
+			identifier: array.duplicateKey
+			count: 1
+			path: Model/Logger/Handler.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Logger/Manager.php
+
+		-
+			message: '#^Call to function is_string\(\) with array will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: Model/Logger/Manager.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/Logger/Manager.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Logger/Manager.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:execute\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:get\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:poll\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:refreshAfterCustomerEvent\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:update\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:updateCustomer\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:updateFee\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:updateShippingPrice\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$quote$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Parameter \#1 \$payment of method Qliro\\QliroOne\\Model\\Management\\Payment\:\:addItemsToInvoice\(\) expects Magento\\Sales\\Model\\Order\\Payment, Magento\\Payment\\Model\\InfoInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management.php
+
+		-
+			message: '#^Instanceof between Magento\\Quote\\Model\\Quote and Magento\\Quote\\Api\\Data\\CartInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: Model/Management/AbstractManagement.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Admin.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Admin.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Admin.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Model\\Management\\PlaceOrder\:\:applyQliroOrderStatus\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Api\\Client\\MerchantInterface\:\:getOrder\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\Management\\CheckoutStatus\:\:resolveEffectiveCheckoutStatus\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\Management\\QliroOrder\:\:cancel\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\ResourceModel\\Lock\:\:lock\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\ResourceModel\\Lock\:\:unlock\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\CheckoutStatus\:\:\$qliroOrderId \(int\|string\|null\) is never assigned int so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\CheckoutStatus\:\:\$qliroOrderId \(int\|string\|null\) is never assigned string so it can be removed from the property type\.$#'
+			identifier: property.unusedType
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\CheckoutStatus\:\:\$qliroOrderId is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Model/Management/CheckoutStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\CreateMerchantPayment\:\:\$quoteManagement is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/CreateMerchantPayment.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:get\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/HtmlSnippet.php
+
+		-
+			message: '#^Dead catch \- Exception is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: Model/Management/HtmlSnippet.php
+
+		-
+			message: '#^Dead catch \- Qliro\\QliroOne\\Model\\Exception\\UnsupportedQuoteException is never thrown in the try block\.$#'
+			identifier: catch.neverThrown
+			count: 1
+			path: Model/Management/HtmlSnippet.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/Management/MerchantNotification.php
+
+		-
+			message: '#^Offset ''payload'' on array\{\}\|string in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: Model/Management/MerchantNotification.php
+
+		-
+			message: '#^PHPDoc tag @return with type Qliro\\QliroOne\\Api\\Data\\MerchantNotificationResponseInterface is incompatible with native type void\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: Model/Management/MerchantNotification.php
+
+		-
+			message: '#^PHPDoc tag @var for property Qliro\\QliroOne\\Model\\Management\\MerchantNotification\:\:\$responseFactory with type Qliro\\QliroOne\\Model\\Management\\MerchantNotificationInterfaceFactory is incompatible with native type Qliro\\QliroOne\\Api\\Data\\MerchantNotificationResponseInterfaceFactory\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: Model/Management/MerchantNotification.php
+
+		-
+			message: '#^Parameter \#1 \$additionalInformation of method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) expects array\<string\>, array\<array\<string, array\|string\>\|string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/MerchantNotification.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: Model/Management/MerchantNotification.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Payment\\Model\\InfoInterface\:\:getData\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Payment\\Model\\InfoInterface\:\:getId\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Payment\\Model\\InfoInterface\:\:getInvoice\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Payment\\Model\\InfoInterface\:\:getOrder\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Payment\\Model\\InfoInterface\:\:setTransactionId\(\)\.$#'
+			identifier: method.notFound
+			count: 3
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\TransactionInterface\:\:save\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Instanceof between Qliro\\QliroOne\\Api\\Data\\QliroShipmentInterface and Qliro\\QliroOne\\Api\\Data\\QliroShipmentInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 2
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) invoked with 2 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^PHPDoc tag @var has invalid value \(\\Magento\\Sales\\Model\\Order\\Payment\\Transaction\\BuilderInterface;\)\: Unexpected token ";", expected TOKEN_HORIZONTAL_WS at offset 79 on line 2$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$additionalInformation of method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) expects array\<string\>, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$comment of method Magento\\Sales\\Model\\Order\:\:addStatusHistoryComment\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$id of method Magento\\Sales\\Model\\Order\\Payment\:\:setLastTransId\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$payment of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceMarkItemsAsShippedRequestBuilder\:\:setPayment\(\) expects Magento\\Sales\\Model\\Order\\Payment, Magento\\Payment\\Model\\InfoInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$transaction of method Magento\\Sales\\Model\\Order\\Payment\:\:addTransactionCommentsToOrder\(\) expects Magento\\Sales\\Model\\Order\\Payment\\Transaction\|null, Magento\\Sales\\Api\\Data\\TransactionInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\OrderManagementStatus\:\:setQliroOrderId\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#2 \$message of method Magento\\Sales\\Model\\Order\\Payment\:\:addTransactionCommentsToOrder\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#2 \$qliroOrderId of method Qliro\\QliroOne\\Model\\Management\\Payment\:\:refusedTransactionId\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Parameter \#2 \$qliroOrderId of method Qliro\\QliroOne\\Model\\QliroOrder\\ReservationFormat\:\:stamp\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Undefined variable\: \$status$#'
+			identifier: variable.undefined
+			count: 2
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Variable \$status in empty\(\) is never defined\.$#'
+			identifier: empty.variable
+			count: 1
+			path: Model/Management/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:deny\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setNotificationResult\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:recalculateAndSaveQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 4
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 2
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) invoked with 2 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\PlaceOrder\:\:execute\(\) should return Magento\\Sales\\Model\\Order but returns Magento\\Sales\\Api\\Data\\OrderInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\PlaceOrder\:\:placeFromQuote\(\) never assigns null to &\$lineDifferences so it can be removed from the by\-ref type\.$#'
+			identifier: parameterByRef.unusedType
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\PlaceOrder\:\:poll\(\) should return Magento\\Sales\\Model\\Order but returns Magento\\Sales\\Api\\Data\\OrderInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$additionalInformation of method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) expects array\<string\>, array\<bool\|string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$additionalInformation of method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) expects array\<string\>, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$comment of method Magento\\Sales\\Model\\Order\:\:addCommentToStatusHistory\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$isCustomerNotified of method Magento\\Sales\\Api\\Data\\OrderStatusHistoryInterface\:\:setIsCustomerNotified\(\) expects int, false given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 5
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Magento\\Framework\\Exception\\NoSuchEntityException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, RuntimeException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Throwable given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Model\\Management\\PlaceOrder\:\:applyQliroOrderStatus\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Api\\Client\\MerchantInterface\:\:getOrder\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between Qliro\\QliroOne\\Api\\Data\\AdminTransactionResponseInterface and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Variable \$orderId on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Variable \$qliroOrderId on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: Model/Management/PlaceOrder.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:recalculateAndSaveQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 2
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:execute\(\) should return Magento\\Sales\\Model\\Order but returns Magento\\Sales\\Api\\Data\\OrderInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:findPaymentMethodNameInTransactions\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:poll\(\) should return Magento\\Sales\\Model\\Order but returns Magento\\Sales\\Api\\Data\\OrderInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$quoteFromOrderConverter with type Qliro\\QliroOne\\Model\\Management\\QuoteFromOrderConverter is not subtype of native type Qliro\\QliroOne\\Model\\QliroOrder\\Converter\\RecurringQuoteFromOrderConverter\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 6
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Magento\\Framework\\Exception\\NoSuchEntityException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Qliro\\QliroOne\\Model\\Exception\\FailToLockException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Qliro\\QliroOne\\Model\\Exception\\OrderPlacementPendingException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Model\\Management\\Payment\:\:createPaymentTransaction\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:applyQliroOrderStatus\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Api\\Client\\MerchantInterface\:\:getOrder\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \#2 \$qliroOrder of method Qliro\\QliroOne\\Model\\Management\\Payment\:\:createPaymentTransaction\(\) expects Qliro\\QliroOne\\Api\\Data\\QliroOrderInterface, Qliro\\QliroOne\\Api\\Data\\AdminOrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Parameter \$quoteFromOrderConverter of method Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:__construct\(\) has invalid type Qliro\\QliroOne\\Model\\Management\\QuoteFromOrderConverter\.$#'
+			identifier: class.notFound
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:\$orderPlacer is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\PlaceRecurringOrder\:\:\$recurringDataService is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Variable \$order might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Variable \$orderId on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Variable \$qliroOrderId on left side of \?\? is never defined\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: Model/Management/PlaceRecurringOrder.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:getLinkFromQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:recalculateAndSaveQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:update\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 3
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\QliroOrder\:\:\$qliroConfig is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\QliroOrder\:\:\$updateRequestBuilder is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Psr\\Http\\Message\\ResponseInterface\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: Model/Management/QliroOrder.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 2
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\Quote\:\:buildUpdateRequest\(\) has invalid return type Qliro\\QliroOne\\Api\\Data\\UpdateRequestInterface\.$#'
+			identifier: class.notFound
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Management\\Quote\:\:buildUpdateRequest\(\) should return array\{string\|null, Qliro\\QliroOne\\Api\\Data\\UpdateRequestInterface\} but returns array\{non\-falsy\-string\|null, Qliro\\QliroOne\\Api\\Data\\QliroOrderUpdateRequestInterface\}\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#1 \$customer of method Magento\\Quote\\Model\\Quote\:\:assignCustomerWithAddressChange\(\) expects Magento\\Customer\\Api\\Data\\CustomerInterface, Magento\\Framework\\Api\\ExtensibleDataInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#1 \$orderId of method Qliro\\QliroOne\\Model\\Management\\Quote\:\:update\(\) expects int\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#2 \$qliroOrderUpdateRequest of method Qliro\\QliroOne\\Api\\Client\\MerchantInterface\:\:updateOrder\(\) expects Qliro\\QliroOne\\Api\\Data\\QliroOrderUpdateRequestInterface, Qliro\\QliroOne\\Api\\Data\\UpdateRequestInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#2 \$value of method Magento\\Customer\\Model\\Address\\AbstractAddress\:\:setData\(\) expects array\|string\|null, float\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\Quote\:\:\$fee is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 2
+			path: Model/Management/Quote.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Service\\RecurringPayments\\Data\:\:orderGetter\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/SavedCreditCard.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Service\\RecurringPayments\\Data\:\:orderSetter\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/SavedCreditCard.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Api\\LinkRepositoryInterface\:\:getByQliroOrderId\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/SavedCreditCard.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/SavedCreditCard.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:recalculateAndSaveQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/ShippingMethod.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:updateReceivedAmount\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Management/ShippingMethod.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/ShippingMethod.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/ShippingMethod.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/ShippingMethod.php
+
+		-
+			message: '#^Call to method handle\(\) on an unknown class Qliro\\QliroOne\\Model\\Management\\OrderManagementStatus\\Update\\HandlerPool\.$#'
+			identifier: class.notFound
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 2
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\ResourceModel\\Lock\:\:lock\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Model\\ResourceModel\\Lock\:\:unlock\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\TransactionStatus\:\:\$eventManager is unused\.$#'
+			identifier: property.unused
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\TransactionStatus\:\:\$statusUpdateHandlerPool \(Qliro\\QliroOne\\Model\\Management\\OrderManagementStatus\\Update\\HandlerPool\) does not accept Qliro\\QliroOne\\Model\\OrderManagementStatus\\Update\\HandlerPool\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Management\\TransactionStatus\:\:\$statusUpdateHandlerPool has unknown class Qliro\\QliroOne\\Model\\Management\\OrderManagementStatus\\Update\\HandlerPool as its type\.$#'
+			identifier: class.notFound
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Variable \$qliroOrderId might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: Model/Management/TransactionStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\MerchantPayment\\Builder\\CreateRequestBuilder\:\:\$invoiceFeeHandler is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/MerchantPayment/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\MerchantPayment\\Builder\\CreateRequestBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\|null\) does not accept Magento\\Quote\\Api\\Data\\CartInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/MerchantPayment/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: Model/MerchantPayment/Builder/PaymentMethodBuilder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:assignData\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:cancel\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:capture\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:initialize\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:refund\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:validate\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\:\:void\(\) should return \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\) but returns Magento\\Payment\\Model\\Method\\Adapter\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 2
+			path: Model/Method/QliroOne.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Method/QliroOne/Cancel.php
+
+		-
+			message: '#^Parameter \#1 \$qliroOrderId of method Qliro\\QliroOne\\Api\\ManagementInterface\:\:cancelQliroOrder\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Method/QliroOne/Cancel.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Method/QliroOne/Cancel.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Payment\\Model\\InfoInterface\:\:getOrder\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Method/QliroOne/Capture.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Method\\QliroOne\\Capture\:\:execute\(\) should return Magento\\Payment\\Gateway\\Command\\ResultInterface\|null but returns \$this\(Qliro\\QliroOne\\Model\\Method\\QliroOne\\Capture\)\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Method/QliroOne/Capture.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Model/Method/QliroOne/Capture.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Newsletter/Subscription.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Magento\\Framework\\Exception\\LocalizedException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Newsletter/Subscription.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Notification\\QliroOrderManagementStatus\:\:getAmount\(\) should return float but returns string\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Notification/QliroOrderManagementStatus.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Notification\\QliroOrderManagementStatus\:\:\$amount \(string\) does not accept float\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/Notification/QliroOrderManagementStatus.php
+
+		-
+			message: '#^PHPDoc tag @SuppressWarnings has invalid value \(\(PHPMD\.CyclomaticComplexity\)\)\: Unexpected token "\.CyclomaticComplexity\)", expected ''\)'' at offset 135 on line 6$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Model/Order/OrderPlacer.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Order\\OrderPlacer\:\:\$cartManagement is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Order/OrderPlacer.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Order\\OrderPlacer\:\:\$eventManager is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Order/OrderPlacer.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Order\\OrderPlacer\:\:\$quoteRepository is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Order/OrderPlacer.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderInterface\:\:getShippingAddress\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Order/OrganizationNumber.php
+
+		-
+			message: '#^Cannot cast array\<string\> to string\.$#'
+			identifier: cast.string
+			count: 1
+			path: Model/Order/PlacedOrderFinder.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Order/PlacedOrderFinder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Order\\PlacedOrderFinder\:\:find\(\) should return Magento\\Sales\\Model\\Order\|null but returns Magento\\Sales\\Api\\Data\\OrderInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Order/PlacedOrderFinder.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Order/Total/Creditmemo/Fee.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Order/Total/Creditmemo/Fee.php
+
+		-
+			message: '#^Offset ''PricePerItemIncVat'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/Order/Total/Creditmemo/Fee.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Order/Total/Invoice/Fee.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/Order/Total/Invoice/Fee.php
+
+		-
+			message: '#^Offset ''PricePerItemIncVat'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/Order/Total/Invoice/Fee.php
+
+		-
+			message: '#^PHPDoc tag @var above a method has no effect\.$#'
+			identifier: varTag.misplaced
+			count: 6
+			path: Model/OrderManagementStatus.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Model/OrderManagementStatus/CaptureReconciler.php
+
+		-
+			message: '#^Parameter \#1 \$items of method Qliro\\QliroOne\\Api\\OrderManagementStatusSearchResultInterface\:\:setItems\(\) expects array\<Qliro\\QliroOne\\Api\\Data\\OrderManagementStatusInterface\>, array\<Magento\\Framework\\DataObject\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Repository.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Magento\\Framework\\Model\\ResourceModel\\Db\\AbstractDb\:\:delete\(\) expects Magento\\Framework\\Model\\AbstractModel, Qliro\\QliroOne\\Api\\Data\\OrderManagementStatusInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Repository.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Magento\\Framework\\Model\\ResourceModel\\Db\\AbstractDb\:\:save\(\) expects Magento\\Framework\\Model\\AbstractModel, Qliro\\QliroOne\\Api\\Data\\OrderManagementStatusInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Repository.php
+
+		-
+			message: '#^Parameter \#2 \$field of method Qliro\\QliroOne\\Model\\OrderManagementStatus\\Repository\:\:getByField\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Repository.php
+
+		-
+			message: '#^Return type \(Qliro\\QliroOne\\Model\\ResourceModel\\OrderManagementStatus\) of method Qliro\\QliroOne\\Model\\OrderManagementStatus\\Repository\:\:delete\(\) should be compatible with return type \(\$this\(Qliro\\QliroOne\\Api\\OrderManagementStatusRepositoryInterface\)\) of method Qliro\\QliroOne\\Api\\OrderManagementStatusRepositoryInterface\:\:delete\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/OrderManagementStatus/Repository.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:unsAdditionalInformation\(\)\.$#'
+			identifier: method.notFound
+			count: 4
+			path: Model/OrderManagementStatus/Update/CaptureHold.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 2
+			path: Model/OrderManagementStatus/Update/CaptureHold.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) invoked with 2 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 4
+			path: Model/OrderManagementStatus/Update/CaptureHold.php
+
+		-
+			message: '#^Parameter \#1 \$additionalInformation of method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setAdditionalInformation\(\) expects array\<string\>, string given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Model/OrderManagementStatus/Update/CaptureHold.php
+
+		-
+			message: '#^Parameter \#1 \$comment of method Magento\\Sales\\Model\\Order\:\:addStatusHistoryComment\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 8
+			path: Model/OrderManagementStatus/Update/CaptureHold.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\TransactionRepositoryInterface\:\:getByTransactionId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/OrderManagementStatus/Update/CaptureTransactionUpdater.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/CaptureTransactionUpdater.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getOrder\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Model/OrderManagementStatus/Update/Handler/AddItemsToInvoice.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/OrderManagementStatus/Update/Handler/AddItemsToInvoice.php
+
+		-
+			message: '#^Parameter \#1 \$payment of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\CaptureRefundAllocator\:\:registerRefundForCapture\(\) expects Magento\\Sales\\Model\\Order\\Payment, Magento\\Sales\\Api\\Data\\OrderPaymentInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/AddItemsToInvoice.php
+
+		-
+			message: '#^Parameter \#1 \$payment of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\SequentialRefundProcessor\:\:abort\(\) expects Magento\\Sales\\Model\\Order\\Payment, Magento\\Sales\\Api\\Data\\OrderPaymentInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/AddItemsToInvoice.php
+
+		-
+			message: '#^Parameter \#1 \$payment of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\SequentialRefundProcessor\:\:continueQueue\(\) expects Magento\\Sales\\Model\\Order\\Payment, Magento\\Sales\\Api\\Data\\OrderPaymentInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/AddItemsToInvoice.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\OrderManagementStatus\\Update\\Handler\\Payment\:\:getPayment\(\) should return Magento\\Sales\\Model\\Order\\Payment but returns Magento\\Sales\\Api\\Data\\OrderPaymentInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$comment of method Magento\\Sales\\Model\\Order\:\:addStatusHistoryComment\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Model/OrderManagementStatus/Update/Handler/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/OrderManagementStatus/Update/Handler/Payment.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Payment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setData\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:setTransactionId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\OrderManagementStatus\\Update\\Handler\\Shipment\:\:getShipment\(\) should return Magento\\Sales\\Model\\Order\\Shipment but returns Magento\\Sales\\Api\\Data\\ShipmentInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Parameter \#1 \$comment of method Magento\\Sales\\Model\\Order\:\:addStatusHistoryComment\(\) expects string, Magento\\Framework\\Phrase given\.$#'
+			identifier: argument.type
+			count: 4
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/Handler/Shipment.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/OrderManagementStatus/Update/HandlerPool.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: Model/OrderManagementStatus/Update/HandlerPool.php
+
+		-
+			message: '#^Variable \$type might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: Model/OrderManagementStatus/Update/HandlerPool.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Product\\ProductPool\:\:getProduct\(\) should return Magento\\Catalog\\Model\\Product but returns Magento\\Catalog\\Api\\Data\\ProductInterface\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Product/ProductPool.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Product\\ProductPool\:\:\$products \(array\<Magento\\Catalog\\Model\\Product\>\) does not accept array\<Magento\\Catalog\\Api\\Data\\ProductInterface\>\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/Product/ProductPool.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\BundleHandler\:\:preparePrice\(\) with return type void returns float but should not return anything\.$#'
+			identifier: return.void
+			count: 2
+			path: Model/Product/Type/Handler/BundleHandler.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\BundleHandler\:\:preparePrice\(\) with return type void returns int but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: Model/Product/Type/Handler/BundleHandler.php
+
+		-
+			message: '#^Return type \(float\) of method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\BundleHandler\:\:prepareQuantity\(\) should be compatible with return type \(int\) of method Qliro\\QliroOne\\Api\\Product\\TypeHandlerInterface\:\:prepareQuantity\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/Product/Type/Handler/BundleHandler.php
+
+		-
+			message: '#^Return type \(float\) of method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\BundleHandler\:\:prepareQuantity\(\) should be compatible with return type \(int\) of method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\DefaultHandler\:\:prepareQuantity\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/Product/Type/Handler/BundleHandler.php
+
+		-
+			message: '#^Return type \(void\) of method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\BundleHandler\:\:preparePrice\(\) should be compatible with return type \(float\) of method Qliro\\QliroOne\\Api\\Product\\TypeHandlerInterface\:\:preparePrice\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/Product/Type/Handler/BundleHandler.php
+
+		-
+			message: '#^Return type \(void\) of method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\BundleHandler\:\:preparePrice\(\) should be compatible with return type \(float\) of method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\DefaultHandler\:\:preparePrice\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/Product/Type/Handler/BundleHandler.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\ConfigurableHandler\:\:prepareQuantity\(\) should return int but returns float\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Product/Type/Handler/ConfigurableHandler.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\Product\\Type\\Handler\\DefaultHandler\:\:prepareQuantity\(\) should return int but returns float\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/Product/Type/Handler/DefaultHandler.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderItemInterface\:\:getProduct\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Product/Type/OrderSourceProvider.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: Model/Product/Type/OrderSourceProvider.php
+
+		-
+			message: '#^Parameter \#1 \$item of method Qliro\\QliroOne\\Model\\Product\\Type\\OrderSourceProvider\:\:generateSourceItem\(\) expects Magento\\Sales\\Model\\Order\\Item, Magento\\Framework\\DataObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Product/Type/OrderSourceProvider.php
+
+		-
+			message: '#^Parameter \#1 \$item of method Qliro\\QliroOne\\Model\\Product\\Type\\OrderSourceProvider\:\:generateSourceItem\(\) expects Magento\\Sales\\Model\\Order\\Item, Magento\\Sales\\Api\\Data\\OrderItemInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Product/Type/OrderSourceProvider.php
+
+		-
+			message: '#^Parameter \#1 \$item of method Qliro\\QliroOne\\Model\\Product\\Type\\OrderSourceProvider\:\:hasProducts\(\) expects Magento\\Sales\\Model\\Order\\Item, Magento\\Framework\\DataObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Product/Type/OrderSourceProvider.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: Model/Product/Type/QuoteSourceProvider.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/Product/Type/QuoteSourceProvider.php
+
+		-
+			message: '#^Parameter \#1 \$itemId of method Magento\\Quote\\Model\\Quote\:\:getItemById\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Product/Type/QuoteSourceProvider.php
+
+		-
+			message: '#^Using nullsafe method call on non\-nullable type Magento\\Catalog\\Model\\Product\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: Model/Product/Type/QuoteSourceProvider.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\Product\\Type\\TypeResolver\:\:\$productPool is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/Product/Type/TypeResolver.php
+
+		-
+			message: '#^Parameter \#3 \$customerTaxClass of method Magento\\Tax\\Model\\Calculation\:\:getRateRequest\(\) expects int\|null, false given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Product/VatRate.php
+
+		-
+			message: '#^Parameter \#4 \$store of method Magento\\Tax\\Model\\Calculation\:\:getRateRequest\(\) expects int\|Magento\\Store\\Model\\Store\|null, Magento\\Store\\Api\\Data\\StoreInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Product/VatRate.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Magento\\Framework\\Exception\\NoSuchEntityException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/AddItemsToInvoiceBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\AddItemsToInvoiceBuilder\:\:\$payment \(Magento\\Sales\\Model\\Order\\Payment\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/AddItemsToInvoiceBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\AddItemsToInvoiceBuilder\:\:\$payment \(Magento\\Sales\\Model\\Order\\Payment\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/AddItemsToInvoiceBuilder.php
+
+		-
+			message: '#^Argument of an invalid type string supplied for foreach, only iterables are supported\.$#'
+			identifier: foreach.nonIterable
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 3
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^If condition is always false\.$#'
+			identifier: if.alwaysFalse
+			count: 2
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Left side of && is always false\.$#'
+			identifier: booleanAnd.leftAlwaysFalse
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 3
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Offset string on non\-falsy\-string in isset\(\) does not exist\.$#'
+			identifier: isset.offset
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Result of && is always false\.$#'
+			identifier: booleanAnd.alwaysFalse
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Offset ''Description'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Offset ''MerchantReference'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Offset ''PricePerItemExVat'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Offset ''PricePerItemIncVat'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Offset ''Quantity'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Offset ''Type'' does not exist on string\.$#'
+			identifier: offsetAccess.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Parameter \#1 \$qlirooneFee of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\Handler\\InvoiceFeeHandler\:\:getVatRate\(\) expects array, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/InvoiceFeeHandler.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/RoundingAdjustmentHandler.php
+
+		-
+			message: '#^Parameter \#1 \$adjustment of method Qliro\\QliroOne\\Model\\QliroOrder\\RoundingAdjustment\:\:buildItem\(\) expects array\{incVat\: float, exVat\: float, vatRate\: float, description\: string\}, array\<string\> given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/Handler/RoundingAdjustmentHandler.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Magento\\Framework\\Exception\\NoSuchEntityException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Api\\Data\\AdminMarkItemsAsShippedRequestInterface\:\:setOrderId\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceMarkItemsAsShippedRequestBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceMarkItemsAsShippedRequestBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceMarkItemsAsShippedRequestBuilder\:\:\$payment \(Magento\\Sales\\Model\\Order\\Payment\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Undefined variable\: \$link$#'
+			identifier: variable.undefined
+			count: 3
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Variable \$order in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Instanceof between Qliro\\QliroOne\\Api\\Admin\\Builder\\OrderItemHandlerInterface and Qliro\\QliroOne\\Api\\Admin\\Builder\\OrderItemHandlerInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceShipmentsBuilder\:\:\$invoice \(Magento\\Sales\\Model\\Order\\Invoice\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceShipmentsBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceShipmentsBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\InvoiceShipmentsBuilder\:\:\$payment \(Magento\\Sales\\Model\\Order\\Payment\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Variable \$invoice in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Variable \$order in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/InvoiceShipmentsBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Magento\\Framework\\Exception\\NoSuchEntityException given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Api\\Data\\AdminMarkItemsAsShippedRequestInterface\:\:setOrderId\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentMarkItemsAsShippedRequestBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentMarkItemsAsShippedRequestBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentMarkItemsAsShippedRequestBuilder\:\:\$payment \(Magento\\Sales\\Model\\Order\\Payment\) does not accept Magento\\Sales\\Api\\Data\\OrderPaymentInterface\|null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentMarkItemsAsShippedRequestBuilder\:\:\$payment \(Magento\\Sales\\Model\\Order\\Payment\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentMarkItemsAsShippedRequestBuilder\:\:\$payment is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentMarkItemsAsShippedRequestBuilder\:\:\$shipment \(Magento\\Sales\\Model\\Order\\Shipment\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Undefined variable\: \$link$#'
+			identifier: variable.undefined
+			count: 3
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Variable \$order in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Variable \$payment in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentMarkItemsAsShippedRequestBuilder.php
+
+		-
+			message: '#^Instanceof between Qliro\\QliroOne\\Api\\Admin\\Builder\\OrderItemHandlerInterface and Qliro\\QliroOne\\Api\\Admin\\Builder\\OrderItemHandlerInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentShipmentsBuilder.php
+
+		-
+			message: '#^PHPDoc tag @return has invalid value \(\\Qliro\\QliroOne\\Api\\Data\\QliroShipmentInterface\[\];\)\: Unexpected token ";", expected TOKEN_HORIZONTAL_WS at offset 112 on line 4$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentShipmentsBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentShipmentsBuilder\:\:\$order \(Magento\\Sales\\Model\\Order\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentShipmentsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\Builder\\ShipmentShipmentsBuilder\:\:\$shipment \(Magento\\Sales\\Model\\Order\\Shipment\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentShipmentsBuilder.php
+
+		-
+			message: '#^Variable \$order in PHPDoc tag @var does not exist\.$#'
+			identifier: varTag.variableNotFound
+			count: 1
+			path: Model/QliroOrder/Admin/Builder/ShipmentShipmentsBuilder.php
+
+		-
+			message: '#^Call to function is_array\(\) with array\<string\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/QliroOrder/Admin/BundleChildren.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 2
+			path: Model/QliroOrder/Admin/BundleChildren.php
+
+		-
+			message: '#^Parameter \#1 \$bundle of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\BundleChildren\:\:shares\(\) expects Magento\\Sales\\Model\\Order\\Item, Magento\\Framework\\DataObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/BundleChildren.php
+
+		-
+			message: '#^Parameter \#1 \$item of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\BundleChildren\:\:isPricedByChildren\(\) expects Magento\\Sales\\Model\\Order\\Item\|null, Magento\\Framework\\DataObject given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/BundleChildren.php
+
+		-
+			message: '#^Parameter \#1 \$item of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\BundleChildren\:\:isPricedByChildren\(\) expects Magento\\Sales\\Model\\Order\\Item\|null, Magento\\Framework\\DataObject\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/BundleChildren.php
+
+		-
+			message: '#^Parameter \#1 \$item of method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\BundleChildren\:\:isPricedChild\(\) expects Magento\\Sales\\Model\\Order\\Item, Magento\\Framework\\DataObject given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/QliroOrder/Admin/BundleChildren.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\TransactionRepositoryInterface\:\:getByTransactionId\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/CaptureRefundAllocator.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/CaptureRefundAllocator.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\CreditmemoInterface\:\:getInvoice\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Admin/CreditMemo/InvoiceFeeTotalValidator.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\CreditmemoInterface\:\:getOrder\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Model/QliroOrder/Admin/CreditMemo/InvoiceFeeTotalValidator.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Model/QliroOrder/Admin/CreditMemo/InvoiceFeeTotalValidator.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\MarkItemsAsShippedRequest\:\:setShipments\(\) with return type void returns \$this\(Qliro\\QliroOne\\Model\\QliroOrder\\Admin\\MarkItemsAsShippedRequest\) but should not return anything\.$#'
+			identifier: return.void
+			count: 1
+			path: Model/QliroOrder/Admin/MarkItemsAsShippedRequest.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:debug\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/SequentialRefundProcessor.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\OrderManagementStatus\:\:setQliroOrderId\(\) expects int, string\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Admin/SequentialRefundProcessor.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$countrySelect$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$customer of method Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CustomerBuilder\:\:setCustomer\(\) expects Magento\\Customer\\Api\\Data\\CustomerInterface\|null, Magento\\Framework\\Api\\ExtensibleDataInterface\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Api\\Data\\QliroOrderCreateRequestInterface\:\:setMinimumCustomerAge\(\) expects int, true\|null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CreateRequestBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept Magento\\Quote\\Api\\Data\\CartInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CreateRequestBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CreateRequestBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CreateRequestBuilder\:\:\$shippingMethodFactory is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/CreateRequestBuilder.php
+
+		-
+			message: '#^Instanceof between Magento\\Sales\\Model\\Order and Magento\\Sales\\Model\\Order will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/CreditMemoItemsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CreditMemoItemsBuilder\:\:\$creditMemo \(Magento\\Sales\\Api\\Data\\CreditmemoInterface\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/CreditMemoItemsBuilder.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/CreditMemoItemsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CustomerAddressBuilder\:\:\$address \(Magento\\Customer\\Model\\Address\\AbstractAddress\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerAddressBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CustomerAddressBuilder\:\:\$address \(Magento\\Customer\\Model\\Address\\AbstractAddress\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerAddressBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CustomerAddressBuilder\:\:\$orderCustomerAddressFactory \(Qliro\\QliroOne\\Api\\Data\\QliroOrderCustomerInterfaceFactory\) does not accept Qliro\\QliroOne\\Api\\Data\\QliroOrderCustomerAddressInterfaceFactory\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerAddressBuilder.php
+
+		-
+			message: '#^Call to function is_object\(\) with Magento\\Customer\\Api\\Data\\CustomerInterface will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 3
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$modelId of method Magento\\Framework\\Model\\AbstractModel\:\:load\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CustomerBuilder\:\:\$customer \(Magento\\Customer\\Api\\Data\\CustomerInterface\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 3
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\CustomerBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 3
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Right side of \|\| is always true\.$#'
+			identifier: booleanOr.rightAlwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: Model/QliroOrder/Builder/CustomerBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\FeeBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/FeeBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\FeeBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/FeeBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$itemId of method Magento\\Quote\\Model\\Quote\:\:getItemById\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/Handler/AppliedRulesHandler.php
+
+		-
+			message: '#^Instanceof between Qliro\\QliroOne\\Api\\Builder\\OrderItemHandlerInterface and Qliro\\QliroOne\\Api\\Builder\\OrderItemHandlerInterface will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/OrderItemsBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Product\\Type\\QuoteSourceProvider\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/OrderItemsBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Model\\Product\\Type\\QuoteSourceProvider\:\:setQuote\(\) expects Magento\\Quote\\Model\\Quote, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/OrderItemsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\OrderItemsBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept Magento\\Quote\\Api\\Data\\CartInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/OrderItemsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\OrderItemsBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/OrderItemsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\OrderItemsBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/OrderItemsBuilder.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingConfigBuilder\:\:create\(\) should return Qliro\\QliroOne\\Api\\Data\\QliroOrderShippingConfigInterface but returns null\.$#'
+			identifier: return.type
+			count: 2
+			path: Model/QliroOrder/Builder/ShippingConfigBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingConfigBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingConfigBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingConfigBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingConfigBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingConfigUnifaunBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingConfigUnifaunBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingConfigUnifaunBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingConfigUnifaunBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$priceExVat of method Qliro\\QliroOne\\Api\\Data\\QliroOrderShippingMethodInterface\:\:setPriceExVat\(\) expects float, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$priceIncVat of method Qliro\\QliroOne\\Api\\Data\\QliroOrderShippingMethodInterface\:\:setPriceIncVat\(\) expects float, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Parameter \#3 \$shippingAddress of method Magento\\Tax\\Helper\\Data\:\:getShippingPrice\(\) expects Magento\\Customer\\Model\\Address\|null, Magento\\Quote\\Model\\Quote\\Address given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingMethodBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingMethodBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingMethodBuilder\:\:\$rate \(Magento\\Quote\\Model\\Quote\\Address\\Rate\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingMethodBuilder\:\:\$rate \(Magento\\Quote\\Model\\Quote\\Address\\Rate\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodBuilder.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Store\\Api\\Data\\StoreInterface\:\:getBaseCurrencyCode\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodsBuilder.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Store\\Api\\Data\\StoreInterface\:\:getCurrentCurrencyCode\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodsBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Throwable given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/QliroOrder/Builder/ShippingMethodsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingMethodsBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodsBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingMethodsBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodsBuilder.php
+
+		-
+			message: '#^Variable \$storeInfo in empty\(\) always exists and is not falsy\.$#'
+			identifier: empty.variable
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingMethodsBuilder.php
+
+		-
+			message: '#^Parameter \#3 \$shippingAddress of method Magento\\Tax\\Helper\\Data\:\:getShippingPrice\(\) expects Magento\\Customer\\Model\\Address\|null, Magento\\Quote\\Model\\Quote\\Address given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/QliroOrder/Builder/ShippingOrderItemBuilder.php
+
+		-
+			message: '#^Parameter \#3 \$storeId of method Magento\\Tax\\Api\\TaxCalculationInterface\:\:getCalculatedRate\(\) expects string\|null, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingOrderItemBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingOrderItemBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingOrderItemBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ShippingOrderItemBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ShippingOrderItemBuilder.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Builder/UpdateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\UpdateRequestBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept Magento\\Quote\\Api\\Data\\CartInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/UpdateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\UpdateRequestBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/UpdateRequestBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\UpdateRequestBuilder\:\:\$scopeConfig is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/QliroOrder/Builder/UpdateRequestBuilder.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Api\\Data\\ValidateOrderResponseInterface\:\:setDeclineReason\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ValidateOrderBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept Magento\\Quote\\Api\\Data\\CartInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ValidateOrderBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 8
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ValidateOrderBuilder\:\:\$quote \(Magento\\Quote\\Model\\Quote\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ValidateOrderBuilder\:\:\$validationRequest \(Qliro\\QliroOne\\Api\\Data\\ValidateOrderNotificationInterface\) does not accept null\.$#'
+			identifier: assign.propertyType
+			count: 8
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Builder\\ValidateOrderBuilder\:\:\$validationRequest \(Qliro\\QliroOne\\Api\\Data\\ValidateOrderNotificationInterface\) in empty\(\) is not falsy\.$#'
+			identifier: empty.property
+			count: 1
+			path: Model/QliroOrder/Builder/ValidateOrderBuilder.php
+
+		-
+			message: '#^Call to function is_array\(\) with string will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 1
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\Converter\\AddressConverter\:\:getStreetWithCareOf\(\) never returns array\<string\> so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\Converter\\AddressConverter\:\:getStreetWithCareOf\(\) never returns null so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Parameter \#1 \$region of method Magento\\Quote\\Model\\Quote\\Address\:\:setRegion\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Parameter \#1 \$regionId of method Magento\\Quote\\Model\\Quote\\Address\:\:setRegionId\(\) expects int, null given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Parameter \#2 \$callback of function array_filter expects \(callable\(string\)\: bool\)\|null, ''strlen'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Ternary operator condition is always true\.$#'
+			identifier: ternary.alwaysTrue
+			count: 8
+			path: Model/QliroOrder/Converter/AddressConverter.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\Api\\ExtensibleDataInterface\:\:getEmail\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Converter/CustomerConverter.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\Api\\ExtensibleDataInterface\:\:setData\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Converter/CustomerConverter.php
+
+		-
+			message: '#^Expression on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.expr
+			count: 1
+			path: Model/QliroOrder/Converter/CustomerConverter.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 2
+			path: Model/QliroOrder/Converter/CustomerConverter.php
+
+		-
+			message: '#^Parameter \#1 \$sameAsBilling of method Magento\\Quote\\Model\\Quote\\Address\:\:setSameAsBilling\(\) expects int, bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Converter/CustomerConverter.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: Model/QliroOrder/Converter/CustomerConverter.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\Converter\\OrderItemsConverter\:\:\$fee is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Model/QliroOrder/Converter/OrderItemsConverter.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\Api\\ExtensibleDataInterface\:\:getEmail\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Converter/QuoteFromOrderConverter.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Converter/QuoteFromOrderConverter.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: Model/QliroOrder/Converter/QuoteFromOrderConverter.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Model/QliroOrder/Converter/QuoteFromShippingMethodsConverter.php
+
+		-
+			message: '#^Parameter \#1 \$sameAsBilling of method Magento\\Quote\\Model\\Quote\\Address\:\:setSameAsBilling\(\) expects int, bool given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/Converter/QuoteFromShippingMethodsConverter.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: Model/QliroOrder/Converter/QuoteFromShippingMethodsConverter.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\Api\\ExtensibleDataInterface\:\:getEmail\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/QliroOrder/Converter/RecurringQuoteFromOrderConverter.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/Converter/RecurringQuoteFromOrderConverter.php
+
+		-
+			message: '#^Right side of && is always true\.$#'
+			identifier: booleanAnd.rightAlwaysTrue
+			count: 1
+			path: Model/QliroOrder/Converter/RecurringQuoteFromOrderConverter.php
+
+		-
+			message: '#^Left side of && is always false\.$#'
+			identifier: booleanAnd.leftAlwaysFalse
+			count: 6
+			path: Model/QliroOrder/CreateRequest.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$askForNewsletterSignup$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Model/QliroOrder/CreateRequest.php
+
+		-
+			message: '#^Parameter \#1 \$availableShippingMethods \(string\) of method Qliro\\QliroOne\\Model\\QliroOrder\\CreateRequest\:\:setAvailableShippingMethods\(\) should be compatible with parameter \$value \(array\) of method Qliro\\QliroOne\\Api\\Data\\QliroOrderCreateRequestInterface\:\:setAvailableShippingMethods\(\)$#'
+			identifier: method.childParameterType
+			count: 1
+			path: Model/QliroOrder/CreateRequest.php
+
+		-
+			message: '#^Parameter \#1 \$reservedOrderId of method Magento\\Quote\\Model\\Quote\:\:setReservedOrderId\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/QliroOrder/HashResolver/IncrementIdHashResolver.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/QliroOrder/LineReference.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between int and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/ReferenceHashResolver.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Model/QliroOrder/ReservationFormat.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\ReservationFormat\:\:readFromReservation\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: Model/QliroOrder/ReservationFormat.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between array\<string\> and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/ReservationFormat.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between int and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: Model/QliroOrder/ReservationFormat.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: Model/QliroOrder/ReservationFormat.php
+
+		-
+			message: '#^Offset ''description'' on array\{incVat\: float, exVat\: float, vatRate\: float, description\: string\} on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: Model/QliroOrder/RoundingAdjustment.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between Magento\\Quote\\Model\\Quote\\Payment and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: Model/QliroOrder/RoundingAdjustmentStamp.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/QliroOrder/ShippingMethod.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\UpdateRequest\:\:getRequireIdentityVerification\(\) should return bool but returns string\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/QliroOrder/UpdateRequest.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\QliroOrder\\UpdateRequest\:\:setShippingConfiguration\(\) should return Qliro\\QliroOne\\Model\\QliroOrder\\CreateRequest but returns \$this\(Qliro\\QliroOne\\Model\\QliroOrder\\UpdateRequest\)\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/QliroOrder/UpdateRequest.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\UpdateRequest\:\:\$availableShippingMethods \(string\) does not accept array\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/UpdateRequest.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Model\\QliroOrder\\UpdateRequest\:\:\$requireIdentityVerification \(string\) does not accept bool\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: Model/QliroOrder/UpdateRequest.php
+
+		-
+			message: '#^Return type \(Qliro\\QliroOne\\Model\\QliroOrder\\CreateRequest\) of method Qliro\\QliroOne\\Model\\QliroOrder\\UpdateRequest\:\:setShippingConfiguration\(\) should be compatible with return type \(\$this\(Qliro\\QliroOne\\Api\\Data\\QliroOrderUpdateRequestInterface\)\) of method Qliro\\QliroOne\\Api\\Data\\QliroOrderUpdateRequestInterface\:\:setShippingConfiguration\(\)$#'
+			identifier: method.childReturnType
+			count: 1
+			path: Model/QliroOrder/UpdateRequest.php
+
+		-
+			message: '#^If condition is always true\.$#'
+			identifier: if.alwaysTrue
+			count: 1
+			path: Model/Quote/Agent.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Model/Quote/Agent.php
+
+		-
+			message: '#^Parameter \#1 \$message of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:critical\(\) expects string, Exception given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/Quote/Agent.php
+
+		-
+			message: '#^Parameter \#1 \$value of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMerchantReference\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Quote/Agent.php
+
+		-
+			message: '#^Parameter \#2 \$value of method Magento\\Framework\\Stdlib\\CookieManagerInterface\:\:setPublicCookie\(\) expects string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Quote/Agent.php
+
+		-
+			message: '#^Left side of && is always true\.$#'
+			identifier: booleanAnd.leftAlwaysTrue
+			count: 2
+			path: Model/Quote/GuestEmail.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\RecurringInfoRepository\:\:getByTodaysDate\(\) should return array\<Qliro\\QliroOne\\Api\\Data\\RecurringInfoInterface\> but returns array\<Magento\\Framework\\DataObject\>\.$#'
+			identifier: return.type
+			count: 1
+			path: Model/RecurringInfoRepository.php
+
+		-
+			message: '#^Parameter \#1 \$object of method Magento\\Framework\\Model\\ResourceModel\\Db\\AbstractDb\:\:save\(\) expects Magento\\Framework\\Model\\AbstractModel, Qliro\\QliroOne\\Api\\Data\\RecurringInfoInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/RecurringInfoRepository.php
+
+		-
+			message: '#^Parameter \#2 \$condition of method Magento\\Framework\\Data\\Collection\\AbstractDb\:\:addFieldToFilter\(\) expects array\|string\|null, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/RecurringInfoRepository.php
+
+		-
+			message: '#^Parameter \#2 \$value of method Magento\\Framework\\DB\\Select\:\:where\(\) expects array\|int\|string\|null, Zend_Db_Expr given\.$#'
+			identifier: argument.type
+			count: 3
+			path: Model/ResourceModel/OrderManagementStatus/UnconfirmedCaptures.php
+
+		-
+			message: '#^Instanceof between Magento\\Quote\\Model\\Quote and Magento\\Quote\\Model\\Quote will always evaluate to true\.$#'
+			identifier: instanceof.alwaysTrue
+			count: 1
+			path: Model/Security/AjaxToken.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Security/CallbackToken.php
+
+		-
+			message: '#^Call to function is_string\(\) with string will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: Model/Security/CallbackToken.php
+
+		-
+			message: '#^Parameter \#1 \$mark of method Qliro\\QliroOne\\Model\\Logger\\Manager\:\:setMark\(\) expects string, null given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Model/Security/CallbackToken.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: Model/Security/Jwt.php
+
+		-
+			message: '#^Result of \|\| is always false\.$#'
+			identifier: booleanOr.alwaysFalse
+			count: 1
+			path: Model/Security/Jwt.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between array and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: Model/Security/Jwt.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Quote\\Api\\Data\\CartInterface\:\:getAllItems\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Model/Stock/QuoteLines.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\System\\Config\\Backend\\Recurring\\FrequencyOptions\:\:_afterLoad\(\) should return \$this\(Qliro\\QliroOne\\Model\\System\\Config\\Backend\\Recurring\\FrequencyOptions\) but empty return statement found\.$#'
+			identifier: return.empty
+			count: 1
+			path: Model/System/Config/Backend/Recurring/FrequencyOptions.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\Model\\System\\Config\\Backend\\Recurring\\FrequencyOptions\:\:_afterLoad\(\) should return \$this\(Qliro\\QliroOne\\Model\\System\\Config\\Backend\\Recurring\\FrequencyOptions\) but return statement is missing\.$#'
+			identifier: return.missing
+			count: 1
+			path: Model/System/Config/Backend/Recurring/FrequencyOptions.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Observer/CheckoutQuoteItemsLimitValidation.php
+
+		-
+			message: '#^Parameter \#3 \$value of method Magento\\Framework\\App\\ActionFlag\:\:set\(\) expects string, true given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Observer/CheckoutQuoteItemsLimitValidation.php
+
+		-
+			message: '#^Cannot call method setOrderIds\(\) on Magento\\Framework\\View\\Element\\BlockInterface\|true\.$#'
+			identifier: method.nonObject
+			count: 1
+			path: Observer/RepeatGoogleGtagPurchase.php
+
+		-
+			message: '#^Negated boolean expression is always false\.$#'
+			identifier: booleanNot.alwaysFalse
+			count: 1
+			path: Plugin/Adminhtml/ChangeCreditMemoTotals.php
+
+		-
+			message: '#^Call to an undefined method Qliro\\QliroOne\\Api\\ManagementInterface\:\:setQuote\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Plugin/Block/Checkout/LayoutProcessorPlugin.php
+
+		-
+			message: '#^PHPDoc tag @SuppressWarnings has invalid value \(\(PHPMD\.UnusedFormalParameter\)\)\: Unexpected token "\.UnusedFormalParameter\)", expected ''\)'' at offset 217 on line 7$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: Plugin/Controller/KeepVaryCookie.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Framework\\App\\RequestInterface\:\:getFullActionName\(\)\.$#'
+			identifier: method.notFound
+			count: 1
+			path: Plugin/Model/Type/Onepage.php
+
+		-
+			message: '#^Call to function is_array\(\) with string will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: Service/RecurringPayments/Data.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$recurringInfo$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Service/RecurringPayments/Data.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$recurringToken$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Service/RecurringPayments/Data.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: Service/RecurringPayments/Data.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: Service/RecurringPayments/Data.php
+
+		-
+			message: '#^Trait Qliro\\QliroOne\\Service\\RecurringPayments\\FrequencyOptionDisplay is used zero times and is not analysed\.$#'
+			identifier: trait.unused
+			count: 1
+			path: Service/RecurringPayments/FrequencyOptionDisplay.php
+
+		-
+			message: '#^Call to an undefined method Magento\\Sales\\Api\\Data\\OrderInterface\:\:getShippingMethod\(\)\.$#'
+			identifier: method.notFound
+			count: 2
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Method Magento\\Sales\\Api\\Data\\OrderPaymentInterface\:\:getAdditionalInformation\(\) invoked with 1 parameter, 0 required\.$#'
+			identifier: arguments.count
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$orderId with type mixed is not subtype of native type int\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$originalOrderId$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$token$#'
+			identifier: parameter.notFound
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Magento\\Sales\\Model\\AdminOrder\\Create\:\:initFromOrder\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Parameter \#1 \$order of method Qliro\\QliroOne\\Model\\Management\\CreateMerchantPayment\:\:setOrder\(\) expects Magento\\Sales\\Model\\Order, Magento\\Sales\\Api\\Data\\OrderInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Service\\RecurringPayments\\Data\:\:quoteGetter\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 2
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Parameter \#1 \$quote of method Qliro\\QliroOne\\Service\\RecurringPayments\\Data\:\:scheduleNextRecurringOrder\(\) expects Magento\\Quote\\Model\\Quote, Magento\\Quote\\Api\\Data\\CartInterface given\.$#'
+			identifier: argument.type
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Service\\RecurringPayments\\PlaceOrders\:\:\$objectCopyService is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Service\\RecurringPayments\\PlaceOrders\:\:\$personalNumber is unused\.$#'
+			identifier: property.unused
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Service\\RecurringPayments\\PlaceOrders\:\:\$qliroManagement is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Service\\RecurringPayments\\PlaceOrders\:\:\$quoteManagement is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Service\\RecurringPayments\\PlaceOrders\:\:\$shipInfoFactory is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\Service\\RecurringPayments\\PlaceOrders\:\:\$shipInfoManagement is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: Service/RecurringPayments/PlaceOrders.php
+
+		-
+			message: '#^Call to function is_array\(\) with null will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Comparison operation "\<" between 0 and 1 is always true\.$#'
+			identifier: smaller.alwaysTrue
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\ViewModel\\Adminhtml\\Order\\View\\Shipping\:\:getShippingInfoFromOrder\(\) never returns Magento\\Framework\\DataObject so it can be removed from the return type\.$#'
+			identifier: return.unusedType
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\ViewModel\\Adminhtml\\Order\\View\\Shipping\:\:toText\(\) is unused\.$#'
+			identifier: method.unused
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Offset ''payload'' on array\{\} on left side of \?\? does not exist\.$#'
+			identifier: nullCoalesce.offset
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\ViewModel\\Adminhtml\\Order\\View\\Shipping\:\:\$linkRepo is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\ViewModel\\Adminhtml\\Order\\View\\Shipping\:\:\$orderManagement is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Property Qliro\\QliroOne\\ViewModel\\Adminhtml\\Order\\View\\Shipping\:\:\$orderRepo is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Result of \|\| is always true\.$#'
+			identifier: booleanOr.alwaysTrue
+			count: 1
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 2
+			path: ViewModel/Adminhtml/Order/View/Shipping.php
+
+		-
+			message: '#^Method Qliro\\QliroOne\\ViewModel\\RecurringHistory\:\:getRecurringInfos\(\) should return array\<Qliro\\QliroOne\\Model\\RecurringInfo\> but returns array\<Magento\\Framework\\DataObject\>\.$#'
+			identifier: return.type
+			count: 1
+			path: ViewModel/RecurringHistory.php
