@@ -27,6 +27,8 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Management\Payment as PaymentManagement;
 use Qliro\QliroOne\Model\Order\StateStatus;
+use Qliro\QliroOne\Model\QliroOrder\Admin\RepeatedCapture;
+use Magento\Framework\Lock\LockManagerInterface;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
@@ -151,6 +153,8 @@ class PaymentAuthorizationStateTest extends TestCase
             $this->createMock(ReservationFormat::class),
             $this->createMock(CaptureCoverage::class),
             $this->createMock(OrderPaymentRepositoryInterface::class),
+            $this->createMock(RepeatedCapture::class),
+            $this->createMock(LockManagerInterface::class),
             new StateStatus($this->createMock(LogManager::class))
         );
     }
