@@ -34,12 +34,15 @@ use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\Order\QuoteCurrency;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
+use Qliro\QliroOne\Model\Order\StateStatus;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 
 /**
  * @see \Qliro\QliroOne\Model\Management\PlaceOrder::execute
@@ -243,6 +246,94 @@ class PlaceOrderRetryTest extends TestCase
         self::assertSame(['pin', 'convert'], $calls);
     }
 
+    /** A shipping provider update Qliro sent before the order existed is saved with the order's status */
+    public function testStoredShippingUpdateIsSavedWithTheStatusThenDropped(): void
+    {
+        $order = $this->completedOrder(37);
+        $link = $this->completedLink(5);
+
+        $calls = [];
+        $update = $this->createMock(ShippingProviderUpdate::class);
+        $update->expects(self::once())->method('applyStored')->with($order, 5)
+            ->willReturnCallback(static function () use (&$calls): bool {
+                $calls[] = 'apply';
+
+                return true;
+            });
+        $update->expects(self::once())->method('discard')->with(5)
+            ->willReturnCallback(static function () use (&$calls): void {
+                $calls[] = 'discard';
+            });
+        $orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $orderRepository->method('save')->willReturnCallback(static function ($saved) use (&$calls) {
+            $calls[] = 'save';
+
+            return $saved;
+        });
+
+        $this->placeOrder(true, null, $update, $orderRepository)->applyQliroOrderStatus($order, $link);
+
+        self::assertSame(['apply', 'save', 'discard'], $calls);
+    }
+
+    public function testFailedOrderSaveKeepsTheStoredShippingUpdate(): void
+    {
+        $order = $this->completedOrder(38);
+        $update = $this->createMock(ShippingProviderUpdate::class);
+        $update->method('applyStored')->willReturn(true);
+        $update->expects(self::never())->method('discard');
+        $orderRepository = $this->createMock(OrderRepositoryInterface::class);
+        $orderRepository->method('save')->willThrowException(new \RuntimeException('Deadlock found'));
+
+        self::assertFalse(
+            $this->placeOrder(true, null, $update, $orderRepository)
+                ->applyQliroOrderStatus($order, $this->completedLink(6))
+        );
+    }
+
+    /** Nothing saves the order on such a push, so it is left for one that does */
+    public function testInProcessPushLeavesTheStoredShippingUpdate(): void
+    {
+        $update = $this->createMock(ShippingProviderUpdate::class);
+        $update->expects(self::never())->method('applyStored');
+
+        $this->placeOrder(true, null, $update)->applyQliroOrderStatus($this->order(41), $this->link);
+    }
+
+    public function testCanceledOrderGetsNoShippingUpdate(): void
+    {
+        $order = $this->completedOrder(42);
+        $order->method('getState')->willReturn(Order::STATE_CANCELED);
+        $update = $this->createMock(ShippingProviderUpdate::class);
+        $update->expects(self::never())->method('applyStored');
+
+        $this->placeOrder(true, null, $update)->applyQliroOrderStatus($order, $this->completedLink(7));
+    }
+
+    public function testRefusedOrderGetsNoShippingUpdate(): void
+    {
+        $link = $this->createMock(LinkInterface::class);
+        $link->method('getQliroOrderStatus')->willReturn(CheckoutStatusInterface::STATUS_REFUSED);
+        $update = $this->createMock(ShippingProviderUpdate::class);
+        $update->expects(self::never())->method('applyStored');
+
+        try {
+            $this->placeOrder(true, null, $update)->applyQliroOrderStatus($this->order(40), $link);
+        } catch (\Throwable $exception) {
+            // The cancel that follows needs more than these mocks, the update is checked before it
+        }
+    }
+
+    public function testFailedShippingUpdateDoesNotFailThePlacement(): void
+    {
+        $order = $this->order(39);
+        $this->orderPlacer->method('place')->willReturn($order);
+        $update = $this->createMock(ShippingProviderUpdate::class);
+        $update->method('applyStored')->willThrowException(new \InvalidArgumentException('unreadable'));
+
+        self::assertSame($order, $this->placeOrder(true, null, $update)->execute($this->qliroOrder));
+    }
+
     public function testPlacesWithoutTheFinderForTheOldSignature(): void
     {
         $order = $this->order(34);
@@ -284,8 +375,39 @@ class PlaceOrderRetryTest extends TestCase
         return $order;
     }
 
-    private function placeOrder(bool $withFinder = true, ?QuoteCurrency $quoteCurrency = null): PlaceOrder
+    /** An order whose merchant reference Qliro already has, so completing it calls nothing */
+    private function completedOrder(int $id): Order&MockObject
     {
+        $payment = $this->createMock(\Magento\Sales\Model\Order\Payment::class);
+        $payment->method('getAdditionalInformation')->willReturnCallback(
+            static fn ($key = null) => $key === null ? ['qliroone_updated_merchant_reference' => true] : null
+        );
+        $order = $this->order($id);
+        $order->method('getPayment')->willReturn($payment);
+        $order->method('getEmailSent')->willReturn(true);
+        $orderConfig = $this->createMock(\Magento\Sales\Model\Order\Config::class);
+        $orderConfig->method('getStateDefaultStatus')->willReturn('pending');
+        $order->method('getConfig')->willReturn($orderConfig);
+
+        return $order;
+    }
+
+    /** A completed link, the order a held one would be is not involved */
+    private function completedLink(int $id): LinkInterface&MockObject
+    {
+        $link = $this->createMock(LinkInterface::class);
+        $link->method('getId')->willReturn($id);
+        $link->method('getQliroOrderStatus')->willReturn(CheckoutStatusInterface::STATUS_COMPLETED);
+
+        return $link;
+    }
+
+    private function placeOrder(
+        bool $withFinder = true,
+        ?QuoteCurrency $quoteCurrency = null,
+        ?ShippingProviderUpdate $shippingProviderUpdate = null,
+        ?OrderRepositoryInterface $orderRepository = null
+    ): PlaceOrder {
         $quoteRepository = $this->createMock(CartRepositoryInterface::class);
         $quoteRepository->method('get')->willReturn($this->quote);
 
@@ -299,7 +421,7 @@ class PlaceOrderRetryTest extends TestCase
             $this->quoteFromOrderConverter,
             $this->linkRepository,
             $quoteRepository,
-            $this->createMock(OrderRepositoryInterface::class),
+            $orderRepository ?? $this->createMock(OrderRepositoryInterface::class),
             $this->createMock(ContainerMapper::class),
             $this->createMock(LogManager::class),
             $this->orderPlacer,
@@ -314,8 +436,10 @@ class PlaceOrderRetryTest extends TestCase
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
             new LineDifferences(),
-            $quoteCurrency
+            $quoteCurrency,
+            $this->createMock(StateStatus::class),
+            merchantReference: $this->createMock(MerchantReference::class),
+            shippingProviderUpdate: $shippingProviderUpdate ?? $this->createMock(ShippingProviderUpdate::class)
         );
     }
-
 }

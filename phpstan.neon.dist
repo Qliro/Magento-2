@@ -1,0 +1,37 @@
+includes:
+    - tools/vendor/bitexpert/phpstan-magento/extension.neon
+    - phpstan-baseline.neon
+
+parameters:
+    # Raise one step at a time: fix or baseline what the next level reports, then bump this.
+    level: 5
+    # CI resolves Magento fresh, so an upstream change may make a baselined error vanish; that must not fail a PR.
+    reportUnmatchedIgnoredErrors: false
+    phpVersion:
+        min: 80200
+        max: 80599
+    bootstrapFiles:
+        - vendor/autoload.php
+    paths:
+        - Api
+        - Block
+        - Console
+        - Controller
+        - Cron
+        - Gateway
+        - Helper
+        - Model
+        - Observer
+        - Plugin
+        - Service
+        - Setup
+        - Ui
+        - ViewModel
+        - registration.php
+    # Architecture advice, not defects.
+    magento:
+        checkCollectionViaFactory: false
+        checkServiceContracts: false
+        checkResourceModelsUsedDirectly: false
+    extdn:
+        setTemplateDisallowedForBlockClasses: false

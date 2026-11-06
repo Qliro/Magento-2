@@ -1,0 +1,44 @@
+name: Static Analysis
+
+on:
+  pull_request:
+  push:
+    branches: [main, "release/**"]
+
+permissions:
+  contents: read
+
+jobs:
+  static-analysis:
+    # One PHP version is enough: phpstan.neon.dist checks against the whole 8.2-8.5 range.
+    name: PHPStan and Magento coding standard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          tools: composer:v2
+          coverage: none
+
+      - name: Point Magento packages at the public Mage-OS mirror
+        run: |
+          jq '.repositories = [{"type":"composer","url":"https://mirror.mage-os.org/"}]' composer.json > composer.tmp
+          mv composer.tmp composer.json
+
+      - name: Install dependencies
+        run: composer install --no-plugins --ignore-platform-reqs --no-interaction --no-progress
+
+      - name: Install the tools
+        id: tools
+        run: composer tools
+
+      - name: PHPStan
+        run: composer phpstan
+
+      - name: Magento coding standard
+        # Runs after a PHPStan failure too, so both reports come in one push.
+        if: ${{ !cancelled() && steps.tools.outcome == 'success' }}
+        run: composer phpcs
