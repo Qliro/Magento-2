@@ -43,6 +43,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\RepeatedCapture;
 use Qliro\QliroOne\Model\QliroOrder\Admin\TransactionResponse;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
+use Qliro\QliroOne\Model\Order\StateStatus;
 
 /**
  * The capture submission contract, per PLIN-381. Both paths are covered, because both duplicate the
@@ -1101,7 +1102,8 @@ class PaymentCaptureTest extends TestCase
             $this->captureCoverage,
             $this->paymentRepository,
             $this->repeatedCapture,
-            $lockManager
+            $lockManager,
+            $this->createMock(StateStatus::class)
         );
     }
 

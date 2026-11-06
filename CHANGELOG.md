@@ -1,6 +1,26 @@
 
 # Change Log
 
+## [1.8.41] - 2026-11-04
+
+### Fixed
+
+- An order no longer gets a status that is not assigned to its state. A capture Qliro put on hold set the order to `pending_payment` and kept its old status, and placing the order did the same before Qliro completed it, so the order stood on pairs such as `pending_payment` / `pending` that Magento has no row for, and the order grid and its status filter missed it. These orders now get the default status of `pending_payment`
+- The New Order Status from the settings is used only while it is assigned to `new`. If the merchant unassigned it, the order gets the default status of `new` and a warning is logged
+- A checkout status delivered again after the order was invoiced, shipped or closed no longer moves the order back. A repeated `Completed` set an invoiced order back to `new`, and a repeated `OnHold` set it to `payment_review`. The order now stays as it is and a warning is logged. A held order that is still in checkout keeps its hold and gets the new state as the state it returns to when it is released, also when the order is placed
+- A refused subscription order that was held is released and canceled, as one that was not held
+- A capture Qliro returns OnHold no longer takes a held order off hold. The order stays on hold, returns to `pending_payment` when released, and the order history says so. Before, the handlers set `pending_payment` over the hold, so an order held for a failed capture lost its hold without `unhold()`
+
+### Changed
+
+- `Qliro\QliroOne\Model\Order\StateStatus` is the one class that decides the state and status of an order. It replaces `HoldAwareState` from 1.8.22, removed, whose hold handling is now `StateStatus::setKeepingHold()`, and the status check `CaptureHold` from 1.8.27 did after a released hold, now `StateStatus::keepAssigned()` and `isAssigned()`. `CaptureHold` takes `StateStatus` in its constructor. As before, the authorization on a held order that returns to the same state keeps the status it returns to. A status not assigned after a released hold now gives the state's default when assigned, else its first assigned status, and is logged as a warning too
+
+### Added
+
+- `Model/Order/StateStatus`, `Test/Unit/Model/Order/StateStatusTest`, `PaymentAuthorizationStateTest` and `Handler/CaptureOnHoldTest`
+- `Test/E2e/tests/status-for-state.spec.ts`: an order placed while Qliro is in process, a repeated `Completed` and `OnHold` on an invoiced order, a capture put on hold, and a New Order Status not assigned to `new`, each checked against the statuses assigned to the state and the order grid
+
+
 ## [1.8.40] - 2026-11-04
 
 ### Fixed
