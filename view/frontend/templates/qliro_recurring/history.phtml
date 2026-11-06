@@ -23,6 +23,7 @@ $recurringInfos = $viewModel->getRecurringInfos();
             <th scope="col" class="col date"><?= $escaper->escapeHtml(__('Subscription Started')) ?></th>
             <th scope="col" class="col date"><?= $escaper->escapeHtml(__('Next Order Date')) ?></th>
             <th scope="col" class="col date"><?= $escaper->escapeHtml(__('Subscription Canceled')) ?></th>
+            <th scope="col" class="col card"><?= $escaper->escapeHtml(__('Saved Card')) ?></th>
             <th scope="col" class="col actions"><?= $escaper->escapeHtml(__('Action')) ?></th>
         </tr>
     </thead>
@@ -48,17 +49,48 @@ $recurringInfos = $viewModel->getRecurringInfos();
                 <td data-th="<?= $escaper->escapeHtml(__('Subscription Canceled')) ?>" class="col date">
                     <?= /* @noEscape */ $canceledDateDisplay ?>
                 </td>
+                <td data-th="<?= $escaper->escapeHtml(__('Saved Card')) ?>" class="col card">
+                    <?php if (!$viewModel->hasSavedCard($recurringInfo)) : ?>
+                        <?= $escaper->escapeHtml(__('N/A')) ?>
+                    <?php elseif ($viewModel->isCardRemoved($recurringInfo)) : ?>
+                        <?= $escaper->escapeHtml(__('Removed')) ?>
+                    <?php elseif (!$isCanceled) : ?>
+                        <?= $escaper->escapeHtml(__('Saved')) ?>
+                    <?php else : ?>
+                        <form
+                            method="post"
+                            action="<?= $escaper->escapeHtmlAttr($viewModel->getRemoveCardUrl()) ?>"
+                            data-mage-init='<?= $escaper->escapeHtmlAttr($viewModel->confirmConfig(
+                                '.remove-saved-card',
+                                (string)__('Remove the saved card of this subscription? Qliro deletes it, and this cannot be undone.'),
+                                (string)__('Yes, remove the card'),
+                                (string)__('No, keep it')
+                            )) ?>'
+                        >
+                            <?= /* @noEscape */ $block->getBlockHtml('formkey') ?>
+                            <input
+                                type="hidden"
+                                name="order_id"
+                                value="<?= $escaper->escapeHtmlAttr($recurringInfo->getOriginalOrderId()) ?>"
+                            />
+                            <button type="submit" class="remove-saved-card">
+                                <span><?= $escaper->escapeHtml(__('Remove Saved Card')) ?></span>
+                            </button>
+                        </form>
+                    <?php endif ?>
+                </td>
                 <td data-th="<?= $escaper->escapeHtml(__('Actions')) ?>" class="col actions">
-                    <?php if (!$viewModel->isCanceled($recurringInfo)) : ?>
+                    <?php if (!$isCanceled) : ?>
                         <?php $formAction = $viewModel->getCancelRecurringUrl(); ?>
                         <form
                             method="post"
                             action="<?= $escaper->escapeHtmlAttr($formAction) ?>"
-                            data-mage-init='{
-                                "Qliro_QliroOne/js/cancel-subscription-handler":{
-                                    "buttonSelector": ".cancel-subscription"
-                                }
-                            }'
+                            data-mage-init='<?= $escaper->escapeHtmlAttr($viewModel->confirmConfig(
+                                '.cancel-subscription',
+                                (string)__('Are you sure you wish to cancel this subscription? This cannot be undone!'),
+                                (string)__('Yes, cancel the subscription'),
+                                (string)__('No, don\'t cancel')
+                            )) ?>'
                         >
                             <?= /* @noEscape */ $block->getBlockHtml('formkey') ?>
                             <input

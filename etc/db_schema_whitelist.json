@@ -8,7 +8,8 @@
             "saved_credit_card_id": true,
             "next_order_date": true,
             "canceled_date": true,
-            "personal_number": true
+            "personal_number": true,
+            "saved_credit_card_removed_at": true
         },
         "constraint": {
             "PRIMARY": true,

@@ -45,4 +45,13 @@ interface MerchantInterface
      * @return void
      */
     public function updateOrder($qliroOrderId, QliroOrderUpdateRequestInterface $qliroOrderUpdateRequest);
+
+    /**
+     * Delete a saved card token at Qliro
+     *
+     * @param string $savedCreditCardId
+     * @param int|null $storeId
+     * @return bool False when Qliro no longer had the card
+     */
+    public function removeSavedCreditCard(string $savedCreditCardId, $storeId = null): bool;
 }
