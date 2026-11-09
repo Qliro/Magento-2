@@ -18,6 +18,11 @@ interface QliroOrderManagementStatusResponseInterface extends ContainerInterface
     const RESPONSE_AUTHENTICATE_ERROR = 'Authenticate error';
     const RESPONSE_RECEIVED = 'received';
     const RESPONSE_ORDER_NOT_FOUND = 'Order not found';
+    const RESPONSE_FAILED = 'Transaction status could not be applied';
+    const RESPONSE_NOT_PLACED = 'Order not placed yet';
+
+    const MESSAGE_NO_LINK = 'No link for this Qliro order, nothing updated';
+    const MESSAGE_NO_ORDER = 'No Magento order for this Qliro order, nothing updated';
 
     /**
      * @return string

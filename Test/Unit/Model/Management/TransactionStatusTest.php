@@ -7,6 +7,10 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Test\Unit\Model\Management;
 
+use Magento\Framework\Api\SearchCriteria;
+use Magento\Framework\Api\SearchCriteriaBuilder;
+use Magento\Framework\Api\SearchResultsInterface;
+use Magento\Framework\Exception\NoSuchEntityException;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\LinkInterface;
@@ -36,6 +40,15 @@ class TransactionStatusTest extends TestCase
 
     /** The last handled status each lookup finds, in order, null for none */
     private array $lastHandled = [];
+
+    /** What the link lookup gives: a link with this order id, or the exception it throws */
+    private int|null|\Exception $linkOrderId = 7;
+
+    /** Whether the active lookup finds the link, otherwise only the list of all links does */
+    private bool $linkActive = true;
+
+    /** Lists a deactivated link without an order before the one with it */
+    private bool $inactiveWithoutOrderFirst = false;
 
     protected function setUp(): void
     {
@@ -181,13 +194,220 @@ class TransactionStatusTest extends TestCase
     }
 
     /**
+     * Qliro resends until the body says received, so a push without a link is acknowledged
+     */
+    public function testPushWithoutALinkIsReceivedAndSaysNothingWasUpdated(): void
+    {
+        $this->linkOrderId = new NoSuchEntityException();
+        $this->statusRepository->expects(self::never())->method('save');
+        $this->logManager->expects(self::never())->method('critical');
+        $this->logManager->expects(self::never())->method('setMerchantReference');
+        $this->logManager->expects(self::once())->method('log')->with(
+            'info',
+            self::anything(),
+            self::callback(fn (array $context) => $context['message'] === QliroOrderManagementStatusResponseInterface::MESSAGE_NO_LINK
+                && $context['qliro_order_id'] === 281424605
+                && $context['status'] === 'Success'
+                && $context['extra'] === ['qliro_order_id' => 281424605, 'merchant_reference' => '100000042'])
+        );
+
+        $response = $this->buildManagement()->handle($this->notification('Success', 'Reversal'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+        self::assertSame(QliroOrderManagementStatusResponseInterface::MESSAGE_NO_LINK, $response->getMessage());
+    }
+
+    /**
+     * A checkout that never became an order has a link without one, and nothing to update
+     */
+    public function testPushForALinkWithoutAnOrderIsReceivedAndSaysNothingWasUpdated(): void
+    {
+        $this->linkOrderId = null;
+        $this->statusRepository->expects(self::never())->method('save');
+        $this->handlerPool->expects(self::never())->method('handle');
+        $this->logManager->expects(self::once())->method('log')->with(
+            'info',
+            self::anything(),
+            self::callback(fn (array $context) => $context['message'] === QliroOrderManagementStatusResponseInterface::MESSAGE_NO_ORDER
+                && $context['extra']['merchant_reference'] === '100000042')
+        );
+
+        $response = $this->buildManagement()->handle($this->notification('Success', 'Reversal'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+        self::assertSame(QliroOrderManagementStatusResponseInterface::MESSAGE_NO_ORDER, $response->getMessage());
+    }
+
+    /**
+     * Money taken on a link without an order may be for an order still being placed, so Qliro resends
+     *
+     * @dataProvider moneyTakingTypes
+     */
+    public function testMoneyTakenOnALinkWithoutAnOrderIsNotReceived(string $paymentType): void
+    {
+        $this->linkOrderId = null;
+        $this->statusRepository->expects(self::never())->method('save');
+        $this->logManager->expects(self::once())->method('log')->with(
+            'warning',
+            self::anything(),
+            self::callback(fn (array $context) => $context['message'] === QliroOrderManagementStatusResponseInterface::RESPONSE_NOT_PLACED)
+        );
+
+        $response = $this->buildManagement()->handle($this->notification('Success', $paymentType));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_NOT_PLACED, $response->getCallbackResponse());
+    }
+
+    /**
+     * @return array<string, array<int, string>>
+     */
+    public static function moneyTakingTypes(): array
+    {
+        return ['capture' => ['Capture'], 'debit' => ['Debit']];
+    }
+
+    /**
+     * A deactivated link will never get an order, so money taken on it is received
+     */
+    public function testMoneyTakenOnADeactivatedLinkWithoutAnOrderIsReceived(): void
+    {
+        $this->linkOrderId = null;
+        $this->linkActive = false;
+        $this->logManager->expects(self::once())->method('log')->with('warning');
+
+        $response = $this->buildManagement()->handle($this->notification('Success', 'Debit'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+        self::assertSame(QliroOrderManagementStatusResponseInterface::MESSAGE_NO_ORDER, $response->getMessage());
+    }
+
+    /**
+     * Money taken on a Qliro order the store has no link for can never be applied, but is worth a warning
+     */
+    public function testMoneyTakenWithoutALinkIsReceivedWithAWarning(): void
+    {
+        $this->linkOrderId = new NoSuchEntityException();
+        $this->logManager->expects(self::once())->method('log')->with('warning');
+
+        $response = $this->buildManagement()->handle($this->notification('Success', 'Capture'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+        self::assertSame(QliroOrderManagementStatusResponseInterface::MESSAGE_NO_LINK, $response->getMessage());
+    }
+
+    /**
+     * A value MySQL would cast to another id never reaches the lookup of deactivated links
+     */
+    public function testNonNumericOrderIdIsNotListed(): void
+    {
+        $this->linkActive = false;
+        $this->logManager->expects(self::once())->method('log')->with('info');
+
+        $notification = $this->notification('Success', 'Reversal')->setOrderId('281424605abc');
+        $management = $this->buildManagement('281424605abc');
+
+        $response = $management->handle($notification);
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::MESSAGE_NO_LINK, $response->getMessage());
+    }
+
+    /**
+     * Only money taken without an order is a warning, an abandoned checkout's statuses are routine
+     */
+    public function testCancelledPreauthorizationWithoutAnOrderIsLoggedAtInfo(): void
+    {
+        $this->linkOrderId = null;
+        $this->logManager->expects(self::once())->method('log')->with('info');
+
+        $this->buildManagement()->handle($this->notification('Cancelled', 'Preauthorization'));
+    }
+
+    /**
+     * Of the deactivated links of a Qliro order, the one with the order is used
+     */
+    public function testDeactivatedLinkWithTheOrderIsPreferred(): void
+    {
+        $this->linkActive = false;
+        $this->inactiveWithoutOrderFirst = true;
+        $this->statusRepository->method('getParent')->willReturn($this->row('cancel', 'Created'));
+        $this->handlerPool->expects(self::once())->method('handle')->willReturn(true);
+        $this->logManager->expects(self::never())->method('log');
+
+        $response = $this->buildManagement()->handle($this->notification('Success', 'Reversal'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+    }
+
+    /**
+     * A lookup that fails is not a missing link, Qliro has to send it again
+     */
+    public function testFailedLinkLookupIsNotReceived(): void
+    {
+        $this->linkOrderId = new \RuntimeException('MySQL server has gone away');
+        $this->logManager->expects(self::once())->method('critical');
+        $this->logManager->expects(self::never())->method('log');
+
+        $response = $this->buildManagement()->handle($this->notification('Success'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_FAILED, $response->getCallbackResponse());
+        self::assertNull($response->getMessage());
+    }
+
+    /**
+     * A status that could not be stored is not received either
+     */
+    public function testStatusThatCouldNotBeStoredIsNotReceived(): void
+    {
+        $this->statusRepository->method('getParent')->willReturn($this->row('shipment', 'Created'));
+        $this->statusRepository->method('save')->willThrowException(new \RuntimeException('Deadlock found'));
+        $this->handlerPool->expects(self::never())->method('handle');
+        $this->logManager->expects(self::once())->method('critical');
+
+        $response = $this->buildManagement()->handle($this->notification('Success'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_FAILED, $response->getCallbackResponse());
+    }
+
+    /**
+     * A cancelled order's link is deactivated and still names the order the status belongs to
+     */
+    public function testDeactivatedLinkWithAnOrderIsHandled(): void
+    {
+        $this->linkActive = false;
+        $this->statusRepository->method('getParent')->willReturn($this->row('cancel', 'Created'));
+        $this->handlerPool->expects(self::once())->method('handle')->willReturn(true);
+
+        $response = $this->buildManagement()->handle($this->notification('Success', 'Reversal'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+        self::assertNull($response->getMessage());
+    }
+
+    /**
+     * A handled status is received with nothing else in the body
+     */
+    public function testHandledStatusIsReceivedWithoutAMessage(): void
+    {
+        $this->statusRepository->method('getParent')->willReturn($this->row('shipment', 'Created'));
+        $this->handlerPool->method('handle')->willReturn(true);
+
+        $response = $this->buildManagement()->handle($this->notification('Success'));
+
+        self::assertSame(QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED, $response->getCallbackResponse());
+        self::assertNull($response->getMessage());
+    }
+
+    /**
      * @param string $status
+     * @param string $paymentType
      * @return QliroOrderManagementStatus
      */
-    private function notification(string $status): QliroOrderManagementStatus
+    private function notification(string $status, string $paymentType = 'Capture'): QliroOrderManagementStatus
     {
         return (new QliroOrderManagementStatus())
             ->setOrderId(281424605)
+            ->setPaymentType($paymentType)
+            ->setMerchantReference('100000042')
             ->setPaymentTransactionId(329624897)
             ->setStatus($status);
     }
@@ -213,15 +433,42 @@ class TransactionStatusTest extends TestCase
     }
 
     /**
+     * @param int|string $qliroOrderId
      * @return TransactionStatus
      */
-    private function buildManagement(): TransactionStatus
+    private function buildManagement(int|string $qliroOrderId = 281424605): TransactionStatus
     {
-        $link = $this->createMock(LinkInterface::class);
-        $link->method('getOrderId')->willReturn(7);
-        $link->method('getReference')->willReturn('ref');
         $linkRepository = $this->createMock(LinkRepositoryInterface::class);
-        $linkRepository->method('getByQliroOrderId')->willReturn($link);
+        $orderId = $this->linkOrderId instanceof \Exception ? null : $this->linkOrderId;
+        $link = $this->link($orderId);
+        $expectedId = $qliroOrderId;
+        $linkRepository->method('getByQliroOrderId')->willReturnCallback(
+            function ($qliroOrderId) use ($link, $expectedId) {
+                self::assertSame($expectedId, $qliroOrderId);
+                if ($this->linkOrderId instanceof \Exception) {
+                    throw $this->linkOrderId;
+                }
+                if (!$this->linkActive) {
+                    throw new NoSuchEntityException();
+                }
+
+                return $link;
+            }
+        );
+        $found = $this->linkOrderId instanceof NoSuchEntityException ? [] : [$link];
+        if ($this->inactiveWithoutOrderFirst) {
+            array_unshift($found, $this->link(null));
+        }
+        $results = $this->createMock(SearchResultsInterface::class);
+        $results->method('getItems')->willReturn($found);
+        if (is_string($qliroOrderId)) {
+            $linkRepository->expects(self::never())->method('getList');
+        }
+        $linkRepository->method('getList')->willReturn($results);
+
+        $searchCriteriaBuilder = $this->createMock(SearchCriteriaBuilder::class);
+        $searchCriteriaBuilder->method('addFilter')->with('qliro_order_id', 281424605)->willReturnSelf();
+        $searchCriteriaBuilder->method('create')->willReturn(new SearchCriteria());
 
         $responseFactory = $this->createMock(QliroOrderManagementStatusResponseInterfaceFactory::class);
         $responseFactory->method('create')->willReturnCallback(fn () => new QliroOrderManagementStatusResponse());
@@ -241,7 +488,22 @@ class TransactionStatusTest extends TestCase
             $responseFactory,
             $statusFactory,
             $this->statusRepository,
-            $this->handlerPool
+            $this->handlerPool,
+            $searchCriteriaBuilder
         );
+    }
+
+    /**
+     * @param int|null $orderId
+     * @return LinkInterface
+     */
+    private function link(?int $orderId): LinkInterface
+    {
+        $link = $this->createMock(LinkInterface::class);
+        $link->method('getOrderId')->willReturn($orderId);
+        $link->method('getReference')->willReturn('ref');
+        $link->method('getIsActive')->willReturn($this->linkActive ? 1 : 0);
+
+        return $link;
     }
 }
