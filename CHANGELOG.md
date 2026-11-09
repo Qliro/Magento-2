@@ -1,6 +1,18 @@
 
 # Change Log
 
+## [1.8.53] - 2026-11-09
+
+### Fixed
+
+- A transaction status push for a Qliro order the store has no link for, or whose link has no Magento order, was answered "Order not found" with 500, so Qliro resent it until it gave up. Most are Reversal pushes for checkouts that never became an order. It is now answered `received` with 200 and a `Message` saying which of the two it was and that nothing was updated, and the same is logged with the push's merchant reference: as a warning for a successful capture or debit, else at info. Qliro stops resending only when the body says `received`. A successful capture or debit on an active link without an order is the exception: the order may still be placed, so it is answered "Order not placed yet" with 500 and Qliro sends it again. A push whose status could not be stored, or whose link lookup failed, is answered "Transaction status could not be applied" with 500, so Qliro sends it again
+- A push for an order whose link was deactivated, a cancelled or refused one, was answered "Order not found" as well, so its status was never applied. A deactivated link is now looked up too, the one with the order first
+
+### Added
+
+- `Test/E2e/tests/transaction-status-without-order.spec.ts` with `seed/transaction-status.php`: pushes for no link, a link without an order, a capture before the order, a deactivated link and a status that cannot be stored
+
+
 ## [1.8.39] - 2026-11-03
 
 ### Fixed

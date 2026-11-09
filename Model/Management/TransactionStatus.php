@@ -7,11 +7,15 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Management;
 
+use Magento\Framework\Api\SearchCriteriaBuilder;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\Exception\NoSuchEntityException;
+use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterfaceFactory;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Notification\QliroOrderManagementStatusResponse;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\HandlerPool as  OrderManagementHandlerPool;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
@@ -24,6 +28,8 @@ use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 class TransactionStatus extends AbstractManagement
 {
     private const LOCK_ATTEMPTS = 10;
+
+    private const MONEY_TAKING_TYPES = ['Capture', 'Debit'];
 
     private const LOCK_WAIT_MICROSECONDS = 300000;
 
@@ -68,6 +74,11 @@ class TransactionStatus extends AbstractManagement
     private $eventManager;
 
     /**
+     * @var SearchCriteriaBuilder
+     */
+    private $searchCriteriaBuilder;
+
+    /**
      * Inject dependencies
      *
      * @param LinkRepositoryInterface $linkRepository
@@ -77,6 +88,7 @@ class TransactionStatus extends AbstractManagement
      * @param OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory
      * @param OrderManagementStatusRepositoryInterface $orderManagementStatusRepository
      * @param OrderManagementHandlerPool $statusUpdateHandlerPool
+     * @param SearchCriteriaBuilder|null $searchCriteriaBuilder
      */
     public function __construct(
         LinkRepositoryInterface $linkRepository,
@@ -85,7 +97,8 @@ class TransactionStatus extends AbstractManagement
         QliroOrderManagementStatusResponseInterfaceFactory $qliroOrderManagementStatusResponseFactory,
         OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory,
         OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
-        OrderManagementHandlerPool $statusUpdateHandlerPool
+        OrderManagementHandlerPool $statusUpdateHandlerPool,
+        ?SearchCriteriaBuilder $searchCriteriaBuilder = null
     ) {
         $this->linkRepository = $linkRepository;
         $this->logManager = $logManager;
@@ -94,6 +107,9 @@ class TransactionStatus extends AbstractManagement
         $this->orderManagementStatusInterfaceFactory = $orderManagementStatusInterfaceFactory;
         $this->orderManagementStatusRepository = $orderManagementStatusRepository;
         $this->statusUpdateHandlerPool = $statusUpdateHandlerPool;
+        // Optional for a subclass on the old signature, Magento passes null for it instead of resolving it
+        $this->searchCriteriaBuilder = $searchCriteriaBuilder
+            ?: ObjectManager::getInstance()->get(SearchCriteriaBuilder::class);
     }
 
     /**
@@ -107,25 +123,37 @@ class TransactionStatus extends AbstractManagement
         $qliroOrderId = $qliroOrderManagementStatus->getOrderId();
 
         try {
-            $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+            $link = $this->findLink($qliroOrderId);
             $this->logManager->setMerchantReference($link->getReference());
 
-            $orderId = $link->getOrderId();
+            if (empty($link->getOrderId())) {
+                // Money taken on a live checkout is for an order that may still be placed
+                if ($link->getIsActive() && $this->isMoneyTaken($qliroOrderManagementStatus)) {
+                    $this->logNothingUpdated(
+                        $qliroOrderManagementStatus,
+                        QliroOrderManagementStatusResponseInterface::RESPONSE_NOT_PLACED
+                    );
 
-            if (empty($orderId)) {
-                /* Should not happen, but if it does, respond with this to stop new notifications */
-                return $this->qliroOrderManagementStatusRespond(
-                    QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                    return $this->qliroOrderManagementStatusRespond(
+                        QliroOrderManagementStatusResponseInterface::RESPONSE_NOT_PLACED
+                    );
+                }
+
+                return $this->nothingToUpdate(
+                    $qliroOrderManagementStatus,
+                    QliroOrderManagementStatusResponseInterface::MESSAGE_NO_ORDER
                 );
-            } elseif (!$this->updateTransactionStatus($qliroOrderManagementStatus)) {
+            }
+
+            if (!$this->updateTransactionStatus($qliroOrderManagementStatus)) {
                 return $this->qliroOrderManagementStatusRespond(
-                    QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                    QliroOrderManagementStatusResponseInterface::RESPONSE_FAILED
                 );
             }
         } catch (NoSuchEntityException $exception) {
-            /* No more qliro notifications should be sent */
-            return $this->qliroOrderManagementStatusRespond(
-                QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+            return $this->nothingToUpdate(
+                $qliroOrderManagementStatus,
+                QliroOrderManagementStatusResponseInterface::MESSAGE_NO_LINK
             );
         } catch (\Exception $exception) {
             $this->logManager->critical(
@@ -138,13 +166,108 @@ class TransactionStatus extends AbstractManagement
             );
 
             return $this->qliroOrderManagementStatusRespond(
-                QliroOrderManagementStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND
+                QliroOrderManagementStatusResponseInterface::RESPONSE_FAILED
             );
         }
 
         return $this->qliroOrderManagementStatusRespond(
             QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED
         );
+    }
+
+    /**
+     * Qliro resends until the answer is received, and a push with no order to update never will be
+     *
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param string $message
+     * @return \Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterface
+     */
+    private function nothingToUpdate($qliroOrderManagementStatus, string $message)
+    {
+        $this->logNothingUpdated($qliroOrderManagementStatus, $message);
+
+        $response = $this->qliroOrderManagementStatusRespond(
+            QliroOrderManagementStatusResponseInterface::RESPONSE_RECEIVED
+        );
+        if ($response instanceof QliroOrderManagementStatusResponse) {
+            $response->setMessage($message);
+        }
+
+        return $response;
+    }
+
+    /**
+     * Money taken without a Magento order is a warning, the rest of an abandoned checkout is routine
+     *
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @param string $message
+     * @return void
+     */
+    private function logNothingUpdated($qliroOrderManagementStatus, string $message): void
+    {
+        $context = [
+            'status' => $qliroOrderManagementStatus->getStatus(),
+            'payment_type' => $qliroOrderManagementStatus->getPaymentType(),
+            'transaction_id' => $qliroOrderManagementStatus->getPaymentTransactionId(),
+            'qliro_order_id' => $qliroOrderManagementStatus->getOrderId(),
+            'message' => $message,
+        ];
+        $this->logManager->log(
+            $this->isMoneyTaken($qliroOrderManagementStatus) ? 'warning' : 'info',
+            'Transaction status {status} ({payment_type}) of transaction {transaction_id} for Qliro order '
+            . '{qliro_order_id}: {message}',
+            $context + ['extra' => [
+                'qliro_order_id' => $context['qliro_order_id'],
+                'merchant_reference' => $qliroOrderManagementStatus->getMerchantReference(),
+            ]]
+        );
+    }
+
+    /**
+     * A successful capture or debit took money that no Magento order accounts for
+     *
+     * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
+     * @return bool
+     */
+    private function isMoneyTaken($qliroOrderManagementStatus): bool
+    {
+        return $qliroOrderManagementStatus->getStatus() === QliroOrderManagementStatusInterface::STATUS_SUCCESS
+            && in_array($qliroOrderManagementStatus->getPaymentType(), self::MONEY_TAKING_TYPES, true);
+    }
+
+    /**
+     * The active link first, then a deactivated one with an order: a cancelled or refused order keeps it there
+     *
+     * @param int|string $qliroOrderId
+     * @return \Qliro\QliroOne\Api\Data\LinkInterface
+     * @throws NoSuchEntityException
+     */
+    private function findLink($qliroOrderId)
+    {
+        try {
+            return $this->linkRepository->getByQliroOrderId($qliroOrderId);
+        } catch (NoSuchEntityException $exception) {
+            // The repository refuses a value MySQL would cast to another id
+            if (!ctype_digit((string)$qliroOrderId) || (int)$qliroOrderId <= 0) {
+                throw $exception;
+            }
+
+            $links = $this->linkRepository->getList(
+                $this->searchCriteriaBuilder->addFilter('qliro_order_id', $qliroOrderId)->create()
+            )->getItems();
+
+            foreach ($links as $link) {
+                if (!empty($link->getOrderId())) {
+                    return $link;
+                }
+            }
+
+            if ($links) {
+                return reset($links);
+            }
+
+            throw $exception;
+        }
     }
 
     /**

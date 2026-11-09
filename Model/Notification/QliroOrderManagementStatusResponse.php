@@ -20,6 +20,11 @@ class QliroOrderManagementStatusResponse implements QliroOrderManagementStatusRe
     private $callbackResponse;
 
     /**
+     * @var string|null
+     */
+    private $message;
+
+    /**
      * @return string
      */
     public function getCallbackResponse()
@@ -34,6 +39,25 @@ class QliroOrderManagementStatusResponse implements QliroOrderManagementStatusRe
     public function setCallbackResponse($value)
     {
         $this->callbackResponse = $value;
+
+        return $this;
+    }
+
+    /**
+     * @return string|null
+     */
+    public function getMessage()
+    {
+        return $this->message;
+    }
+
+    /**
+     * @param string|null $value
+     * @return $this
+     */
+    public function setMessage($value)
+    {
+        $this->message = $value;
 
         return $this;
     }
