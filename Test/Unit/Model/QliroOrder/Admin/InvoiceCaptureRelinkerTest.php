@@ -498,7 +498,7 @@ class InvoiceCaptureRelinkerTest extends TestCase
     private function relinker(?\Throwable $saveFails = null, int $failOnSave = 1): InvoiceCaptureRelinker
     {
         $payment = $this->getMockBuilder(Payment::class)->disableOriginalConstructor()->onlyMethods([])->getMock();
-        $payment->setId(5);
+        $payment->setData('entity_id', 5);
 
         $collection = $this->createMock(InvoiceCollection::class);
         $collection->method('getItems')->willReturnCallback(fn () => $this->invoices);

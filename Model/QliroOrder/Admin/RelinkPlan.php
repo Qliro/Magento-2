@@ -106,7 +106,7 @@ class RelinkPlan
 
         foreach ($this->order->getInvoiceCollection() as $invoice) {
             if ((int)$invoice->getState() !== Invoice::STATE_CANCELED) {
-                $carried[(string)$invoice->getTransactionId()] = true;
+                $carried[] = (string)$invoice->getTransactionId();
             }
         }
 
@@ -115,7 +115,7 @@ class RelinkPlan
         foreach ($this->atQliro as $id => $transaction) {
             if ($transaction->getType() === CaptureCoverage::TYPE_CAPTURE
                 && $transaction->getStatus() === QliroStatus::STATUS_SUCCESS
-                && !isset($carried[(string)$id])
+                && !in_array((string)$id, $carried, true)
             ) {
                 $uncarried[] = $id;
             }

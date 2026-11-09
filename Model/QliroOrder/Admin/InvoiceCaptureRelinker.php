@@ -85,10 +85,10 @@ class InvoiceCaptureRelinker
         // Not through the repository, which keeps every order it loads for the whole run
         $order = $this->orderFactory->create()->load($orderId);
         $link = $this->linkRepository->getByOrderId($orderId, false);
-        $this->logManager->setMerchantReference($link->getReference());
+        $this->logManager->setMerchantReference((string)$link->getReference());
 
         $qliroOrder = $this->orderManagementApi->getOrder(
-            $link->getQliroOrderId(),
+            (int)$link->getQliroOrderId(),
             $order->getStoreId(),
             Config::API_PROFILE_BACKGROUND
         );
@@ -101,6 +101,7 @@ class InvoiceCaptureRelinker
         $invoices = $order->getInvoiceCollection()->getItems();
         ksort($invoices);
 
+        /** @var Invoice $invoice */
         foreach ($invoices as $invoice) {
             $from = (string)$invoice->getTransactionId();
 
@@ -243,8 +244,9 @@ class InvoiceCaptureRelinker
     {
         $records = [];
         $collection = $this->transactionCollectionFactory->create()
-            ->addPaymentIdFilter((int)$order->getPayment()->getId());
+            ->addPaymentIdFilter((int)$order->getPayment()->getEntityId());
 
+        /** @var Transaction $record */
         foreach ($collection->getItems() as $record) {
             $records[(string)$record->getTxnId()] = $record;
         }
@@ -276,7 +278,7 @@ class InvoiceCaptureRelinker
         $record = $this->transactionFactory->create();
         $record->setTxnId((string)$captureId);
         $record->setOrderId((int)$order->getId());
-        $record->setPaymentId((int)$order->getPayment()->getId());
+        $record->setPaymentId((int)$order->getPayment()->getEntityId());
         $record->setTxnType(TransactionInterface::TYPE_CAPTURE);
         $record->setIsClosed($shared ? (int)$shared->getIsClosed() : 0);
 
