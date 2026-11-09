@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.8.44] - 2026-11-04
+
+### Fixed
+
+- A credit memo returned the invoice fee before the whole order was refunded. The check compared whole units only, so 99.10 refunded of 99.60 counted as full, and it added the refunded total in the base currency to the order's and the memo's totals and the fee in the order currency, so on a store whose order currency differs from the base currency the fee was returned too early or kept. Every amount is now in the order currency and compared to the cent
+- The fee read for one credit memo was kept for the next one in the same request, whatever order it belonged to
+- The view of a saved credit memo counted it twice, once in the order's refunded total and once on its own, so an early memo of a fully refunded order showed the fee it never returned. A saved memo now counts the memos before it
+
+### Added
+
+- Unit tests for the fee refund check: short of the order by less than a unit, refunded in full, an order in a currency other than the base one, and a saved memo
+- `Test/E2e/tests/credit-memo-fee.spec.ts` with `seed/credit-memo-fee.php`: credit memos from the invoice, refunded offline, short by 0.50, then in full, and an order in another display currency when `E2E_PAY_CURRENCY` is set. `seed/seed-qliro-order.php` takes `--price` and `--currency`
+
+
 ## [1.8.43] - 2026-11-04
 
 ### Added
