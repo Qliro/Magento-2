@@ -18,6 +18,8 @@ namespace Qliro\QliroOne\Api\Data;
  * @method self setCanceledDate(string $canceledDate)
  * @method string|null getCanceledDate()
  * @method string|null getPersonalNumber()
+ * @method self setSavedCreditCardRemovedAt(string $removedAt)
+ * @method string|null getSavedCreditCardRemovedAt()
  */
 interface RecurringInfoInterface
 {

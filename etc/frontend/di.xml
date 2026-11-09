@@ -90,4 +90,7 @@
     <type name="Qliro\QliroOne\Controller\Qliro\Recurring\History">
         <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
     </type>
+    <type name="Qliro\QliroOne\Controller\Qliro\Recurring\RemoveCard">
+        <plugin name="qliroone_keep_vary_cookie" type="Qliro\QliroOne\Plugin\Controller\KeepVaryCookie" />
+    </type>
 </config>

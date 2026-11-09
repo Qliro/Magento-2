@@ -1,5 +1,19 @@
 # Change Log
 
+## [1.8.51] - 2026-11-05
+
+### Added
+
+- A customer can remove the saved card of a cancelled subscription from My Subscriptions through Qliro. Qliro deletes the card token, the subscription shows the card as removed, and the original order gets a comment saying so. The card of an active subscription stays: its next recurring order would be charged to a card Qliro no longer has, so the customer cancels the subscription first. A card Qliro already deleted or never had counts as removed, and the order comment says which
+- The sales order grid has a Saved Card Removed column, hidden by default
+- `qliroone_recurring_info.saved_credit_card_removed_at`, set when Qliro deleted the card. The card id stays on the row
+
+### Fixed
+
+- The recurring orders cron saved each subscription it had loaded once the order was placed, so a subscription cancelled while the cron ran became active again. It now moves the next order date only, and only on a subscription still active
+- With more than one subscription on the page, Cancel Subscription bound every cancel button to every subscription's form: one click opened a confirmation per subscription, and confirming the one on top could cancel another subscription than the one clicked. Each confirmation now belongs to its own form
+
+
 ## [1.8.50] - 2026-11-04
 
 ### Fixed
