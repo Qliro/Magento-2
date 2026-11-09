@@ -420,6 +420,8 @@ class Payment extends AbstractManagement
         $name = $this->captureLockName($link);
         $resource = $order->getResource();
 
+        // A test double of the order has no resource, the real one always does
+        // @phpstan-ignore booleanAnd.rightAlwaysTrue
         if ($recorded && $resource && $resource->getConnection()->getTransactionLevel() > 0) {
             $resource->addCommitCallback(function () use ($name) {
                 $this->lockManager->unlock($name);

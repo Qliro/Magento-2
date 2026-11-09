@@ -87,7 +87,7 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
      * @param int $qliroOrderId
      * @param int|null $storeId
      * @param string|null $profile Which timeouts to call with, see Config::API_PROFILE_*
-     * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface
+     * @return \Qliro\QliroOne\Api\Data\AdminOrderInterface|null
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     public function getOrder($qliroOrderId, $storeId = null, $profile = null)

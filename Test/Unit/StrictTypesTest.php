@@ -14,7 +14,7 @@ use PHPUnit\Framework\TestCase;
  */
 class StrictTypesTest extends TestCase
 {
-    private const SKIPPED_DIRS = ['vendor', 'Test/tmp', '.git'];
+    private const SKIPPED_DIRS = ['vendor', 'tools/vendor', 'Test/tmp', '.git'];
 
     public function testEveryPhpFileDeclaresStrictTypes(): void
     {
