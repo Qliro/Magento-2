@@ -41,6 +41,7 @@ use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Item;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
@@ -373,7 +374,6 @@ class PlaceOrderLineDifferencesTest extends TestCase
 
         $config = $this->createMock(Config::class);
         $config->method('getOrderStatus')->willReturn('qliro_new');
-        $config->method('isUseIncrementIdAsReference')->willReturn(true);
 
         return new PlaceOrder(
             $config,
@@ -397,7 +397,8 @@ class PlaceOrderLineDifferencesTest extends TestCase
             $this->createMock(DiscountLines::class),
             $this->orderItemsBuilder,
             new LineDifferences(),
-            stateStatus: new StateStatus($this->createMock(LogManager::class))
+            stateStatus: new StateStatus($this->createMock(LogManager::class)),
+            merchantReference: $this->createMock(MerchantReference::class)
         );
     }
 }

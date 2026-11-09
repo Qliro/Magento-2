@@ -33,6 +33,8 @@ use Magento\Framework\DataObject\IdentityGeneratorInterface;
  */
 class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInterface
 {
+    private const REFERENCE_NOT_SUPPORTED = 'UPDATE_MERCHANT_REFERENCE_NOT_SUPPORTED';
+
     /**
      * @var \Qliro\QliroOne\Model\Api\Service
      */
@@ -249,15 +251,20 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
     /**
      * Update QliroOne order merchant reference
      *
+     * Returns null on any API error, the caller runs inside a Qliro notification that must still be
+     * answered. A refusal saying the order already carries this very reference is a success, the
+     * response then has no transaction id.
+     *
      * @param \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request
      * @param int|null $storeId
-     * @return AdminTransactionResponseInterface
-     * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
+     * @return AdminTransactionResponseInterface|null
      */
     public function updateMerchantReference(AdminUpdateMerchantReferenceRequestInterface $request, $storeId = null)
     {
         $container = null;
         $request->setRequestId($this->idGenerator->generateId());
+        $reference = (string)$request->getNewMerchantReference();
+        $alreadySet = static fn ($code, $message): bool => self::isAlreadySet($code, $message, $reference);
 
         try {
             $payload = $this->containerMapper->toArray($request);
@@ -265,41 +272,37 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
                 'checkout/adminapi/v2/updatemerchantreference',
                 $payload,
                 $storeId,
-                Config::API_PROFILE_BACKGROUND
+                Config::API_PROFILE_BACKGROUND,
+                $alreadySet
             );
 
             /** @var AdminTransactionResponseInterface $container */
             $container = $this->containerMapper->fromArray($response, AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
-            /**
-             * This function is called inside a notification from Qliro. That notification should just respond with ok
-             * Unless something is very wrong. What the call to updatemerchantreference responds with should NOT
-             * make any difference in what that notification should respond! The return from this function only logs
-             * the transactionId....
-             * @todo This needs to be fixed properly once we can debug notifications
-             */
-
-            // Workaround for having updateMerchantReference NOT throwing exception in case of success
-//            if ($exception instanceof RequestException) {
-//                $data = $this->json->unserialize($exception->getResponse()->getBody());
-//
-//                $errorCode = $data['ErrorCode'] ?? null;
-//
-//                if ($errorCode === 'ORDER_HAS_BEEN_CANCELLED') {
-//                    /** @var \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface $container */
-//                    $container = $this->containerMapper->fromArray(
-//                        ['Status' => CheckoutStatusInterface::STATUS_REFUSED],
-//                        AdminTransactionResponseInterface::class
-//                    );
-//
-//                    return $container;
-//                }
-//            }
-//
-//            $this->handleExceptions($exception);
+            if ($exception instanceof TerminalException
+                && $alreadySet($exception->getQliroErrorCode(), $exception->getQliroErrorMessage())
+            ) {
+                /** @var AdminTransactionResponseInterface $container */
+                $container = $this->containerMapper->fromArray([], AdminTransactionResponseInterface::class);
+            }
         }
 
         return $container;
+    }
+
+    /**
+     * Whether Qliro refused because the order already carries this reference
+     *
+     * @param string|null $code
+     * @param string|null $message e.g. "Order has reference set to '100000123' already"
+     * @param string $reference
+     * @return bool
+     */
+    private static function isAlreadySet($code, $message, string $reference): bool
+    {
+        return $code === self::REFERENCE_NOT_SUPPORTED
+            && preg_match("/reference set to ['\"](.*)['\"] already/i", (string)$message, $match) === 1
+            && $match[1] === $reference;
     }
 
     /**

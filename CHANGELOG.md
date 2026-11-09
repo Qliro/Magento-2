@@ -1,6 +1,20 @@
 
 # Change Log
 
+## [1.8.45] - 2026-11-04
+
+### Fixed
+
+- The Magento order number went to Qliro twice on stores that do not use the increment id as the reference, and Qliro refused the second call with "Order has reference set to 'N' already". The mark that the number was sent was saved with the order at the end of the status update, so when that save failed Qliro repeated its callback and the number went out again. The mark is now saved on the payment before the call
+- A refusal saying the order already carries the number being sent is a success: no critical "Failed to set the Magento order reference", and the API line is logged as info. The same refusal for another number, or "Order with reference 'N' already exists", is still a failure
+- A subscription order placed with Qliro's status Completed sent the number with no mark at all, it now takes the same mark
+
+### Added
+
+- Unit tests for the mark saved before the call, a second callback, the refusal for the same and for another number, and the log level of an expected refusal
+- `Test/E2e/tests/merchant-reference-once.spec.ts` against the Qliro sandbox, with `seed/merchant-reference.php` and the fixture module `QliroE2e_FailingOrderSave`: repeated callbacks send the number once, and a failed order save after the call does not send it again
+
+
 ## [1.8.44] - 2026-11-04
 
 ### Fixed

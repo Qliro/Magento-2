@@ -56,7 +56,7 @@ interface OrderManagementInterface
      *
      * @param \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request
      * @param int|null $storeId
-     * @return \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface
+     * @return \Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface|null null when Qliro refused or did not answer
      * @throws \Qliro\QliroOne\Model\Api\Client\Exception\ClientException
      */
     public function updateMerchantReference(AdminUpdateMerchantReferenceRequestInterface $request, $storeId = null);
