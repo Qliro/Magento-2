@@ -295,6 +295,8 @@ class ShippingMethod extends AbstractManagement
                     // module can refuse its own writes below, but not one an observer makes
                     // directly, and the price event carries the same flag for the same reason
                     'qliro_order_validated' => (bool)$refuseAfterValidation,
+                    // True when the validate callback dispatches the event
+                    'qliro_validate_callback' => false,
                 ]
             );
             // @codingStandardsIgnoreEnd
