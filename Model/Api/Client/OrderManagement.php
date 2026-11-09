@@ -223,20 +223,23 @@ class OrderManagement implements \Qliro\QliroOne\Api\Client\OrderManagementInter
             $container = $this->containerMapper->fromArray($paymentTransactions[0] ?? [], AdminTransactionResponseInterface::class);
         } catch (\Exception $exception) {
             // Workaround for having cancelOrder NOT throwing exception in case of success
+            $errorCode = null;
             if ($exception instanceof RequestException) {
                 $data = $this->json->unserialize($exception->getResponse()->getBody());
-
                 $errorCode = $data['ErrorCode'] ?? null;
+            } elseif ($exception instanceof TerminalException) {
+                // How Service hands every refusal over, so the check above never saw one
+                $errorCode = $exception->getQliroErrorCode();
+            }
 
-                if ($errorCode === 'ORDER_HAS_BEEN_CANCELLED') {
-                    /** @var AdminTransactionResponseInterface $container */
-                    $container = $this->containerMapper->fromArray(
-                        ['Status' => CheckoutStatusInterface::STATUS_REFUSED],
-                        AdminTransactionResponseInterface::class
-                    );
+            if ($errorCode === 'ORDER_HAS_BEEN_CANCELLED') {
+                /** @var AdminTransactionResponseInterface $container */
+                $container = $this->containerMapper->fromArray(
+                    ['Status' => CheckoutStatusInterface::STATUS_REFUSED],
+                    AdminTransactionResponseInterface::class
+                );
 
-                    return $container;
-                }
+                return $container;
             }
 
             // Otherwise, handle exceptions as usual
