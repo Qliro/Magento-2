@@ -280,6 +280,7 @@
             <argument name="lineDifferences" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\LineDifferences</argument>
             <argument name="quoteCurrency" xsi:type="object">Qliro\QliroOne\Model\Order\QuoteCurrency</argument>
             <argument name="merchantReference" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\MerchantReference</argument>
+            <argument name="shippingProviderUpdate" xsi:type="object">Qliro\QliroOne\Model\Order\ShippingProviderUpdate</argument>
         </arguments>
     </type>
 

@@ -43,6 +43,7 @@ use Qliro\QliroOne\Model\QliroOrder\Item;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Service\RecurringPayments\Data as RecurringDataService;
 
 /**
@@ -398,7 +399,8 @@ class PlaceOrderLineDifferencesTest extends TestCase
             $this->orderItemsBuilder,
             new LineDifferences(),
             stateStatus: new StateStatus($this->createMock(LogManager::class)),
-            merchantReference: $this->createMock(MerchantReference::class)
+            merchantReference: $this->createMock(MerchantReference::class),
+            shippingProviderUpdate: $this->createMock(ShippingProviderUpdate::class)
         );
     }
 }

@@ -27,6 +27,7 @@ use Qliro\QliroOne\Model\Management\Payment as PaymentManagement;
 use Qliro\QliroOne\Model\Management\PlaceOrder;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
@@ -84,7 +85,8 @@ class PlaceOrderTest extends TestCase
             $this->createMock(OrganizationNumber::class),
             discountLines: $this->createMock(DiscountLines::class),
             stateStatus: $this->createMock(StateStatus::class),
-            merchantReference: $this->merchantReference
+            merchantReference: $this->merchantReference,
+            shippingProviderUpdate: $this->createMock(ShippingProviderUpdate::class)
         );
     }
 

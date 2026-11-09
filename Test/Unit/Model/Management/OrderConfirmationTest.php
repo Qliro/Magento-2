@@ -37,6 +37,7 @@ use Qliro\QliroOne\Model\Management\PlaceOrder;
 use Qliro\QliroOne\Model\Management\PlaceRecurringOrder;
 use Qliro\QliroOne\Model\Management\Quote as QuoteManagement;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
 use Qliro\QliroOne\Model\QliroOrder\Converter\RecurringQuoteFromOrderConverter;
@@ -282,7 +283,8 @@ class OrderConfirmationTest extends TestCase
             $this->createMock(OrganizationNumber::class),
             discountLines: $this->createMock(DiscountLines::class),
             stateStatus: $this->createMock(StateStatus::class),
-            merchantReference: $this->createMock(MerchantReference::class)
+            merchantReference: $this->createMock(MerchantReference::class),
+            shippingProviderUpdate: $this->createMock(ShippingProviderUpdate::class)
         );
     }
 
