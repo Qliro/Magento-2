@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.8.55] - 2026-11-09
+
+### Fixed
+
+- A cancellation Qliro refuses or does not answer is no longer silent. Magento still cancels the order, because the module itself cancels orders Qliro already refused or failed and those must close, but the order history now says Qliro did not cancel the payment and that the amount may still be reserved, and the admin who cancelled it sees the same warning. Before, the refusal went to the debug log only
+- A cancel of an order already cancelled in Qliro's Merchant Hub counts as done. The module meant to treat Qliro's `ORDER_HAS_BEEN_CANCELLED` that way, but the check never saw the code, which reaches it inside the exception every refusal is wrapped in
+
+### Added
+
+- `Test/E2e/tests/cancel-refused.spec.ts`: an admin cancel of a seeded order whose Qliro order the configured merchant does not know. Needs `seed/seed-qliro-order.php` in the store's `var/` and credentials Qliro refuses
+
+
 ## [1.8.54] - 2026-11-09
 
 ### Added
