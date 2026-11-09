@@ -8,6 +8,8 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Test\Unit\Model\QliroOrder\Builder;
 
 use Magento\Catalog\Model\Product;
+use Magento\Framework\DataObject;
+use Magento\Framework\Event\ManagerInterface as EventManager;
 use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Api\Data\ShippingAssignmentInterface;
 use Magento\Quote\Api\Data\ShippingInterface;
@@ -63,6 +65,25 @@ class ValidateOrderBuilderShippingTest extends TestCase
     private int $quoteStoreId = 1;
     private ?int $collectedInStoreId = null;
     private int $emulationsOpen = 0;
+    private ?string $selectedOption = null;
+
+    /**
+     * @var callable|null What the observer of qliroone_shipping_method_update_before does with the container
+     */
+    private $observer = null;
+
+    /**
+     * @var array[] The containers the event was dispatched with, as arrays
+     */
+    private array $dispatched = [];
+
+    /**
+     * @var int[] The store view each dispatch ran in
+     */
+    private array $dispatchedInStoreId = [];
+
+    private array $debugLogs = [];
+    private bool $qliroLineDiffers = false;
 
     /**
      * The shape of order 000185373: the quote on the school delivery, Qliro on free shipping.
@@ -75,7 +96,8 @@ class ValidateOrderBuilderShippingTest extends TestCase
         self::assertNull($response->getDeclineReason());
         self::assertSame(self::FREE, $this->quoteMethod);
         self::assertSame(1, $this->totalsCollected);
-        self::assertSame(1, $this->quotesSaved);
+        // Again after the observers of the changed method
+        self::assertSame(2, $this->quotesSaved);
         self::assertSame(self::FREE, $this->assignmentMethod);
     }
 
@@ -205,6 +227,209 @@ class ValidateOrderBuilderShippingTest extends TestCase
         self::assertSame(self::FREE, $this->quoteMethod);
     }
 
+    /**
+     * A late browser update left the quote on another method, the observer gets Qliro's and its option
+     */
+    public function testPassesTheCorrectedMethodAndItsOptionOn(): void
+    {
+        $this->selectedOption = 'pickup-point-2';
+
+        $response = $this->validate(self::SCHOOL, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertCount(1, $this->dispatched);
+        self::assertSame(self::FREE, $this->dispatched[0]['shipping_method']);
+        self::assertSame('pickup-point-2', $this->dispatched[0]['secondary_option']);
+        self::assertSame(0.0, $this->dispatched[0]['shipping_price']);
+        // As in the browser update, a changed method lets the quote be saved
+        self::assertTrue($this->dispatched[0]['can_save_quote']);
+        self::assertFalse($this->dispatched[0]['qliro_order_validated']);
+        self::assertTrue($this->dispatched[0]['qliro_validate_callback']);
+        self::assertSame(2, $this->quotesSaved);
+    }
+
+    /**
+     * The quote on Qliro's method already, only the option may have changed
+     */
+    public function testPassesTheOptionOnWhenTheMethodIsUnchanged(): void
+    {
+        $this->selectedOption = 'pickup-point-1';
+
+        $this->validate(self::SCHOOL, self::SCHOOL, 99.0);
+
+        self::assertCount(1, $this->dispatched);
+        self::assertSame(self::SCHOOL, $this->dispatched[0]['shipping_method']);
+        self::assertSame('pickup-point-1', $this->dispatched[0]['secondary_option']);
+        self::assertSame(99.0, $this->dispatched[0]['shipping_price']);
+        self::assertFalse($this->dispatched[0]['can_save_quote']);
+        self::assertSame(0, $this->quotesSaved);
+    }
+
+    public function testPassesNoOptionWhenQliroSendsNone(): void
+    {
+        $this->selectedOption = '';
+
+        $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertCount(1, $this->dispatched);
+        self::assertNull($this->dispatched[0]['secondary_option']);
+    }
+
+    /**
+     * An observer that saved another option asks for the quote to be saved, as in the browser update
+     */
+    public function testSavesTheQuoteWhenTheObserverAsks(): void
+    {
+        $this->selectedOption = 'pickup-point-2';
+        $this->observer = static fn(DataObject $container) => $container->setCanSaveQuote(true);
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertSame(1, $this->quotesSaved);
+    }
+
+    /**
+     * Qliro confirmed the totals it validated, a surcharge an observer adds is not saved under them
+     */
+    public function testDoesNotSaveTotalsAnObserverChanged(): void
+    {
+        $this->selectedOption = 'pickup-point-2';
+        $this->observer = function (DataObject $container): void {
+            $this->quoteShippingInclTax += 29.0;
+            $container->setCanSaveQuote(true);
+        };
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertSame(0, $this->quotesSaved);
+        self::assertStringContainsString('changed the totals Qliro confirmed', $this->loggedError());
+    }
+
+    public function testAcceptsWhenTheObserverFails(): void
+    {
+        $this->selectedOption = 'pickup-point-2';
+        $this->observer = static function (): void {
+            throw new \RuntimeException('pickup point service down');
+        };
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertSame(0, $this->quotesSaved);
+        self::assertStringContainsString('pickup point service down', $this->loggedError());
+    }
+
+    /**
+     * An observer written for the browser can hit a missing session, which is an Error
+     */
+    public function testAcceptsWhenTheObserverHitsAnError(): void
+    {
+        $this->observer = static function (): void {
+            throw new \TypeError('getQuote(): Return value must be of type Quote, null returned');
+        };
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertStringContainsString('null returned', $this->loggedError());
+        self::assertSame(0, $this->emulationsOpen);
+    }
+
+    public function testAcceptsWhenTheQuoteTheObserverChangedCannotBeSaved(): void
+    {
+        $this->saveFails = true;
+        $this->selectedOption = 'pickup-point-2';
+        $this->observer = static fn(DataObject $container) => $container->setCanSaveQuote(true);
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertCount(1, $this->dispatched);
+        self::assertStringContainsString('could not pass on the confirmed shipping', $this->loggedError());
+    }
+
+    /**
+     * Observers read store scoped config, so they run in the quote's store view
+     */
+    public function testDispatchesInTheQuoteStoreView(): void
+    {
+        $this->quoteStoreId = 3;
+
+        $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertSame([3], $this->dispatchedInStoreId);
+        self::assertSame(0, $this->emulationsOpen);
+        self::assertSame(1, $this->currentStoreId);
+    }
+
+    /**
+     * Merchant code would act on a payment Qliro is told to decline
+     */
+    public function testPassesNothingWhenTheLinesDiffer(): void
+    {
+        $this->qliroLineDiffers = true;
+        $this->selectedOption = 'pickup-point-2';
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertSame(ValidateOrderResponseInterface::REASON_OTHER, $response->getDeclineReason());
+        self::assertSame([], $this->dispatched);
+    }
+
+    public function testPassesNothingOnADecline(): void
+    {
+        $this->validate(self::FREE, self::SCHOOL, 49.0);
+
+        self::assertSame([], $this->dispatched);
+        // The same callback accepted is dispatched, so the empty list is the decline's doing
+        $this->validate(self::FREE, self::SCHOOL, 99.0);
+        self::assertCount(1, $this->dispatched);
+    }
+
+    /**
+     * A code without a rate leaves the quote on its own method, which is not Qliro's
+     */
+    public function testPassesNothingWhenTheQuoteKeepsItsOwnMethod(): void
+    {
+        $response = $this->validate(self::SCHOOL, 'unknown_carrier', 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertSame([], $this->dispatched);
+    }
+
+    public function testPassesNothingForAQuoteThatIsAlreadyAnOrder(): void
+    {
+        $this->isActive = false;
+
+        $response = $this->validate(self::FREE, self::FREE, 0.0);
+
+        self::assertNull($response->getDeclineReason());
+        self::assertSame([], $this->dispatched);
+    }
+
+    public function testPassesNothingForUnifaunAndIngrid(): void
+    {
+        self::assertNull($this->validate(self::FREE, self::FREE, 0.0, 'unifaun')->getDeclineReason());
+        self::assertNull($this->validate(self::FREE, self::FREE, 0.0, 'ingrid')->getDeclineReason());
+
+        self::assertSame([], $this->dispatched);
+        self::assertNull($this->validate(self::FREE, self::FREE, 0.0)->getDeclineReason());
+        self::assertCount(1, $this->dispatched);
+    }
+
+    private function loggedError(): string
+    {
+        $errors = array_filter(
+            $this->debugLogs,
+            static fn(array $log): bool => ($log[1]['extra']['function'] ?? null) === 'dispatchConfirmedShipping'
+        );
+        self::assertCount(1, $errors);
+
+        return (string)array_values($errors)[0][1]['extra']['reason'];
+    }
+
     private function validate(
         string $quoteMethod,
         string $selectedMethod,
@@ -236,16 +461,26 @@ class ValidateOrderBuilderShippingTest extends TestCase
 
         $request = $this->createMock(ValidateOrderNotificationInterface::class);
         $request->method('getSelectedShippingMethod')->willReturn($selectedMethod);
+        $request->method('getSelectedShippingSecondaryOption')->willReturn($this->selectedOption);
+        $qliroProduct = $this->productLine();
+        if ($this->qliroLineDiffers) {
+            $qliroProduct->setQuantity(2);
+        }
         $request->method('getOrderItems')->willReturn(
-            $qliroShippingPrice === null ? [$product] : [$product, $this->shippingLine($qliroShippingPrice)]
+            $qliroShippingPrice === null ? [$qliroProduct] : [$qliroProduct, $this->shippingLine($qliroShippingPrice)]
         );
+
+        $logManager = $this->createMock(LogManager::class);
+        $logManager->method('debug')->willReturnCallback(function ($message, array $context = []): void {
+            $this->debugLogs[] = [(string)$message, $context];
+        });
 
         $builder = new ValidateOrderBuilder(
             $responseFactory,
             $stockAvailability,
             new QuoteLines(),
             $orderItemsBuilder,
-            $this->createMock(LogManager::class),
+            $logManager,
             $this->createMock(SubmitQuoteValidator::class),
             $this->createMock(CustomerManagement::class),
             $config,
@@ -253,10 +488,30 @@ class ValidateOrderBuilderShippingTest extends TestCase
             $this->quoteRepository(),
             $this->storeManager(),
             $this->storeEmulation(),
-            new LineDifferences()
+            new LineDifferences(),
+            $this->eventManager()
         );
 
         return $builder->setQuote($this->quote())->setValidationRequest($request)->create();
+    }
+
+    private function eventManager(): EventManager
+    {
+        $eventManager = $this->createMock(EventManager::class);
+        $eventManager->method('dispatch')->willReturnCallback(function (string $event, array $data): void {
+            self::assertSame('qliroone_shipping_method_update_before', $event);
+            self::assertInstanceOf(Quote::class, $data['quote']);
+
+            $this->dispatchedInStoreId[] = $this->currentStoreId;
+
+            if ($this->observer !== null) {
+                ($this->observer)($data['container']);
+            }
+
+            $this->dispatched[] = $data['container']->getData();
+        });
+
+        return $eventManager;
     }
 
     private function storeManager(): StoreManagerInterface

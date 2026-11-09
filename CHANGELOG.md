@@ -1,4 +1,3 @@
-
 # Change Log
 
 ## [1.8.55] - 2026-11-09
@@ -11,6 +10,179 @@
 ### Added
 
 - `Test/E2e/tests/cancel-refused.spec.ts`: an admin cancel of a seeded order whose Qliro order the configured merchant does not know. Needs `seed/seed-qliro-order.php` in the store's `var/` and credentials Qliro refuses
+
+
+## [1.8.52] - 2026-11-05
+
+### Fixed
+
+- A callback refused because its token did not verify with the API secret, or was issued for another merchant API key, is logged at warning with the reason. These were at debug, so a store whose older orders stopped updating after a credentials change had nothing to see: Qliro's capture and refund pushes for those orders were answered "Authenticate error" and their status rows never moved. The callback urls are open to anyone, so the warning is rate limited per store: once an hour for a wrong secret, once an hour per presented key for another key, at most five keys an hour plus one line per key the store replaced. The rest goes to debug, and a caller who knows the merchant key can take the hourly lines. A malformed token stays at debug, now with the reason, and so does a refused checkout token, which concerns one customer
+- Changing the Merchant API Key or Secret, or ticking "Use Default" or "Use system value" on one that was set, keeps the pair in use before, encrypted, for each website that used it then, the last five pairs per website. Callback tokens signed with a kept pair are accepted on that website for as many days after the change as the new setting Callback > Accept Replaced API Credentials (days) says, 90 by default. A change at the default scope keeps, for each website inheriting the changed half, the pair that website used, its own other half included. Each acceptance is logged at info, once an hour. Checkout tokens live two hours and are never accepted with a kept pair
+- Setting the window to 0 refuses those tokens and drops every kept pair, so raising it later revives none; nothing is kept while it is 0. Changing the API type drops the pairs of that website, every pair at the default scope, and keeps none from the rest of that save, so a sandbox pair is not accepted in production. Change the credentials before or with the API type: credentials changed in a later save keep the pair of the previous type
+- Only a change saved from the admin or with `bin/magento config:set` from this release on is kept, not one deployed through `env.php`, `config.php` or `app:config:import`. A store that changed its credentials earlier can save the old pair once and then the current one again: both changes are kept, and tokens of either pair are accepted from then on. The list is a sensitive setting, so `app:config:dump` leaves it out. It is not re-encrypted by an encryption key change; once the old key is removed from `env.php`, it reads as empty
+- A kept pair replaced longer ago than the longest window the setting allows, 1095 days, is dropped the next time a pair is kept, so an old secret does not stay in the database for good
+
+### Added
+
+- Unit tests for the refusal levels, reasons and rate limit, tokens signed with a kept pair, where a kept pair is accepted, the pairs kept or dropped on each kind of change, and the new setting
+- `Test/E2e/tests/callback-credentials.spec.ts` with `seed/callback-credentials.php`: Qliro's capture status push for an order created before the credentials change, with the window on and off
+
+
+## [1.8.51] - 2026-11-05
+
+### Added
+
+- A customer can remove the saved card of a cancelled subscription from My Subscriptions through Qliro. Qliro deletes the card token, the subscription shows the card as removed, and the original order gets a comment saying so. The card of an active subscription stays: its next recurring order would be charged to a card Qliro no longer has, so the customer cancels the subscription first. A card Qliro already deleted or never had counts as removed, and the order comment says which
+- The sales order grid has a Saved Card Removed column, hidden by default
+- `qliroone_recurring_info.saved_credit_card_removed_at`, set when Qliro deleted the card. The card id stays on the row
+
+### Fixed
+
+- The recurring orders cron saved each subscription it had loaded once the order was placed, so a subscription cancelled while the cron ran became active again. It now moves the next order date only, and only on a subscription still active
+- With more than one subscription on the page, Cancel Subscription bound every cancel button to every subscription's form: one click opened a confirmation per subscription, and confirming the one on top could cancel another subscription than the one clicked. Each confirmation now belongs to its own form
+
+
+## [1.8.50] - 2026-11-04
+
+### Fixed
+
+- A cart emptied in another tab while the checkout was open sent Qliro an order update and then a new order with no lines. Qliro refused both, and the link was left without a Qliro order, so the next read went out as `GET orders/*`. Neither the create nor the update is sent now for a request without a product or bundle line. The quote id, the reason and the cart items are logged. An empty cart sends the buyer back to the cart with a message: the checkout page redirects, the cart refresh and the embedded snippet answer with the cart URL. A cart whose products all have no Qliro line, such as downloadable products without a type handler, says so in place of the widget, so another payment method can be chosen
+- A placeholder in an API endpoint left empty by an empty string or `false` went out as an empty path segment. It is refused before the call like a missing value
+- Reading a checkout's Qliro order and polling for its placement stop before the call when the link has no Qliro order id
+
+### Added
+
+- Unit tests for the refusal on create and update, the cart redirect of the page and both ajax calls, the endpoint placeholders and the polls without a Qliro order id
+- `Test/E2e/tests/checkout-emptied-cart.spec.ts`, against the Qliro sandbox: the cart is emptied while the checkout is open and the refresh lands on the cart with the message, with no create or update without lines and no `orders/*` in the log. Off unless `QLIRO_CHECKOUT_E2E=1`
+
+
+## [1.8.49] - 2026-11-04
+
+### Fixed
+
+- Qliro's checkout status push was answered "Order not found" with 500 whatever went wrong, so Qliro's logs could not tell a missing order from a failed placement. The answer now names the cause: "Link not found" with 404 when the store has no active link for the Qliro order, "Order placement failed: <error>" when placing the order threw, and "Order status could not be applied" when the order would not take the status, followed by the status Magento does not handle or by the error. The last two stay 500. The error is one line of at most 200 characters. Qliro counts a push as delivered only when the body says `received`, so it keeps retrying all three as before
+- A placement failure is logged as "Order placement failed: <error>" with the Qliro order id
+- A database error is named in the answer but not quoted, since Qliro logs the answer and the error's text can hold the values of a row. The store's log keeps the whole message
+- A database error while looking up the link no longer counts as a missing link, so it no longer tries to cancel the Qliro order
+
+### Added
+
+- `Test/E2e/tests/checkout-status-refusal.spec.ts` with `seed/checkout-status.php`, and `--unplaced` on `seed/seed-sandbox-order.php`: a push for an unknown Qliro order, a status the order cannot take, and, against the Qliro sandbox, a paid order whose product sold out, then its retry once the product is back
+
+
+## [1.8.48] - 2026-11-04
+
+### Fixed
+
+- Qliro's shipping provider notification is answered `{"CallbackResponse": "received"}` once it is handled. Qliro takes a notification as delivered only on that body, whatever the HTTP status, so the old answers "Shipping Provider Update handled successfully" and "already handled" counted as failures and were sent again, about nine times per order
+- A notification that arrives before the Magento order is placed is kept against the link and answered `received`, where it was answered 404 until the order existed. The placement puts it on the order before the order confirmation goes out and saves it with the order's status; the kept one is dropped only after that save, so a failed save leaves it for a later checkout status push. A later notification before placement replaces the kept one, one after placement is applied to the order and drops the kept one. A refused order does not get it at placement, nor a canceled one later. A notification for a refused or replaced checkout, whose link is inactive, is kept and acknowledged rather than answered 500 again and again
+- Updates are ordered by Qliro's `Timestamp`, which Qliro keeps on a redelivery, so an older update sent again after a newer one replaces neither the kept one nor the one on the order. The module read the field as `TimeStamp` and never got it, the accessors are now `getTimestamp`/`setTimestamp`
+- An update the order held from before times were kept takes the time of its first redelivery, so an older update redelivered after it does not replace it
+- While another process holds the Qliro order's lock, as a placement does, the store waits up to 0.8 seconds and then answers 409 without `received`, so Qliro sends it again
+- A notification whose payload lacks the carrier name or id no longer fails on the shipping description, the order keeps its description and gets the payload. The provider is compared without case, so `unifaun` and `ingrid` also name the carrier
+
+### Added
+
+- Table `qliroone_pending_shipping_update`, and cron `qliroone_prune_pending_shipping_updates` that drops updates kept longer than 30 days, of orders never placed
+- Unit tests for the notification handler and the kept update, `Test/E2e/tests/shipping-notification.spec.ts` with `Test/E2e/seed/shipping-notification.php`
+
+
+## [1.8.47] - 2026-11-04
+
+### Fixed
+
+- The secondary option of a shipping method that is not Unifaun or Ingrid, a pickup point for example, reached merchant code only through the browser update, so an observer kept the old option when that update was late or lost. The validate callback of an accepted order now dispatches `qliroone_shipping_method_update_before` with Qliro's method and `SelectedShippingSecondaryOption`, in the quote's store view. `can_save_quote` starts true when the callback moved the quote to Qliro's method, and the quote is saved when it is true after the observers. The container carries `qliro_validate_callback` true and `qliro_order_validated` false, also on a resent callback, since the callback may still write the quote. Observers run after the validation, changes to `shipping_method` and `shipping_price` are ignored there, and a quote whose grand total or shipping an observer changed is not saved, since Qliro has confirmed the totals it validated. Other quote changes are saved as they are. A failing observer or save is logged and the order is accepted
+- An order placed from a Qliro checkout keeps the option of Qliro's shipping line, `ShippingMethodSecondaryOptionMerchantReference` in its metadata, as `qliro_shipping_secondary_option` in the payment's additional information. The log of an order placed with another delivery than the Qliro order names the option
+
+### Added
+
+- Unit tests for the option on the validate callback and on placement
+- `Test/E2e/tests/secondary-option.spec.ts`: the validate callback passes the option on, also with a corrected method, and the placed order keeps it
+
+
+## [1.8.46] - 2026-11-04
+
+### Fixed
+
+- A log line whose insert into `qliroone_log` hit a database deadlock was lost on the retry, or stored without its message and level. The first attempt replaced the record with its formatted part, so the next one read the wrong array. The row is now built once and every attempt inserts the same values. After the third deadlock the write still gives up without an error
+
+### Added
+
+- `Test/Unit/Model/Logger/HandlerTest.php` and `Test/E2e/tests/log-deadlock.spec.ts` with `seed/log-deadlock.php`, which fails the first inserts of a log line with MariaDB's deadlock error through a trigger
+
+
+## [1.8.45] - 2026-11-04
+
+### Fixed
+
+- The Magento order number went to Qliro twice on stores that do not use the increment id as the reference, and Qliro refused the second call with "Order has reference set to 'N' already". The mark that the number was sent was saved with the order at the end of the status update, so when that save failed Qliro repeated its callback and the number went out again. The mark is now saved on the payment before the call
+- A refusal saying the order already carries the number being sent is a success: no critical "Failed to set the Magento order reference", and the API line is logged as info. The same refusal for another number, or "Order with reference 'N' already exists", is still a failure
+- A subscription order placed with Qliro's status Completed sent the number with no mark at all, it now takes the same mark
+
+### Added
+
+- Unit tests for the mark saved before the call, a second callback, the refusal for the same and for another number, and the log level of an expected refusal
+- `Test/E2e/tests/merchant-reference-once.spec.ts` against the Qliro sandbox, with `seed/merchant-reference.php` and the fixture module `QliroE2e_FailingOrderSave`: repeated callbacks send the number once, and a failed order save after the call does not send it again
+
+
+## [1.8.44] - 2026-11-04
+
+### Fixed
+
+- A credit memo returned the invoice fee before the whole order was refunded. The check compared whole units only, so 99.10 refunded of 99.60 counted as full, and it added the refunded total in the base currency to the order's and the memo's totals and the fee in the order currency, so on a store whose order currency differs from the base currency the fee was returned too early or kept. Every amount is now in the order currency and compared to the cent
+- The fee read for one credit memo was kept for the next one in the same request, whatever order it belonged to
+- The view of a saved credit memo counted it twice, once in the order's refunded total and once on its own, so an early memo of a fully refunded order showed the fee it never returned. A saved memo now counts the memos before it
+
+### Added
+
+- Unit tests for the fee refund check: short of the order by less than a unit, refunded in full, an order in a currency other than the base one, and a saved memo
+- `Test/E2e/tests/credit-memo-fee.spec.ts` with `seed/credit-memo-fee.php`: credit memos from the invoice, refunded offline, short by 0.50, then in full, and an order in another display currency when `E2E_PAY_CURRENCY` is set. `seed/seed-qliro-order.php` takes `--price` and `--currency`
+
+
+## [1.8.43] - 2026-11-04
+
+### Added
+
+- Static analysis in CI: PHPStan at level 5 with a baseline of the errors that exist today, and the Magento coding standard (errors) over all production code and templates. Both run locally with `composer static-analysis`, see CONTRIBUTING.md
+
+### Fixed
+
+- The order pending page escapes the loader image URL, the loader text and the poll URL it writes into its JSON config, so a translation or URL holding a quote no longer breaks the page
+
+### Removed
+
+- `Jenkinsfile`. It targeted a Magento 2.3 Jenkins agent and reported to Bitbucket. CI is GitHub Actions in `.github/workflows`
+
+
+## [1.8.42] - 2026-11-04
+
+### Fixed
+
+- A blank value Qliro sends for an address field (name, street, city, postcode, company, email, phone) no longer overwrites what the quote holds. Only a null was skipped before, so an empty or whitespace string replaced a working value, and a required field left empty failed the order placement. A blank postcode no longer counts as an address that may replace the country, and a blank country is not one
+
+### Added
+
+- `AddressConverterTest`: blank fields keep the quote's values, a blank postcode keeps the country
+
+
+## [1.8.41] - 2026-11-04
+
+### Fixed
+
+- An order no longer gets a status that is not assigned to its state. A capture Qliro put on hold set the order to `pending_payment` and kept its old status, and placing the order did the same before Qliro completed it, so the order stood on pairs such as `pending_payment` / `pending` that Magento has no row for, and the order grid and its status filter missed it. These orders now get the default status of `pending_payment`
+- The New Order Status from the settings is used only while it is assigned to `new`. If the merchant unassigned it, the order gets the default status of `new` and a warning is logged
+- A checkout status delivered again after the order was invoiced, shipped or closed no longer moves the order back. A repeated `Completed` set an invoiced order back to `new`, and a repeated `OnHold` set it to `payment_review`. The order now stays as it is and a warning is logged. A held order that is still in checkout keeps its hold and gets the new state as the state it returns to when it is released, also when the order is placed
+- A refused subscription order that was held is released and canceled, as one that was not held
+- A capture Qliro returns OnHold no longer takes a held order off hold. The order stays on hold, returns to `pending_payment` when released, and the order history says so. Before, the handlers set `pending_payment` over the hold, so an order held for a failed capture lost its hold without `unhold()`
+
+### Changed
+
+- `Qliro\QliroOne\Model\Order\StateStatus` is the one class that decides the state and status of an order. It replaces `HoldAwareState` from 1.8.22, removed, whose hold handling is now `StateStatus::setKeepingHold()`, and the status check `CaptureHold` from 1.8.27 did after a released hold, now `StateStatus::keepAssigned()` and `isAssigned()`. `CaptureHold` takes `StateStatus` in its constructor. As before, the authorization on a held order that returns to the same state keeps the status it returns to. A status not assigned after a released hold now gives the state's default when assigned, else its first assigned status, and is logged as a warning too
+
+### Added
+
+- `Model/Order/StateStatus`, `Test/Unit/Model/Order/StateStatusTest`, `PaymentAuthorizationStateTest` and `Handler/CaptureOnHoldTest`
+- `Test/E2e/tests/status-for-state.spec.ts`: an order placed while Qliro is in process, a repeated `Completed` and `OnHold` on an invoiced order, a capture put on hold, and a New Order Status not assigned to `new`, each checked against the statuses assigned to the state and the order grid
 
 
 ## [1.8.40] - 2026-11-04

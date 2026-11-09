@@ -14,7 +14,6 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
 use Qliro\QliroOne\Api\Client\MerchantInterface;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
-use Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
@@ -23,16 +22,18 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\Order\HoldAwareState;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
 use Qliro\QliroOne\Model\QliroOrder\LineDifferences;
 use Qliro\QliroOne\Model\Order\PlacedOrderFinder;
 use Qliro\QliroOne\Model\Order\QuoteCurrency;
+use Qliro\QliroOne\Model\Order\ShippingProviderUpdate;
 use Qliro\QliroOne\Model\QliroOrder\Converter\QuoteFromOrderConverter;
+use Qliro\QliroOne\Model\QliroOrder\MerchantReference;
 use Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp;
 use Qliro\QliroOne\Model\ResourceModel\Lock;
 use Qliro\QliroOne\Model\Exception\TerminalException;
@@ -58,11 +59,6 @@ class PlaceOrder extends AbstractManagement
     private $merchantApi;
 
     /**
-     * @var \Qliro\QliroOne\Api\Client\OrderManagementInterface
-     */
-    private $orderManagementApi;
-
-    /**
      * @var \Qliro\QliroOne\Api\LinkRepositoryInterface
      */
     private $linkRepository;
@@ -71,11 +67,6 @@ class PlaceOrder extends AbstractManagement
      * @var \Magento\Quote\Api\CartRepositoryInterface
      */
     private $quoteRepository;
-
-    /**
-     * @var \Qliro\QliroOne\Model\ContainerMapper
-     */
-    private $containerMapper;
 
     /**
      * @var \Qliro\QliroOne\Model\Logger\Manager
@@ -156,16 +147,31 @@ class PlaceOrder extends AbstractManagement
     private ?QuoteCurrency $quoteCurrency;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
+     * @var MerchantReference
+     */
+    private MerchantReference $merchantReference;
+
+    /**
+     * @var ShippingProviderUpdate|null
+     */
+    private ?ShippingProviderUpdate $shippingProviderUpdate;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
      * @param MerchantInterface $merchantApi
-     * @param OrderManagementInterface $orderManagementApi
+     * @param OrderManagementInterface $orderManagementApi Unused since MerchantReference sends the reference, kept for the signature
      * @param QuoteFromOrderConverter $quoteFromOrderConverter
      * @param LinkRepositoryInterface $linkRepository
      * @param CartRepositoryInterface $quoteRepository
      * @param OrderRepositoryInterface $orderRepository
-     * @param ContainerMapper $containerMapper
+     * @param ContainerMapper $containerMapper Unused since MerchantReference sends the reference, kept for the signature
      * @param LogManager $logManager
      * @param OrderPlacer $orderPlacer
      * @param Lock $lock
@@ -180,7 +186,11 @@ class PlaceOrder extends AbstractManagement
      * @param OrderItemsBuilder|null $orderItemsBuilder
      * @param LineDifferences|null $lineDifferences
      * @param QuoteCurrency|null $quoteCurrency
+     * @param StateStatus|null $stateStatus
+     * @param MerchantReference|null $merchantReference
+     * @param ShippingProviderUpdate|null $shippingProviderUpdate
      */
+    // @phpstan-ignore constructor.unusedParameter, constructor.unusedParameter (kept for the signature)
     public function __construct(
         Config $qliroConfig,
         MerchantInterface $merchantApi,
@@ -203,14 +213,15 @@ class PlaceOrder extends AbstractManagement
         ?DiscountLines $discountLines = null,
         ?OrderItemsBuilder $orderItemsBuilder = null,
         ?LineDifferences $lineDifferences = null,
-        ?QuoteCurrency $quoteCurrency = null
+        ?QuoteCurrency $quoteCurrency = null,
+        ?StateStatus $stateStatus = null,
+        ?MerchantReference $merchantReference = null,
+        ?ShippingProviderUpdate $shippingProviderUpdate = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
-        $this->orderManagementApi = $orderManagementApi;
         $this->linkRepository = $linkRepository;
         $this->quoteRepository = $quoteRepository;
-        $this->containerMapper = $containerMapper;
         $this->logManager = $logManager;
         $this->quoteFromOrderConverter = $quoteFromOrderConverter;
         $this->orderPlacer = $orderPlacer;
@@ -229,6 +240,10 @@ class PlaceOrder extends AbstractManagement
         $this->orderItemsBuilder = $orderItemsBuilder;
         $this->lineDifferences = $lineDifferences;
         $this->quoteCurrency = $quoteCurrency;
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
+        $this->merchantReference = $merchantReference
+            ?? ObjectManager::getInstance()->get(MerchantReference::class);
+        $this->shippingProviderUpdate = $shippingProviderUpdate;
     }
 
     /**
@@ -249,6 +264,10 @@ class PlaceOrder extends AbstractManagement
             $this->logManager->debug('Found link, Qliro order id: ' . $qliroOrderId . ' order id: ' . $orderId . ' quote id: ' . $quoteId);
             $this->logManager->setMerchantReference($link->getReference());
 
+            if (empty($orderId) && empty($qliroOrderId)) {
+                throw new NoSuchEntityException(__('Quote %1 has no Qliro order', $quoteId));
+            }
+
             if (empty($orderId)) {
                 // Only the process that took the lock may release it. The status check below
                 // throws before the lock is taken, and releasing one we never held freed the
@@ -260,7 +279,7 @@ class PlaceOrder extends AbstractManagement
                     // The pending page polls until the order exists, so this answer is worth
                     // waiting for rather than cutting short
                     $responseContainer = $this->merchantApi->getOrder(
-                        $qliroOrderId,
+                        (int)$qliroOrderId,
                         Config::API_PROFILE_BACKGROUND
                     );
 
@@ -544,6 +563,58 @@ class PlaceOrder extends AbstractManagement
     }
 
     /**
+     * Put the shipping provider update Qliro sent before the order existed on the order
+     *
+     * @param Order $order
+     * @param LinkInterface $link
+     * @return bool Whether one was kept, drop it once the order is saved
+     */
+    private function applyStoredShippingUpdate(Order $order, LinkInterface $link): bool
+    {
+        // Only the statuses saved below. A refused order is canceled, it ships nothing
+        $saved = [CheckoutStatusInterface::STATUS_COMPLETED, CheckoutStatusInterface::STATUS_ONHOLD];
+        if (!in_array($link->getQliroOrderStatus(), $saved, true) || $order->getState() === Order::STATE_CANCELED) {
+            return false;
+        }
+
+        try {
+            return $this->shippingProviderUpdate()->applyStored($order, (int)$link->getId());
+        } catch (\Throwable $exception) {
+            // The order is placed, a missing shipping description does not undo it
+            $this->logManager->critical(
+                'Could not apply the stored Shipping Provider Update: ' . $exception->getMessage(),
+                ['extra' => ['order_id' => $order->getId(), 'link_id' => $link->getId()]]
+            );
+
+            return false;
+        }
+    }
+
+    /**
+     * @return ShippingProviderUpdate
+     */
+    private function shippingProviderUpdate(): ShippingProviderUpdate
+    {
+        // Optional so a store constructing this class with the old signature keeps working
+        return $this->shippingProviderUpdate ??= ObjectManager::getInstance()->get(ShippingProviderUpdate::class);
+    }
+
+    /**
+     * @param LinkInterface $link
+     * @return void
+     */
+    private function discardStoredShippingUpdate(LinkInterface $link): void
+    {
+        try {
+            $this->shippingProviderUpdate()->discard((int)$link->getId());
+            $this->logManager->info('Saved the order with the Shipping Provider Update stored before placement');
+        } catch (\Throwable $exception) {
+            // Applying it again on the next push changes nothing
+            $this->logManager->critical('Could not drop the stored Shipping Provider Update: ' . $exception->getMessage());
+        }
+    }
+
+    /**
      * Bring the quote in line with the Qliro order and place the Magento order from it
      *
      * @param LinkInterface $link
@@ -745,6 +816,9 @@ class PlaceOrder extends AbstractManagement
                 $link = $this->linkRepository->getByOrderId($orderId);
             }
 
+            // Saved with the status below, before the confirmation goes out. A failed save keeps it for a later push
+            $storedShipping = $this->applyStoredShippingUpdate($order, $link);
+
             switch ($link->getQliroOrderStatus()) {
                 case CheckoutStatusInterface::STATUS_COMPLETED:
                     // Held for lines that differ, the merchant sends it once they are sorted out
@@ -768,60 +842,7 @@ class PlaceOrder extends AbstractManagement
                         }
                     }
 
-                    $paymentAdditionalInfo = $order->getPayment()->getAdditionalInformation();
-                    $alreadyUpdatedMerchantRef = $paymentAdditionalInfo['qliroone_updated_merchant_reference'] ?? false;
-
-                    if (!$alreadyUpdatedMerchantRef) {
-                        if (!$this->qliroConfig->isUseIncrementIdAsReference((int) $order->getStoreId())) {
-                            /** @var \Qliro\QliroOne\Api\Data\AdminUpdateMerchantReferenceRequestInterface $request */
-                            $request = $this->containerMapper->fromArray(
-                                [
-                                    'OrderId' => $link->getQliroOrderId(),
-                                    'NewMerchantReference' => $order->getIncrementId(),
-                                ],
-                                AdminUpdateMerchantReferenceRequestInterface::class
-                            );
-
-                            $response = $this->orderManagementApi->updateMerchantReference($request, $order->getStoreId());
-
-                            if ($response === null) {
-                                /**
-                                 * PLIN-373: updateMerchantReference() returns null on any API error
-                                 * (it swallows the exception so a Qliro notification still gets its
-                                 * ok). Log that as a failure instead of the old "assigned" debug line,
-                                 * which hid that the Qliro order still carries its temporary reference.
-                                 * Behaviour is otherwise unchanged - the reference is still marked as
-                                 * handled below (fire-once): this runs inside a Qliro notification on
-                                 * every status callback, so it must not re-attempt or write to the
-                                 * order on each call across merchants.
-                                 */
-                                $this->logManager->critical(
-                                    new \RuntimeException('Failed to set the Magento order reference on the Qliro One order'),
-                                    [
-                                        'extra' => [
-                                            'qliro_order_id' => $link->getQliroOrderId(),
-                                            'order_id' => $order->getId(),
-                                            'new_merchant_reference' => $order->getIncrementId(),
-                                        ],
-                                    ]
-                                );
-                            } else {
-                                $transactionId = $response->getPaymentTransactionId() ?: 'unknown';
-                                $this->logManager->debug('New merchant reference was assigned to the Qliro One order', [
-                                    'payment_transaction_id' => $transactionId,
-                                    'qliro_order_id' => $link->getQliroOrderId(),
-                                    'order_id' => $order->getId(),
-                                    'new_merchant_reference' => $order->getIncrementId(),
-                                ]);
-                            }
-                        }
-
-                        // Fire-once regardless of outcome, exactly as before: the notification path
-                        // must just respond ok, and re-attempting on every later callback would add
-                        // load and noise across all merchants' orders.
-                        $paymentAdditionalInfo['qliroone_updated_merchant_reference'] = true;
-                        $order->getPayment()->setAdditionalInformation($paymentAdditionalInfo);
-                    }
+                    $this->merchantReference->sendOnce($order, $link);
 
                     // Finally apply state, this also saves the order and payment
                     $this->applyOrderState($order, Order::STATE_NEW);
@@ -843,7 +864,7 @@ class PlaceOrder extends AbstractManagement
                     // A held order cannot be canceled
                     if ($order->canUnhold()) {
                         if (!$order->getHoldBeforeState()) {
-                            HoldAwareState::apply($order, Order::STATE_PENDING_PAYMENT);
+                            $this->stateStatus->setKeepingHold($order, Order::STATE_PENDING_PAYMENT);
                         }
                         $order->unhold();
                     }
@@ -868,6 +889,10 @@ class PlaceOrder extends AbstractManagement
                         ]
                     );
                     return false;
+            }
+
+            if ($storedShipping) {
+                $this->discardStoredShippingUpdate($link);
             }
 
             return true;
@@ -979,6 +1004,7 @@ class PlaceOrder extends AbstractManagement
                         'quote_price' => $quotePrice,
                         'qliro_line_references' => $references,
                         'qliro_price' => $qliroPrice,
+                        'qliro_secondary_option' => $this->getSecondaryOption($qliroOrder),
                     ],
                 ]
             );
@@ -992,6 +1018,18 @@ class PlaceOrder extends AbstractManagement
     private function addAdditionalShippingInfoToQuote(QliroOrderInterface $order)
     {
         $payment = $this->getQuote()->getPayment();
+        $secondaryOption = $this->getSecondaryOption($order);
+
+        // Unset too, a quote placed again keeps what an earlier attempt wrote
+        if ($secondaryOption === null) {
+            $payment->unsAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION);
+        } else {
+            $payment->setAdditionalInformation(
+                Config::QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION,
+                $secondaryOption
+            );
+        }
+
         foreach ($order->getOrderItems() as $orderItem) {
             $metadata = $orderItem->getMetadata();
             $additionalShippingProperties = $metadata['AdditionalShippingProperties'] ?? false;
@@ -1008,19 +1046,48 @@ class PlaceOrder extends AbstractManagement
     }
 
     /**
-     * Apply a proper state with its default status to the order
+     * The secondary option Qliro holds on its shipping line, for methods that are not Unifaun or Ingrid
+     *
+     * @param QliroOrderInterface $order
+     * @return string|null
+     */
+    private function getSecondaryOption(QliroOrderInterface $order): ?string
+    {
+        $storeId = $this->getQuote()->getStoreId();
+
+        if ($this->getQuote()->isVirtual()
+            || $this->qliroConfig->isUnifaunEnabled($storeId)
+            || $this->qliroConfig->isIngridEnabled($storeId)
+        ) {
+            return null;
+        }
+
+        foreach ($order->getOrderItems() ?: [] as $orderItem) {
+            if ($orderItem->getType() !== QliroOrderItemInterface::TYPE_SHIPPING) {
+                continue;
+            }
+
+            $option = $orderItem->getMetadata()['ShippingMethodSecondaryOptionMerchantReference'] ?? null;
+
+            if (is_scalar($option) && (string)$option !== '') {
+                return (string)$option;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Apply a proper state with a status registered for it, unless the order is past checkout
      *
      * @param \Magento\Sales\Model\Order $order
      * @param string $state
      */
     private function applyOrderState(Order $order, $state)
     {
-        $status = Order::STATE_NEW === $state
-            ? $this->qliroConfig->getOrderStatus()
-            : $order->getConfig()->getStateDefaultStatus($state);
+        $status = Order::STATE_NEW === $state ? (string)$this->qliroConfig->getOrderStatus() : null;
 
-        // A held order keeps its hold, the state applies once the merchant releases it
-        HoldAwareState::apply($order, $state, $status);
+        $this->stateStatus->setFromCheckout($order, $state, $status);
         $this->orderRepository->save($order);
     }
 

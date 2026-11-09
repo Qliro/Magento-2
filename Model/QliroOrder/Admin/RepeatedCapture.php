@@ -15,7 +15,6 @@ use Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminTransactionResponseInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
-use Qliro\QliroOne\Api\Data\QliroShipmentInterface;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
 use Qliro\QliroOne\Model\Api\Client\Exception\ClientException;
 use Qliro\QliroOne\Model\Api\RequestId;
@@ -245,10 +244,6 @@ class RepeatedCapture
         $total = 0.0;
 
         foreach ($request->getShipments() ?: [] as $shipment) {
-            if (!$shipment instanceof QliroShipmentInterface) {
-                continue;
-            }
-
             foreach ($shipment->getOrderItems() ?: [] as $line) {
                 $total += (float)$line->getPricePerItemIncVat() * (float)$line->getQuantity();
             }
