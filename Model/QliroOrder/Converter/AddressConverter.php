@@ -44,8 +44,8 @@ class AddressConverter
      * organisation number is not a VAT number, so the buyer would be moved to the group a store
      * keeps for an invalid VAT id, with whatever tax class that group carries.
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroAddress
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null $qliroAddress
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface|null $qliroCustomer
      * @param \Magento\Quote\Model\Quote\Address $address
      * @param string|null $countryCode
      * @return bool Whether any value on the quote address was changed
