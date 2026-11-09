@@ -467,6 +467,13 @@ define([
                         return;
                     }
 
+                    // Nothing left to pay for, the cart shows the message
+                    if (data.redirect) {
+                        window.location = data.redirect;
+
+                        return;
+                    }
+
                     unlockCheckout('quote update failed');
                     showErrorMessage(data.error || reason);
                     settleRefresh();

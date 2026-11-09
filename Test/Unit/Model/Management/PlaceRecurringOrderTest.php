@@ -175,6 +175,24 @@ class PlaceRecurringOrderTest extends TestCase
         self::assertArrayNotHasKey('qliro_payment_method_code', $stored);
     }
 
+    public function testPollDoesNotAskQliroForALinkWithoutAQliroOrder(): void
+    {
+        $link = $this->createMock(LinkInterface::class);
+        $link->method('getQliroOrderId')->willReturn(null);
+        $link->method('getOrderId')->willReturn(null);
+        $linkRepository = $this->createMock(LinkRepositoryInterface::class);
+        $linkRepository->method('getByQuoteId')->willReturn($link);
+        $merchantApi = $this->createMock(MerchantInterface::class);
+        $merchantApi->expects(self::never())->method('getOrder');
+        (new \ReflectionProperty(PlaceRecurringOrder::class, 'linkRepository'))
+            ->setValue($this->placeRecurringOrder, $linkRepository);
+        (new \ReflectionProperty(PlaceRecurringOrder::class, 'merchantApi'))
+            ->setValue($this->placeRecurringOrder, $merchantApi);
+
+        $this->expectException(\Qliro\QliroOne\Model\Exception\TerminalException::class);
+        $this->placeRecurringOrder->poll();
+    }
+
     /**
      * The stamping is private and the rest of the placement talks to Magento and to Qliro, so it is
      * exercised directly rather than through execute().

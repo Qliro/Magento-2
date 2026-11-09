@@ -264,6 +264,10 @@ class PlaceOrder extends AbstractManagement
             $this->logManager->debug('Found link, Qliro order id: ' . $qliroOrderId . ' order id: ' . $orderId . ' quote id: ' . $quoteId);
             $this->logManager->setMerchantReference($link->getReference());
 
+            if (empty($orderId) && empty($qliroOrderId)) {
+                throw new NoSuchEntityException(__('Quote %1 has no Qliro order', $quoteId));
+            }
+
             if (empty($orderId)) {
                 // Only the process that took the lock may release it. The status check below
                 // throws before the lock is taken, and releasing one we never held freed the
@@ -275,7 +279,7 @@ class PlaceOrder extends AbstractManagement
                     // The pending page polls until the order exists, so this answer is worth
                     // waiting for rather than cutting short
                     $responseContainer = $this->merchantApi->getOrder(
-                        $qliroOrderId,
+                        (int)$qliroOrderId,
                         Config::API_PROFILE_BACKGROUND
                     );
 
