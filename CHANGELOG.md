@@ -1,5 +1,15 @@
 # Change Log
 
+## [1.8.54] - 2026-11-09
+
+### Added
+
+- `bin/magento qliroone:capture:relink` moves invoices that carry a Qliro preauthorization onto the capture. From 1.7.17 to 1.8.1 an invoice Qliro refused as already shipped took the id from the refusal, which is the preauthorization, and Qliro refunds against a capture only, so a credit memo of such an invoice was refused. The command finds those orders by the status row the refusal left, reads each order at Qliro and gives every such invoice the capture of its amount that no other invoice carries, with the captured amount, and notes it on the order. Of captures of one amount a settled one goes first, then the oldest, and the next invoice gets the one after it; a capture within half an öre per unit is taken too, a per unit discount is divided to the öre. The other invoices of the order get their captured amount as well, since a refund splits by it across the captures that have one and ignores the rest. So an order changes as a whole or not at all: when one of its invoices has no settled capture that fits or carries no Qliro capture, a settled capture is carried by no invoice, or Qliro already refunded part of the order and it is not known from which capture, the whole order is listed for a manual check. The status row the refusal left is marked Success, so `qliroone:capture:reconcile` no longer applies the preauthorization's status to the order. `--from` and `--to` limit the period by invoice date, `--order` takes increment ids, `--dry-run` asks Qliro and lists without changing anything. It asks for `--from` or `--order`
+- The status row of a capture Qliro refused as already shipped keeps its message, `Capture already registered at Qliro (<trigger>)`, now named in `Payment::ADOPTED_CAPTURE_MESSAGE`
+- Unit tests for the command, the relink, the order held as a whole and the choice between captures of one amount
+- `Test/E2e/tests/capture-relink.spec.ts` with `seed/capture-relink.php`, against the Qliro sandbox: an invoice put back on the preauthorization is refused a refund, the command moves it onto the capture, and the refund then goes through; two invoices put on one preauthorization each get their own capture back
+
+
 ## [1.8.52] - 2026-11-05
 
 ### Fixed

@@ -49,6 +49,11 @@ class Payment extends AbstractManagement
     private const CAPTURE_LOCK_WAIT_SECONDS = 15;
 
     /**
+     * The status row of a capture Qliro refused as already shipped, AdoptedCaptureInvoices finds it by this
+     */
+    public const ADOPTED_CAPTURE_MESSAGE = 'Capture already registered at Qliro (%s)';
+
+    /**
      * @var \Qliro\QliroOne\Model\Config
      */
     private $qliroConfig;
@@ -721,7 +726,7 @@ class Payment extends AbstractManagement
             $omStatus->setTransactionId($transactionId);
             $omStatus->setTransactionStatus(QliroOrderManagementStatusInterface::STATUS_CREATED);
             $omStatus->setNotificationStatus(OrderManagementStatusInterface::NOTIFICATION_STATUS_DONE);
-            $omStatus->setMessage(sprintf('Capture already registered at Qliro (%s)', $trigger));
+            $omStatus->setMessage(sprintf(self::ADOPTED_CAPTURE_MESSAGE, $trigger));
             $omStatus->setQliroOrderId($link->getQliroOrderId());
 
             $this->orderManagementStatusRepository->save($omStatus);
