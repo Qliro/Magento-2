@@ -10,6 +10,7 @@ namespace Qliro\QliroOne\Test\Unit\Plugin\Magento\Sales\Model;
 use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Payment;
 use PHPUnit\Framework\TestCase;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 use Qliro\QliroOne\Plugin\Magento\Sales\Model\OrderHoldPlugin;
 
@@ -22,7 +23,7 @@ class OrderHoldPluginTest extends TestCase
     {
         $order = $this->order('qliroone');
 
-        (new OrderHoldPlugin(new CaptureHold()))->afterUnhold($order, $order);
+        (new OrderHoldPlugin(new CaptureHold($this->createMock(StateStatus::class))))->afterUnhold($order, $order);
 
         self::assertNull($order->getPayment()->getAdditionalInformation(CaptureHold::KEY_FAILED));
         self::assertNull($order->getPayment()->getAdditionalInformation(CaptureHold::KEY_HELD));
@@ -33,7 +34,7 @@ class OrderHoldPluginTest extends TestCase
         $order = $this->order('qliroone');
         $order->setData(CaptureHold::OWN_ACTION, true);
 
-        (new OrderHoldPlugin(new CaptureHold()))->afterHold($order, $order);
+        (new OrderHoldPlugin(new CaptureHold($this->createMock(StateStatus::class))))->afterHold($order, $order);
 
         self::assertSame(['555'], $order->getPayment()->getAdditionalInformation(CaptureHold::KEY_FAILED));
     }
@@ -42,7 +43,7 @@ class OrderHoldPluginTest extends TestCase
     {
         $order = $this->order('checkmo');
 
-        (new OrderHoldPlugin(new CaptureHold()))->afterHold($order, $order);
+        (new OrderHoldPlugin(new CaptureHold($this->createMock(StateStatus::class))))->afterHold($order, $order);
 
         self::assertSame(['555'], $order->getPayment()->getAdditionalInformation(CaptureHold::KEY_FAILED));
     }

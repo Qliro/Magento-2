@@ -12,7 +12,6 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\Lock\LockManagerInterface;
 use Magento\Sales\Api\OrderRepositoryInterface;
 use Magento\Sales\Model\Order;
-use Qliro\QliroOne\Model\Order\HoldAwareState;
 use Qliro\QliroOne\Api\Client\OrderManagementInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderManagementStatusInterface;
@@ -25,6 +24,7 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\Handler\AppliedRulesHandler;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Sales\Model\Order\Payment\Transaction\BuilderInterface;
 use Qliro\QliroOne\Api\Data\OrderManagementStatusInterfaceFactory;
 use Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface;
@@ -139,6 +139,11 @@ class Payment extends AbstractManagement
     private $lockManager;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -159,6 +164,7 @@ class Payment extends AbstractManagement
      * @param OrderPaymentRepositoryInterface|null $paymentRepository
      * @param RepeatedCapture|null $repeatedCapture
      * @param LockManagerInterface|null $lockManager
+     * @param StateStatus|null $stateStatus
      */
     public function __construct(
         Config $qliroConfig,
@@ -178,7 +184,8 @@ class Payment extends AbstractManagement
         CaptureCoverage $captureCoverage,
         ?OrderPaymentRepositoryInterface $paymentRepository = null,
         ?RepeatedCapture $repeatedCapture = null,
-        ?LockManagerInterface $lockManager = null
+        ?LockManagerInterface $lockManager = null,
+        ?StateStatus $stateStatus = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -201,6 +208,7 @@ class Payment extends AbstractManagement
             ?? ObjectManager::getInstance()->get(RepeatedCapture::class);
         $this->lockManager = $lockManager
             ?? ObjectManager::getInstance()->get(LockManagerInterface::class);
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
     /**
@@ -242,22 +250,11 @@ class Payment extends AbstractManagement
             $payment->setSkipOrderProcessing(true);
             $payment->save();
 
-            // A held order keeps its hold
-            if ($order->getState() === Order::STATE_HOLDED) {
-                if ($order->getHoldBeforeState() != $state) {
-                    HoldAwareState::apply($order, $state);
-                    $this->orderRepository->save($order);
-                }
-            } elseif (empty($status)) {
-                if ($order->getState() != $state) {
-                    $order->setState($state);
-                    $this->orderRepository->save($order);
-                }
-            } else {
-                if ($order->getState() != $state || $order->getStatus() != $status) {
-                    $order->setState($state)->setStatus($status);
-                    $this->orderRepository->save($order);
-                }
+            // A held order keeps its hold, and the status it returns to when it is in that state already
+            if ($this->stateStatus->currentState($order) !== $state
+                && $this->stateStatus->setFromCheckout($order, $state)
+            ) {
+                $this->orderRepository->save($order);
             }
 
             $transaction->save();
@@ -423,6 +420,8 @@ class Payment extends AbstractManagement
         $name = $this->captureLockName($link);
         $resource = $order->getResource();
 
+        // A test double of the order has no resource, the real one always does
+        // @phpstan-ignore booleanAnd.rightAlwaysTrue
         if ($recorded && $resource && $resource->getConnection()->getTransactionLevel() > 0) {
             $resource->addCommitCallback(function () use ($name) {
                 $this->lockManager->unlock($name);

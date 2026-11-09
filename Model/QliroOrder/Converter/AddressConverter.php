@@ -74,7 +74,8 @@ class AddressConverter
 
         $changed = false;
         foreach ($addressData as $key => $value) {
-            if ($value !== null && $address->getData($key) != $value) {
+            // A blank value is as missing as a null one: writing it wipes a required field
+            if (!$this->isBlank($value) && $address->getData($key) != $value) {
                 $address->setData($key, $value);
                 $changed = true;
             }
@@ -87,9 +88,9 @@ class AddressConverter
         // one takes a payload that also brings the postcode, otherwise the quote would keep the
         // postcode of the country being replaced, which is the very failure this fixes.
         $currentCountry = $address->getCountryId();
-        $mayReplaceCountry = !$currentCountry || ($qliroAddress && $qliroAddress->getPostalCode());
+        $mayReplaceCountry = !$currentCountry || ($qliroAddress && !$this->isBlank($qliroAddress->getPostalCode()));
 
-        if (!empty($countryCode) && $mayReplaceCountry && $currentCountry != $countryCode) {
+        if (!$this->isBlank($countryCode) && $mayReplaceCountry && $currentCountry != $countryCode) {
             $address->setCountryId($countryCode);
 
             // A region belongs to the country it was picked in
@@ -202,6 +203,21 @@ class AddressConverter
             // Nothing here is worth failing a checkout for, and keeping a region is the safe answer
             return true;
         }
+    }
+
+    /**
+     * Null, an empty or whitespace string, or a street with no text
+     *
+     * @param mixed $value
+     * @return bool
+     */
+    private function isBlank($value): bool
+    {
+        if (is_array($value)) {
+            return trim(implode('', array_filter($value, 'is_scalar'))) === '';
+        }
+
+        return !is_scalar($value) || trim((string)$value) === '';
     }
 
     /**
@@ -344,7 +360,7 @@ class AddressConverter
     private function clearCompanyOfAPrivateBuyer($qliroAddress, Address $address): bool
     {
         if (!$qliroAddress
-            || empty($qliroAddress->getPostalCode())
+            || $this->isBlank($qliroAddress->getPostalCode())
             || trim((string)$qliroAddress->getCompanyName()) !== ''
         ) {
             return false;

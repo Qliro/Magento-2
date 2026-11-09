@@ -727,6 +727,44 @@ class AddressConverterTest extends TestCase
     }
 
     /**
+     * A blank field is as missing as a null one: writing it wipes a value the order needs.
+     */
+    public function testBlankFieldsKeepWhatTheQuoteHolds(): void
+    {
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('SE');
+        $address->expects(self::never())->method('setCountryId');
+        $this->converter->convert($this->qliroAddress('Acme AB'), $this->qliroCustomer(), $address);
+        $before = $this->addressData;
+
+        $blankAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $blankAddress->method('getFirstName')->willReturn('');
+        $blankAddress->method('getLastName')->willReturn(' ');
+        $blankAddress->method('getStreet')->willReturn(['', ' ']);
+        $blankAddress->method('getCity')->willReturn('');
+        $blankAddress->method('getPostalCode')->willReturn('');
+        $blankAddress->method('getCompanyName')->willReturn('');
+        $blankCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $blankCustomer->method('getEmail')->willReturn(' ');
+        $blankCustomer->method('getMobileNumber')->willReturn('');
+
+        self::assertFalse($this->converter->convert($blankAddress, $blankCustomer, $address, ' '));
+        self::assertSame($before, $this->addressData);
+    }
+
+    public function testABlankPostcodeDoesNotLetTheCountryBeReplaced(): void
+    {
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getPostalCode')->willReturn(' ');
+
+        $address = $this->address();
+        $address->method('getCountryId')->willReturn('DK');
+        $address->expects(self::never())->method('setCountryId');
+
+        self::assertFalse($this->converter->convert($qliroAddress, null, $address, 'SE'));
+    }
+
+    /**
      * @param string|string[] $street
      */
     private function qliroAddress(

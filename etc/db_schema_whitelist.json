@@ -8,7 +8,8 @@
             "saved_credit_card_id": true,
             "next_order_date": true,
             "canceled_date": true,
-            "personal_number": true
+            "personal_number": true,
+            "saved_credit_card_removed_at": true
         },
         "constraint": {
             "PRIMARY": true,
@@ -23,6 +24,19 @@
     "qliroone_link": {
         "column": {
             "ingrid_shipping_amount": true
+        }
+    },
+    "qliroone_pending_shipping_update": {
+        "column": {
+            "link_id": true,
+            "provider": true,
+            "payload": true,
+            "sent_at": true,
+            "created_at": true
+        },
+        "constraint": {
+            "PRIMARY": true,
+            "QLIROONE_PENDING_SHIPPING_UPDATE_LINK_ID_QLIROONE_LINK_LINK_ID": true
         }
     }
 }

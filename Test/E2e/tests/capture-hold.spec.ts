@@ -78,6 +78,24 @@ test.describe('A failed capture keeps the order on hold until it succeeds', () =
     expect(released.history).toContain(`Capture ${a} succeeded, the order is released from hold`);
   });
 
+  test('an OnHold capture keeps the hold, the order is pending payment once released', () => {
+    const seeded = order(2);
+    const [a, b] = [Date.now() % 1_000_000_000, (Date.now() % 1_000_000_000) + 1];
+    helper(['invoice', `--order=${seeded.orderId}`, `--transaction=${a}`]);
+    helper(['invoice', `--order=${seeded.orderId}`, `--transaction=${b}`]);
+
+    push(seeded, a, 'Error');
+    expect(state(seeded).state).toBe('holded');
+
+    push(seeded, b, 'OnHold');
+    const kept = state(seeded);
+    expect(kept).toMatchObject({ state: 'holded', status: 'holded', holdBeforeStatus: 'pending_payment' });
+    expect(kept.history).toContain('Qliro One returned the capture with status: OnHold, the order stays on hold');
+
+    push(seeded, a, 'Success');
+    expect(state(seeded)).toMatchObject({ state: 'pending_payment', status: 'pending_payment' });
+  });
+
   test('a status no longer assigned to the state gives the state default and says so', () => {
     const seeded = order(1);
     const a = Date.now() % 1_000_000_000;
@@ -112,6 +130,25 @@ test.describe('A failed capture keeps the order on hold until it succeeds', () =
     const released = state(seeded);
     expect(released).toMatchObject({ state: 'processing', status: WAREHOUSE });
     expect(released.invoiced).toBeGreaterThan(kept.invoiced);
+  });
+
+  test('an OnHold shipment capture keeps the hold, the failed one succeeding invoices and releases it', () => {
+    const seeded = order(3);
+    const [a, b] = [(Date.now() % 1_000_000_000) + 20, (Date.now() % 1_000_000_000) + 21];
+    helper(['ship', `--order=${seeded.orderId}`, `--transaction=${a}`]);
+    helper(['ship', `--order=${seeded.orderId}`, `--transaction=${b}`]);
+
+    push(seeded, a, 'Error');
+    push(seeded, b, 'OnHold');
+    const kept = state(seeded);
+    expect(kept).toMatchObject({ state: 'holded', holdBeforeStatus: 'pending_payment', invoiced: 0 });
+    expect(kept.history).toContain('Qliro One returned the capture with status: OnHold, the order stays on hold');
+
+    // pending_payment is not assigned to processing, the invoice's state
+    push(seeded, a, 'Success');
+    const released = state(seeded);
+    expect(released).toMatchObject({ state: 'processing', status: 'processing' });
+    expect(released.invoiced).toBeGreaterThan(0);
   });
 
   test('an Error after the same capture succeeded is ignored', () => {

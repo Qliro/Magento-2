@@ -251,6 +251,30 @@
     <preference for="Qliro\QliroOne\Api\Data\RecurringInfoInterface" type="Qliro\QliroOne\Model\RecurringInfo" />
     <preference for="Qliro\QliroOne\Api\RecurringInfoRepositoryInterface" type="Qliro\QliroOne\Model\RecurringInfoRepository" />
 
+    <type name="Magento\Framework\App\Config\Value">
+        <plugin name="qliroone_remember_replaced_credentials" type="Qliro\QliroOne\Plugin\Magento\Config\RememberReplacedCredentials" />
+    </type>
+    <!-- Built only when a credential is saved, not on every config save -->
+    <type name="Qliro\QliroOne\Plugin\Magento\Config\RememberReplacedCredentials">
+        <arguments>
+            <argument name="previousCredentials" xsi:type="object">Qliro\QliroOne\Model\Security\PreviousCredentials\Proxy</argument>
+        </arguments>
+    </type>
+    <!-- Used only when a token is refused -->
+    <type name="Qliro\QliroOne\Model\Security\CallbackToken">
+        <arguments>
+            <argument name="previousCredentials" xsi:type="object">Qliro\QliroOne\Model\Security\PreviousCredentials\Proxy</argument>
+            <argument name="logThrottle" xsi:type="object">Qliro\QliroOne\Model\Security\TokenLogThrottle\Proxy</argument>
+        </arguments>
+    </type>
+    <!-- Replaced secrets, never dumped into app/etc/config.php -->
+    <type name="Magento\Config\Model\Config\TypePool">
+        <arguments>
+            <argument name="sensitive" xsi:type="array">
+                <item name="payment/qliroone/qliro_api/previous_credentials" xsi:type="string">1</item>
+            </argument>
+        </arguments>
+    </type>
     <type name="Magento\Sales\Model\Order">
         <plugin name="qliroone_plugin_magento_sales_model_order_hold" type="Qliro\QliroOne\Plugin\Magento\Sales\Model\OrderHoldPlugin" />
     </type>
@@ -279,6 +303,8 @@
             <argument name="orderItemsBuilder" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder\Proxy</argument>
             <argument name="lineDifferences" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\LineDifferences</argument>
             <argument name="quoteCurrency" xsi:type="object">Qliro\QliroOne\Model\Order\QuoteCurrency</argument>
+            <argument name="merchantReference" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\MerchantReference</argument>
+            <argument name="shippingProviderUpdate" xsi:type="object">Qliro\QliroOne\Model\Order\ShippingProviderUpdate</argument>
         </arguments>
     </type>
 
@@ -292,6 +318,7 @@
         <arguments>
             <argument name="roundingAdjustmentStamp" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\RoundingAdjustmentStamp</argument>
             <argument name="discountLines" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\DiscountLines</argument>
+            <argument name="merchantReference" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\MerchantReference</argument>
         </arguments>
     </type>
 

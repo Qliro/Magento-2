@@ -10,11 +10,14 @@ namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\App\ResponseInterface;
+use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsNotificationInterface;
 use Qliro\QliroOne\Api\ManagementInterface;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
+use Qliro\QliroOne\Model\Exception\NoOrderLinesException;
 use Qliro\QliroOne\Model\Exception\TerminalException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
@@ -67,6 +70,11 @@ class UpdateQuote implements HttpPostActionInterface
     private LinesTotal $linesTotal;
 
     /**
+     * @var MessageManager
+     */
+    private MessageManager $messageManager;
+
+    /**
      * Inject dependnecies
      *
      * @param \Magento\Framework\App\Request\Http $request
@@ -77,6 +85,7 @@ class UpdateQuote implements HttpPostActionInterface
      * @param \Magento\Checkout\Model\Session $checkoutSession
      * @param \Qliro\QliroOne\Model\Logger\Manager $logManager
      * @param \Qliro\QliroOne\Model\QliroOrder\LinesTotal|null $linesTotal
+     * @param MessageManager|null $messageManager
      */
     public function __construct(
         Http $request,
@@ -86,7 +95,8 @@ class UpdateQuote implements HttpPostActionInterface
         ManagementInterface $qliroManagement,
         Session $checkoutSession,
         Manager $logManager,
-        ?LinesTotal $linesTotal = null
+        ?LinesTotal $linesTotal = null,
+        ?MessageManager $messageManager = null
     ) {
         $this->request = $request;
         $this->dataHelper = $dataHelper;
@@ -97,6 +107,7 @@ class UpdateQuote implements HttpPostActionInterface
         $this->logManager = $logManager;
         // Optional so a store constructing this controller with the old signature keeps working
         $this->linesTotal = $linesTotal ?? new LinesTotal();
+        $this->messageManager = $messageManager ?? ObjectManager::getInstance()->get(MessageManager::class);
     }
 
     /**
@@ -136,6 +147,18 @@ class UpdateQuote implements HttpPostActionInterface
 
         try {
             $this->qliroManagement->setQuote($quote)->getQliroOrder();
+        } catch (NoOrderLinesException $exception) {
+            $this->messageManager->addNoticeMessage($exception->getMessage());
+
+            return $this->dataHelper->sendPreparedPayload(
+                [
+                    'error' => $exception->getMessage(),
+                    'redirect' => $quote->getStore()->getUrl('checkout/cart'),
+                ],
+                400,
+                null,
+                'AJAX:UPDATE_QUOTE:NO_ORDER_LINES'
+            );
         } catch (UnsupportedQuoteException $exception) {
             /*
              * The cart or the country is what the buyer has to change, and the message says which,

@@ -288,6 +288,12 @@
                         <comment><![CDATA[How long a callback URL registered with Qliro stays valid, 1 to 1095 days. It has to outlast the time between placing an order and its last capture or refund, because those push to the URL registered when the order was created: an expired token means the capture or refund is never confirmed on the order, and nothing reconciles it later. 1095 by default, the length of the Swedish right of complaint. Shorten it if your orders settle sooner. Changing this affects orders created from now on; a callback already registered with Qliro keeps the lifetime it was given.]]></comment>
                     </field>
 
+                    <field id="previous_credentials_days" translate="label comment" type="text" sortOrder="15" showInDefault="1" showInWebsite="0" showInStore="0" canRestore="1">
+                        <label>Accept Replaced API Credentials (days)</label>
+                        <validate>required-entry validate-digits validate-digits-range digits-range-0-1095</validate>
+                        <comment><![CDATA[Callback URLs of orders are signed with the Merchant API Key and Secret in place when the order was created. After either is changed, callbacks of older orders signed with the replaced pair are still accepted for this many days, counted from the change. 90 by default. Set 0 if the old secret leaked: it refuses them at once. Refused callbacks are logged at warning level, at most once an hour per reason.]]></comment>
+                    </field>
+
                     <field id="redirect_callbacks" translate="label" type="select" sortOrder="30" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">
                         <label>Redirect Callbacks</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
