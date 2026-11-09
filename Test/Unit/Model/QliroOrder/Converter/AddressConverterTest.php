@@ -283,6 +283,51 @@ class AddressConverterTest extends TestCase
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
     }
 
+    /**
+     * Magento 2.4.8 and 2.4.9 refuse these at validation and at placement; reduced, the buyer is
+     * neither declined nor left with a paid order that cannot be placed.
+     */
+    public function testReducesTheTextMagentoRefuses(): void
+    {
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getFirstName')->willReturn('Anna/Maria');
+        $qliroAddress->method('getLastName')->willReturn('Hans (Jr)');
+        $qliroAddress->method('getStreet')->willReturn(['Sveavagen 1']);
+        $qliroAddress->method('getCity')->willReturn('St. Gallen (Ost) 2');
+        $qliroAddress->method('getPostalCode')->willReturn('11122');
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getMobileNumber')->willReturn('+46 70 123 45 67 89 10');
+
+        $address = $this->address();
+        self::assertTrue($this->converter->convert($qliroAddress, $qliroCustomer, $address));
+
+        self::assertSame('Anna Maria', $this->addressData['firstname']);
+        self::assertSame('Hans Jr', $this->addressData['lastname']);
+        self::assertSame('St Gallen Ost', $this->addressData['city']);
+        self::assertSame('+467012345678910', $this->addressData['telephone']);
+        self::assertFalse($this->converter->convert($qliroAddress, $qliroCustomer, $address));
+    }
+
+    /**
+     * A value with nothing left keeps what the quote holds, like a field Qliro did not send.
+     */
+    public function testKeepsTheQuoteValueWhenNothingOfTheTextIsLeft(): void
+    {
+        $address = $this->address();
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getFirstName')->willReturn('!!!');
+        $qliroAddress->method('getCity')->willReturn('123');
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getMobileNumber')->willReturn('n/a');
+
+        self::assertFalse($this->converter->convert($qliroAddress, $qliroCustomer, $address));
+        self::assertSame('Ada', $this->addressData['firstname']);
+        self::assertSame('Stockholm', $this->addressData['city']);
+        self::assertSame('0700000000', $this->addressData['telephone']);
+    }
+
     private function address(): Address&MockObject
     {
         $address = $this->createMock(Address::class);
