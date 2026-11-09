@@ -157,7 +157,7 @@ class Cancel implements CommandInterface
             . 'Cancel the payment in Qliro Merchant Hub.',
             $reason
         );
-        $order->addCommentToStatusHistory($message);
+        $order->addCommentToStatusHistory((string)$message);
 
         try {
             if ($this->appState->getAreaCode() === Area::AREA_ADMINHTML) {
