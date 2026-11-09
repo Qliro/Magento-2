@@ -23,9 +23,9 @@ use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\ContainerMapper;
 use Qliro\QliroOne\Model\Exception\OrderPlacementPendingException;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
-use Qliro\QliroOne\Model\Order\HoldAwareState;
 use Qliro\QliroOne\Model\Order\OrderPlacer;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Magento\Framework\App\ObjectManager;
 use Qliro\QliroOne\Model\QliroOrder\DiscountLines;
 use Qliro\QliroOne\Model\QliroOrder\Builder\OrderItemsBuilder;
@@ -156,6 +156,11 @@ class PlaceOrder extends AbstractManagement
     private ?QuoteCurrency $quoteCurrency;
 
     /**
+     * @var StateStatus
+     */
+    private StateStatus $stateStatus;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -180,6 +185,7 @@ class PlaceOrder extends AbstractManagement
      * @param OrderItemsBuilder|null $orderItemsBuilder
      * @param LineDifferences|null $lineDifferences
      * @param QuoteCurrency|null $quoteCurrency
+     * @param StateStatus|null $stateStatus
      */
     public function __construct(
         Config $qliroConfig,
@@ -203,7 +209,8 @@ class PlaceOrder extends AbstractManagement
         ?DiscountLines $discountLines = null,
         ?OrderItemsBuilder $orderItemsBuilder = null,
         ?LineDifferences $lineDifferences = null,
-        ?QuoteCurrency $quoteCurrency = null
+        ?QuoteCurrency $quoteCurrency = null,
+        ?StateStatus $stateStatus = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->merchantApi = $merchantApi;
@@ -229,6 +236,7 @@ class PlaceOrder extends AbstractManagement
         $this->orderItemsBuilder = $orderItemsBuilder;
         $this->lineDifferences = $lineDifferences;
         $this->quoteCurrency = $quoteCurrency;
+        $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
     }
 
     /**
@@ -843,7 +851,7 @@ class PlaceOrder extends AbstractManagement
                     // A held order cannot be canceled
                     if ($order->canUnhold()) {
                         if (!$order->getHoldBeforeState()) {
-                            HoldAwareState::apply($order, Order::STATE_PENDING_PAYMENT);
+                            $this->stateStatus->setKeepingHold($order, Order::STATE_PENDING_PAYMENT);
                         }
                         $order->unhold();
                     }
@@ -1008,19 +1016,16 @@ class PlaceOrder extends AbstractManagement
     }
 
     /**
-     * Apply a proper state with its default status to the order
+     * Apply a proper state with a status registered for it, unless the order is past checkout
      *
      * @param \Magento\Sales\Model\Order $order
      * @param string $state
      */
     private function applyOrderState(Order $order, $state)
     {
-        $status = Order::STATE_NEW === $state
-            ? $this->qliroConfig->getOrderStatus()
-            : $order->getConfig()->getStateDefaultStatus($state);
+        $status = Order::STATE_NEW === $state ? (string)$this->qliroConfig->getOrderStatus() : null;
 
-        // A held order keeps its hold, the state applies once the merchant releases it
-        HoldAwareState::apply($order, $state, $status);
+        $this->stateStatus->setFromCheckout($order, $state, $status);
         $this->orderRepository->save($order);
     }
 
