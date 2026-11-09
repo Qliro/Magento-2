@@ -18,6 +18,7 @@
                 <item name="qliroOneCreateMerchantPayment" xsi:type="object">Qliro\QliroOne\Console\CreateMerchantPaymentCommand</item>
                 <item name="qliroOnePruneLog" xsi:type="object">Qliro\QliroOne\Console\PruneLogCommand</item>
                 <item name="qliroOneReconcileCaptures" xsi:type="object">Qliro\QliroOne\Console\ReconcileCapturesCommand</item>
+                <item name="qliroOneRelinkCaptures" xsi:type="object">Qliro\QliroOne\Console\RelinkCapturesCommand</item>
             </argument>
         </arguments>
     </type>
@@ -315,6 +316,13 @@
             <argument name="statusRepository" xsi:type="object">Qliro\QliroOne\Api\OrderManagementStatusRepositoryInterface\Proxy</argument>
             <argument name="reconciler" xsi:type="object">Qliro\QliroOne\Model\OrderManagementStatus\CaptureReconciler\Proxy</argument>
             <argument name="logManager" xsi:type="object">Qliro\QliroOne\Model\Logger\Manager\Proxy</argument>
+        </arguments>
+    </type>
+    <type name="Qliro\QliroOne\Console\RelinkCapturesCommand">
+        <arguments>
+            <!-- Built for every bin/magento call, as the prune command below -->
+            <argument name="invoices" xsi:type="object">Qliro\QliroOne\Model\ResourceModel\AdoptedCaptureInvoices\Proxy</argument>
+            <argument name="relinker" xsi:type="object">Qliro\QliroOne\Model\QliroOrder\Admin\InvoiceCaptureRelinker\Proxy</argument>
         </arguments>
     </type>
     <type name="Qliro\QliroOne\Console\PruneLogCommand">

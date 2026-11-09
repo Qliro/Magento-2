@@ -177,6 +177,24 @@ The test then ships it over REST, which captures it at Qliro. The store needs:
 The callback then finds no record of the capture, as it did in production. Without the fix the
 order stays without an invoice and both tests fail at the reconciliation.
 
+## Invoices recorded on the preauthorization
+
+`tests/capture-relink.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and seeds its
+own orders through `seed/seed-sandbox-order.php`. It invoices a real sandbox order over REST, which
+captures it, then `seed/capture-relink.php break` puts the invoices back on the preauthorization with the
+status row the refusal left, as before 1.8.2. A refund is refused by Qliro until
+`qliroone:capture:relink` moves the invoice onto its capture, then it goes through. Two invoices on one
+preauthorization each get their own capture back, and an order refunded in part is left alone. The store
+needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/api/capture_on_invoice 1`
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/capture-relink.php` in `var/`
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test capture-relink
+```
+
 ## Purchase tracking on the success page
 
 `tests/success-page-tracking.spec.ts` checks the purchase `Magento_GoogleGtag` pushes to
