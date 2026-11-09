@@ -52,6 +52,26 @@ class AjaxToken extends CallbackToken
     }
 
     /**
+     * A checkout token lives two hours, so a replaced secret has nothing older to vouch for
+     *
+     * @inheritDoc
+     */
+    protected function acceptsReplacedCredentials(): bool
+    {
+        return false;
+    }
+
+    /**
+     * A checkout open across a credentials change is one customer, who sees the refusal
+     *
+     * @inheritDoc
+     */
+    protected function getRefusalLogLevel(): string
+    {
+        return 'debug';
+    }
+
+    /**
      * @inheritDoc
      */
     protected function getExpiryMessage(): string

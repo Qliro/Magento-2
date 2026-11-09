@@ -3,6 +3,7 @@
 namespace Qliro\QliroOne\Cron;
 
 use Qliro\QliroOne\Api\RecurringInfoRepositoryInterface;
+use Qliro\QliroOne\Model\ResourceModel\RecurringInfo as RecurringInfoResource;
 use Qliro\QliroOne\Service\RecurringPayments\PlaceOrders;
 use Qliro\QliroOne\Model\Config;
 use Magento\Store\Model\StoreManagerInterface;
@@ -24,18 +25,22 @@ class RecurringOrders
 
     private EmulationFactory $emulationFactory;
 
+    private RecurringInfoResource $recurringInfoResource;
+
     public function __construct(
         StoreManagerInterface $storeManager,
         Config $qliroConfig,
         PlaceOrders $placeOrder,
         RecurringInfoRepositoryInterface $recurringInfoRepo,
-        EmulationFactory $emulationFactory
+        EmulationFactory $emulationFactory,
+        RecurringInfoResource $recurringInfoResource
     ) {
         $this->storeManager = $storeManager;
         $this->qliroConfig = $qliroConfig;
         $this->placeOrder = $placeOrder;
         $this->recurringInfoRepo = $recurringInfoRepo;
         $this->emulationFactory = $emulationFactory;
+        $this->recurringInfoResource = $recurringInfoResource;
     }
 
     /**
@@ -64,7 +69,10 @@ class RecurringOrders
             $emulation->startEnvironmentEmulation($storeId, Area::AREA_FRONTEND, true);
             $this->placeOrder->placeRecurringOrders($recurringInfos);
             foreach ($recurringInfos as $recurringInfo) {
-                $this->recurringInfoRepo->save($recurringInfo);
+                $this->recurringInfoResource->updateNextOrderDate(
+                    (int)$recurringInfo->getId(),
+                    $recurringInfo->getNextOrderDate()
+                );
             }
             // End store emulation
             $emulation->stopEnvironmentEmulation();

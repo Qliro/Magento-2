@@ -21,6 +21,8 @@ use Qliro\QliroOne\Api\Data\RecurringInfoInterface;
  * @method self setCanceledDate(string $canceledDate)
  * @method string|null getCanceledDate()
  * @method string|null getPersonalNumber()
+ * @method self setSavedCreditCardRemovedAt(string $removedAt)
+ * @method string|null getSavedCreditCardRemovedAt()
  */
 class RecurringInfo extends AbstractModel implements RecurringInfoInterface
 {

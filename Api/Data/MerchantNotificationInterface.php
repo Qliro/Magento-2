@@ -71,13 +71,13 @@ interface MerchantNotificationInterface extends ContainerInterface
     /**
      * @return string
      */
-    public function getTimeStamp(): string;
+    public function getTimestamp(): string;
 
     /**
      * @param string $timeStamp
      * @return self
      */
-    public function setTimeStamp(string $timeStamp): self;
+    public function setTimestamp(string $timeStamp): self;
 
     /**
      * @param string $eventType

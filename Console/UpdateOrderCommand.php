@@ -80,6 +80,10 @@ class UpdateOrderCommand extends AbstractCommand
             $this->writeApiFailure($output, $exception);
 
             return 1;
+        } catch (\Qliro\QliroOne\Model\Exception\UnsupportedQuoteException $exception) {
+            $output->writeln('<error>' . $exception->getMessage() . '</error>');
+
+            return 1;
         }
 
         return 0;
