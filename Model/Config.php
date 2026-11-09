@@ -85,6 +85,8 @@ class Config
     const QLIROONE_CALLBACK_TOKEN_LIFETIME_DAYS = 'callback/token_lifetime_days';
     const DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS = 1095;
     const MAX_CALLBACK_TOKEN_LIFETIME_DAYS = 1095;
+    const QLIROONE_PREVIOUS_CREDENTIALS_DAYS = 'callback/previous_credentials_days';
+    const DEFAULT_PREVIOUS_CREDENTIALS_DAYS = 90;
 
     const QLIROONE_REDIRECT_CALLBACKS = 'callback/redirect_callbacks';
     const QLIROONE_CALLBACK_URI = 'callback/callback_uri';
@@ -97,6 +99,11 @@ class Config
     const QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_CODE = 'qliro_payment_method_code';
     const QLIROONE_ADDITIONAL_INFO_PAYMENT_METHOD_NAME = 'qliro_payment_method_name';
     const QLIROONE_ADDITIONAL_INFO_SHIPPING_PROPERTIES = 'qliro_payment_shipping_properties';
+
+    /**
+     * The secondary option of the shipping method on the Qliro order, absent when it carries none
+     */
+    const QLIROONE_ADDITIONAL_INFO_SHIPPING_SECONDARY_OPTION = 'qliro_shipping_secondary_option';
 
     /**
      * Whether the reservation this order was placed against carries the VAT of the discount on its
@@ -622,6 +629,22 @@ class Config
 
         if (!ctype_digit($days) || (int)$days < 1) {
             return self::DEFAULT_CALLBACK_TOKEN_LIFETIME_DAYS;
+        }
+
+        return min((int)$days, self::MAX_CALLBACK_TOKEN_LIFETIME_DAYS);
+    }
+
+    /**
+     * How many days callback tokens signed with replaced API credentials are still accepted, 0 for none
+     *
+     * @return int
+     */
+    public function getPreviousCredentialsDays(): int
+    {
+        $days = trim((string)$this->adapter->getConfigData(self::QLIROONE_PREVIOUS_CREDENTIALS_DAYS));
+
+        if (!ctype_digit($days)) {
+            return self::DEFAULT_PREVIOUS_CREDENTIALS_DAYS;
         }
 
         return min((int)$days, self::MAX_CALLBACK_TOKEN_LIFETIME_DAYS);

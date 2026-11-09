@@ -14,6 +14,7 @@ use Qliro\QliroOne\Api\Data\CheckoutStatusInterface as CheckoutStatusInterfaceAl
 use Qliro\QliroOne\Api\Data\CheckoutStatusInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterface;
 use Qliro\QliroOne\Api\Data\CheckoutStatusResponseInterfaceFactory;
+use Qliro\QliroOne\Api\Data\LinkInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
@@ -125,13 +126,8 @@ class CheckoutStatus extends AbstractManagement
         try {
             try {
                 $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
-            } catch (\Exception $exception) {
-                $this->handleOrderCancelationIfRequired($checkoutStatus);
-
-                return $this->checkoutStatusRespond(
-                    CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND,
-                    500
-                );
+            } catch (NoSuchEntityException $exception) {
+                return $this->linkNotFound($checkoutStatus);
             }
 
             $this->logManager->setMerchantReference($link->getReference());
@@ -158,7 +154,11 @@ class CheckoutStatus extends AbstractManagement
 
                         $this->orderLocked = true;
 
-                        $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+                        try {
+                            $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+                        } catch (NoSuchEntityException $exception) {
+                            return $this->linkNotFound($checkoutStatus);
+                        }
                         $this->logManager->setMerchantReference($link->getReference());
 
                         $effectiveStatus = $this->resolveEffectiveCheckoutStatus($qliroOrderId, $callbackStatus);
@@ -166,29 +166,11 @@ class CheckoutStatus extends AbstractManagement
                         $link->setQliroOrderStatus($effectiveStatus);
                         $this->linkRepository->save($link);
 
-                        $orderId = $link->getOrderId();
-                        if (!empty($orderId)) {
-                            if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId), $link)) {
-                                $response = $this->checkoutStatusRespond(
-                                    CheckoutStatusResponseInterface::RESPONSE_RECEIVED
-                                );
-                            } else {
-                                $response = $this->checkoutStatusRespond(
-                                    CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND,
-                                    500
-                                );
-                            }
+                        if (!empty($link->getOrderId())) {
+                            $response = $this->applyStatus($link);
                         } else {
                             // A status push from Qliro, with nobody in front of it
-                            $qliroOrder = $this->merchantApi->getOrder(
-                                $qliroOrderId,
-                                Config::API_PROFILE_BACKGROUND
-                            );
-                            $this->placeOrder->execute($qliroOrder);
-
-                            $response = $this->checkoutStatusRespond(
-                                CheckoutStatusResponseInterface::RESPONSE_RECEIVED
-                            );
+                            $response = $this->place($qliroOrderId);
                         }
                     } else {
                         $this->logManager->notice(
@@ -209,9 +191,9 @@ class CheckoutStatus extends AbstractManagement
                 } catch (\Exception $exception) {
                     $this->logManager->critical($exception, $logContext);
 
-                    $response = $this->checkoutStatusRespond(
-                        CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND,
-                        500
+                    $response = $this->refuse(
+                        CheckoutStatusResponseInterface::RESPONSE_STATUS_NOT_APPLIED,
+                        $this->detailOf($exception)
                     );
                 }
             } else {
@@ -221,7 +203,11 @@ class CheckoutStatus extends AbstractManagement
 
                 $this->orderLocked = true;
 
-                $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+                try {
+                    $link = $this->linkRepository->getByQliroOrderId($qliroOrderId);
+                } catch (NoSuchEntityException $exception) {
+                    return $this->linkNotFound($checkoutStatus);
+                }
                 $this->logManager->setMerchantReference($link->getReference());
 
                 $effectiveStatus = $this->resolveEffectiveCheckoutStatus($qliroOrderId, $callbackStatus);
@@ -229,17 +215,7 @@ class CheckoutStatus extends AbstractManagement
                 $link->setQliroOrderStatus($effectiveStatus);
                 $this->linkRepository->save($link);
 
-                $orderId = $link->getOrderId();
-                if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($orderId), $link)) {
-                    $response = $this->checkoutStatusRespond(
-                        CheckoutStatusResponseInterface::RESPONSE_RECEIVED
-                    );
-                } else {
-                    $response = $this->checkoutStatusRespond(
-                        CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND,
-                        500
-                    );
-                }
+                $response = $this->applyStatus($link);
             }
         } catch (FailToLockException $exception) {
             $this->logManager->debug(
@@ -265,9 +241,9 @@ class CheckoutStatus extends AbstractManagement
         } catch (\Exception $exception) {
             $this->logManager->critical($exception, $logContext);
 
-            $response = $this->checkoutStatusRespond(
-                CheckoutStatusResponseInterface::RESPONSE_ORDER_NOT_FOUND,
-                500
+            $response = $this->refuse(
+                CheckoutStatusResponseInterface::RESPONSE_STATUS_NOT_APPLIED,
+                $this->detailOf($exception)
             );
         } finally {
             if ($this->orderLocked) {
@@ -277,6 +253,142 @@ class CheckoutStatus extends AbstractManagement
         }
 
         return $response;
+    }
+
+    /**
+     * No active link: cancel the Qliro order if needed, a retry cannot find one either
+     *
+     * @param CheckoutStatusInterface $checkoutStatus
+     * @return CheckoutStatusResponseInterface
+     */
+    private function linkNotFound(CheckoutStatusInterface $checkoutStatus)
+    {
+        $logContext = [
+            'extra' => [
+                'qliro_order_id' => $checkoutStatus->getOrderId(),
+                'status' => $checkoutStatus->getStatus(),
+            ],
+        ];
+
+        try {
+            $this->handleOrderCancelationIfRequired($checkoutStatus);
+        } catch (NoSuchEntityException $exception) {
+            // No link at all, nothing to cancel
+        } catch (\Exception $exception) {
+            $this->logManager->critical($exception, $logContext);
+        }
+
+        $this->logManager->warning('Checkout status push refused, no active link for the Qliro order', $logContext);
+
+        return $this->refuse(CheckoutStatusResponseInterface::RESPONSE_LINK_NOT_FOUND, null, 404);
+    }
+
+    /**
+     * Place the order for a push nobody is waiting for
+     *
+     * @param int|string $qliroOrderId
+     * @return CheckoutStatusResponseInterface
+     */
+    private function place($qliroOrderId)
+    {
+        try {
+            $qliroOrder = $this->merchantApi->getOrder($qliroOrderId, Config::API_PROFILE_BACKGROUND);
+            $this->placeOrder->execute($qliroOrder);
+        } catch (\Exception $exception) {
+            $this->logManager->critical(
+                'Order placement failed: ' . $exception->getMessage(),
+                [
+                    'extra' => [
+                        'qliro_order_id' => $qliroOrderId,
+                        'error' => $exception->getMessage(),
+                    ],
+                ]
+            );
+
+            return $this->refuse(
+                CheckoutStatusResponseInterface::RESPONSE_PLACEMENT_FAILED,
+                $this->detailOf($exception)
+            );
+        }
+
+        return $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
+    }
+
+    /**
+     * Apply the link's Qliro status to its order
+     *
+     * @param LinkInterface $link
+     * @return CheckoutStatusResponseInterface
+     * @throws NoSuchEntityException
+     */
+    private function applyStatus(LinkInterface $link)
+    {
+        if ($this->placeOrder->applyQliroOrderStatus($this->orderRepository->get($link->getOrderId()), $link)) {
+            return $this->checkoutStatusRespond(CheckoutStatusResponseInterface::RESPONSE_RECEIVED);
+        }
+
+        $status = (string)$link->getQliroOrderStatus();
+        $this->logManager->warning(
+            'Checkout status push refused, the status could not be applied to the order',
+            [
+                'extra' => [
+                    'qliro_order_id' => $link->getQliroOrderId(),
+                    'order_id' => $link->getOrderId(),
+                    'status' => $status,
+                ],
+            ]
+        );
+
+        $handled = [
+            CheckoutStatusInterface::STATUS_COMPLETED,
+            CheckoutStatusInterface::STATUS_ONHOLD,
+            CheckoutStatusInterface::STATUS_REFUSED,
+        ];
+
+        return $this->refuse(
+            CheckoutStatusResponseInterface::RESPONSE_STATUS_NOT_APPLIED,
+            $status === '' || in_array($status, $handled, true) ? null : sprintf('status %s', $status)
+        );
+    }
+
+    /**
+     * The detail of a refusal: Qliro logs the answer, so a database error is named but not quoted,
+     * its text can hold the values of a row. The store's log keeps the whole message
+     *
+     * @param \Throwable $exception
+     * @return string
+     */
+    private function detailOf(\Throwable $exception): string
+    {
+        for ($cause = $exception; $cause !== null; $cause = $cause->getPrevious()) {
+            if ($cause instanceof \PDOException
+                || $cause instanceof \Zend_Db_Exception
+                || preg_match('/SQLSTATE|Integrity constraint|Duplicate entry/i', $cause->getMessage())
+            ) {
+                return 'database error, see the store log';
+            }
+        }
+
+        return $exception->getMessage();
+    }
+
+    /**
+     * A refusal names its cause, with a short single-line detail
+     *
+     * @param string $cause
+     * @param string|null $detail
+     * @param int $code
+     * @return CheckoutStatusResponseInterface
+     */
+    private function refuse(string $cause, ?string $detail = null, int $code = 500)
+    {
+        $detail = trim((string)preg_replace('/\s+/', ' ', mb_scrub((string)$detail, 'UTF-8')));
+
+        if ($detail !== '') {
+            $cause .= ': ' . mb_substr($detail, 0, 200);
+        }
+
+        return $this->checkoutStatusRespond($cause, $code);
     }
 
     /**

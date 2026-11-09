@@ -10,11 +10,14 @@ namespace Qliro\QliroOne\Controller\Qliro\Ajax;
 use Magento\Framework\App\Action\HttpPostActionInterface;
 use Magento\Framework\App\Request\Http;
 use Magento\Checkout\Model\Session;
+use Magento\Framework\App\ObjectManager;
 use Magento\Framework\App\ResponseInterface;
 use Magento\Framework\Controller\ResultInterface;
+use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Qliro\QliroOne\Helper\Data;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
+use Qliro\QliroOne\Model\Exception\NoOrderLinesException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\HtmlSnippet;
@@ -36,6 +39,8 @@ class GetSnippet implements HttpPostActionInterface
      */
     private Http $request;
 
+    private readonly MessageManager $messageManager;
+
     /**
      * Inject dependencies
      *
@@ -47,6 +52,7 @@ class GetSnippet implements HttpPostActionInterface
      * @param Session $checkoutSession
      * @param Manager $logManager
      * @param GuestEmail $guestEmail
+     * @param MessageManager|null $messageManager
      */
     public function __construct(
         Http $request,
@@ -56,9 +62,11 @@ class GetSnippet implements HttpPostActionInterface
         private readonly HtmlSnippet $htmlSnippet,
         private readonly Session $checkoutSession,
         private readonly Manager $logManager,
-        private readonly GuestEmail $guestEmail
+        private readonly GuestEmail $guestEmail,
+        ?MessageManager $messageManager = null
     ) {
         $this->request = $request;
+        $this->messageManager = $messageManager ?? ObjectManager::getInstance()->get(MessageManager::class);
     }
 
     /**
@@ -110,9 +118,18 @@ class GetSnippet implements HttpPostActionInterface
                 null,
                 'AJAX:GET_SNIPPET:ALREADY_PLACED'
             );
+        } catch (NoOrderLinesException $exception) {
+            $this->messageManager->addNoticeMessage($exception->getMessage());
+
+            return $this->dataHelper->sendPreparedPayload(
+                ['redirect' => $quote->getStore()->getUrl('checkout/cart')],
+                200,
+                null,
+                'AJAX:GET_SNIPPET:NO_ORDER_LINES'
+            );
         } catch (UnsupportedQuoteException $exception) {
             /*
-             * A cart this payment method cannot take, a fractional quantity today. The buyer can
+             * A cart this payment method cannot take, such as a fractional quantity. The buyer can
              * only change a cart they are told about, so this message reaches the panel as it
              * stands, the way the checkout page shows it in place of the widget.
              */

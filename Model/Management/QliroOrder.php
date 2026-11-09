@@ -206,9 +206,9 @@ class QliroOrder extends AbstractManagement
         $qliroOrder = null; // Logical placeholder, may never happen
 
         try {
-            $qliroOrderId = $link->getQliroOrderId();
+            $qliroOrderId = $this->requireQliroOrderId($link);
             try {
-                $qliroOrder = $this->merchantApi->getOrder($link->getQliroOrderId());
+                $qliroOrder = $this->merchantApi->getOrder((int)$qliroOrderId);
             } catch (\Throwable $e) {
                 if (!$this->isOrderNotFound($e)) {
                     throw $e;
@@ -233,8 +233,8 @@ class QliroOrder extends AbstractManagement
 
                 // Re-enter the flow with a fresh link
                 $link = $this->quoteManagement->setQuote($this->getQuote())->getLinkFromQuote();
-                $qliroOrderId = $link->getQliroOrderId();
-                $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+                $qliroOrderId = $this->requireQliroOrderId($link);
+                $qliroOrder = $this->merchantApi->getOrder((int)$qliroOrderId);
             }
 
             if ($this->lock->lock($qliroOrderId)) {
@@ -352,6 +352,26 @@ class QliroOrder extends AbstractManagement
     }
 
     /**
+     * The link's Qliro order id, refused when the create failed and left the link without one
+     *
+     * @param \Qliro\QliroOne\Api\Data\LinkInterface $link
+     * @return string
+     * @throws TerminalException
+     */
+    private function requireQliroOrderId($link)
+    {
+        $qliroOrderId = $link->getQliroOrderId();
+
+        if (empty($qliroOrderId)) {
+            throw new TerminalException(
+                sprintf('Quote %s has no Qliro order, it was not created', (string)$link->getQuoteId())
+            );
+        }
+
+        return $qliroOrderId;
+    }
+
+    /**
      * Read the order back when the customer event has left the quote without a destination
      *
      * Qliro withholds the address from that event, sending `{"isMasked": true}` in its place
@@ -437,7 +457,7 @@ class QliroOrder extends AbstractManagement
      */
     private function readTheAddressFromQliro($quote, $qliroOrderId): void
     {
-        $qliroOrder = $this->merchantApi->getOrder($qliroOrderId);
+        $qliroOrder = $this->merchantApi->getOrder((int)$qliroOrderId);
 
         // Both belong to the cart refresh, which redirects the buyer to the pending page or
         // replaces the order, and neither is something a customer event should decide

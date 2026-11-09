@@ -13,9 +13,20 @@ skipped unless `QLIRO_CHECKOUT_E2E=1`. They seed nothing, so `MAGENTO_SKIP_SEED=
 against a store the seeder cannot place an order in, such as a copy of a merchant's own. The
 payment authorisation and capture, refund and cancel against Qliro are still out of scope.
 
+`saved-card-removal.spec.ts` needs a Qliro test merchant too and is skipped the same way: it
+registers a card through Qliro's card form with the sandbox test card, puts it on a subscription
+(`seed/saved-card.php`), removes it from the customer's subscriptions page and asks Qliro whether the
+card is gone. It also needs `payment/checkmo/active 1` for the subscription's order.
+
 `checkout-delivery-refresh.spec.ts` reads `qliroone_log` through the database container to see
 where the order was read back, so it also needs `MAGENTO_DB_CONTAINER` when that container is not
 the app one with `-phpfpm-` swapped for `-db-`.
+
+`checkout-emptied-cart.spec.ts` needs the same and runs under the same flag. It opens the Qliro
+page, empties the cart in another tab and refreshes the checkout, which has to land on the cart
+with a message and send Qliro no order without lines. It needs the Qliro page, not the payment
+method in the native checkout (`payment/qliroone/api/show_as_payment_method 0`).
+`MAGENTO_DB_CLIENT` names the client in the database container, `mysql` by default.
 
 ## The store under test
 
@@ -27,6 +38,8 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `admin/security/use_form_key 0`, so the tests can open admin URLs directly
 - `Magento_TwoFactorAuth` disabled
 - `carriers/freeshipping/active 1` with `carriers/freeshipping/free_shipping_subtotal 1`, next to the Flat Rate every store ships with
+- `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php`, `Test/E2e/seed/status-for-state.php`, `Test/E2e/seed/credit-memo-fee.php`, `Test/E2e/seed/log-deadlock.php`, `Test/E2e/seed/shipping-notification.php`, `Test/E2e/seed/saved-card.php` and `Test/E2e/seed/callback-credentials.php` copied to the store's `var/` directory
+
 - `Test/E2e/seed/seed-qliro-order.php`, `Test/E2e/seed/seed-shipping-mismatch.php`, `Test/E2e/seed/seed-line-differences.php`, `Test/E2e/seed/seed-configurable-order.php`, `Test/E2e/seed/seed-paid-currency.php`, `Test/E2e/seed/print-pdf-payment-block.php`, `Test/E2e/seed/capture-hold.php`, `Test/E2e/seed/order-confirmation.php`, `Test/E2e/seed/map-shipment.php` and `Test/E2e/seed/transaction-status.php` copied to the store's `var/` directory
 - the Luma sample data, or another in stock configurable set as `E2E_CONFIGURABLE_SKU`, and `payment/checkmo/active 1`, for `tests/source-item-lookup.spec.ts`
 - `Test/E2e/fixture/QliroE2e/SecondaryOption` copied to `app/code/QliroE2e/SecondaryOption`, `module:enable QliroE2e_SecondaryOption` and `setup:upgrade` run, for `tests/secondary-option.spec.ts`. It is a copy, so copy it again when the fixture changes
@@ -81,6 +94,15 @@ It prints a JSON object with the ids it created, and the global setup keeps it i
 
 Reverting the fee accumulation in `OrderItemsConverter` or the name in `Block/Info/QliroOne`
 turns four of the eight tests red, so they are pinned to the behaviour rather than to the markup.
+
+## A log write that hits a deadlock
+
+`tests/log-deadlock.spec.ts` puts a trigger on `qliroone_log` that answers the first inserts of one
+log line with MariaDB's deadlock error, 1213, and checks the row that lands. The trigger and its
+counter table, `qliroe2e_log_deadlock`, are dropped at the start and end of each run. The store's database user needs
+the right to create a trigger (on MySQL 8 with binary logging, `SUPER` or
+`log_bin_trust_function_creators`), and the server has to allow MyISAM, which keeps the counter
+when the failed insert is rolled back.
 
 ## The checkout test
 
@@ -137,6 +159,11 @@ with the e2e product so a manual checkout on the same store is left alone, and o
 from the last one recorded. One test reads the pickup points from the shipping methods callback,
 the others select an option through the checkout's own model and read what was recorded.
 Reverting the fix turns three of the five red.
+
+The same spec sends Qliro's validate callback for a quote from `seed/seed-shipping-mismatch.php`
+with a method and a `SelectedShippingSecondaryOption`, and reads what the observer recorded, with
+`validateCallback` true. It also places orders whose Qliro shipping line holds an option in its
+metadata, or none, and reads the option on the order's payment.
 
 ## A bundle priced by its children
 
@@ -211,6 +238,28 @@ The fixture puts any order on the caller's session, so besides developer mode it
 the spec writes to `var/qliro-e2e-secret` with `docker exec` before it runs. A store without that
 file answers 404.
 
+## The merchant reference, once per order
+
+`tests/merchant-reference-once.spec.ts` needs Qliro, so it runs only with `QLIRO_CHECKOUT_E2E=1`, and
+seeds its own orders through `seed/seed-sandbox-order.php`. It sends Qliro's Completed callback to the
+store again and counts the `updatemerchantreference` calls `seed/merchant-reference.php` reads from
+`qliroone_log`: one per order. Its second test takes the mark off a placed order and fails the next
+order save with the fixture module, as a store whose save failed after the call is left: the
+callback answers 500, Qliro's repeat must not send the number again, and the refusal Qliro gives for
+a number the order already carries is no failure. Without the fix the number goes out twice and both
+refusals are logged as errors. The store needs:
+
+- a Qliro test merchant on staging, `payment/qliroone/merchant/use_increment_id_as_reference 0`
+- order numbers the Qliro merchant has not seen, a shared test merchant refuses a taken one
+- `SE` left out of `general/region/state_required`
+- `Test/E2e/seed/seed-sandbox-order.php` and `Test/E2e/seed/merchant-reference.php` in `var/`
+- `Test/E2e/fixture/QliroE2e/FailingOrderSave` copied to `app/code/QliroE2e/FailingOrderSave` and
+  enabled. It fails one save of an order named in `var/qliro-e2e/fail-order-save-<increment id>`
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test merchant-reference-once
+```
+
 ## The order confirmation
 
 `tests/order-confirmation.spec.ts` checks that the confirmation goes out only once Qliro has approved
@@ -240,6 +289,49 @@ one with more than 4 decimals, the quote keeps 4), so it is off unless asked for
 ```bash
 E2E_PAY_CURRENCY=EUR MAGENTO_SKIP_SEED=1 npx playwright test paid-currency
 ```
+
+## The invoice fee on credit memos
+
+`tests/credit-memo-fee.spec.ts` seeds an order with a fee, invoices it offline and refunds it from the
+invoice in three offline credit memos through `seed/credit-memo-fee.php`. The memo that leaves 0.50 of
+the order unrefunded must not return the fee, the one that refunds the rest must, and the admin view of
+each saved memo shows the fee only on the last. Its second test places the order in another display
+currency of the store and runs only with `E2E_PAY_CURRENCY` set, as `tests/paid-currency.spec.ts` does.
+`seed/seed-qliro-order.php` takes `--price` for the line's price and `--currency` for the order's
+currency for it. Reverting the fix turns both red.
+
+## A shipping provider notification before the order
+
+`tests/shipping-notification.spec.ts` with `seed/shipping-notification.php`. The seed makes a quote
+and its link with no order, the test posts Qliro's shipping provider notification to the store's
+callback and then places the order through `PlaceOrder`. Qliro takes a notification as delivered only
+when the body's `CallbackResponse` is `received`, so every accepted one must answer that. The one sent
+before the order exists is accepted and its shipping description lands on the order. A later one
+before placement replaces it, and a redelivery of an older one, by Qliro's `Timestamp`, replaces nothing. With the Qliro order locked, as a placement holds it, the store answers
+409 without `received` and Qliro's retry is applied. On main the first three answer 404.
+
+```bash
+MAGENTO_SKIP_SEED=1 npx playwright test shipping-notification
+```
+
+## A refused checkout status push
+
+`tests/checkout-status-refusal.spec.ts` sends Qliro's checkout status push to the store and reads the
+cause in the answer: no link for the Qliro order, a status the order cannot take, and a placement that
+fails. It seeds its own orders, so `MAGENTO_SKIP_SEED=1` is fine. The placement needs Qliro:
+`seed/seed-sandbox-order.php --unplaced` leaves a paid sandbox order without a Magento order, the
+test takes the product out of stock, pushes Completed, then puts it back and pushes again. That one
+runs only with `QLIRO_CHECKOUT_E2E=1`. The store needs:
+
+- `Test/E2e/seed/checkout-status.php` in `var/`, and for the placement `Test/E2e/seed/seed-sandbox-order.php`
+- for the placement, a Qliro test merchant on staging and `SE` left out of `general/region/state_required`
+- a store the sandbox cannot call back, or Qliro's own push places the order before the test does
+
+```bash
+QLIRO_CHECKOUT_E2E=1 MAGENTO_SKIP_SEED=1 npx playwright test checkout-status-refusal
+```
+
+On a module without the fix all three fail, each answered "Order not found".
 
 ## A transaction status push without an order
 

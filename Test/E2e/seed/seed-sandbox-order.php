@@ -8,9 +8,10 @@
  * Needs the store pointed at a Qliro test merchant on staging.
  *
  * Usage, inside the Magento container:
- *   php var/seed-sandbox-order.php [--qty=2] [--bundle] [--second=SKU] [--drop=SKU]
+ *   php var/seed-sandbox-order.php [--qty=2] [--bundle] [--second=SKU] [--drop=SKU] [--unplaced]
  *       --second adds one of that product, created if missing, --drop removes that product from the
- *       quote once Qliro has completed the order, as a second tab would
+ *       quote once Qliro has completed the order, as a second tab would, --unplaced leaves the
+ *       completed Qliro order without a Magento order, as a buyer who closed the tab does
  *
  * `--bundle` buys a bundle priced by its children instead, one at 4.79 and one at 34.00, both
  * Taxable Goods, which the store has to tax for Sweden.
@@ -23,7 +24,7 @@ use Magento\Framework\App\Bootstrap;
 
 require '/var/www/html/app/bootstrap.php';
 
-$options = getopt('', ['qty::', 'bundle', 'second::', 'drop::']);
+$options = getopt('', ['qty::', 'bundle', 'second::', 'drop::', 'unplaced']);
 $qty = max(1, (int)($options['qty'] ?? 2));
 $withBundle = isset($options['bundle']);
 $secondSku = (string)($options['second'] ?? '');
@@ -194,6 +195,15 @@ if ($status !== 'Completed') {
 }
 
 /* -------------------------------------------------------------- the order */
+if (isset($options['unplaced'])) {
+    echo json_encode([
+        'quoteId' => (int)$quote->getId(),
+        'qliroOrderId' => (int)$om->get(\Qliro\QliroOne\Api\LinkRepositoryInterface::class)
+            ->getByQuoteId((int)$quote->getId(), false)->getQliroOrderId(),
+    ], JSON_PRETTY_PRINT) . PHP_EOL;
+    exit(0);
+}
+
 if ($dropSku !== '') {
     foreach ($quote->getAllVisibleItems() as $item) {
         if ($item->getSku() === $dropSku) {
