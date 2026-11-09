@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.42] - 2026-11-04
+
+### Fixed
+
+- A blank value Qliro sends for an address field (name, street, city, postcode, company, email, phone) no longer overwrites what the quote holds. Only a null was skipped before, so an empty or whitespace string replaced a working value, and a required field left empty failed the order placement. A blank postcode no longer counts as an address that may replace the country, and a blank country is not one
+
+### Added
+
+- `AddressConverterTest`: blank fields keep the quote's values, a blank postcode keeps the country
+
+
 ## [1.8.41] - 2026-11-04
 
 ### Fixed
