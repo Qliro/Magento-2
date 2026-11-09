@@ -11,6 +11,8 @@ use Magento\Sales\Model\Order;
 use Magento\Sales\Model\Order\Config;
 use Magento\Sales\Model\Order\Payment;
 use PHPUnit\Framework\TestCase;
+use Qliro\QliroOne\Model\Logger\Manager as LogManager;
+use Qliro\QliroOne\Model\Order\StateStatus;
 use Qliro\QliroOne\Model\OrderManagementStatus\Update\CaptureHold;
 
 /**
@@ -34,7 +36,7 @@ class CaptureHoldTest extends TestCase
     public function testASuccessOfAnotherCaptureKeepsTheHold(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $hold->release($order, 556);
@@ -47,7 +49,7 @@ class CaptureHoldTest extends TestCase
     public function testARedeliveredSuccessAddsNoSecondComment(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $hold->release($order, 556);
@@ -59,7 +61,7 @@ class CaptureHoldTest extends TestCase
     public function testTheFailedCaptureSucceedingReleasesTheHoldWithTheEarlierStatus(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $hold->release($order, 556);
@@ -74,7 +76,7 @@ class CaptureHoldTest extends TestCase
     public function testEveryFailedCaptureMustSucceedFirst(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $hold->hold($order, 556, 'UserInteraction');
@@ -91,7 +93,7 @@ class CaptureHoldTest extends TestCase
     {
         $order = $this->order();
         $order->hold();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $hold->release($order, 555);
@@ -108,7 +110,7 @@ class CaptureHoldTest extends TestCase
         $order = $this->order();
         $order->hold();
 
-        (new CaptureHold())->release($order, 555);
+        ($this->captureHold())->release($order, 555);
 
         self::assertSame(Order::STATE_HOLDED, $order->getState());
     }
@@ -118,7 +120,7 @@ class CaptureHoldTest extends TestCase
         $order = $this->order();
         $order->setState(Order::STATE_COMPLETE)->setStatus('complete');
 
-        self::assertTrue((new CaptureHold())->hold($order, 555, 'Error'));
+        self::assertTrue(($this->captureHold())->hold($order, 555, 'Error'));
         self::assertSame(Order::STATE_COMPLETE, $order->getState());
         self::assertSame(
             'Qliro One reported Error for capture 555, the order cannot be held in state complete',
@@ -129,7 +131,7 @@ class CaptureHoldTest extends TestCase
     public function testARepeatedErrorOnAHeldOrderKeepsOneFailure(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'UserInteraction');
         $hold->hold($order, 555, 'Error');
@@ -141,7 +143,7 @@ class CaptureHoldTest extends TestCase
     public function testAnOrderReleasedByHandEndsTheEarlierFailure(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $order->unhold();
@@ -156,7 +158,7 @@ class CaptureHoldTest extends TestCase
     public function testAnErrorAfterTheSameCaptureSucceededIsIgnored(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->release($order, 555);
 
@@ -167,7 +169,7 @@ class CaptureHoldTest extends TestCase
     public function testAnEarlierStatusNoLongerAssignedGivesTheStateDefaultAndSaysSo(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
 
         $hold->hold($order, 555, 'Error');
         $this->assigned[Order::STATE_PROCESSING] = ['processing'];
@@ -183,7 +185,7 @@ class CaptureHoldTest extends TestCase
     public function testAShipmentCaptureHealingTheFailureKeepsTheEarlierStatusOverTheInvoices(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
         $hold->hold($order, 555, 'Error');
 
         $lifted = $hold->lift($order);
@@ -198,7 +200,7 @@ class CaptureHoldTest extends TestCase
     public function testAShipmentCaptureOfAnotherLineBringsTheHoldBack(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
         $hold->hold($order, 555, 'Error');
 
         $lifted = $hold->lift($order);
@@ -212,7 +214,7 @@ class CaptureHoldTest extends TestCase
     public function testAHoldThatCannotComeBackSaysWhichCaptureIsStillFailed(): void
     {
         $order = $this->order();
-        $hold = new CaptureHold();
+        $hold = $this->captureHold();
         $hold->hold($order, 555, 'Error');
 
         $lifted = $hold->lift($order);
@@ -229,10 +231,15 @@ class CaptureHoldTest extends TestCase
 
     public function testLiftLeavesAnOrderNotOnHoldAlone(): void
     {
-        self::assertNull((new CaptureHold())->lift($this->order()));
+        self::assertNull(($this->captureHold())->lift($this->order()));
     }
 
     /** A processing order an ERP moved to its own status */
+    private function captureHold(): CaptureHold
+    {
+        return new CaptureHold(new StateStatus($this->createMock(LogManager::class)));
+    }
+
     private function order(): Order
     {
         $payment = $this->getMockBuilder(Payment::class)
@@ -243,7 +250,9 @@ class CaptureHoldTest extends TestCase
         $config = $this->createMock(Config::class);
         $config->method('getStateDefaultStatus')->willReturnArgument(0);
         $config->method('getStateStatuses')->willReturnCallback(
-            fn (string $state): array => array_fill_keys($this->assigned[$state] ?? [], 'label')
+            fn (string $state, bool $addLabels = true): array => $addLabels
+                ? array_fill_keys($this->assigned[$state] ?? [], 'label')
+                : $this->assigned[$state] ?? []
         );
 
         $order = $this->getMockBuilder(Order::class)

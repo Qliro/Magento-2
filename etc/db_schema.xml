@@ -9,6 +9,7 @@
         <column xsi:type="varchar" name="personal_number" nullable="true" comment="Personal Number" />
         <column xsi:type="date" name="next_order_date" nullable="true" comment="Next Order Date" />
         <column xsi:type="date" name="canceled_date" nullable="true" comment="Canceled Date" />
+        <column xsi:type="datetime" name="saved_credit_card_removed_at" nullable="true" comment="When Qliro deleted the saved card" />
         <constraint xsi:type="primary" referenceId="PRIMARY">
             <column name="entity_id" />
         </constraint>
@@ -68,6 +69,19 @@
         <index referenceId="QLIROONE_LINK_UPDATED_AT" indexType="btree">
             <column name="updated_at"/>
         </index>
+    </table>
+    <table name="qliroone_pending_shipping_update" resource="default" engine="innodb" comment="Qliro shipping provider update received before the order was placed">
+        <column xsi:type="int" name="link_id" unsigned="true" nullable="false" comment="Link ID" />
+        <column xsi:type="varchar" name="provider" length="255" nullable="false" comment="Shipping provider" />
+        <column xsi:type="mediumtext" name="payload" nullable="false" comment="Notification payload as JSON" />
+        <column xsi:type="varchar" name="sent_at" length="64" nullable="false" default="" comment="Qliro Timestamp of the notification" />
+        <column xsi:type="timestamp" name="created_at" nullable="false" default="CURRENT_TIMESTAMP" comment="When the update was stored" />
+        <constraint xsi:type="primary" referenceId="PRIMARY">
+            <column name="link_id" />
+        </constraint>
+        <constraint xsi:type="foreign" referenceId="QLIROONE_PENDING_SHIPPING_UPDATE_LINK_ID_QLIROONE_LINK_LINK_ID"
+            table="qliroone_pending_shipping_update" column="link_id" referenceTable="qliroone_link"
+            referenceColumn="link_id" onDelete="CASCADE" />
     </table>
     <table name="qliroone_log" resource="default" engine="innodb" comment="QliroOne Log">
         <column xsi:type="int" name="id" unsigned="true" nullable="false" identity="true" comment="Log line id" />

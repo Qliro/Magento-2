@@ -10,6 +10,7 @@ namespace Qliro\QliroOne\Test\Unit\Model\Management;
 use Magento\Framework\App\Response\Http;
 use Magento\Framework\Escaper;
 use Magento\Framework\Exception\NoSuchEntityException;
+use Magento\Framework\Message\ManagerInterface as MessageManager;
 use Magento\Framework\Phrase;
 use Magento\Quote\Model\Quote;
 use Magento\Store\Model\Store;
@@ -18,6 +19,7 @@ use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Api\LinkRepositoryInterface;
 use Qliro\QliroOne\Model\Exception\AlreadyPlacedException;
+use Qliro\QliroOne\Model\Exception\NoOrderLinesException;
 use Qliro\QliroOne\Model\Exception\UnsupportedQuoteException;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\Management\HtmlSnippet;
@@ -31,11 +33,13 @@ class HtmlSnippetTest extends TestCase
     private const QUOTE_ID = 283041;
     private const SNIPPET = '<div id="qliro-root"></div>';
     private const PENDING_URL = 'https://shop.test/checkout/qliro/pending';
+    private const CART_URL = 'https://shop.test/checkout/cart';
 
     private QliroOrder&MockObject $qliroOrder;
     private Manager&MockObject $logManager;
     private Http&MockObject $http;
     private LinkRepositoryInterface&MockObject $linkRepository;
+    private MessageManager&MockObject $messageManager;
     private HtmlSnippet $htmlSnippet;
 
     protected function setUp(): void
@@ -47,7 +51,11 @@ class HtmlSnippetTest extends TestCase
         $this->linkRepository = $this->createMock(LinkRepositoryInterface::class);
 
         $store = $this->createMock(Store::class);
-        $store->method('getUrl')->with('checkout/qliro/pending')->willReturn(self::PENDING_URL);
+        $store->method('getUrl')->willReturnMap([
+            ['checkout/qliro/pending', [], self::PENDING_URL],
+            ['checkout/cart', [], self::CART_URL],
+        ]);
+        $this->messageManager = $this->createMock(MessageManager::class);
 
         $quote = $this->createMock(Quote::class);
         $quote->method('getId')->willReturn(self::QUOTE_ID);
@@ -58,7 +66,8 @@ class HtmlSnippetTest extends TestCase
             $this->logManager,
             $this->http,
             $this->linkRepository,
-            new Escaper()
+            new Escaper(),
+            $this->messageManager
         );
         $this->htmlSnippet->setQuote($quote);
     }
@@ -106,6 +115,18 @@ class HtmlSnippetTest extends TestCase
     {
         $this->qliroOrder->method('get')->willThrowException(new AlreadyPlacedException());
         $this->http->expects(self::once())->method('setRedirect')->with(self::PENDING_URL);
+
+        self::assertSame('', $this->htmlSnippet->get());
+    }
+
+    public function testGetSendsACartWithoutLinesBackToTheCart(): void
+    {
+        $this->qliroOrder->method('get')->willThrowException(
+            new NoOrderLinesException(new Phrase('Your cart has nothing to pay for.'))
+        );
+        $this->messageManager->expects(self::once())->method('addNoticeMessage')
+            ->with('Your cart has nothing to pay for.');
+        $this->http->expects(self::once())->method('setRedirect')->with(self::CART_URL);
 
         self::assertSame('', $this->htmlSnippet->get());
     }

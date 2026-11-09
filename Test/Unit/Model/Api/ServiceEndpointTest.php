@@ -28,8 +28,39 @@ class ServiceEndpointTest extends TestCase
      */
     public function testAnEmptyPlaceholderIsATerminalException(): void
     {
+        $this->expectException(TerminalException::class);
+        $this->expectExceptionMessage('Endpoint checkout/merchantapi/orders/{OrderId} has no value for OrderId');
+
+        $this->serviceThatNeverCalls()->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => null]);
+    }
+
+    /**
+     * @dataProvider emptyValues
+     */
+    public function testAnEmptyValueLeavesThePlaceholderUnfilled($value, string $method): void
+    {
+        $this->expectException(TerminalException::class);
+        $this->expectExceptionMessage('has no value for OrderId');
+
+        $this->serviceThatNeverCalls()->{$method}('checkout/merchantapi/orders/{OrderId}', ['OrderId' => $value]);
+    }
+
+    public static function emptyValues(): array
+    {
+        return [
+            'empty string on get' => ['', 'get'],
+            'false on get' => [false, 'get'],
+            'empty string on put' => ['', 'put'],
+            'missing on post' => [null, 'post'],
+        ];
+    }
+
+    public function testZeroStillFillsThePlaceholder(): void
+    {
         $client = $this->createMock(Client::class);
-        $client->expects(self::never())->method('request');
+        $client->expects(self::once())->method('request')
+            ->with('GET', 'https://pago.qit.nu/checkout/merchantapi/orders/0')
+            ->willReturn(new \GuzzleHttp\Psr7\Response(200, [], ''));
         $service = new Service(
             $this->createMock(Config::class),
             $client,
@@ -37,9 +68,19 @@ class ServiceEndpointTest extends TestCase
             $this->createMock(Manager::class)
         );
 
-        $this->expectException(TerminalException::class);
-        $this->expectExceptionMessage('Endpoint checkout/merchantapi/orders/{OrderId} has no value for OrderId');
+        self::assertSame([], $service->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => 0]));
+    }
 
-        $service->get('checkout/merchantapi/orders/{OrderId}', ['OrderId' => null]);
+    private function serviceThatNeverCalls(): Service
+    {
+        $client = $this->createMock(Client::class);
+        $client->expects(self::never())->method('request');
+
+        return new Service(
+            $this->createMock(Config::class),
+            $client,
+            $this->createMock(Json::class),
+            $this->createMock(Manager::class)
+        );
     }
 }

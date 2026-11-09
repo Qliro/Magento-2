@@ -7,6 +7,7 @@ declare(strict_types=1);
 
 namespace Qliro\QliroOne\Model\Security;
 
+use Psr\Log\LogLevel;
 use Qliro\QliroOne\Model\Config;
 use Qliro\QliroOne\Model\Logger\Manager;
 
@@ -26,11 +27,15 @@ class CallbackToken
      * @param Jwt $jwt
      * @param Config $qliroConfig
      * @param Manager $logManager
+     * @param PreviousCredentials $previousCredentials
+     * @param TokenLogThrottle $logThrottle
      */
     public function __construct(
         private Jwt $jwt,
         private Config $qliroConfig,
-        private Manager $logManager
+        private Manager $logManager,
+        private PreviousCredentials $previousCredentials,
+        private TokenLogThrottle $logThrottle
     ) {
 
     }
@@ -86,52 +91,43 @@ class CallbackToken
                 return false;
             }
 
-            try {
-                $payload = $this->jwt->decode($token, $secret, true, self::ALGORITHM);
-            } catch (\Throwable $exception) {
-                // Throwable, not Exception: a malformed token must be refused, never reported as
-                // a server error, and a TypeError is not an Exception.
-                //
-                // Logged, because without it the whole class of signature failures is invisible:
-                // rotate the API secret and every callback url already registered with Qliro
-                // stops verifying at once, with nothing to read. At debug, because the caller is
-                // anonymous and can repeat it as often as it likes
-                $this->logManager->debug(
-                    'token did not verify: {reason}',
-                    [
-                        'reason' => $exception->getMessage(),
-                        'extra' => ['exception' => get_class($exception)],
-                    ]
-                );
+            $reason = '';
+            $replaced = null;
+            $payload = $this->verifiedPayload($token, $secret, $merchantKey, $reason);
 
-                return false;
+            if ($payload === null) {
+                try {
+                    $claims = $this->jwt->decode($token, null, false);
+                } catch (\Throwable $exception) {
+                    $claims = null;
+                }
+
+                // Internet noise, or a callback url mangled on the way
+                if (!is_array($claims)) {
+                    $this->logManager->debug(
+                        'token is malformed ({reason}), the request was refused',
+                        ['reason' => $reason]
+                    );
+
+                    return false;
+                }
+
+                $replaced = $this->acceptsReplacedCredentials() ? $this->replacedPairThatSigned($token) : null;
+
+                if ($replaced === null) {
+                    $this->reportRefusal($claims, $merchantKey, $reason);
+
+                    return false;
+                }
+
+                // The same body the pair just verified
+                $payload = $claims;
             }
 
-            if (!is_array($payload)) {
-                return false;
-            }
-
-            $merchant = $payload['merchant'] ?? null;
+            $additionalData = $payload['additional_data'] ?? null;
             // Guarded on type: the claim is whatever the token says, and strtotime() of an array
             // is a TypeError, which on a callback endpoint is a 500 instead of a refusal
             $expiresAt = is_string($payload['expires'] ?? null) ? (int)strtotime($payload['expires']) : 0;
-            $additionalData = $payload['additional_data'] ?? null;
-
-            if (!is_string($merchant) || !hash_equals($merchantKey, $merchant)) {
-                $this->logManager->debug(
-                    'merchant ID mismatch',
-                    [
-                        // Fingerprints, not the keys: this told the log the merchant API key on
-                        // every mismatch, and the presented one is chosen by the caller
-                        'extra' => [
-                            'request' => $this->fingerprint($merchant),
-                            'configured' => $this->fingerprint($merchantKey),
-                        ]
-                    ]
-                );
-
-                return false;
-            }
 
             // The values themselves, not their fingerprints: a fingerprint is eight hex characters
             // and two quote ids that collide in those would bind a token to the wrong quote
@@ -176,12 +172,153 @@ class CallbackToken
 
                 return false;
             }
+
+            if ($replaced !== null) {
+                $this->logThrottled(
+                    'previous',
+                    LogLevel::INFO,
+                    'token verified with the API credentials replaced at {replaced_at}',
+                    [
+                        'replaced_at' => date('Y-m-d H:i:s', $replaced['replaced_at']),
+                        'extra' => ['key' => $this->fingerprint($replaced['key'])],
+                    ]
+                );
+            }
         } finally {
             $this->logManager->setMark(null);
             $this->logManager->removeTag('security');
         }
 
         return true;
+    }
+
+    /**
+     * The payload, when the token is signed with this secret and issued for this key
+     *
+     * @param string $token
+     * @param string $secret
+     * @param string $merchantKey
+     * @param string $reason Why it is not, when it is not
+     * @return array|null
+     */
+    private function verifiedPayload(string $token, string $secret, string $merchantKey, string &$reason = ''): ?array
+    {
+        try {
+            // Throwable, not Exception: a malformed token must be refused, never reported as a
+            // server error, and a TypeError is not an Exception
+            $payload = $this->jwt->decode($token, $secret, true, self::ALGORITHM);
+        } catch (\Throwable $exception) {
+            $reason = $exception->getMessage();
+
+            return null;
+        }
+
+        $merchant = is_array($payload) ? ($payload['merchant'] ?? null) : null;
+
+        if (!is_string($merchant) || !hash_equals($merchantKey, $merchant)) {
+            $reason = 'merchant mismatch';
+
+            return null;
+        }
+
+        return $payload;
+    }
+
+    /**
+     * The replaced pair within the window that signed the token
+     *
+     * @param string $token
+     * @return array|null
+     */
+    private function replacedPairThatSigned(string $token): ?array
+    {
+        foreach ($this->previousCredentials->getActive() as $pair) {
+            if ($this->verifiedPayload($token, $pair['secret'], $pair['key']) !== null) {
+                return $pair;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Say why a well formed token was refused
+     *
+     * Most likely an older order whose callback url was signed with credentials the store no
+     * longer has.
+     *
+     * @param array $claims
+     * @param string $merchantKey
+     * @param string $reason
+     * @return void
+     */
+    private function reportRefusal(array $claims, string $merchantKey, string $reason): void
+    {
+        $merchant = $claims['merchant'] ?? null;
+        $presented = $this->fingerprint($merchant);
+        $context = [
+            'reason' => $reason,
+            // Fingerprints, not the keys: the presented one is chosen by the caller
+            'extra' => [
+                'request' => $presented,
+                'configured' => $this->fingerprint($merchantKey),
+                'previous_credentials_days' => $this->acceptsReplacedCredentials()
+                    ? $this->qliroConfig->getPreviousCredentialsDays()
+                    : null,
+            ],
+        ];
+
+        if (is_string($merchant) && hash_equals($merchantKey, $merchant)) {
+            $this->logThrottled(
+                'signature',
+                $this->getRefusalLogLevel(),
+                'token did not verify with the API secret ({reason}), the request was refused. '
+                . 'Callbacks of orders created before an API secret change are refused this way',
+                $context
+            );
+
+            return;
+        }
+
+        // Per presented key, and a key the store replaced has a line of its own, so a caller
+        // sending made up keys cannot take the line of a real refusal
+        $this->logThrottled(
+            'merchant',
+            $this->getRefusalLogLevel(),
+            'token was issued for another merchant API key, the request was refused. '
+            . 'Callbacks of orders created before an API key change are refused this way',
+            $context,
+            $presented,
+            $this->getRefusalLogLevel() !== LogLevel::DEBUG
+                && is_string($merchant)
+                && $this->previousCredentials->isKnownKey($merchant)
+        );
+    }
+
+    /**
+     * Log at the given level once per kind, store and hour, at debug otherwise
+     *
+     * @param string $kind
+     * @param string $level
+     * @param string $message
+     * @param array $context
+     * @param string $variant
+     * @param bool $reserved
+     * @return void
+     */
+    private function logThrottled(
+        string $kind,
+        string $level,
+        string $message,
+        array $context,
+        string $variant = '',
+        bool $reserved = false
+    ): void {
+        if ($level !== LogLevel::DEBUG && !$this->logThrottle->allow(static::class . ':' . $kind, $variant, $reserved)) {
+            $level = LogLevel::DEBUG;
+        }
+
+        $this->logManager->log($level, $message, $context);
     }
 
     /**
@@ -264,6 +401,26 @@ class CallbackToken
     protected function getExpiryLogLevel(): string
     {
         return 'warning';
+    }
+
+    /**
+     * Whether a token signed with an API key and secret pair the store replaced is accepted
+     *
+     * @return bool
+     */
+    protected function acceptsReplacedCredentials(): bool
+    {
+        return true;
+    }
+
+    /**
+     * At what level a token signed with other credentials is worth reporting
+     *
+     * @return string
+     */
+    protected function getRefusalLogLevel(): string
+    {
+        return LogLevel::WARNING;
     }
 
     /**
