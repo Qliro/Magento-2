@@ -180,7 +180,7 @@ class TransactionStatus extends AbstractManagement
      *
      * @param \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatus $qliroOrderManagementStatus
      * @param string $message
-     * @return \Qliro\QliroOne\Api\Data\QliroOrderManagementStatusResponseInterface
+     * @return \Qliro\QliroOne\Model\Notification\QliroOrderManagementStatusResponse
      */
     private function nothingToUpdate($qliroOrderManagementStatus, string $message)
     {
