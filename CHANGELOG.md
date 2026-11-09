@@ -1,6 +1,17 @@
 
 # Change Log
 
+## [1.8.56] - 2026-11-09
+
+### Fixed
+
+- A buyer whose name, city or phone Magento 2.4.8 or 2.4.9 refuses can pay again. Since 2.4.8 Magento checks a guest's address, and the validate callback declined such a buyer as a wrong postcode: on both versions for a name with `/` or parentheses, on 2.4.8 also for a city with a dot or a digit (`St. Gallen`) or a phone over 20 characters. Names, city and phone from Qliro are now reduced to what both versions accept before they reach the quote: the city keeps letters, spaces, `-` and `'`, names lose the characters Magento's name check refuses, and a long phone keeps only its digits and a leading `+`. A value with nothing left keeps what the quote holds. The same values go to every Magento version, so a 2.4.9 store also gets `St Gallen` for `St. Gallen`, and a logged-in buyer whose saved address had such a city or phone checks out with a copy of it rather than the saved one
+
+### Added
+
+- Unit tests that check every reduced value against copies of the 2.4.8 and 2.4.9 address checks
+- `Test/E2e/tests/address-text.spec.ts` with `seed/seed-address-text.php`: such a buyer passes the validate callback and the order carries the reduced values
+
 ## [1.8.40] - 2026-11-04
 
 ### Fixed

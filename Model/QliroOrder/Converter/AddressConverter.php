@@ -60,12 +60,12 @@ class AddressConverter
         $organizationNumbers = $this->getOrganizationNumbers($qliroCustomer, $company);
 
         $addressData = [
-            'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
-            'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,
+            'firstname' => $this->reduced($qliroAddress?->getFirstName(), [AddressText::class, 'name']),
+            'lastname' => $this->reduced($qliroAddress?->getLastName(), [AddressText::class, 'name']),
             'email' => $qliroCustomer? $qliroCustomer->getEmail() : null,
             'street' => $qliroAddress ? $this->getStreetWithCareOf($qliroAddress) : null,
-            'telephone' => $qliroCustomer ? $qliroCustomer->getMobileNumber() : null,
-            'city' => $qliroAddress ? $qliroAddress->getCity() : null,
+            'telephone' => $this->reduced($qliroCustomer?->getMobileNumber(), [AddressText::class, 'telephone']),
+            'city' => $this->reduced($qliroAddress?->getCity(), [AddressText::class, 'city']),
             'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
             'company' => $this->stripOrganizationNumber($company, $organizationNumbers),
         ];
@@ -106,6 +106,27 @@ class AddressConverter
         }
 
         return $changed;
+    }
+
+    /**
+     * A Qliro value reduced to what Magento 2.4.8 and 2.4.9 accept, null when nothing is left
+     *
+     * Null leaves the quote's own value, as for a field Qliro did not send: a refused value would
+     * otherwise decline the buyer at validation or fail the paid order's placement.
+     *
+     * @param mixed $value
+     * @param callable(string): string $reduce
+     * @return string|null
+     */
+    private function reduced($value, callable $reduce): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $reduced = $reduce((string)$value);
+
+        return $reduced !== '' ? $reduced : null;
     }
 
     /**
