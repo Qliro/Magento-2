@@ -39,6 +39,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedReque
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureCoverage;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureVatLedger;
 use Qliro\QliroOne\Model\QliroOrder\Admin\RepeatedCapture;
 use Qliro\QliroOne\Model\QliroOrder\Admin\TransactionResponse;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
@@ -219,6 +220,41 @@ class PaymentCaptureTest extends TestCase
         self::assertSame(
             ['5:SKU' => 3, 'DSC_5:SKU' => 3, 'DSC_10' => 1, 'DSC_5:SKU_R' => 1],
             $payment->getAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS)
+        );
+    }
+
+    /**
+     * A refund of this capture later books VAT at the rates it charged, so what it holds under each
+     * rate is kept under its Qliro transaction
+     */
+    public function testAnAcceptedCaptureKeepsWhatItHoldsUnderEachRate(): void
+    {
+        $capture = $this->buildCapture();
+        $this->orderManagementApi->method('markItemsAsShipped')->willReturn($this->buildResult('Created', 325188256));
+
+        $payment = $this->getMockBuilder(Payment::class)
+            ->disableOriginalConstructor()
+            ->onlyMethods(['getOrder'])
+            ->getMock();
+        $this->order->method('getPayment')->willReturn($payment);
+
+        $line = static fn(string $reference, int $quantity, float $incVat, float $exVat, float $rate) => (new QliroOrderItem())
+            ->setMerchantReference($reference)
+            ->setQuantity($quantity)
+            ->setPricePerItemIncVat($incVat)
+            ->setPricePerItemExVat($exVat)
+            ->setVatRate($rate);
+        $this->shipmentLines = [(new QliroShipment())->setOrderItems([
+            $line('5:SKU', 2, 249.0, 199.2, 25.0),
+            $line('DSC_5:SKU', 2, -49.8, -39.84, 25.0),
+            $line('7:EBOOK', 1, 99.0, 93.4, 6.0),
+        ])];
+
+        $capture->captureByShipment($this->buildShipment());
+
+        self::assertSame(
+            ['25' => 398.4, '6' => 99.0],
+            (new CaptureVatLedger())->available($payment, '325188256')
         );
     }
 

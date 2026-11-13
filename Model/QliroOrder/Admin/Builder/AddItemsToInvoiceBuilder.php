@@ -8,7 +8,6 @@ declare(strict_types=1);
 namespace Qliro\QliroOne\Model\QliroOrder\Admin\Builder;
 
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\Sales\Model\Order\Creditmemo;
 use Magento\Sales\Model\Order\Payment;
 use Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterface;
 use Qliro\QliroOne\Api\Data\AdminAddItemsToInvoiceRequestInterfaceFactory;
@@ -20,6 +19,7 @@ use Qliro\QliroOne\Api\Data\AdminAdditionsInterface;
 use Qliro\QliroOne\Api\Data\AdminAdditionsInterfaceFactory;
 use \Qliro\QliroOne\Api\Data\QliroOrderItemInterface;
 use \Qliro\QliroOne\Api\Data\QliroOrderItemInterfaceFactory;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CreditMemo\RefundVatSplit;
 use Qliro\QliroOne\Model\QliroOrder\LineVatRate;
 
 class AddItemsToInvoiceBuilder
@@ -39,6 +39,11 @@ class AddItemsToInvoiceBuilder
     private $allocation = [];
 
     /**
+     * @var RefundVatSplit
+     */
+    private RefundVatSplit $refundVatSplit;
+
+    /**
      * @param AdminAddItemsToInvoiceRequestInterfaceFactory $adminAddItemsToInvoiceRequestFactory
      * @param LinkRepositoryInterface $linkRepository
      * @param Manager $logManager
@@ -47,6 +52,7 @@ class AddItemsToInvoiceBuilder
      * @param QliroOrderItemInterfaceFactory $qliroOrderItemFactory
      * @param LineVatRate $lineVatRate
      * @param RequestId $requestId
+     * @param RefundVatSplit|null $refundVatSplit
      */
     public function __construct(
         private readonly AdminAddItemsToInvoiceRequestInterfaceFactory $adminAddItemsToInvoiceRequestFactory,
@@ -56,10 +62,11 @@ class AddItemsToInvoiceBuilder
         private readonly AdminAdditionsInterfaceFactory $adminAdditionsFactory,
         private readonly QliroOrderItemInterfaceFactory $qliroOrderItemFactory,
         private readonly LineVatRate $lineVatRate,
-        private readonly RequestId $requestId
+        private readonly RequestId $requestId,
+        ?RefundVatSplit $refundVatSplit = null
     )
     {
-
+        $this->refundVatSplit = $refundVatSplit ?? new RefundVatSplit();
     }
 
     /**
@@ -210,10 +217,7 @@ class AddItemsToInvoiceBuilder
             $addition->setPaymentTransactionId(
                 (int)$entry['payment_transaction_id']
             )->setOrderItems(
-                [$this->getOrderItems(
-                    (float)$entry['amount'],
-                    isset($entry['vat_rate']) ? (float)$entry['vat_rate'] : null
-                )]
+                $this->getOrderItems((float)$entry['amount'], $this->entrySplit($entry))
             );
 
             $additions[] = $addition;
@@ -236,93 +240,92 @@ class AddItemsToInvoiceBuilder
         $additions->setPaymentTransactionId(
             $this->toId($this->payment->getParentTransactionId())
         )->setOrderItems(
-            [$this->getOrderItems()]
+            $this->getOrderItems((float)$this->payment->getCreditmemo()->getGrandTotal())
         );
 
         return $additions;
     }
 
     /**
-     * Creates and returns a Qliro order item representing the discount details from the credit memo.
+     * The VAT split of one allocation entry, entries queued before 1.8.57 carry one `vat_rate`
      *
-     * @param float|null $amount Refund portion (positive) for this line; defaults to the credit memo grand total.
-     * @param float|null $vatRate VAT rate for the line; when null it is derived from the credit memo.
-     *                            Callback-driven Additions pass it explicitly because no credit memo
-     *                            is in context at that point.
-     * @return QliroOrderItemInterface The Qliro order item populated with discount information, including VAT rate calculation, price, and description.
+     * @param array $entry
+     * @return array|null Null when the credit memo in context decides
      */
-    private function getOrderItems(?float $amount = null, ?float $vatRate = null): QliroOrderItemInterface
+    private function entrySplit(array $entry): ?array
     {
-        $creditMemo = $this->payment->getCreditmemo();
+        if (isset($entry['vat_split']) && is_array($entry['vat_split'])) {
+            return $entry['vat_split'];
+        }
 
-        $amount = $amount ?? (float)$creditMemo->getGrandTotal();
-        $priceIncVat = -abs($amount);
-        $vatRate = $vatRate ?? $this->getCreditMemoVatRate($creditMemo);
-        $priceExVat = $this->lineVatRate->exVatFromIncVat($priceIncVat, $vatRate);
+        if (isset($entry['vat_rate'])) {
+            return [['vat_rate' => (float)$entry['vat_rate'], 'amount' => abs((float)$entry['amount'])]];
+        }
 
-        /** @var QliroOrderItemInterface $orderItems */
-        $orderItems = $this->qliroOrderItemFactory->create();
-
-        $orderItems
-            ->setMerchantReference(self::MERCHANT_REFERENCE_CODE_FIELD)
-            ->setType(QliroOrderItemInterface::TYPE_DISCOUNT)
-            ->setQuantity(1)
-            ->setPricePerItemIncVat($priceIncVat)
-            ->setPricePerItemExVat($priceExVat)
-            ->setVatRate($vatRate)
-            ->setDescription('Refund')
-            ->setMetadata(['qliro' => 'checkout']);
-
-        return $orderItems;
+        return null;
     }
 
     /**
-     * Resolve the refund VAT rate for a payment's credit memo.
+     * The refund as negative discount lines, one per VAT rate it falls under
      *
-     * Exposed so the caller can capture the rate at refund time and embed it in each queued
-     * allocation entry; subsequent (callback-driven) Additions are built without a credit memo.
+     * @param float $amount Refund portion for these lines, either sign
+     * @param array|null $split List of ['vat_rate' => float, 'amount' => float]; null reads it from the credit memo
+     * @return QliroOrderItemInterface[]
+     */
+    private function getOrderItems(float $amount, ?array $split = null): array
+    {
+        $split = $split ?? $this->refundVatSplit->apportion(
+            $this->refundVatSplit->forCreditMemo($this->payment->getCreditmemo()),
+            $amount
+        );
+
+        $lines = [];
+
+        foreach ($split as $part) {
+            $vatRate = (float)$part['vat_rate'];
+            $priceIncVat = -abs((float)$part['amount']);
+
+            /** @var QliroOrderItemInterface $orderItem */
+            $orderItem = $this->qliroOrderItemFactory->create();
+
+            $orderItem
+                // The rate is in the reference even when the refund has one: Qliro keeps the first ex VAT
+                // price it saw for a reference and inc VAT price on a capture, and refuses the same pair
+                // at another rate (ItemAlreadyExistsWithDifferentPriceExcludingVat). A plain `Refund`
+                // would meet a 0% one sent before 1.8.57, or an earlier refund of the same sum at
+                // another rate.
+                ->setMerchantReference(
+                    self::MERCHANT_REFERENCE_CODE_FIELD . '-' . round($vatRate, LineVatRate::PRECISION)
+                )
+                ->setType(QliroOrderItemInterface::TYPE_DISCOUNT)
+                ->setQuantity(1)
+                ->setPricePerItemIncVat($priceIncVat)
+                ->setPricePerItemExVat($this->lineVatRate->exVatFromIncVat($priceIncVat, $vatRate))
+                ->setVatRate($vatRate)
+                ->setDescription('Refund')
+                ->setMetadata(['qliro' => 'checkout']);
+
+            $lines[] = $orderItem;
+        }
+
+        return $lines;
+    }
+
+    /**
+     * The VAT split of each share of the payment's credit memo, to queue with its allocation entry
      *
      * @param Payment $payment
-     * @return float
+     * @param float[] $amounts
+     * @param array $held Per amount key, rate => amount its capture has left; null where not recorded
+     * @return array One list of ['vat_rate' => float, 'amount' => float] per amount, same keys
      */
-    public function getRefundVatRate(Payment $payment): float
+    public function getRefundVatSplits(Payment $payment, array $amounts, array $held = []): array
     {
-        return $this->getCreditMemoVatRate($payment->getCreditmemo());
-    }
-
-    /**
-     * Calculate the VAT (tax) rate for a given credit memo based on its items.
-     *
-     * @param Creditmemo $creditMemo The credit memo instance for which to determine the VAT rate.
-     * @return float The VAT rate as a percentage. Returns 0.00 if multiple or no VAT rates are found.
-     */
-    private function getCreditMemoVatRate(Creditmemo $creditMemo): float
-    {
-        $rates = [];
-
-        foreach ($creditMemo->getAllItems() as $creditMemoItem) {
-            if ($creditMemoItem->getOrderItem()->isDummy()) {
-                continue;
-            }
-
-            if ((float)$creditMemoItem->getQty() <= 0) {
-                continue;
-            }
-
-            $taxPercent = $creditMemoItem->getOrderItem()->getTaxPercent();
-
-            if ($taxPercent !== null) {
-                $rates[] = round((float)$taxPercent, LineVatRate::PRECISION);
-            }
-        }
-
-        $rates = array_unique($rates);
-
-        if (count($rates) === 1) {
-            return (float)reset($rates);
-        }
-
-        return 0.00;
+        return $this->refundVatSplit->forCaptures(
+            $this->refundVatSplit->forCreditMemo($payment->getCreditmemo()),
+            $amounts,
+            $held
+        );
     }
 
     /**
