@@ -289,10 +289,14 @@ class AddItemsToInvoiceBuilder
             $orderItem = $this->qliroOrderItemFactory->create();
 
             $orderItem
-                // Lines of one request keep references of their own
-                ->setMerchantReference(count($split) === 1
-                    ? self::MERCHANT_REFERENCE_CODE_FIELD
-                    : self::MERCHANT_REFERENCE_CODE_FIELD . '-' . round($vatRate, LineVatRate::PRECISION))
+                // The rate is in the reference even when the refund has one: Qliro keeps the first ex VAT
+                // price it saw for a reference and inc VAT price on a capture, and refuses the same pair
+                // at another rate (ItemAlreadyExistsWithDifferentPriceExcludingVat). A plain `Refund`
+                // would meet a 0% one sent before 1.8.57, or an earlier refund of the same sum at
+                // another rate.
+                ->setMerchantReference(
+                    self::MERCHANT_REFERENCE_CODE_FIELD . '-' . round($vatRate, LineVatRate::PRECISION)
+                )
                 ->setType(QliroOrderItemInterface::TYPE_DISCOUNT)
                 ->setQuantity(1)
                 ->setPricePerItemIncVat($priceIncVat)
@@ -312,13 +316,15 @@ class AddItemsToInvoiceBuilder
      *
      * @param Payment $payment
      * @param float[] $amounts
+     * @param array $held Per amount key, rate => amount its capture has left; null where not recorded
      * @return array One list of ['vat_rate' => float, 'amount' => float] per amount, same keys
      */
-    public function getRefundVatSplits(Payment $payment, array $amounts): array
+    public function getRefundVatSplits(Payment $payment, array $amounts, array $held = []): array
     {
-        return $this->refundVatSplit->apportionEach(
+        return $this->refundVatSplit->forCaptures(
             $this->refundVatSplit->forCreditMemo($payment->getCreditmemo()),
-            $amounts
+            $amounts,
+            $held
         );
     }
 

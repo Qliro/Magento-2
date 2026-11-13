@@ -29,6 +29,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\InvoiceMarkItemsAsShippedReque
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequestBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureCoverage;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureVatLedger;
 use Qliro\QliroOne\Model\QliroOrder\Admin\RepeatedCapture;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
@@ -71,10 +72,48 @@ class PaymentRefundTest extends TestCase
         $this->management($allocator, $builder, $processor)->addItemsToInvoice($payment);
     }
 
+    /**
+     * Each share is split by what its own capture has left under each rate, and a capture recorded
+     * before the ledger existed asks with nothing, so it follows the credit memo
+     */
+    public function testAsksTheSplitWithWhatEachCaptureHasLeftUnderEachRate(): void
+    {
+        $creditMemo = $this->createMock(Creditmemo::class);
+        $creditMemo->method('getGrandTotal')->willReturn(150.0);
+
+        $order = $this->createMock(Order::class);
+        $order->method('getId')->willReturn(5);
+
+        $payment = $this->createMock(Payment::class);
+        $payment->method('getOrder')->willReturn($order);
+        $payment->method('getCreditmemo')->willReturn($creditMemo);
+
+        $allocator = $this->createMock(CaptureRefundAllocator::class);
+        $allocator->method('allocate')->willReturn([
+            ['payment_transaction_id' => 11, 'amount' => 50.0],
+            ['payment_transaction_id' => 12, 'amount' => 100.0],
+        ]);
+
+        $ledger = $this->createMock(CaptureVatLedger::class);
+        $ledger->method('available')->willReturnMap([
+            [$payment, '11', ['6' => 50.0]],
+            [$payment, '12', null],
+        ]);
+
+        $builder = $this->createMock(AddItemsToInvoiceBuilder::class);
+        $builder->expects(self::once())->method('getRefundVatSplits')
+            ->with($payment, [50.0, 100.0], [0 => ['6' => 50.0], 1 => null])
+            ->willReturn([[['vat_rate' => 6.0, 'amount' => 50.0]], [['vat_rate' => 25.0, 'amount' => 100.0]]]);
+
+        $this->management($allocator, $builder, $this->createMock(SequentialRefundProcessor::class), $ledger)
+            ->addItemsToInvoice($payment);
+    }
+
     private function management(
         CaptureRefundAllocator $allocator,
         AddItemsToInvoiceBuilder $builder,
-        SequentialRefundProcessor $processor
+        SequentialRefundProcessor $processor,
+        ?CaptureVatLedger $ledger = null
     ): PaymentManagement {
         $link = $this->createMock(Link::class);
         $link->method('getReference')->willReturn('ZW1YpE');
@@ -101,7 +140,8 @@ class PaymentRefundTest extends TestCase
             $this->createMock(OrderPaymentRepositoryInterface::class),
             $this->createMock(RepeatedCapture::class),
             $this->createMock(LockManagerInterface::class),
-            $this->createMock(StateStatus::class)
+            $this->createMock(StateStatus::class),
+            $ledger
         );
     }
 }

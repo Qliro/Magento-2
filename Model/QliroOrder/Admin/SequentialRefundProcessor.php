@@ -31,6 +31,11 @@ class SequentialRefundProcessor
     public const KEY_PENDING_QUEUE = 'qliro_pending_refund_queue';
 
     /**
+     * @var CaptureVatLedger
+     */
+    private CaptureVatLedger $captureVatLedger;
+
+    /**
      * @param OrderManagementInterface $orderManagementApi
      * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
      * @param OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory
@@ -38,6 +43,7 @@ class SequentialRefundProcessor
      * @param LinkRepositoryInterface $linkRepository
      * @param OrderPaymentRepositoryInterface $paymentRepository
      * @param LogManager $logManager
+     * @param CaptureVatLedger|null $captureVatLedger
      */
     public function __construct(
         private readonly OrderManagementInterface $orderManagementApi,
@@ -46,8 +52,10 @@ class SequentialRefundProcessor
         private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         private readonly LinkRepositoryInterface $linkRepository,
         private readonly OrderPaymentRepositoryInterface $paymentRepository,
-        private readonly LogManager $logManager
+        private readonly LogManager $logManager,
+        ?CaptureVatLedger $captureVatLedger = null
     ) {
+        $this->captureVatLedger = $captureVatLedger ?? new CaptureVatLedger();
     }
 
     /**
@@ -95,6 +103,8 @@ class SequentialRefundProcessor
         $this->paymentRepository->save($payment);
 
         $this->sendEntry($payment, $next);
+        // The split just noted for this refund, which its own callback reads
+        $this->paymentRepository->save($payment);
 
         return true;
     }
@@ -146,6 +156,15 @@ class SequentialRefundProcessor
 
             if ($result->getStatus() != QliroOrderManagementStatusInterface::STATUS_CREATED) {
                 throw new LocalizedException(__('Unable to refund'));
+            }
+
+            if (isset($entry['vat_split']) && is_array($entry['vat_split'])) {
+                $this->captureVatLedger->recordSent(
+                    $payment,
+                    (string)$result->getPaymentTransactionId(),
+                    (string)$entry['payment_transaction_id'],
+                    $entry['vat_split']
+                );
             }
         }
     }

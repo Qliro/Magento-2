@@ -61,6 +61,104 @@ class RefundVatSplit
     }
 
     /**
+     * Split each capture's share by the rates that capture holds, so the shares still add up to the split
+     *
+     * A capture takes what the credit memo refunds under the rates it holds, up to what it has left
+     * under each. What it cannot hold that way follows the credit memo's remaining mix. Captures with
+     * nothing recorded (null) go last and share what is left in turn, as apportionEach does.
+     *
+     * @param array<int, array{vat_rate: float, amount: float}> $split The credit memo's split
+     * @param float[] $amounts One share per capture
+     * @param array<int|string, array<int|string, float>|null> $held Per share key: rate => amount left on its capture
+     * @return array<int|string, array<int, array{vat_rate: float, amount: float}>> One split per amount, same keys
+     */
+    public function forCaptures(array $split, array $amounts, array $held): array
+    {
+        $need = $this->weightsOf($split);
+        $splits = [];
+        $unrecorded = [];
+
+        foreach ($amounts as $key => $amount) {
+            $amount = round(abs((float)$amount), 2);
+            $capture = $held[$key] ?? null;
+
+            if (!is_array($capture) || !array_filter($capture, static fn($left): bool => (float)$left > 0)) {
+                $unrecorded[$key] = $amount;
+
+                continue;
+            }
+
+            // What the memo still refunds under each rate, as far as this capture holds it
+            $fits = [];
+
+            foreach ($need as $rate => $left) {
+                $fits[$rate] = round(min(max(0.0, $left), max(0.0, (float)($capture[$rate] ?? 0))), 2);
+            }
+
+            $fitTotal = round(array_sum($fits), 2);
+
+            if ($fitTotal >= $amount) {
+                $splits[$key] = $this->spread($fits, $amount);
+            } else {
+                $rest = [];
+
+                foreach ($need as $rate => $left) {
+                    $rest[$rate] = $left - $fits[$rate];
+                }
+
+                $splits[$key] = $this->merged(
+                    $this->spread($fits, $fitTotal),
+                    $this->spread($rest, round($amount - $fitTotal, 2))
+                );
+            }
+
+            foreach ($splits[$key] as $entry) {
+                $this->add($need, $entry['vat_rate'], -$entry['amount']);
+            }
+        }
+
+        $leftSplit = [];
+
+        foreach ($need as $rate => $left) {
+            $leftSplit[] = ['vat_rate' => (float)$rate, 'amount' => round($left, 2)];
+        }
+
+        $splits += $this->apportionEach($leftSplit, $unrecorded);
+        $ordered = [];
+
+        foreach (array_keys($amounts) as $key) {
+            $ordered[$key] = $splits[$key];
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * @param array<int, array{vat_rate: float, amount: float}> ...$splits
+     * @return array<int, array{vat_rate: float, amount: float}> Amounts of one rate added up, zero parts left out
+     */
+    private function merged(array ...$splits): array
+    {
+        $amounts = [];
+
+        foreach ($splits as $split) {
+            foreach ($split as $entry) {
+                $this->add($amounts, (float)$entry['vat_rate'], (float)$entry['amount']);
+            }
+        }
+
+        $merged = [];
+
+        foreach ($amounts as $rate => $amount) {
+            if (round($amount, 2) > 0) {
+                $merged[] = ['vat_rate' => (float)$rate, 'amount' => round($amount, 2)];
+            }
+        }
+
+        return $merged ?: [['vat_rate' => 0.0, 'amount' => 0.0]];
+    }
+
+    /**
      * @param Creditmemo $creditMemo
      * @return array<int|string, float> Rate key => amount inc VAT
      */

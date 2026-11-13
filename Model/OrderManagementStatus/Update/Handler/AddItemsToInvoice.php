@@ -12,10 +12,16 @@ use Magento\Sales\Api\OrderRepositoryInterface;
 use Qliro\QliroOne\Api\Admin\OrderManagementStatusUpdateHandlerInterface;
 use Qliro\QliroOne\Model\Logger\Manager;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureVatLedger;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 
 class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
 {
+    /**
+     * @var CaptureVatLedger
+     */
+    private CaptureVatLedger $captureVatLedger;
+
     /**
      * Payment constructor.
      * @param OrderPaymentRepositoryInterface $paymentRepository
@@ -23,14 +29,17 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
      * @param Manager $logManager
      * @param CaptureRefundAllocator $captureRefundAllocator
      * @param SequentialRefundProcessor $sequentialRefundProcessor
+     * @param CaptureVatLedger|null $captureVatLedger
      */
     public function __construct(
         private readonly OrderPaymentRepositoryInterface $paymentRepository,
         private readonly OrderRepositoryInterface $orderRepository,
         private readonly Manager $logManager,
         private readonly CaptureRefundAllocator $captureRefundAllocator,
-        private readonly SequentialRefundProcessor $sequentialRefundProcessor
+        private readonly SequentialRefundProcessor $sequentialRefundProcessor,
+        ?CaptureVatLedger $captureVatLedger = null
     ) {
+        $this->captureVatLedger = $captureVatLedger ?? new CaptureVatLedger();
     }
 
     /**
@@ -58,6 +67,18 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
 
         $order->addCommentToStatusHistory(__('Refund of %1 confirmed successful', $formattedPrice));
         $this->orderRepository->save($order);
+
+        // After the order, whose save writes the payment it loaded on its own
+        if ($captureTxnId) {
+            $this->recordVat($payment, function ($payment) use ($qliroOrderManagementStatus, $captureTxnId, $amount) {
+                $this->captureVatLedger->confirm(
+                    $payment,
+                    (string)$qliroOrderManagementStatus->getPaymentTransactionId(),
+                    (string)$captureTxnId,
+                    $amount
+                );
+            });
+        }
 
         // Send the next queued Addition (one in-flight return at a time).
         try {
@@ -114,6 +135,13 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
             ));
 
             $this->orderRepository->save($order);
+
+            $this->recordVat($payment, function ($payment) use ($qliroOrderManagementStatus) {
+                $this->captureVatLedger->drop(
+                    $payment,
+                    (string)$qliroOrderManagementStatus->getPaymentTransactionId()
+                );
+            });
         } catch (\Exception $exception) {
             $this->logManager->critical($exception, ['extra' => ['record_id' => $omStatus->getRecordId()]]);
         }
@@ -149,6 +177,31 @@ class AddItemsToInvoice implements OrderManagementStatusUpdateHandlerInterface
     public function handleCreated($qliroOrderManagementStatus, $omStatus)
     {
         $this->log($qliroOrderManagementStatus, $omStatus);
+    }
+
+    /**
+     * Update the VAT ledger on the payment and save it. The ledger only steers the VAT of later refunds,
+     * so a failure here is logged and never fails the callback.
+     *
+     * @param \Magento\Sales\Api\Data\OrderPaymentInterface $payment
+     * @param callable $update
+     * @return void
+     */
+    private function recordVat($payment, callable $update): void
+    {
+        if (!$payment instanceof \Magento\Sales\Model\Order\Payment) {
+            return;
+        }
+
+        try {
+            $update($payment);
+            $this->paymentRepository->save($payment);
+        } catch (\Exception $exception) {
+            $this->logManager->debug(
+                'The VAT ledger of a refund could not be saved: ' . $exception->getMessage(),
+                ['extra' => ['payment_id' => $payment->getId()]]
+            );
+        }
     }
 
     /**

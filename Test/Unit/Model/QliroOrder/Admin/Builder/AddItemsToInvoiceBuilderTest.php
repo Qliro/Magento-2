@@ -58,7 +58,7 @@ class AddItemsToInvoiceBuilderTest extends TestCase
 
         $line = $request->getAdditions()[0]->getOrderItems()[0];
         self::assertSame(QliroOrderItemInterface::TYPE_DISCOUNT, $line->getType());
-        self::assertSame('Refund', $line->getMerchantReference());
+        self::assertSame('Refund-25', $line->getMerchantReference());
         self::assertSame(1.0, $line->getQuantity());
         self::assertSame(-125.0, $line->getPricePerItemIncVat());
         self::assertSame(-100.0, $line->getPricePerItemExVat());
@@ -151,7 +151,7 @@ class AddItemsToInvoiceBuilderTest extends TestCase
             ->create()->getAdditions()[0]->getOrderItems();
 
         self::assertCount(1, $lines);
-        self::assertSame('Refund', $lines[0]->getMerchantReference());
+        self::assertSame('Refund-25', $lines[0]->getMerchantReference());
         self::assertSame(-175.0, $lines[0]->getPricePerItemIncVat());
         self::assertSame(25.0, $lines[0]->getVatRate());
     }

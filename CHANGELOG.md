@@ -6,14 +6,13 @@
 
 - A refund goes to Qliro as one line per VAT rate, not one line at 0% VAT when the credit memo mixes rates
 - Products count at their own rate after discount, shipping at the order's shipping rate, the invoice fee at Qliro's rate; adjustments follow those amounts
-
-### Known limits
-
-- A refund spread over several captures gives each capture the credit memo's mix of rates, not the rates that capture holds
+- A refund spread over several captures puts each rate on the captures that charged it, up to what each has left under that rate, so every Qliro invoice books its own VAT. Captures made before this release have nothing recorded and take the credit memo's mix
+- The refund line's reference always names its rate (`Refund-25`), also when the refund has one rate. Qliro refuses a reference and inc VAT price it already holds on the capture at another ex VAT price, which a plain `Refund` could meet from an earlier refund of the same sum
 
 ### Added
 
-- Unit tests for the split by rate
+- Each capture records what it holds under each VAT rate on the payment (`qliro_capture_vat`), and each refund what it took back once Qliro confirms it
+- Unit tests for the split by rate, the split per capture and the ledger
 
 ## [1.8.52] - 2026-11-05
 

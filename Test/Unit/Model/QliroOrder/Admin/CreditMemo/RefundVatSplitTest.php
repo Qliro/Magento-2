@@ -214,6 +214,94 @@ class RefundVatSplitTest extends TestCase
         self::assertSame(['25' => 85260, '12' => 85260, '6' => 9346], $byRate);
     }
 
+    /**
+     * An e-book captured on its own invoice and a book on another: refunding both puts each rate on
+     * the capture that charged it, not the memo's mix on each.
+     */
+    public function testPutsEachRateOnTheCaptureThatHoldsIt(): void
+    {
+        $split = [['vat_rate' => 25.0, 'amount' => 150.0], ['vat_rate' => 6.0, 'amount' => 50.0]];
+
+        self::assertSame(
+            [
+                0 => [['vat_rate' => 6.0, 'amount' => 50.0]],
+                1 => [['vat_rate' => 25.0, 'amount' => 150.0]],
+            ],
+            (new RefundVatSplit())->forCaptures($split, [50.0, 150.0], [['6' => 50.0], ['25' => 300.0]])
+        );
+    }
+
+    public function testACaptureThatHoldsTooLittleUnderTheMemoRatesTakesTheRestByTheMemoMix(): void
+    {
+        $split = [['vat_rate' => 25.0, 'amount' => 100.0], ['vat_rate' => 12.0, 'amount' => 100.0]];
+
+        self::assertSame(
+            [
+                0 => [['vat_rate' => 25.0, 'amount' => 100.0], ['vat_rate' => 12.0, 'amount' => 50.0]],
+                1 => [['vat_rate' => 12.0, 'amount' => 50.0]],
+            ],
+            (new RefundVatSplit())->forCaptures($split, [150.0, 50.0], [['25' => 100.0], null])
+        );
+    }
+
+    public function testDoesNotTakeMoreUnderARateThanTheCaptureHasLeft(): void
+    {
+        $split = [['vat_rate' => 25.0, 'amount' => 333.33], ['vat_rate' => 12.0, 'amount' => 66.67]];
+
+        $splits = (new RefundVatSplit())->forCaptures(
+            $split,
+            [210.0, 190.0],
+            [['25' => 200.0, '12' => 10.0], ['25' => 500.0]]
+        );
+
+        self::assertSame([['vat_rate' => 25.0, 'amount' => 200.0], ['vat_rate' => 12.0, 'amount' => 10.0]], $splits[0]);
+        self::assertSame([['vat_rate' => 25.0, 'amount' => 133.33], ['vat_rate' => 12.0, 'amount' => 56.67]], $splits[1]);
+    }
+
+    public function testCapturesWithNothingRecordedShareInTurnAsBefore(): void
+    {
+        $split = [
+            ['vat_rate' => 25.0, 'amount' => 852.6],
+            ['vat_rate' => 12.0, 'amount' => 852.6],
+            ['vat_rate' => 6.0, 'amount' => 93.46],
+        ];
+        $vatSplit = new RefundVatSplit();
+
+        self::assertSame(
+            $vatSplit->apportionEach($split, [1738.17, 60.49]),
+            $vatSplit->forCaptures($split, [1738.17, 60.49], [null, ['25' => 0.0]])
+        );
+    }
+
+    public function testKeepsTheShareKeysAndAddsUpEachRateToTheOre(): void
+    {
+        $split = [
+            ['vat_rate' => 25.0, 'amount' => 512.37],
+            ['vat_rate' => 12.0, 'amount' => 201.01],
+            ['vat_rate' => 0.0, 'amount' => 99.99],
+        ];
+
+        $splits = (new RefundVatSplit())->forCaptures(
+            $split,
+            [3 => 300.0, 7 => 400.0, 9 => 113.37],
+            [3 => null, 7 => ['12' => 150.0, '0' => 99.99, '25' => 1000.0], 9 => ['25' => 50.0]]
+        );
+
+        self::assertSame([3, 7, 9], array_keys($splits));
+
+        foreach ([3 => 300.0, 7 => 400.0, 9 => 113.37] as $key => $amount) {
+            self::assertSame((int)round($amount * 100), (int)round(array_sum(array_column($splits[$key], 'amount')) * 100));
+        }
+
+        $byRate = [];
+        foreach (array_merge(...array_values($splits)) as $entry) {
+            $byRate[(string)$entry['vat_rate']] = ($byRate[(string)$entry['vat_rate']] ?? 0) + (int)round($entry['amount'] * 100);
+        }
+
+        ksort($byRate);
+        self::assertSame(['0' => 9999, '12' => 20101, '25' => 51237], $byRate);
+    }
+
     public function testApportionsAShareOfASplitToTheOre(): void
     {
         $split = [['vat_rate' => 25.0, 'amount' => 125.0], ['vat_rate' => 12.0, 'amount' => 112.0]];
