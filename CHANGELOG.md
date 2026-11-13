@@ -1,5 +1,20 @@
 # Change Log
 
+## [1.8.57] - 2026-11-13
+
+### Fixed
+
+- A refund goes to Qliro as one line per VAT rate, not one line at 0% VAT when the credit memo mixes rates
+- Products count at their own rate after discount, shipping at the order's shipping rate, the invoice fee at Qliro's rate; adjustments follow those amounts
+
+### Known limits
+
+- A refund spread over several captures gives each capture the credit memo's mix of rates, not the rates that capture holds
+
+### Added
+
+- Unit tests for the split by rate
+
 ## [1.8.52] - 2026-11-05
 
 ### Fixed

@@ -51,11 +51,11 @@ class SequentialRefundProcessor
     }
 
     /**
-     * Send the first Addition and queue the rest on the payment. Each entry carries its vat_rate
+     * Send the first Addition and queue the rest on the payment. Each entry carries its vat_split
      * so later Additions can be rebuilt without a credit memo in context.
      *
      * @param Payment $payment
-     * @param array $entries List of ['payment_transaction_id' => int, 'amount' => float, 'vat_rate' => float]
+     * @param array $entries List of ['payment_transaction_id' => int, 'amount' => float, 'vat_split' => array]
      * @return void
      * @throws LocalizedException
      */
@@ -121,7 +121,7 @@ class SequentialRefundProcessor
      * Build and send a single-Addition AddItemsToInvoice request for one capture.
      *
      * @param Payment $payment
-     * @param array $entry ['payment_transaction_id' => int, 'amount' => float, 'vat_rate' => float]
+     * @param array $entry ['payment_transaction_id' => int, 'amount' => float, 'vat_split' => array]
      * @return void
      * @throws LocalizedException
      */

@@ -981,12 +981,15 @@ class Payment extends AbstractManagement
             }
 
             // PSP accepts only one in-flight return at a time, so send the first Addition and
-            // queue the rest for the success callback. VAT is embedded per entry (no credit memo
-            // available later).
-            $vatRate = $this->addItemsToInvoiceBuilder->getRefundVatRate($payment);
+            // queue the rest for the success callback, each with its VAT split
+            $allocation = array_values($allocation);
+            $splits = $this->addItemsToInvoiceBuilder->getRefundVatSplits(
+                $payment,
+                array_column($allocation, 'amount')
+            );
 
-            foreach ($allocation as &$entry) {
-                $entry['vat_rate'] = $vatRate;
+            foreach ($allocation as $index => &$entry) {
+                $entry['vat_split'] = $splits[$index];
             }
             unset($entry);
 

@@ -108,18 +108,82 @@ class AddItemsToInvoiceBuilderTest extends TestCase
     }
 
     /**
-     * A credit memo whose lines are taxed at more than one rate states no rate at all: a single
-     * line cannot describe two, and a wrong one would refund the wrong VAT.
+     * A credit memo over two rates goes out as one line per rate, each with its own VAT
      */
-    public function testStatesNoRateWhenTheCreditMemoMixesRates(): void
+    public function testSendsOneLinePerRateWhenTheCreditMemoMixesRates(): void
     {
-        $payment = $this->payment($this->creditMemo(125.0, $this->refundedLines([25.0, 12.0])), 4711);
+        $creditMemo = $this->creditMemo(237.0, [
+            $this->creditMemoItem(25.0, 1.0, false, 100.0, 25.0),
+            $this->creditMemoItem(12.0, 1.0, false, 100.0, 12.0),
+        ]);
 
-        $line = $this->builder()->setPayment($payment)->create()->getAdditions()[0]->getOrderItems()[0];
+        $lines = $this->builder()->setPayment($this->payment($creditMemo, 4711))
+            ->create()->getAdditions()[0]->getOrderItems();
 
-        self::assertSame(0.0, $line->getVatRate());
-        self::assertSame(-125.0, $line->getPricePerItemIncVat());
-        self::assertSame(-125.0, $line->getPricePerItemExVat());
+        self::assertCount(2, $lines);
+        self::assertSame(['Refund-25', 'Refund-12'], array_map(fn($l) => $l->getMerchantReference(), $lines));
+        self::assertSame([-125.0, -112.0], array_map(fn($l) => $l->getPricePerItemIncVat(), $lines));
+        self::assertSame([-100.0, -100.0], array_map(fn($l) => $l->getPricePerItemExVat(), $lines));
+        self::assertSame([25.0, 12.0], array_map(fn($l) => $l->getVatRate(), $lines));
+        self::assertSame(
+            [QliroOrderItemInterface::TYPE_DISCOUNT, QliroOrderItemInterface::TYPE_DISCOUNT],
+            array_map(fn($l) => $l->getType(), $lines)
+        );
+    }
+
+    /**
+     * Shipping at the products' rate adds to their line, the refund stays one line named Refund
+     */
+    public function testSendsShippingAtTheProductsRateInTheSameLine(): void
+    {
+        $order = $this->createMock(Order::class);
+        $order->method('getShippingAmount')->willReturn(40.0);
+        $order->method('getShippingInclTax')->willReturn(50.0);
+
+        $creditMemo = $this->createMock(Creditmemo::class);
+        $creditMemo->method('getGrandTotal')->willReturn(175.0);
+        $creditMemo->method('getAllItems')->willReturn([$this->creditMemoItem(25.0, 1.0, false, 100.0, 25.0)]);
+        $creditMemo->method('getShippingAmount')->willReturn(40.0);
+        $creditMemo->method('getShippingTaxAmount')->willReturn(10.0);
+        $creditMemo->method('getOrder')->willReturn($order);
+
+        $lines = $this->builder()->setPayment($this->payment($creditMemo, 4711))
+            ->create()->getAdditions()[0]->getOrderItems();
+
+        self::assertCount(1, $lines);
+        self::assertSame('Refund', $lines[0]->getMerchantReference());
+        self::assertSame(-175.0, $lines[0]->getPricePerItemIncVat());
+        self::assertSame(25.0, $lines[0]->getVatRate());
+    }
+
+    /**
+     * A queued entry carries its split, since no credit memo is in context when it is sent
+     */
+    public function testSendsAQueuedEntryWithTheSplitItCarries(): void
+    {
+        $payment = $this->payment($this->creditMemo(300.0, $this->refundedLines([25.0])), 4711);
+
+        $lines = $this->builder()->setPayment($payment)->setAllocation([[
+            'payment_transaction_id' => 12,
+            'amount' => 100.0,
+            'vat_split' => [['vat_rate' => 25.0, 'amount' => 52.74], ['vat_rate' => 12.0, 'amount' => 47.26]],
+        ]])->create()->getAdditions()[0]->getOrderItems();
+
+        self::assertSame([-52.74, -47.26], array_map(fn($l) => $l->getPricePerItemIncVat(), $lines));
+        self::assertSame([25.0, 12.0], array_map(fn($l) => $l->getVatRate(), $lines));
+    }
+
+    public function testAnswersTheSplitAShareOfTheRefundIsQueuedWith(): void
+    {
+        $creditMemo = $this->creditMemo(237.0, [
+            $this->creditMemoItem(25.0, 1.0, false, 100.0, 25.0),
+            $this->creditMemoItem(12.0, 1.0, false, 100.0, 12.0),
+        ]);
+
+        self::assertSame(
+            [['vat_rate' => 25.0, 'amount' => 52.74], ['vat_rate' => 12.0, 'amount' => 47.26]],
+            $this->builder()->getRefundVatSplits($this->payment($creditMemo, 4711), [100.0])[0]
+        );
     }
 
     /**
@@ -129,9 +193,9 @@ class AddItemsToInvoiceBuilderTest extends TestCase
     public function testReadsTheRateFromTheLinesThatWereActuallyRefunded(): void
     {
         $creditMemo = $this->creditMemo(125.0, [
-            $this->creditMemoItem(12.0, 0.0, false),
-            $this->creditMemoItem(6.0, 1.0, true),
-            $this->creditMemoItem(25.0, 1.0, false),
+            $this->creditMemoItem(12.0, 0.0, false, 100.0, 12.0),
+            $this->creditMemoItem(6.0, 1.0, true, 100.0, 6.0),
+            $this->creditMemoItem(25.0, 1.0, false, 100.0, 25.0),
         ]);
 
         $line = $this->builder()->setPayment($this->payment($creditMemo, 4711))
@@ -190,17 +254,6 @@ class AddItemsToInvoiceBuilderTest extends TestCase
         $line = $this->builder()->setPayment($payment)->create()->getAdditions()[0]->getOrderItems()[0];
 
         self::assertSame(-125.0, $line->getPricePerItemIncVat());
-    }
-
-    /**
-     * The rate a refund is queued with is read from the same credit memo the line would be, so a
-     * queued allocation and the line it becomes cannot describe the refund differently.
-     */
-    public function testAnswersTheRateARefundShouldBeQueuedWith(): void
-    {
-        $payment = $this->payment($this->creditMemo(125.0, $this->refundedLines([25.0])), 4711);
-
-        self::assertSame(25.0, $this->builder()->getRefundVatRate($payment));
     }
 
     /**
@@ -311,6 +364,7 @@ class AddItemsToInvoiceBuilderTest extends TestCase
         $creditMemo = $this->createMock(Creditmemo::class);
         $creditMemo->method('getGrandTotal')->willReturn($grandTotal);
         $creditMemo->method('getAllItems')->willReturn($items);
+        $creditMemo->method('getOrder')->willReturn($this->createMock(Order::class));
 
         return $creditMemo;
     }
@@ -324,13 +378,18 @@ class AddItemsToInvoiceBuilderTest extends TestCase
     private function refundedLines(array $taxPercents): array
     {
         return array_map(
-            fn(float $taxPercent): CreditmemoItem => $this->creditMemoItem($taxPercent, 1.0, false),
+            fn(float $taxPercent): CreditmemoItem => $this->creditMemoItem($taxPercent, 1.0, false, 100.0, $taxPercent),
             $taxPercents
         );
     }
 
-    private function creditMemoItem(float $taxPercent, float $qty, bool $isDummy): CreditmemoItem&MockObject
-    {
+    private function creditMemoItem(
+        float $taxPercent,
+        float $qty,
+        bool $isDummy,
+        float $rowTotal = 0.0,
+        float $tax = 0.0
+    ): CreditmemoItem&MockObject {
         $orderItem = $this->createMock(OrderItem::class);
         $orderItem->method('isDummy')->willReturn($isDummy);
         $orderItem->method('getTaxPercent')->willReturn($taxPercent);
@@ -338,6 +397,8 @@ class AddItemsToInvoiceBuilderTest extends TestCase
         $item = $this->createMock(CreditmemoItem::class);
         $item->method('getOrderItem')->willReturn($orderItem);
         $item->method('getQty')->willReturn($qty);
+        $item->method('getRowTotal')->willReturn($rowTotal);
+        $item->method('getTaxAmount')->willReturn($tax);
 
         return $item;
     }
