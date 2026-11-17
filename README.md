@@ -159,6 +159,22 @@ Rows are deleted in batches of 5000, and a single run stops after 200 of them, s
 while the store is serving traffic. A backlog of tens of millions of rows is worked off over several runs,
 and a run that stopped at that cap says so rather than looking like a finished one.
 
+## Invoices on the preauthorization
+
+From 1.7.17 to 1.8.1 an invoice Qliro refused as already shipped could be recorded with the id of the
+preauthorization instead of the capture. Qliro refunds against a capture only, so a credit memo of such an
+invoice is refused. This moves those invoices onto their capture:
+
+```
+bin/magento qliroone:capture:relink --from=2025-01-01 --dry-run   # list what would change
+bin/magento qliroone:capture:relink --from=2025-01-01
+bin/magento qliroone:capture:relink --order=000123456
+```
+
+An order changes as a whole: when one of its invoices has no capture that fits, or Qliro already refunded
+part of it, the order is listed "to check by hand" and left as it is. Run it when nobody is refunding
+those orders in the admin, it reads each order once before it writes.
+
 ## API timeouts
 
 Every call to Qliro carries a connect timeout and a request timeout, in seconds, set under **Stores >
