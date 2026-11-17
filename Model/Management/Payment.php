@@ -35,6 +35,7 @@ use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\ShipmentMarkItemsAsShippedRequ
 use Qliro\QliroOne\Model\QliroOrder\Admin\Builder\AddItemsToInvoiceBuilder;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureCoverage;
 use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureRefundAllocator;
+use Qliro\QliroOne\Model\QliroOrder\Admin\CaptureVatLedger;
 use Qliro\QliroOne\Model\QliroOrder\Admin\SequentialRefundProcessor;
 use Qliro\QliroOne\Model\QliroOrder\Admin\RepeatedCapture;
 use Qliro\QliroOne\Model\QliroOrder\ReservationFormat;
@@ -144,6 +145,11 @@ class Payment extends AbstractManagement
     private StateStatus $stateStatus;
 
     /**
+     * @var CaptureVatLedger
+     */
+    private CaptureVatLedger $captureVatLedger;
+
+    /**
      * Inject dependencies
      *
      * @param Config $qliroConfig
@@ -165,6 +171,7 @@ class Payment extends AbstractManagement
      * @param RepeatedCapture|null $repeatedCapture
      * @param LockManagerInterface|null $lockManager
      * @param StateStatus|null $stateStatus
+     * @param CaptureVatLedger|null $captureVatLedger
      */
     public function __construct(
         Config $qliroConfig,
@@ -185,7 +192,8 @@ class Payment extends AbstractManagement
         ?OrderPaymentRepositoryInterface $paymentRepository = null,
         ?RepeatedCapture $repeatedCapture = null,
         ?LockManagerInterface $lockManager = null,
-        ?StateStatus $stateStatus = null
+        ?StateStatus $stateStatus = null,
+        ?CaptureVatLedger $captureVatLedger = null
     ) {
         $this->qliroConfig = $qliroConfig;
         $this->orderManagementApi = $orderManagementApi;
@@ -209,6 +217,7 @@ class Payment extends AbstractManagement
         $this->lockManager = $lockManager
             ?? ObjectManager::getInstance()->get(LockManagerInterface::class);
         $this->stateStatus = $stateStatus ?? ObjectManager::getInstance()->get(StateStatus::class);
+        $this->captureVatLedger = $captureVatLedger ?? new CaptureVatLedger();
     }
 
     /**
@@ -344,7 +353,7 @@ class Payment extends AbstractManagement
             }
 
             $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
-            $this->recordCapturedUnits($order, $request);
+            $this->recordCapturedUnits($order, $request, (string)$result->getPaymentTransactionId());
 
             try {
                 /** @var OrderManagementStatus $omStatus */
@@ -472,13 +481,15 @@ class Payment extends AbstractManagement
     }
 
     /**
-     * Count the units Qliro accepted, so the next capture knows which discount lines are left
+     * Count the units Qliro accepted, so the next capture knows which discount lines are left, and what
+     * the capture holds under each VAT rate, so a refund of it books VAT at the rates it charged
      *
      * @param Order $order
      * @param \Qliro\QliroOne\Api\Data\AdminMarkItemsAsShippedRequestInterface $request
+     * @param string $transactionId Qliro PaymentTransactionId of the capture
      * @return void
      */
-    private function recordCapturedUnits(Order $order, $request)
+    private function recordCapturedUnits(Order $order, $request, string $transactionId = '')
     {
         $payment = $order->getPayment();
 
@@ -505,6 +516,10 @@ class Payment extends AbstractManagement
         }
 
         $payment->setAdditionalInformation(Config::QLIROONE_ADDITIONAL_INFO_CAPTURED_UNITS, $captured);
+
+        if ($payment instanceof \Magento\Sales\Model\Order\Payment) {
+            $this->captureVatLedger->recordCapture($payment, $transactionId, $request->getShipments() ?: []);
+        }
     }
 
     /**
@@ -901,7 +916,7 @@ class Payment extends AbstractManagement
             }
 
             $order->setData(self::QLIRO_CAPTURE_TRANSACTION_ID, $result->getPaymentTransactionId());
-            $this->recordCapturedUnits($order, $request);
+            $this->recordCapturedUnits($order, $request, (string)$result->getPaymentTransactionId());
             // A shipment saved through its repository alone never saves the order, the count would be lost.
             // Qliro has captured by now, so failing to save the count must not fail the shipment as well
             if ($order->getPayment()) {
@@ -981,12 +996,25 @@ class Payment extends AbstractManagement
             }
 
             // PSP accepts only one in-flight return at a time, so send the first Addition and
-            // queue the rest for the success callback. VAT is embedded per entry (no credit memo
-            // available later).
-            $vatRate = $this->addItemsToInvoiceBuilder->getRefundVatRate($payment);
+            // queue the rest for the success callback, each with its VAT split
+            $allocation = array_values($allocation);
+            $held = [];
 
-            foreach ($allocation as &$entry) {
-                $entry['vat_rate'] = $vatRate;
+            foreach ($allocation as $index => $entry) {
+                $held[$index] = $this->captureVatLedger->available(
+                    $payment,
+                    (string)$entry['payment_transaction_id']
+                );
+            }
+
+            $splits = $this->addItemsToInvoiceBuilder->getRefundVatSplits(
+                $payment,
+                array_column($allocation, 'amount'),
+                $held
+            );
+
+            foreach ($allocation as $index => &$entry) {
+                $entry['vat_split'] = $splits[$index];
             }
             unset($entry);
 
