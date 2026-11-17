@@ -37,9 +37,9 @@ class CaptureCoverage
      */
     private $bundleChildren;
 
-    private const TYPE_CAPTURE = 'Capture';
+    public const TYPE_CAPTURE = 'Capture';
 
-    private const FAILED = [
+    public const FAILED = [
         QliroOrderManagementStatusInterface::STATUS_ERROR,
         QliroOrderManagementStatusInterface::STATUS_CANCELLED,
     ];
@@ -114,6 +114,66 @@ class CaptureCoverage
         ?Invoice $invoice = null,
         ?float $sentTotal = null
     ): ?int {
+        $open = $this->openCaptures($transactions, $order, $invoice);
+
+        if (count($open) > 1) {
+            $open = $this->ofAmount($open, $sentTotal)
+                ?? $this->ofAmount($open, $invoice ? (float)$invoice->getGrandTotal() : null)
+                ?? [];
+        }
+
+        return count($open) === 1 ? (int)array_key_first($open) : null;
+    }
+
+    /**
+     * The capture an invoice should carry in place of a transaction that is not a capture, null
+     * unless one fits its amount.
+     *
+     * Of captures of the invoice's amount a settled one before one that is not, then the oldest: a
+     * refund goes alike to captures of one amount, and the next invoice takes the one after it. Else
+     * the one capture within half an öre per unit, a per unit discount is divided to the öre.
+     *
+     * @param AdminOrderPaymentTransactionInterface[] $transactions
+     * @param Order $order
+     * @param Invoice $invoice
+     * @return int|null
+     */
+    public function captureForInvoice(array $transactions, Order $order, Invoice $invoice): ?int
+    {
+        $amount = (float)$invoice->getGrandTotal();
+        $open = $this->openCaptures($transactions, $order, $invoice);
+        $exact = array_keys(array_filter($open, fn (float $captured) => abs($captured - $amount) < 0.005));
+
+        if ($exact !== []) {
+            $settled = [];
+
+            foreach ($transactions as $transaction) {
+                if ($transaction->getStatus() === QliroOrderManagementStatusInterface::STATUS_SUCCESS) {
+                    $settled[(int)$transaction->getPaymentTransactionId()] = true;
+                }
+            }
+
+            usort($exact, fn (int $a, int $b) => [!isset($settled[$a]), $a] <=> [!isset($settled[$b]), $b]);
+
+            return $exact[0];
+        }
+
+        $tolerance = 0.005 * max(1.0, (float)$invoice->getTotalQty()) + 0.005;
+        $near = array_keys(array_filter($open, fn (float $captured) => abs($captured - $amount) < $tolerance));
+
+        return count($near) === 1 ? $near[0] : null;
+    }
+
+    /**
+     * Amount per capture Qliro has not failed and no other invoice carries
+     *
+     * @param AdminOrderPaymentTransactionInterface[] $transactions
+     * @param Order $order
+     * @param Invoice|null $invoice
+     * @return array<int, float>
+     */
+    private function openCaptures(array $transactions, Order $order, ?Invoice $invoice): array
+    {
         $spent = $invoice ? $this->invoiceTransactions($order, (int)$invoice->getId()) : [];
         $open = [];
 
@@ -127,13 +187,7 @@ class CaptureCoverage
             }
         }
 
-        if (count($open) > 1) {
-            $open = $this->ofAmount($open, $sentTotal)
-                ?? $this->ofAmount($open, $invoice ? (float)$invoice->getGrandTotal() : null)
-                ?? [];
-        }
-
-        return count($open) === 1 ? (int)array_key_first($open) : null;
+        return $open;
     }
 
     /**

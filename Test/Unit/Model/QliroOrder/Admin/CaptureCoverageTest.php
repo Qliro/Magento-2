@@ -358,6 +358,56 @@ class CaptureCoverageTest extends TestCase
         self::assertSame(331743203, $this->coverage()->captureAtQliro($transactions, $this->order()));
     }
 
+    // ---- an invoice that carries a transaction which is no capture ---------------------------
+
+    public function testAnInvoiceOnThePreauthorizationGetsTheCapture(): void
+    {
+        $this->invoices[] = $invoice = $this->invoice(9, [], '324964039', grandTotal: 527.0);
+        $transactions = [
+            $this->transaction(324964039, 'Preauthorization', 'Success', 527.0),
+            $this->transaction(331743203, 'Capture', 'Success', 527.0),
+        ];
+
+        self::assertSame(331743203, $this->coverage()->captureForInvoice($transactions, $this->order(), $invoice));
+    }
+
+    /**
+     * Captures of one amount are refunded alike, so of two the oldest is taken rather than none
+     */
+    public function testOfCapturesOfTheInvoiceAmountTheOldestIsTaken(): void
+    {
+        $this->invoices[] = $invoice = $this->invoice(9, [], '324964039', grandTotal: 34.0);
+        $transactions = [
+            $this->transaction(331750001, 'Capture', 'Success', 34.0),
+            $this->transaction(331743203, 'Capture', 'Success', 34.0),
+        ];
+
+        self::assertSame(331743203, $this->coverage()->captureForInvoice($transactions, $this->order(), $invoice));
+    }
+
+    public function testTheNextInvoiceOfTheSameAmountTakesTheOtherCapture(): void
+    {
+        $this->invoices[] = $this->invoice(8, [], '331743203', grandTotal: 34.0);
+        $this->invoices[] = $invoice = $this->invoice(9, [], '324964039', grandTotal: 34.0);
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 34.0),
+            $this->transaction(331750001, 'Capture', 'Success', 34.0),
+        ];
+
+        self::assertSame(331750001, $this->coverage()->captureForInvoice($transactions, $this->order(), $invoice));
+    }
+
+    public function testSeveralCapturesOfOtherAmountsLeaveTheInvoiceAlone(): void
+    {
+        $this->invoices[] = $invoice = $this->invoice(9, [], '324964039', grandTotal: 527.0);
+        $transactions = [
+            $this->transaction(331743203, 'Capture', 'Success', 200.0),
+            $this->transaction(331750001, 'Capture', 'Success', 327.0),
+        ];
+
+        self::assertNull($this->coverage()->captureForInvoice($transactions, $this->order(), $invoice));
+    }
+
     // ---- harness ------------------------------------------------------------------------------
 
     private function coverage(): CaptureCoverage
