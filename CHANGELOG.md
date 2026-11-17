@@ -1,6 +1,6 @@
 # Change Log
 
-## [1.8.53] - 2026-11-09
+## [1.8.60] - 2026-11-17
 
 ### Fixed
 
@@ -11,6 +11,16 @@
 
 - `Test/E2e/tests/transaction-status-without-order.spec.ts` with `seed/transaction-status.php`: pushes for no link, a link without an order, a capture before the order, a deactivated link and a status that cannot be stored
 
+## [1.8.56] - 2026-11-09
+
+### Fixed
+
+- A buyer whose name, city or phone Magento 2.4.8 or 2.4.9 refuses can pay again. Since 2.4.8 Magento checks a guest's address, and the validate callback declined such a buyer as a wrong postcode: on both versions for a name with `/` or parentheses, on 2.4.8 also for a city with a dot or a digit (`St. Gallen`) or a phone over 20 characters. A name, city or phone from Qliro that the store's own address check refuses is now reduced to what both versions accept before it reaches the quote: the city keeps letters, spaces, `-` and `'`, names lose the characters Magento's name check refuses, and a long phone keeps only its digits and a leading `+`. A value the store accepts is kept as sent, so a 2.4.9 store keeps `St. Gallen` and a store before 2.4.8 changes nothing. A value with nothing left keeps what the quote holds
+
+### Added
+
+- Unit tests that check every reduced value against copies of the 2.4.8 and 2.4.9 address checks, and that only a value the store refuses is reduced
+- `Test/E2e/tests/address-text.spec.ts` with `seed/seed-address-text.php`: such a buyer passes the validate callback and the order carries the reduced values
 
 ## [1.8.52] - 2026-11-05
 
