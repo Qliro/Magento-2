@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.9.0] - 2026-11-17
+
+### Changed
+
+- The release after 1.8.52 is numbered 1.9.0. It holds 1.8.53 to 1.8.60 below and no other change
+
 ## [1.8.60] - 2026-11-17
 
 ### Fixed
