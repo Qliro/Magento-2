@@ -14,6 +14,7 @@ use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 use Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter;
+use Qliro\QliroOne\Model\QliroOrder\Converter\StoreAddressRules;
 use Qliro\QliroOne\Model\QliroOrder\Customer;
 
 /**
@@ -28,13 +29,24 @@ class AddressConverterTest extends TestCase
      */
     private array $addressData = [];
 
+    /**
+     * @var string[] Fields whose value as sent the store's validators refuse
+     */
+    private array $refusedFields = [];
+
     protected function setUp(): void
     {
         $directoryHelper = $this->createMock(DirectoryHelper::class);
         $directoryHelper->method('isRegionRequired')->willReturn(false);
 
-        $this->converter = new AddressConverter($directoryHelper);
+        $storeAddressRules = $this->createMock(StoreAddressRules::class);
+        $storeAddressRules->method('accepts')->willReturnCallback(
+            fn (string $field) => !in_array($field, $this->refusedFields, true)
+        );
+
+        $this->converter = new AddressConverter($directoryHelper, $storeAddressRules);
         $this->addressData = [];
+        $this->refusedFields = [];
     }
 
     /**
@@ -281,6 +293,76 @@ class AddressConverterTest extends TestCase
         $address->expects(self::once())->method('setCustomerAddressId')->with(null);
 
         $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+    }
+
+    /**
+     * Magento 2.4.8 and 2.4.9 refuse these at validation and at placement; reduced, the buyer is
+     * neither declined nor left with a paid order that cannot be placed.
+     */
+    public function testReducesTheTextMagentoRefuses(): void
+    {
+        $this->refusedFields = ['firstname', 'lastname', 'city', 'telephone'];
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getFirstName')->willReturn('Anna/Maria');
+        $qliroAddress->method('getLastName')->willReturn('Hans (Jr)');
+        $qliroAddress->method('getStreet')->willReturn(['Sveavagen 1']);
+        $qliroAddress->method('getCity')->willReturn('St. Gallen (Ost) 2');
+        $qliroAddress->method('getPostalCode')->willReturn('11122');
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getMobileNumber')->willReturn('+46 70 123 45 67 89 10');
+
+        $address = $this->address();
+        self::assertTrue($this->converter->convert($qliroAddress, $qliroCustomer, $address));
+
+        self::assertSame('Anna Maria', $this->addressData['firstname']);
+        self::assertSame('Hans Jr', $this->addressData['lastname']);
+        self::assertSame('St Gallen Ost', $this->addressData['city']);
+        self::assertSame('+467012345678910', $this->addressData['telephone']);
+        self::assertFalse($this->converter->convert($qliroAddress, $qliroCustomer, $address));
+    }
+
+    /**
+     * 2.4.9 takes the city and the long phone that 2.4.8 refuses, and a store before 2.4.8 takes
+     * everything: only what the store refuses is reduced, so the rest stays as the buyer wrote it.
+     */
+    public function testKeepsTheTextTheStoreAccepts(): void
+    {
+        $this->refusedFields = ['firstname', 'lastname'];
+
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getFirstName')->willReturn('Anna/Maria');
+        $qliroAddress->method('getLastName')->willReturn('Svensson');
+        $qliroAddress->method('getCity')->willReturn('St. Gallen (Ost) 2');
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getMobileNumber')->willReturn('+46 70 123 45 67 89 10');
+
+        $this->converter->convert($qliroAddress, $qliroCustomer, $this->address());
+
+        self::assertSame('Anna Maria', $this->addressData['firstname']);
+        self::assertSame('Svensson', $this->addressData['lastname']);
+        self::assertSame('St. Gallen (Ost) 2', $this->addressData['city']);
+        self::assertSame('+46 70 123 45 67 89 10', $this->addressData['telephone']);
+    }
+
+    /**
+     * A value with nothing left keeps what the quote holds, like a field Qliro did not send.
+     */
+    public function testKeepsTheQuoteValueWhenNothingOfTheTextIsLeft(): void
+    {
+        $address = $this->address();
+        $this->converter->convert($this->qliroAddress(), $this->qliroCustomer(), $address);
+        $this->refusedFields = ['firstname', 'city', 'telephone'];
+
+        $qliroAddress = $this->createMock(QliroOrderCustomerAddressInterface::class);
+        $qliroAddress->method('getFirstName')->willReturn('!!!');
+        $qliroAddress->method('getCity')->willReturn('123');
+        $qliroCustomer = $this->createMock(QliroOrderCustomerInterface::class);
+        $qliroCustomer->method('getMobileNumber')->willReturn('n/a');
+
+        self::assertFalse($this->converter->convert($qliroAddress, $qliroCustomer, $address));
+        self::assertSame('Ada', $this->addressData['firstname']);
+        self::assertSame('Stockholm', $this->addressData['city']);
+        self::assertSame('0700000000', $this->addressData['telephone']);
     }
 
     private function address(): Address&MockObject
