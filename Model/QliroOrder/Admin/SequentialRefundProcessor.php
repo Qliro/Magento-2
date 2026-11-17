@@ -31,6 +31,11 @@ class SequentialRefundProcessor
     public const KEY_PENDING_QUEUE = 'qliro_pending_refund_queue';
 
     /**
+     * @var CaptureVatLedger
+     */
+    private CaptureVatLedger $captureVatLedger;
+
+    /**
      * @param OrderManagementInterface $orderManagementApi
      * @param AddItemsToInvoiceBuilder $addItemsToInvoiceBuilder
      * @param OrderManagementStatusInterfaceFactory $orderManagementStatusInterfaceFactory
@@ -38,6 +43,7 @@ class SequentialRefundProcessor
      * @param LinkRepositoryInterface $linkRepository
      * @param OrderPaymentRepositoryInterface $paymentRepository
      * @param LogManager $logManager
+     * @param CaptureVatLedger|null $captureVatLedger
      */
     public function __construct(
         private readonly OrderManagementInterface $orderManagementApi,
@@ -46,16 +52,18 @@ class SequentialRefundProcessor
         private readonly OrderManagementStatusRepositoryInterface $orderManagementStatusRepository,
         private readonly LinkRepositoryInterface $linkRepository,
         private readonly OrderPaymentRepositoryInterface $paymentRepository,
-        private readonly LogManager $logManager
+        private readonly LogManager $logManager,
+        ?CaptureVatLedger $captureVatLedger = null
     ) {
+        $this->captureVatLedger = $captureVatLedger ?? new CaptureVatLedger();
     }
 
     /**
-     * Send the first Addition and queue the rest on the payment. Each entry carries its vat_rate
+     * Send the first Addition and queue the rest on the payment. Each entry carries its vat_split
      * so later Additions can be rebuilt without a credit memo in context.
      *
      * @param Payment $payment
-     * @param array $entries List of ['payment_transaction_id' => int, 'amount' => float, 'vat_rate' => float]
+     * @param array $entries List of ['payment_transaction_id' => int, 'amount' => float, 'vat_split' => array]
      * @return void
      * @throws LocalizedException
      */
@@ -95,6 +103,8 @@ class SequentialRefundProcessor
         $this->paymentRepository->save($payment);
 
         $this->sendEntry($payment, $next);
+        // The split just noted for this refund, which its own callback reads
+        $this->paymentRepository->save($payment);
 
         return true;
     }
@@ -121,7 +131,7 @@ class SequentialRefundProcessor
      * Build and send a single-Addition AddItemsToInvoice request for one capture.
      *
      * @param Payment $payment
-     * @param array $entry ['payment_transaction_id' => int, 'amount' => float, 'vat_rate' => float]
+     * @param array $entry ['payment_transaction_id' => int, 'amount' => float, 'vat_split' => array]
      * @return void
      * @throws LocalizedException
      */
@@ -146,6 +156,15 @@ class SequentialRefundProcessor
 
             if ($result->getStatus() != QliroOrderManagementStatusInterface::STATUS_CREATED) {
                 throw new LocalizedException(__('Unable to refund'));
+            }
+
+            if (isset($entry['vat_split']) && is_array($entry['vat_split'])) {
+                $this->captureVatLedger->recordSent(
+                    $payment,
+                    (string)$result->getPaymentTransactionId(),
+                    (string)$entry['payment_transaction_id'],
+                    $entry['vat_split']
+                );
             }
         }
     }

@@ -9,6 +9,31 @@
 - Unit tests for the command, the relink, the order held as a whole and the choice between captures of one amount
 - `Test/E2e/tests/capture-relink.spec.ts` with `seed/capture-relink.php`, against the Qliro sandbox: an invoice put back on the preauthorization is refused a refund, the command moves it onto the capture, and the refund then goes through; two invoices put on one preauthorization each get their own capture back
 
+## [1.8.58] - 2026-11-17
+
+### Fixed
+
+- A cancellation Qliro refuses or does not answer is no longer silent. Magento still cancels the order, because the module itself cancels orders Qliro already refused or failed and those must close, but the order history now says Qliro did not cancel the payment and that the amount may still be reserved, and the admin who cancelled it sees the same warning. Before, the refusal went to the debug log only
+- A cancel of an order already cancelled in Qliro's Merchant Hub counts as done. The module meant to treat Qliro's `ORDER_HAS_BEEN_CANCELLED` that way, but the check never saw the code, which reaches it inside the exception every refusal is wrapped in
+
+### Added
+
+- `Test/E2e/tests/cancel-refused.spec.ts`: an admin cancel of a seeded order whose Qliro order the configured merchant does not know. Needs `seed/seed-qliro-order.php` in the store's `var/` and credentials Qliro refuses
+
+## [1.8.57] - 2026-11-13
+
+### Fixed
+
+- A refund goes to Qliro as one line per VAT rate, not one line at 0% VAT when the credit memo mixes rates
+- Products count at their own rate after discount, shipping at the order's shipping rate, the invoice fee at Qliro's rate; adjustments follow those amounts
+- A refund spread over several captures puts each rate on the captures that charged it, up to what each has left under that rate, so every Qliro invoice books its own VAT. Captures made before this release have nothing recorded and take the credit memo's mix
+- The refund line's reference always names its rate (`Refund-25`), also when the refund has one rate. Qliro refuses a reference and inc VAT price it already holds on the capture at another ex VAT price, which a plain `Refund` could meet from an earlier refund of the same sum
+
+### Added
+
+- Each capture records what it holds under each VAT rate on the payment (`qliro_capture_vat`), and each refund what it took back once Qliro confirms it
+- Unit tests for the split by rate, the split per capture and the ledger
+
 ## [1.8.56] - 2026-11-09
 
 ### Fixed
