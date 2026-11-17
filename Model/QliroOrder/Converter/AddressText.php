@@ -14,6 +14,7 @@ namespace Qliro\QliroOne\Model\QliroOrder\Converter;
  * checks the quote and when the order is placed. 2.4.8 takes only letters, spaces, `-` and `'` in
  * a city and 20 characters of `0-9 + - ( )` and spaces in a phone, 2.4.9 is looser on both, and
  * names follow the same rule on every version. Each method returns '' when nothing is left.
+ * `AddressConverter` only reduces a value `StoreAddressRules` says the store refuses.
  */
 class AddressText
 {

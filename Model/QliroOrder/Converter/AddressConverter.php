@@ -23,16 +23,26 @@ class AddressConverter
     private $directoryHelper;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\StoreAddressRules
+     */
+    private $storeAddressRules;
+
+    /**
      * Inject dependencies
      *
      * @param DirectoryHelper|null $directoryHelper
+     * @param StoreAddressRules|null $storeAddressRules
      */
-    public function __construct(?DirectoryHelper $directoryHelper = null)
-    {
+    public function __construct(
+        ?DirectoryHelper $directoryHelper = null,
+        ?StoreAddressRules $storeAddressRules = null
+    ) {
         // Optional so anything constructing this class without arguments keeps working, and
         // resolved here because Magento passes null for an optional argument rather than the
         // instance
         $this->directoryHelper = $directoryHelper ?: ObjectManager::getInstance()->get(DirectoryHelper::class);
+        $this->storeAddressRules = $storeAddressRules
+            ?: ObjectManager::getInstance()->get(StoreAddressRules::class);
     }
 
     /**
@@ -60,12 +70,16 @@ class AddressConverter
         $organizationNumbers = $this->getOrganizationNumbers($qliroCustomer, $company);
 
         $addressData = [
-            'firstname' => $this->reduced($qliroAddress?->getFirstName(), [AddressText::class, 'name']),
-            'lastname' => $this->reduced($qliroAddress?->getLastName(), [AddressText::class, 'name']),
+            'firstname' => $this->reduced('firstname', $qliroAddress?->getFirstName(), [AddressText::class, 'name']),
+            'lastname' => $this->reduced('lastname', $qliroAddress?->getLastName(), [AddressText::class, 'name']),
             'email' => $qliroCustomer? $qliroCustomer->getEmail() : null,
             'street' => $qliroAddress ? $this->getStreetWithCareOf($qliroAddress) : null,
-            'telephone' => $this->reduced($qliroCustomer?->getMobileNumber(), [AddressText::class, 'telephone']),
-            'city' => $this->reduced($qliroAddress?->getCity(), [AddressText::class, 'city']),
+            'telephone' => $this->reduced(
+                'telephone',
+                $qliroCustomer?->getMobileNumber(),
+                [AddressText::class, 'telephone']
+            ),
+            'city' => $this->reduced('city', $qliroAddress?->getCity(), [AddressText::class, 'city']),
             'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
             'company' => $this->stripOrganizationNumber($company, $organizationNumbers),
         ];
@@ -110,22 +124,31 @@ class AddressConverter
     }
 
     /**
-     * A Qliro value reduced to what Magento 2.4.8 and 2.4.9 accept, null when nothing is left
+     * A Qliro value as sent when the store accepts it, otherwise reduced to what Magento 2.4.8 and
+     * 2.4.9 accept, null when nothing is left
      *
-     * Null leaves the quote's own value, as for a field Qliro did not send: a refused value would
-     * otherwise decline the buyer at validation or fail the paid order's placement.
+     * Only a value the store's own validator refuses is reduced, so a store that takes it keeps
+     * the buyer's text and a saved address it matches. Null leaves the quote's own value, as for
+     * a field Qliro did not send: a refused value would otherwise decline the buyer at validation
+     * or fail the paid order's placement.
      *
+     * @param string $field
      * @param mixed $value
      * @param callable(string): string $reduce
      * @return string|null
      */
-    private function reduced($value, callable $reduce): ?string
+    private function reduced(string $field, $value, callable $reduce): ?string
     {
         if ($value === null) {
             return null;
         }
 
-        $reduced = $reduce((string)$value);
+        $value = (string)$value;
+        if ($this->isBlank($value) || $this->storeAddressRules->accepts($field, $value)) {
+            return $value;
+        }
+
+        $reduced = $reduce($value);
 
         return $reduced !== '' ? $reduced : null;
     }
