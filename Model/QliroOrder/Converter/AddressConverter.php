@@ -23,16 +23,26 @@ class AddressConverter
     private $directoryHelper;
 
     /**
+     * @var \Qliro\QliroOne\Model\QliroOrder\Converter\StoreAddressRules
+     */
+    private $storeAddressRules;
+
+    /**
      * Inject dependencies
      *
      * @param DirectoryHelper|null $directoryHelper
+     * @param StoreAddressRules|null $storeAddressRules
      */
-    public function __construct(?DirectoryHelper $directoryHelper = null)
-    {
+    public function __construct(
+        ?DirectoryHelper $directoryHelper = null,
+        ?StoreAddressRules $storeAddressRules = null
+    ) {
         // Optional so anything constructing this class without arguments keeps working, and
         // resolved here because Magento passes null for an optional argument rather than the
         // instance
         $this->directoryHelper = $directoryHelper ?: ObjectManager::getInstance()->get(DirectoryHelper::class);
+        $this->storeAddressRules = $storeAddressRules
+            ?: ObjectManager::getInstance()->get(StoreAddressRules::class);
     }
 
     /**
@@ -44,8 +54,8 @@ class AddressConverter
      * organisation number is not a VAT number, so the buyer would be moved to the group a store
      * keeps for an invalid VAT id, with whatever tax class that group carries.
      *
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface $qliroAddress
-     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface $qliroCustomer
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerAddressInterface|null $qliroAddress
+     * @param \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface|null $qliroCustomer
      * @param \Magento\Quote\Model\Quote\Address $address
      * @param string|null $countryCode
      * @return bool Whether any value on the quote address was changed
@@ -60,12 +70,16 @@ class AddressConverter
         $organizationNumbers = $this->getOrganizationNumbers($qliroCustomer, $company);
 
         $addressData = [
-            'firstname' => $qliroAddress ? $qliroAddress->getFirstName() : null,
-            'lastname' => $qliroAddress ? $qliroAddress->getLastName() : null,
+            'firstname' => $this->reduced('firstname', $qliroAddress?->getFirstName(), [AddressText::class, 'name']),
+            'lastname' => $this->reduced('lastname', $qliroAddress?->getLastName(), [AddressText::class, 'name']),
             'email' => $qliroCustomer? $qliroCustomer->getEmail() : null,
             'street' => $qliroAddress ? $this->getStreetWithCareOf($qliroAddress) : null,
-            'telephone' => $qliroCustomer ? $qliroCustomer->getMobileNumber() : null,
-            'city' => $qliroAddress ? $qliroAddress->getCity() : null,
+            'telephone' => $this->reduced(
+                'telephone',
+                $qliroCustomer?->getMobileNumber(),
+                [AddressText::class, 'telephone']
+            ),
+            'city' => $this->reduced('city', $qliroAddress?->getCity(), [AddressText::class, 'city']),
             'postcode' => $qliroAddress ? $qliroAddress->getPostalCode() : null,
             'company' => $this->stripOrganizationNumber($company, $organizationNumbers),
         ];
@@ -107,6 +121,36 @@ class AddressConverter
         }
 
         return $changed;
+    }
+
+    /**
+     * A Qliro value as sent when the store accepts it, otherwise reduced to what Magento 2.4.8 and
+     * 2.4.9 accept, null when nothing is left
+     *
+     * Only a value the store's own validator refuses is reduced, so a store that takes it keeps
+     * the buyer's text and a saved address it matches. Null leaves the quote's own value, as for
+     * a field Qliro did not send: a refused value would otherwise decline the buyer at validation
+     * or fail the paid order's placement.
+     *
+     * @param string $field
+     * @param mixed $value
+     * @param callable(string): string $reduce
+     * @return string|null
+     */
+    private function reduced(string $field, $value, callable $reduce): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = (string)$value;
+        if ($this->isBlank($value) || $this->storeAddressRules->accepts($field, $value)) {
+            return $value;
+        }
+
+        $reduced = $reduce($value);
+
+        return $reduced !== '' ? $reduced : null;
     }
 
     /**

@@ -19,6 +19,7 @@ use Qliro\QliroOne\Api\Data\QliroOrderInterface;
 use Qliro\QliroOne\Model\Logger\Manager as LogManager;
 use Qliro\QliroOne\Model\Order\OrganizationNumber;
 use Qliro\QliroOne\Model\QliroOrder\Converter\AddressConverter;
+use Qliro\QliroOne\Model\QliroOrder\Converter\StoreAddressRules;
 use Qliro\QliroOne\Model\QliroOrder\Customer;
 
 /**
@@ -50,7 +51,7 @@ class OrganizationNumberTest extends TestCase
         );
 
         $this->organizationNumber = new OrganizationNumber(
-            new AddressConverter($this->createMock(DirectoryHelper::class)),
+            new AddressConverter($this->createMock(DirectoryHelper::class), $this->createMock(StoreAddressRules::class)),
             $repository,
             $this->createMock(LogManager::class)
         );
@@ -137,7 +138,7 @@ class OrganizationNumberTest extends TestCase
         $logManager = $this->createMock(LogManager::class);
         $logManager->expects(self::once())->method('warning');
 
-        $organizationNumber = new OrganizationNumber(new AddressConverter($this->createMock(DirectoryHelper::class)), $repository, $logManager);
+        $organizationNumber = new OrganizationNumber(new AddressConverter($this->createMock(DirectoryHelper::class), $this->createMock(StoreAddressRules::class)), $repository, $logManager);
 
         $organizationNumber->apply(
             $this->order($this->orderAddress(), null),
