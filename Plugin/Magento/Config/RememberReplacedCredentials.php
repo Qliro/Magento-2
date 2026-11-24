@@ -23,6 +23,13 @@ class RememberReplacedCredentials
 {
     private const DAYS_PATH = 'payment/qliroone/' . Config::QLIROONE_PREVIOUS_CREDENTIALS_DAYS;
 
+    private const WATCHED_ON_SAVE = [
+        self::DAYS_PATH,
+        PreviousCredentials::TYPE_PATH,
+        PreviousCredentials::KEY_PATH,
+        PreviousCredentials::SECRET_PATH,
+    ];
+
     /**
      * @param PreviousCredentials $previousCredentials
      * @param Initial $initialConfig
@@ -40,7 +47,14 @@ class RememberReplacedCredentials
     public function beforeBeforeSave(Value $subject): void
     {
         $path = (string)$subject->getPath();
-        $value = (string)$subject->getValue();
+
+        // Runs for every setting of every module, and a multiselect or a table field posts an array
+        if (!in_array($path, self::WATCHED_ON_SAVE, true)) {
+            return;
+        }
+
+        $value = $subject->getValue();
+        $value = is_scalar($value) ? (string)$value : '';
         [$scope, $scopeCode] = $this->scopeOf($subject);
 
         switch ($path) {

@@ -1,5 +1,18 @@
 # Change Log
 
+## [1.9.1] - 2026-11-24
+
+### Fixed
+
+- Saving a configuration section failed with "Warning: Array to string conversion in Plugin/Magento/Config/RememberReplacedCredentials.php" when it held a multiselect or a table field of any module: the plugin that keeps the replaced API key and secret runs for every setting and read each value as a string. Since 1.8.52. It now looks only at the four settings it watches
+- Log Retention refuses a value that is not text, as it refuses any other that is no number of days, instead of failing with the same warning. No form posts one
+- Recurring frequency options saved as text, with `bin/magento config:set`, made the payment section fail to open. They are read as no options
+
+### Added
+
+- `Test/Unit/Etc/ConfigSaveTest.php` runs every setting of `etc/adminhtml/system.xml` and a few of other modules through the save plugin, and the module's backend models, in every shape a form posts: text, nothing, a multiselect, a table field, a file. Every public method of the plugin is run, and what a backend model stored is read back. A PHP warning fails it. It also fails when a plugin on the save path or on a backend model, a replaced class of that path, an observer of a configuration save or a backend model is added without being run there
+- `Test/E2e/tests/config-save.spec.ts` saves every section of Stores > Configuration at the default scope and at a website
+
 ## [1.9.0] - 2026-11-17
 
 ### Changed

@@ -41,6 +41,12 @@ class FrequencyOptions extends Value
             return;
         }
         $value = $this->serializer->unserialize($value);
+
+        // Text saved from the command line is no list of options
+        if (!is_array($value)) {
+            $value = [];
+        }
+
         unset($value['__empty']);
         $this->setValue($value);
     }

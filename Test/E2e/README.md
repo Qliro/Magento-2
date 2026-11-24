@@ -28,6 +28,11 @@ with a message and send Qliro no order without lines. It needs the Qliro page, n
 method in the native checkout (`payment/qliroone/api/show_as_payment_method 0`).
 `MAGENTO_DB_CLIENT` names the client in the database container, `mysql` by default.
 
+`config-save.spec.ts` saves every section of Stores > Configuration as it stands, at the default
+scope and at the first website (`E2E_CONFIG_WEBSITE_ID`, 1 by default), and each has to answer
+that it was saved. The module takes part in every configuration save, so a section of another
+module can stop saving because of it. It seeds nothing and takes about three minutes.
+
 ## The store under test
 
 Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It needs:
@@ -44,6 +49,7 @@ Any Magento the module is installed into. Both 2.4.8 and 2.4.9 are covered. It n
 - `Test/E2e/fixture/QliroE2e/SuccessPage` copied to `app/code/QliroE2e/SuccessPage` and enabled the same way, for `tests/success-page-tracking.spec.ts`. It puts any order on the caller's session, so it answers only in developer mode and never belongs on a live store
 - `google/gtag/analytics4/active 1` and any `google/gtag/analytics4/measurement_id`, for the same spec, which reads the purchase Magento's own GA4 module pushes
 - Unifaun and Ingrid off, they take the shipping update down their own paths. `tests/source-item-lookup.spec.ts` turns both on for its run and restores the settings
+- an industry in `analytics/general/vertical`, for example `Apps and Games`, for `tests/config-save.spec.ts`: Magento refuses to save the Advanced Reporting section without one
 - `SE` left out of `general/region/state_required`. The seeded addresses carry no region, so a store that requires one for Sweden refuses to place the order with `"regionId" is required`
 
 ## Running
