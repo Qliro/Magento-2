@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.9.1] - 2026-11-24
+
+### Fixed
+
+- Saving a configuration section failed with "Warning: Array to string conversion in Plugin/Magento/Config/RememberReplacedCredentials.php" when it held a multiselect or a table field of any module: the plugin that keeps the replaced API key and secret runs for every setting and read each value as a string. Since 1.8.52. It now looks only at the four settings it watches
+
 ## [1.9.0] - 2026-11-17
 
 ### Changed

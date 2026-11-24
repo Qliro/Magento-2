@@ -57,6 +57,28 @@ class RememberReplacedCredentialsTest extends TestCase
     }
 
     /**
+     * The plugin runs for every setting of every module: a multiselect or a table field posts an
+     * array, which is not ours to read.
+     */
+    public function testAnArrayValueOfAnotherSettingIsLeftAlone(): void
+    {
+        $previous = $this->createMock(PreviousCredentials::class);
+        $previous->expects(self::never())->method(self::anything());
+
+        set_error_handler(static function (int $code, string $message): never {
+            throw new \ErrorException($message, 0, $code);
+        });
+
+        try {
+            $plugin = $this->plugin($previous);
+            $plugin->beforeBeforeSave($this->value('payment/other/specificcountry', 'SE', ['SE', 'NO']));
+            $plugin->beforeBeforeSave($this->value('carriers/other/rates', '', ['_1' => ['price' => '5']]));
+        } finally {
+            restore_error_handler();
+        }
+    }
+
+    /**
      * "Use Default" on a website keeps the pair only when the website had a value of its own.
      *
      * @dataProvider deleteProvider
@@ -142,11 +164,11 @@ class RememberReplacedCredentialsTest extends TestCase
     /**
      * @param string $path
      * @param string $old
-     * @param string $posted
+     * @param string|array<mixed> $posted
      * @param string $scope
      * @return Value
      */
-    private function value(string $path, string $old, string $posted, string $scope = 'websites'): Value
+    private function value(string $path, string $old, string|array $posted, string $scope = 'websites'): Value
     {
         $value = $this->getMockBuilder(Value::class)
             ->disableOriginalConstructor()
