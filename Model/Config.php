@@ -676,7 +676,7 @@ class Config
      */
     public function parseLogRetentionDays($value): ?int
     {
-        $days = trim((string)$value);
+        $days = is_scalar($value) ? trim((string)$value) : '';
 
         if (!ctype_digit($days) || (int)$days > self::MAX_LOG_RETENTION_DAYS) {
             return null;
