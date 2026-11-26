@@ -20,6 +20,7 @@ use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory;
+use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\Data\UpdateShippingMethodsResponseInterface;
@@ -59,6 +60,9 @@ class CreateRequestBuilderTest extends TestCase
     private Address&MockObject $shippingAddress;
     private Quote&MockObject $quote;
     private QliroOrderCreateRequestInterface&MockObject $createRequest;
+    private Customer $customer;
+    /** @var string[] Every juridical type the request was enforced to */
+    private array $enforced = [];
     private CreateRequestBuilder $builder;
 
     protected function setUp(): void
@@ -74,6 +78,12 @@ class CreateRequestBuilderTest extends TestCase
 
         $this->createRequest = $this->createMock(QliroOrderCreateRequestInterface::class);
         $this->createRequest->method('getCountry')->willReturn(self::COUNTRY);
+        $this->createRequest->method('setEnforcedJuridicalType')->willReturnCallback(
+            function ($type) {
+                $this->enforced[] = $type;
+                return $this->createRequest;
+            }
+        );
         $createRequestFactory = $this->createMock(QliroOrderCreateRequestInterfaceFactory::class);
         $createRequestFactory->method('create')->willReturn($this->createRequest);
 
@@ -95,7 +105,8 @@ class CreateRequestBuilderTest extends TestCase
         $customerBuilder = $this->createMock(CustomerBuilder::class);
         $customerBuilder->method('setQuote')->willReturnSelf();
         $customerBuilder->method('setCustomer')->willReturnSelf();
-        $customerBuilder->method('create')->willReturn(new Customer());
+        $this->customer = new Customer();
+        $customerBuilder->method('create')->willReturnCallback(fn () => $this->customer);
 
         $storeManager = $this->createMock(StoreManagerInterface::class);
         $storeManager->method('getStore')->willReturn($this->createMock(Store::class));
@@ -161,6 +172,68 @@ class CreateRequestBuilderTest extends TestCase
             ->with(self::countOf(1));
 
         $this->builder->setQuote($this->quote)->create();
+    }
+
+    public function testPrivateCustomersOnlyLocksTheOrderToPrivateCustomers(): void
+    {
+        $this->quote->method('getStoreId')->willReturn(7);
+        $this->qliroConfig->expects(self::atLeastOnce())
+            ->method('isPrivateCustomersOnly')
+            ->with(7)
+            ->willReturn(true);
+        $this->customer->setEmail('buyer@example.com');
+
+        $this->builder->setQuote($this->quote)->create();
+
+        self::assertSame([QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL], $this->enforced);
+    }
+
+    public function testPrivateCustomersOnlySendsACompanyBuyerAsAPrivateOne(): void
+    {
+        $this->qliroConfig->method('isPrivateCustomersOnly')->willReturn(true);
+        $this->qliroConfig->method('isB2BCheckoutOnlyEnabled')->willReturn(true);
+        $this->customer->setEmail('buyer@example.com');
+        $this->customer->setJuridicalType(QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY);
+
+        $this->builder->setQuote($this->quote)->create();
+
+        self::assertSame([QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL], $this->enforced);
+        self::assertSame(QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL, $this->customer->getJuridicalType());
+    }
+
+    /**
+     * A guest in the redirect mode has no email yet, so no customer block is sent, and the lock
+     * must not depend on it.
+     */
+    public function testPrivateCustomersOnlyLocksTheOrderWithoutACustomerBlock(): void
+    {
+        $this->qliroConfig->method('isPrivateCustomersOnly')->willReturn(true);
+        $this->createRequest->expects(self::never())->method('setCustomerInformation');
+
+        $this->builder->setQuote($this->quote)->create();
+
+        self::assertSame([QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL], $this->enforced);
+    }
+
+    public function testB2bCheckoutStillEnforcesTheCompanyCheckoutWhenPrivateOnlyIsOff(): void
+    {
+        $this->qliroConfig->method('isB2BCheckoutOnlyEnabled')->willReturn(true);
+        $this->customer->setEmail('buyer@example.com');
+        $this->customer->setJuridicalType(QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY);
+
+        $this->builder->setQuote($this->quote)->create();
+
+        self::assertSame([QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY], $this->enforced);
+    }
+
+    public function testEnforcesNothingByDefault(): void
+    {
+        $this->customer->setEmail('buyer@example.com');
+        $this->customer->setJuridicalType(QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY);
+
+        $this->builder->setQuote($this->quote)->create();
+
+        self::assertSame([], $this->enforced);
     }
 
     /**

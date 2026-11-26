@@ -15,6 +15,7 @@ use Magento\Quote\Api\Data\CartInterface;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderCreateRequestInterfaceFactory;
+use Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface;
 use Qliro\QliroOne\Api\Data\QliroOrderShippingMethodInterfaceFactory;
 use Qliro\QliroOne\Api\GeoIpResolverInterface;
 use Qliro\QliroOne\Api\LanguageMapperInterface;
@@ -241,6 +242,14 @@ class CreateRequestBuilder
             ->setCustomer($this->session->isLoggedIn() ? $this->quote->getCustomer() : null)
             ->create();
 
+        $privateOnly = $this->qliroConfig->isPrivateCustomersOnly($this->quote->getStoreId());
+
+        if ($privateOnly) {
+            // A company typed in Magento must not make the buyer a company at Qliro
+            $customerInfo->setJuridicalType(QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL);
+            $createRequest->setEnforcedJuridicalType(QliroOrderCustomerInterface::JURIDICAL_TYPE_PHYSICAL);
+        }
+
         /*
          * The iframe mode sends the block without an email too. Magento does not put a guest's
          * email on the quote until the order is paid for, so gating on it left every guest
@@ -250,7 +259,7 @@ class CreateRequestBuilder
         if ($customerInfo->getEmail() || $this->qliroConfig->isEmbeddedIframeMode($this->quote->getStoreId())) {
             $createRequest->setCustomerInformation($customerInfo);
 
-            if ($customerInfo->getJuridicalType() == \Qliro\QliroOne\Api\Data\QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
+            if (!$privateOnly && $customerInfo->getJuridicalType() == QliroOrderCustomerInterface::JURIDICAL_TYPE_COMPANY && $this->qliroConfig->isB2BCheckoutOnlyEnabled($this->quote->getStoreId())) {
                 $createRequest->setEnforcedJuridicalType($customerInfo->getJuridicalType());
             }
         }

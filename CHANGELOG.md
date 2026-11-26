@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.9.2] - 2026-11-26
+
+### Added
+
+- "Only allow private customers" in the Qliro settings. With it on, every Qliro order is created for private customers only, so the checkout offers no company option, also to a buyer who typed a company in Magento. Recurring payments of subscriptions are sent for a private customer too. "Only use B2B checkout on companies" is hidden and has no effect while it is on. Off by default
+
 ## [1.9.1] - 2026-11-24
 
 ### Fixed
