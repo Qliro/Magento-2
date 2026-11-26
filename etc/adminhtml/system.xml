@@ -105,10 +105,17 @@
                         <validate>validate-number validate-zero-or-greater</validate>
                     </field>
 
+                    <field id="private_customers_only" translate="label comment" type="select" sortOrder="145" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
+                        <label>Only allow private customers</label>
+                        <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                        <comment>Set to 'Yes' to remove the company option from the Qliro checkout, so only private customers can pay.</comment>
+                    </field>
+
                     <field id="b2b_checkout_only" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="1" canRestore="1">
                         <label>Only use B2B checkout on companies</label>
                         <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
                         <comment>Set to 'Yes' to enforce B2B checkout for users who have provided a company name in their billing address.</comment>
+                        <depends><field id="private_customers_only">0</field></depends>
                     </field>
 
                     <field id="show_as_payment_method" translate="label" type="select" sortOrder="150" showInDefault="1" showInWebsite="1" showInStore="0" canRestore="1">

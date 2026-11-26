@@ -35,6 +35,7 @@ class Config
     const QLIROONE_REQUIRE_IDENTITY_VERIFICATION = 'api/require_identity_verification';
     const QLIROONE_MINIMUM_CUSTOMER_AGE = 'api/minimum_customer_age';
     const QLIROONE_B2B_CHECKOUT_ONLY = 'api/b2b_checkout_only';
+    const QLIROONE_PRIVATE_CUSTOMERS_ONLY = 'api/private_customers_only';
     const QLIROONE_SHOW_AS_PAYMENT_METHOD = 'api/show_as_payment_method';
     const QLIROONE_HIDE_NATIVE_SHIPPING_STEP = 'api/hide_native_shipping_step';
     const QLIROONE_PAYMENT_METHOD_RENDER_MODE = 'api/payment_method_render_mode';
@@ -933,6 +934,17 @@ class Config
     public function isB2BCheckoutOnlyEnabled($storeId = null): bool
     {
         return (bool)$this->adapter->getConfigData(self::QLIROONE_B2B_CHECKOUT_ONLY, $storeId);
+    }
+
+    /**
+     * Check if the Qliro checkout is limited to private customers
+     *
+     * @param int|null $storeId
+     * @return bool
+     */
+    public function isPrivateCustomersOnly($storeId = null): bool
+    {
+        return (bool)$this->adapter->getConfigData(self::QLIROONE_PRIVATE_CUSTOMERS_ONLY, $storeId);
     }
 
     /**
