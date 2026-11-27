@@ -1,25 +1,61 @@
 <?xml version="1.0"?>
 <csp_whitelist xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Csp:etc/csp_whitelist.xsd">
     <policies>
-        <policy id="frame-src">
-            <values>
-                <value id="qliro" type="host">https://*.qliro.com</value>
-            </values>
-        </policy>
         <policy id="script-src">
             <values>
-                <value id="qliro" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
+            </values>
+        </policy>
+        <policy id="frame-src">
+            <values>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
+            </values>
+        </policy>
+        <policy id="connect-src">
+            <values>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
+                <value id="qliroone_paymentiq" type="host">https://api.paymentiq.io</value>
+                <value id="qliroone_paymentiq_test" type="host">https://test-api.paymentiq.io</value>
+            </values>
+        </policy>
+        <policy id="img-src">
+            <values>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
+            </values>
+        </policy>
+        <policy id="style-src">
+            <values>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
+            </values>
+        </policy>
+        <policy id="font-src">
+            <values>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
             </values>
         </policy>
         <policy id="form-action">
             <values>
-                <value id="qliro" type="host">https://*.qliro.com</value>
-                <value id="vipps" type="host">https://*.vipps.no</value>
-                <value id="trustly" type="host">https://*.trustly.com</value>
-                <value id="ideal" type="host">https://*.ideal.nl</value>
-                <value id="apple" type="host">https://*.apple.com</value>
-                <value id="unzer" type="host">https://*.unzer.com</value>
-                <value id="unzer-2" type="host">https://*.heidelpay.com</value>
+                <value id="qliroone_qliro_com" type="host">https://*.qliro.com</value>
+                <value id="qliroone_qliro_one" type="host">https://*.qliro.one</value>
+                <value id="qliroone_qit_nu" type="host">https://*.qit.nu</value>
+                <value id="qliroone_vipps" type="host">https://*.vipps.no</value>
+                <value id="qliroone_trustly" type="host">https://*.trustly.com</value>
+                <value id="qliroone_ideal" type="host">https://*.ideal.nl</value>
+                <value id="qliroone_apple" type="host">https://*.apple.com</value>
+                <value id="qliroone_unzer" type="host">https://*.unzer.com</value>
+                <value id="qliroone_heidelpay" type="host">https://*.heidelpay.com</value>
             </values>
         </policy>
     </policies>
