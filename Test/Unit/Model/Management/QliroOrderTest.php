@@ -371,7 +371,7 @@ class QliroOrderTest extends TestCase
         $this->quoteFromOrderConverter->method('convert')->willReturn(true);
 
         $calls = [];
-        $this->quoteManagement->method('recalculateAndSaveQuote')
+        $this->quoteManagement->method('recalculateAndSaveOpenQuote')
             ->willReturnCallback(function () use (&$calls) {
                 $calls[] = 'recalculate';
             });

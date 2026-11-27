@@ -275,7 +275,7 @@ class QliroOrder extends AbstractManagement
                     try {
                         $isQuoteChanged = $this->quoteFromOrderConverter->convert($qliroOrder, $this->getQuote());
                         $this->logManager->debug('Convert update shipping methods request into quote: ' . $qliroOrder->getOrderId());
-                        $this->quoteManagement->recalculateAndSaveQuote();
+                        $this->quoteManagement->recalculateAndSaveOpenQuote();
                     } catch (\Exception $exception) {
                         $this->logManager->debug(
                             $exception,
@@ -478,7 +478,8 @@ class QliroOrder extends AbstractManagement
             $isQuoteChanged = $this->quoteFromOrderConverter->convert($qliroOrder, $quote);
 
             if (!empty($isQuoteChanged)) {
-                $this->quoteManagement->setQuote($quote)->recalculateAndSaveQuote();
+                $this->quoteManagement->setQuote($quote);
+                $this->quoteManagement->recalculateAndSaveOpenQuote();
             }
         } finally {
             $this->lock->unlock($qliroOrderId);

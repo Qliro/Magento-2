@@ -1435,12 +1435,6 @@ parameters:
 			path: Model/Management/QliroOrder.php
 
 		-
-			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:recalculateAndSaveQuote\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: Model/Management/QliroOrder.php
-
-		-
 			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:update\(\)\.$#'
 			identifier: method.notFound
 			count: 2
@@ -1595,12 +1589,6 @@ parameters:
 			identifier: argument.type
 			count: 1
 			path: Model/Management/SavedCreditCard.php
-
-		-
-			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:recalculateAndSaveQuote\(\)\.$#'
-			identifier: method.notFound
-			count: 1
-			path: Model/Management/ShippingMethod.php
 
 		-
 			message: '#^Call to an undefined method Qliro\\QliroOne\\Model\\Management\\AbstractManagement\:\:updateReceivedAmount\(\)\.$#'

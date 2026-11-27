@@ -1,5 +1,11 @@
 # Change Log
 
+## [1.9.3] - 2026-11-27
+
+### Fixed
+
+- On Magento 2.4.9 a company buyer, most often Norwegian, could not get through the checkout: Qliro has the company's address before its contact name, and Magento refused to save the cart with "The shipping address contains invalid data: "First Name" is a required value". The checkout showed "Couldn't fetch the QliroOne order" and started over, and the shipping methods callback declined. While the checkout is open the cart is now saved without a name; placing the order still checks the address in full, and by then Qliro has the name
+
 ## [1.9.2] - 2026-11-26
 
 ### Added
