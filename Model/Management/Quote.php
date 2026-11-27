@@ -33,6 +33,7 @@ use Qliro\QliroOne\Model\QliroOrder\Converter\CustomerConverter;
 use Qliro\QliroOne\Model\Management\CountrySelect;
 use Magento\Framework\Serialize\Serializer\Json;
 use Magento\Quote\Model\Quote as ModelQuote;
+use Magento\Quote\Model\Quote\Address as QuoteAddress;
 use Magento\Quote\Model\QuoteRepository\LoadHandler;
 use Qliro\QliroOne\Helper\Data as Helper;
 use Qliro\QliroOne\Service\General\LinkService;
@@ -42,6 +43,11 @@ use Qliro\QliroOne\Service\General\LinkService;
  */
 class Quote extends AbstractManagement
 {
+    /**
+     * Set while recalculateAndSaveOpenQuote() runs
+     */
+    private bool $namesMayBeMissing = false;
+
     /**
      * @var \Qliro\QliroOne\Model\Config
      */
@@ -183,12 +189,34 @@ class Quote extends AbstractManagement
     }
 
     /**
+     * Recalculate and save the quote of a checkout that is still open
+     *
+     * Qliro may not have the buyer's name yet, so a nameless address is not refused here.
+     *
+     * @throws \Exception
+     */
+    public function recalculateAndSaveOpenQuote(): void
+    {
+        $this->namesMayBeMissing = true;
+
+        try {
+            $this->recalculateAndSaveQuote();
+        } finally {
+            $this->namesMayBeMissing = false;
+        }
+    }
+
+    /**
      * Recalculate the quote, its totals, it's addresses and shipping rates, then saving quote
      *
      * @throws \Exception
      */
     public function recalculateAndSaveQuote()
     {
+        // Read once, so a save nested in an observer does not inherit it
+        $namesMayBeMissing = $this->namesMayBeMissing;
+        $this->namesMayBeMissing = false;
+
         $data['method'] = QliroOne::PAYMENT_METHOD_CHECKOUT_CODE;
 
         $quote = $this->getQuote();
@@ -249,7 +277,50 @@ class Quote extends AbstractManagement
         $payment->importData($data);
 
         $shippingAddress->save();
-        $this->quoteRepository->save($quote);
+
+        $skipped = $namesMayBeMissing ? $this->skipTheNameCheck($quote) : [];
+
+        try {
+            $this->quoteRepository->save($quote);
+        } finally {
+            foreach ($skipped as $address) {
+                $address->unsetData('should_ignore_validation');
+            }
+        }
+    }
+
+    /**
+     * Since 2.4.9 the save validates a changed shipping address, and a company's address reaches
+     * Qliro before its contact name. Placing the order still checks it in full.
+     *
+     * @param \Magento\Quote\Model\Quote $quote
+     * @return QuoteAddress[] The addresses the check was switched off on
+     */
+    private function skipTheNameCheck($quote): array
+    {
+        $addresses = [$quote->getBillingAddress(), $quote->getShippingAddress()];
+
+        foreach ($quote->getExtensionAttributes()?->getShippingAssignments() ?? [] as $assignment) {
+            $addresses[] = $assignment->getShipping()->getAddress();
+        }
+
+        $skipped = [];
+
+        foreach ($addresses as $address) {
+            if (!$address instanceof QuoteAddress
+                || in_array($address, $skipped, true)
+                || $address->getShouldIgnoreValidation()
+            ) {
+                continue;
+            }
+
+            if (trim((string)$address->getFirstname()) === '' || trim((string)$address->getLastname()) === '') {
+                $address->setShouldIgnoreValidation(true);
+                $skipped[] = $address;
+            }
+        }
+
+        return $skipped;
     }
 
     /**
@@ -665,7 +736,7 @@ class Quote extends AbstractManagement
         $qliroCustomer = $this->containerMapper->fromArray($customerData, QliroOrderCustomerInterface::class);
 
         $applied = $this->customerConverter->convert($qliroCustomer, $this->getQuote());
-        $this->recalculateAndSaveQuote();
+        $this->recalculateAndSaveOpenQuote();
 
         return $applied;
     }
@@ -752,7 +823,7 @@ class Quote extends AbstractManagement
                 );
             }
 
-            $this->recalculateAndSaveQuote();
+            $this->recalculateAndSaveOpenQuote();
             $this->logManager->debug('Finished to update shipping price in Qliro quote ' . $quote->getId());
 
             return true;
@@ -846,7 +917,7 @@ class Quote extends AbstractManagement
     {
         try {
             //$this->fee->setQlirooneFeeInclTax($this->getQuote(), $fee);
-            $this->recalculateAndSaveQuote();
+            $this->recalculateAndSaveOpenQuote();
         } catch (\Exception $exception) {
             /*
              * The lookup is only here to name the order in the log, and it creates the Qliro

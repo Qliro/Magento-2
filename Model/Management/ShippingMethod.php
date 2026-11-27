@@ -233,7 +233,8 @@ class ShippingMethod extends AbstractManagement
 
         try {
             $this->quoteFromShippingMethodsConverter->convert($updateContainer, $this->getQuote());
-            $this->quoteManagement->setQuote($this->getQuote())->recalculateAndSaveQuote();
+            $this->quoteManagement->setQuote($this->getQuote());
+            $this->quoteManagement->recalculateAndSaveOpenQuote();
 
             return $this->shippingMethodsBuilder->setQuote($this->getQuote())->create();
         } finally {
@@ -362,7 +363,7 @@ class ShippingMethod extends AbstractManagement
                 $quote->getBillingAddress()->setCountryId($defaultCountry);
             }
 
-            $this->quoteManagement->recalculateAndSaveQuote();
+            $this->quoteManagement->recalculateAndSaveOpenQuote();
 
             // For some reason shipping code that was previously set, is not applied
             if ($shippingAddress->getShippingMethod() !== $container->getShippingMethod()) {
